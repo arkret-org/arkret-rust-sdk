@@ -28,8 +28,14 @@ pub struct MlsGovernanceBindingPayload {
     effective_scope: ScopeRef,
     #[serde(deserialize_with = "deserialize_present_nullable")]
     base_group_state_ref: Option<EventId>,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     previous_epoch: u64,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     next_epoch: u64,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     key_access_revision: u64,
     #[serde(
         default,
@@ -274,7 +280,12 @@ impl MlsGovernanceBindingPayload {
     /// GroupContext governance-binding extension.
     pub fn to_deterministic_cbor(&self) -> Result<Vec<u8>> {
         self.validate()?;
-        let value = serde_json::to_value(self)?;
+        let mut value = serde_json::to_value(self)?;
+        for field in ["previous_epoch", "next_epoch", "key_access_revision"] {
+            let number = arkret_canonical::serde_helpers::parse_uint64_decimal_value(&value[field])
+                .ok_or_else(|| schema_violation_error("invalid JSON decimal coordinate"))?;
+            value[field] = Value::Number(Number::from(number));
+        }
         let mut encoded = Vec::new();
         encode_deterministic_cbor(&value, &mut encoded)?;
         if encoded.len() > MLS_GOVERNANCE_BINDING_MAX_INPUT_BYTES {
@@ -433,7 +444,22 @@ fn cbor_value_to_json(value: DecodedCborValue) -> Result<Value> {
         DecodedCborValue::Map(entries) => {
             let mut object = Map::new();
             for (key, value) in entries {
-                if object.insert(key, cbor_value_to_json(value)?).is_some() {
+                let converted = if matches!(
+                    key.as_str(),
+                    "previous_epoch" | "next_epoch" | "key_access_revision"
+                ) {
+                    match value {
+                        DecodedCborValue::Unsigned(number) => Value::String(number.to_string()),
+                        _ => {
+                            return schema_violation(
+                                "CBOR governance coordinates must be native unsigned integers",
+                            );
+                        }
+                    }
+                } else {
+                    cbor_value_to_json(value)?
+                };
+                if object.insert(key, converted).is_some() {
                     return schema_violation("MLS governance binding contains a duplicate map key");
                 }
             }
@@ -528,10 +554,16 @@ fn schema_violation_error(message: impl Into<String>) -> WireError {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct MlsCommitPayload {
     base_group_state_ref: EventId,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     previous_epoch: u64,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     next_epoch: u64,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     covers_key_access_revision: u64,
-    commit_bytes_b64: String,
+    commit_base64url: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     commit_message_ref: Option<BlobRef>,
     #[serde(skip)]
@@ -543,10 +575,13 @@ pub struct MlsCommitPayload {
 #[serde(deny_unknown_fields)]
 struct MlsCommitPayloadWire {
     base_group_state_ref: EventId,
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     previous_epoch: u64,
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     next_epoch: u64,
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     covers_key_access_revision: u64,
-    commit_bytes_b64: String,
+    commit_base64url: String,
     #[serde(default)]
     commit_message_ref: Option<BlobRef>,
     governance_binding: MlsGovernanceBindingPayload,
@@ -558,7 +593,7 @@ impl<'de> Deserialize<'de> for MlsCommitPayload {
         D: serde::Deserializer<'de>,
     {
         let wire = MlsCommitPayloadWire::deserialize(deserializer)?;
-        let commit_bytes = arkret_wire::base64url::base64url_decode(&wire.commit_bytes_b64)
+        let commit_bytes = arkret_wire::base64url::base64url_decode(&wire.commit_base64url)
             .map_err(serde::de::Error::custom)?;
         let commit_digest = Hash::new(arkret_wire::canonical::sha256_digest(&commit_bytes))
             .map_err(serde::de::Error::custom)?;
@@ -567,7 +602,7 @@ impl<'de> Deserialize<'de> for MlsCommitPayload {
             previous_epoch: wire.previous_epoch,
             next_epoch: wire.next_epoch,
             covers_key_access_revision: wire.covers_key_access_revision,
-            commit_bytes_b64: wire.commit_bytes_b64,
+            commit_base64url: wire.commit_base64url,
             commit_message_ref: wire.commit_message_ref,
             commit_digest,
             governance_binding: wire.governance_binding,
@@ -596,7 +631,7 @@ impl MlsCommitPayload {
             previous_epoch: governance_binding.previous_epoch(),
             next_epoch: governance_binding.next_epoch(),
             covers_key_access_revision,
-            commit_bytes_b64: commit.commit.clone(),
+            commit_base64url: commit.commit.clone(),
             commit_message_ref: None,
             commit_digest: commit.commit_digest.clone(),
             governance_binding,
@@ -614,7 +649,7 @@ impl MlsCommitPayload {
         {
             return protocol("MLS Commit coordinates differ from governance_binding");
         }
-        let bytes = arkret_wire::base64url::base64url_decode(&self.commit_bytes_b64)
+        let bytes = arkret_wire::base64url::base64url_decode(&self.commit_base64url)
             .map_err(|error| WireError::Protocol(error.to_string()))?;
         if arkret_wire::canonical::sha256_digest(&bytes) != self.commit_digest.as_str() {
             return protocol("MLS Commit digest does not match commit bytes");
@@ -646,8 +681,8 @@ impl MlsCommitPayload {
     pub const fn covers_key_access_revision(&self) -> u64 {
         self.covers_key_access_revision
     }
-    pub fn commit_bytes_b64(&self) -> &str {
-        &self.commit_bytes_b64
+    pub fn commit_base64url(&self) -> &str {
+        &self.commit_base64url
     }
     pub fn commit_message_ref(&self) -> Option<&BlobRef> {
         self.commit_message_ref.as_ref()
@@ -666,7 +701,7 @@ impl MlsCommitPayload {
         Ok(MlsCommitEnvelope {
             group_id: self.mls_group_id()?,
             epoch: self.next_epoch,
-            commit: self.commit_bytes_b64.clone(),
+            commit: self.commit_base64url.clone(),
             commit_digest: self.commit_digest.clone(),
             ratchet_tree: None,
         })

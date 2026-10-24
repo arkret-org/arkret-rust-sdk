@@ -207,7 +207,7 @@ mod tests {
         tampered.core.producer_signer =
             arkret_models_collaboration::contact_operations::ContactProducerSigner::direct(
                 DidUrl::new("did:web:attacker.example#device").unwrap(),
-                tampered.core.producer_signer.public_key_b64u().clone(),
+                tampered.core.producer_signer.public_key_base64url().clone(),
             )
             .unwrap();
         tampered.receipt_digest = tampered.computed_core_digest().unwrap();

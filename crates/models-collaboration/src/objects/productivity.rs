@@ -836,7 +836,7 @@ impl PinAssertionPayload {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PinAssertionEntry {
-    pub tag_id: crate::exact_current_results::CanonicalEventDot,
+    pub tag_id: crate::exact_current_state::CanonicalEventDot,
     pub value: PinAssertionPayload,
 }
 

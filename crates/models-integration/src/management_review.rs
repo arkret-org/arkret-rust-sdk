@@ -196,7 +196,7 @@ impl ManagementReviewDecisionRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ManagementReviewOutcome {
+pub struct ManagementReviewResponseBody {
     pub request_id: String,
     pub status: ManagementReviewStatus,
     pub target_digest: Hash,

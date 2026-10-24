@@ -17,12 +17,12 @@ use serde_json::Value;
 
 use crate::agent_scope::AgentRequestedScopeDisclosure;
 pub use crate::session_grant_bodies::{
-    AgentSessionGrantRefreshRequest, RecoverySessionGrantRequest,
+    AgentSessionGrantRefreshRequestBody, RecoverySessionGrantRequestBody,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct SessionGrantOutcome {
+pub struct SessionGrantResponseBody {
     pub account_id: AccountId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_id: Option<DeviceId>,
@@ -76,9 +76,9 @@ pub fn human_session_grant_intent_digest(
 #[serde(untagged)]
 #[allow(clippy::large_enum_variant)]
 pub enum SessionGrantRequestBody {
-    Recovery(RecoverySessionGrantRequest),
-    Human(HumanSessionGrantRequest),
-    Agent(AgentSessionGrantRequest),
+    Recovery(RecoverySessionGrantRequestBody),
+    Human(HumanSessionGrantRequestBody),
+    Agent(AgentSessionGrantRequestBody),
 }
 
 impl SessionGrantRequestBody {
@@ -91,7 +91,7 @@ impl SessionGrantRequestBody {
     }
 }
 
-impl HumanSessionGrantRequest {
+impl HumanSessionGrantRequestBody {
     pub fn validate(&self) -> Result<()> {
         let proof = &self.accepted_device_possession_proof;
         AcceptedDevicePossessionProof::Issue(proof.clone()).validate()?;
@@ -120,7 +120,7 @@ impl HumanSessionGrantRequest {
     }
 }
 
-impl AgentSessionGrantRequest {
+impl AgentSessionGrantRequestBody {
     pub fn validate(&self) -> Result<()> {
         self.proof.validate_structure()?;
         validate_agent_session_approval_evidence_refs(self.approval_evidence_refs.as_deref())?;
@@ -182,7 +182,7 @@ pub struct SessionGrantDpopBindingProof {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct SessionGrantAgentScopeRequest {
+pub struct RequestedAgentSessionGrantScope {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub realm_ids: Vec<RealmId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -244,7 +244,7 @@ impl AgentSessionGrantProof {
 }
 
 #[derive(Clone, Debug)]
-pub struct UnsignedAgentSessionGrantProof {
+pub struct AgentSessionGrantProofInput {
     pub challenge: String,
     pub audience_id: DidCoreId,
     pub issued_at: DateTime<Utc>,
@@ -253,7 +253,7 @@ pub struct UnsignedAgentSessionGrantProof {
 }
 
 #[derive(Clone, Debug)]
-pub struct UnsignedAgentSessionGrantRequest {
+pub struct AgentSessionGrantSigningInput {
     pub principal_id: DidCoreId,
     pub requested_scope: Vec<String>,
     /// Event id of the accepted `ak.agent.key.authorize` that authorized the
@@ -261,23 +261,23 @@ pub struct UnsignedAgentSessionGrantRequest {
     /// `SessionGrantHolderBinding::AgentRuntime` names the same id, so the two
     /// surfaces meet without a boundary reparse.
     pub agent_key_authorization_ref: EventId,
-    pub agent_scope_request: SessionGrantAgentScopeRequest,
+    pub agent_scope_request: RequestedAgentSessionGrantScope,
     pub approval_evidence_refs: Option<Vec<EventId>>,
     pub requested_scope_disclosure: Option<AgentRequestedScopeDisclosure>,
     pub dpop_binding_proof: SessionGrantDpopBindingProof,
-    pub proof: UnsignedAgentSessionGrantProof,
+    pub proof: AgentSessionGrantProofInput,
 }
 
-impl UnsignedAgentSessionGrantRequest {
+impl AgentSessionGrantSigningInput {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         principal_id: DidCoreId,
         requested_scope: Vec<String>,
         agent_key_authorization_ref: EventId,
-        agent_scope_request: SessionGrantAgentScopeRequest,
+        agent_scope_request: RequestedAgentSessionGrantScope,
         requested_scope_disclosure: Option<AgentRequestedScopeDisclosure>,
         dpop_binding_proof: SessionGrantDpopBindingProof,
-        proof: UnsignedAgentSessionGrantProof,
+        proof: AgentSessionGrantProofInput,
     ) -> Result<Self> {
         if !valid_agent_session_challenge(&proof.challenge) {
             return Err(WireError::Protocol("agent session grant proof challenge must be canonical Base64URL with at least 128 bits".into()));
@@ -313,25 +313,27 @@ impl UnsignedAgentSessionGrantRequest {
 
     pub fn attach_signature(self, signature: NonEmptyString) -> Result<SessionGrantRequestBody> {
         let request_canonical_digest = self.canonical_request_digest()?;
-        Ok(SessionGrantRequestBody::Agent(AgentSessionGrantRequest {
-            principal_id: self.principal_id,
-            requested_scope: self.requested_scope,
-            agent_key_authorization_ref: self.agent_key_authorization_ref,
-            agent_scope_request: self.agent_scope_request,
-            approval_evidence_refs: self.approval_evidence_refs,
-            requested_scope_disclosure: self.requested_scope_disclosure,
-            dpop_binding_proof: self.dpop_binding_proof,
-            proof: AgentSessionGrantProof {
-                proof_kind: AgentSessionGrantProofKind::AgentKeyProof,
-                challenge: self.proof.challenge,
-                request_canonical_digest,
-                audience_id: self.proof.audience_id,
-                issued_at: self.proof.issued_at,
-                expires_at: self.proof.expires_at,
-                verification_method: self.proof.verification_method,
-                signature: signature.into_string(),
+        Ok(SessionGrantRequestBody::Agent(
+            AgentSessionGrantRequestBody {
+                principal_id: self.principal_id,
+                requested_scope: self.requested_scope,
+                agent_key_authorization_ref: self.agent_key_authorization_ref,
+                agent_scope_request: self.agent_scope_request,
+                approval_evidence_refs: self.approval_evidence_refs,
+                requested_scope_disclosure: self.requested_scope_disclosure,
+                dpop_binding_proof: self.dpop_binding_proof,
+                proof: AgentSessionGrantProof {
+                    proof_kind: AgentSessionGrantProofKind::AgentKeyProof,
+                    challenge: self.proof.challenge,
+                    request_canonical_digest,
+                    audience_id: self.proof.audience_id,
+                    issued_at: self.proof.issued_at,
+                    expires_at: self.proof.expires_at,
+                    verification_method: self.proof.verification_method,
+                    signature: signature.into_string(),
+                },
             },
-        }))
+        ))
     }
 
     fn unsigned_request_value(&self) -> Value {
@@ -382,8 +384,8 @@ fn valid_agent_session_challenge(challenge: &str) -> bool {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum SessionGrantRefreshRequestBody {
-    Human(HumanSessionGrantRefreshRequest),
-    Agent(AgentSessionGrantRefreshRequest),
+    Human(HumanSessionGrantRefreshRequestBody),
+    Agent(AgentSessionGrantRefreshRequestBody),
 }
 
 impl SessionGrantRefreshRequestBody {
@@ -395,7 +397,7 @@ impl SessionGrantRefreshRequestBody {
     }
 }
 
-impl HumanSessionGrantRefreshRequest {
+impl HumanSessionGrantRefreshRequestBody {
     pub fn validate(&self) -> Result<()> {
         if self.grant_jwt.trim().is_empty() {
             return Err(WireError::Protocol(
@@ -822,7 +824,7 @@ pub struct SessionGrantValidationByJwt {
 /// Validation never consumes the grant.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct SessionGrantValidationOutcome {
+pub struct SessionGrantValidationResponseBody {
     /// Whether the grant is currently valid for the requested audience.
     pub active: bool,
     pub status: SessionGrantAdminIntrospectionStatus,
@@ -836,7 +838,7 @@ pub struct SessionGrantValidationOutcome {
     pub grant: Option<SessionGrantValidationMetadata>,
 }
 
-impl SessionGrantValidationOutcome {
+impl SessionGrantValidationResponseBody {
     /// An `active` outcome MUST carry the grant projection.
     pub fn validate(&self) -> Result<()> {
         match (self.active, &self.grant) {
@@ -852,7 +854,7 @@ impl SessionGrantValidationOutcome {
 /// Reason a deployment-private adapter terminates an Auth-side session.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum AuthSessionTerminationReason {
+pub enum AuthenticationSessionTerminationReason {
     AccountLogout,
 }
 
@@ -860,7 +862,7 @@ pub enum AuthSessionTerminationReason {
 /// `ak.session.grant` rotation chain.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AuthSessionTerminationInput {
+pub struct AuthenticationSessionTerminationInput {
     /// Session grant used to locate the Auth-side session and its rotation
     /// chain.
     pub grant_jwt: String,
@@ -877,19 +879,19 @@ pub struct AuthSessionTerminationInput {
     )]
     pub validated_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason_code: Option<AuthSessionTerminationReason>,
+    pub reason_code: Option<AuthenticationSessionTerminationReason>,
 }
 
 /// Deployment-private Auth-session termination result.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AuthSessionTerminationOutcome {
+pub struct AuthenticationSessionTerminationResponseBody {
     /// Whether the grant rotation chain is now unable to refresh, including
     /// the already-terminated idempotent case.
     pub grant_chain_terminated: bool,
     /// Whether the underlying Auth-side browser/auth session is now logged
     /// out, including the already-logged-out idempotent case.
-    pub auth_session_logged_out: bool,
+    pub authentication_session_logged_out: bool,
 }
 
 #[cfg(test)]
@@ -1083,7 +1085,7 @@ mod session_grant_private_adapter_tests {
             "one_time_use_consumed": false,
             "grant": human_grant_value()
         });
-        let parsed = serde_json::from_value::<SessionGrantValidationOutcome>(active.clone())
+        let parsed = serde_json::from_value::<SessionGrantValidationResponseBody>(active.clone())
             .expect("active outcome parses");
         parsed.validate().expect("active outcome carries a grant");
         assert_eq!(
@@ -1099,13 +1101,13 @@ mod session_grant_private_adapter_tests {
             "proof_required": false,
             "one_time_use_consumed": false
         });
-        let parsed = serde_json::from_value::<SessionGrantValidationOutcome>(inactive.clone())
+        let parsed = serde_json::from_value::<SessionGrantValidationResponseBody>(inactive.clone())
             .expect("inactive outcome parses");
         parsed.validate().expect("inactive outcome needs no grant");
         assert_eq!(serde_json::to_value(&parsed).unwrap(), inactive);
 
         assert!(
-            serde_json::from_value::<SessionGrantValidationOutcome>(with_unknown_member(
+            serde_json::from_value::<SessionGrantValidationResponseBody>(with_unknown_member(
                 active.clone()
             ))
             .is_err(),
@@ -1115,7 +1117,7 @@ mod session_grant_private_adapter_tests {
         let mut grant_open = active.clone();
         grant_open["grant"] = with_unknown_member(human_grant_value());
         assert!(
-            serde_json::from_value::<SessionGrantValidationOutcome>(grant_open).is_err(),
+            serde_json::from_value::<SessionGrantValidationResponseBody>(grant_open).is_err(),
             "the nested grant projection is closed too"
         );
 
@@ -1126,7 +1128,7 @@ mod session_grant_private_adapter_tests {
             "one_time_use_consumed",
         ] {
             assert!(
-                serde_json::from_value::<SessionGrantValidationOutcome>(without_member(
+                serde_json::from_value::<SessionGrantValidationResponseBody>(without_member(
                     active.clone(),
                     member
                 ))
@@ -1138,7 +1140,8 @@ mod session_grant_private_adapter_tests {
         let mut active_without_grant = without_member(active, "grant");
         active_without_grant["status"] = json!("active");
         let parsed =
-            serde_json::from_value::<SessionGrantValidationOutcome>(active_without_grant).unwrap();
+            serde_json::from_value::<SessionGrantValidationResponseBody>(active_without_grant)
+                .unwrap();
         assert!(
             parsed.validate().is_err(),
             "an active outcome must carry grant metadata"
@@ -1199,21 +1202,22 @@ mod session_grant_private_adapter_tests {
             "validated_at": "2026-08-08T12:00:00.000Z",
             "reason_code": "account_logout"
         });
-        let parsed = serde_json::from_value::<AuthSessionTerminationInput>(full.clone())
+        let parsed = serde_json::from_value::<AuthenticationSessionTerminationInput>(full.clone())
             .expect("full request parses");
         assert_eq!(
             parsed.reason_code,
-            Some(AuthSessionTerminationReason::AccountLogout)
+            Some(AuthenticationSessionTerminationReason::AccountLogout)
         );
         assert_eq!(serde_json::to_value(&parsed).unwrap(), full);
 
         let minimal = json!({ "grant_jwt": "header.payload.signature" });
-        let parsed = serde_json::from_value::<AuthSessionTerminationInput>(minimal.clone())
-            .expect("minimal request parses");
+        let parsed =
+            serde_json::from_value::<AuthenticationSessionTerminationInput>(minimal.clone())
+                .expect("minimal request parses");
         assert_eq!(serde_json::to_value(&parsed).unwrap(), minimal);
 
         assert!(
-            serde_json::from_value::<AuthSessionTerminationInput>(with_unknown_member(
+            serde_json::from_value::<AuthenticationSessionTerminationInput>(with_unknown_member(
                 full.clone()
             ))
             .is_err(),
@@ -1221,7 +1225,7 @@ mod session_grant_private_adapter_tests {
         );
 
         assert!(
-            serde_json::from_value::<AuthSessionTerminationInput>(without_member(
+            serde_json::from_value::<AuthenticationSessionTerminationInput>(without_member(
                 full.clone(),
                 "grant_jwt"
             ))
@@ -1232,36 +1236,39 @@ mod session_grant_private_adapter_tests {
         let mut open_reason = full.clone();
         open_reason["reason_code"] = json!("session_expired");
         assert!(
-            serde_json::from_value::<AuthSessionTerminationInput>(open_reason).is_err(),
+            serde_json::from_value::<AuthenticationSessionTerminationInput>(open_reason).is_err(),
             "reason_code is a closed vocabulary"
         );
 
         let mut bare_digest = full;
         bare_digest["logout_request_digest"] = json!("1111111111111111");
         assert!(
-            serde_json::from_value::<AuthSessionTerminationInput>(bare_digest).is_err(),
+            serde_json::from_value::<AuthenticationSessionTerminationInput>(bare_digest).is_err(),
             "logout_request_digest must carry its digest suite"
         );
 
         let outcome = json!({
             "grant_chain_terminated": true,
-            "auth_session_logged_out": true
+            "authentication_session_logged_out": true
         });
-        let parsed = serde_json::from_value::<AuthSessionTerminationOutcome>(outcome.clone())
-            .expect("outcome parses");
+        let parsed =
+            serde_json::from_value::<AuthenticationSessionTerminationResponseBody>(outcome.clone())
+                .expect("outcome parses");
         assert_eq!(serde_json::to_value(&parsed).unwrap(), outcome);
         assert!(
-            serde_json::from_value::<AuthSessionTerminationOutcome>(with_unknown_member(
-                outcome.clone()
-            ))
+            serde_json::from_value::<AuthenticationSessionTerminationResponseBody>(
+                with_unknown_member(outcome.clone())
+            )
             .is_err()
         );
-        for member in ["grant_chain_terminated", "auth_session_logged_out"] {
+        for member in [
+            "grant_chain_terminated",
+            "authentication_session_logged_out",
+        ] {
             assert!(
-                serde_json::from_value::<AuthSessionTerminationOutcome>(without_member(
-                    outcome.clone(),
-                    member
-                ))
+                serde_json::from_value::<AuthenticationSessionTerminationResponseBody>(
+                    without_member(outcome.clone(), member)
+                )
                 .is_err(),
                 "{member} must be required"
             );
@@ -1285,12 +1292,12 @@ mod tests {
     const AUTHORIZATION: &str = "ak:event:Ae6YFfDokA1FLUx_l-MhAbSvTvoys2ZpRPmqFwrWjd9g";
     const VERIFICATION_METHOD: &str = "did:web:agent.example#runtime-1";
 
-    fn unsigned_agent_request() -> UnsignedAgentSessionGrantRequest {
-        UnsignedAgentSessionGrantRequest::new(
+    fn unsigned_agent_request() -> AgentSessionGrantSigningInput {
+        AgentSessionGrantSigningInput::new(
             DidCoreId::new(PRINCIPAL).unwrap(),
             vec!["ak.self.committed_event.read.scan.v1".to_owned()],
             EventId::new(AUTHORIZATION).unwrap(),
-            SessionGrantAgentScopeRequest {
+            RequestedAgentSessionGrantScope {
                 realm_ids: Vec::new(),
                 strand_ids: Vec::new(),
                 track_names: Vec::new(),
@@ -1299,7 +1306,7 @@ mod tests {
             SessionGrantDpopBindingProof {
                 proof_jwt: "header.body.signature".to_owned(),
             },
-            UnsignedAgentSessionGrantProof {
+            AgentSessionGrantProofInput {
                 challenge: "AAAAAAAAAAAAAAAAAAAAAA".to_owned(),
                 audience_id: DidCoreId::new(AUDIENCE).unwrap(),
                 issued_at: "2026-08-15T00:00:00Z".parse().unwrap(),
@@ -1310,7 +1317,7 @@ mod tests {
         .unwrap()
     }
 
-    fn signed_agent_request() -> AgentSessionGrantRequest {
+    fn signed_agent_request() -> AgentSessionGrantRequestBody {
         let unsigned = unsigned_agent_request();
         match unsigned
             .attach_signature(NonEmptyString::new("A".repeat(86)).unwrap())
@@ -1343,7 +1350,7 @@ mod tests {
             .as_object_mut()
             .unwrap()
             .insert("agent_key_authorization_ref".to_owned(), json!("not-an-id"));
-        assert!(serde_json::from_value::<AgentSessionGrantRequest>(encoded).is_err());
+        assert!(serde_json::from_value::<AgentSessionGrantRequestBody>(encoded).is_err());
     }
 
     #[test]
@@ -1381,7 +1388,7 @@ mod tests {
         );
         let mut value = serde_json::to_value(signed_agent_request()).unwrap();
         value["approval_evidence_refs"] = Value::Null;
-        assert!(serde_json::from_value::<AgentSessionGrantRequest>(value).is_err());
+        assert!(serde_json::from_value::<AgentSessionGrantRequestBody>(value).is_err());
     }
 
     #[test]
@@ -1389,7 +1396,7 @@ mod tests {
         let mut encoded = serde_json::to_value(signed_agent_request()).unwrap();
         assert!(encoded.get("device_id").is_none());
         encoded["device_id"] = json!(DEVICE);
-        assert!(serde_json::from_value::<AgentSessionGrantRequest>(encoded).is_err());
+        assert!(serde_json::from_value::<AgentSessionGrantRequestBody>(encoded).is_err());
     }
 
     /// the verifier recomputes this digest from the request it received.
@@ -1510,7 +1517,7 @@ mod tests {
             signature: Base64UrlString::new(arkret_wire::base64url::base64url_encode([7u8; 64]))
                 .unwrap(),
         };
-        let human = SessionGrantRequestBody::Human(HumanSessionGrantRequest {
+        let human = SessionGrantRequestBody::Human(HumanSessionGrantRequestBody {
             request_id,
             principal_id,
             device_id,

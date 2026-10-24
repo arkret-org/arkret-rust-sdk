@@ -61,6 +61,7 @@ class RustStruct:
     has_flatten: bool
     pointer: str | None
     unsupported_reason: str | None
+    scalar_fields: dict[str, tuple[str, str]]
 
 
 def direct_docs(source: str, start: int) -> str:
@@ -124,6 +125,7 @@ def parse_struct(
     rename_all_match = RENAME_ALL_RE.search(serde_attributes)
     rename_all = rename_all_match.group(1) if rename_all_match else None
     fields: set[str] = set()
+    scalar_fields: dict[str, tuple[str, str]] = {}
     has_flatten = False
     unsupported_reason = (
         "struct-level serde conversion/transparent representation is not an object field set"
@@ -145,6 +147,7 @@ def parse_struct(
         rename_match = RENAME_RE.search(field_attributes)
         field_name = rename_match.group(1) if rename_match else rename_field(field_match.group(1), rename_all)
         fields.add(field_name)
+        scalar_fields[field_name] = (field_match.group(2), field_attributes)
     docs = direct_docs(source, match.start())
     pointer_match = POINTER_RE.search(docs)
     pointer = normalize_pointer(pointer_match.group(1)) if pointer_match else None
@@ -158,7 +161,28 @@ def parse_struct(
         has_flatten=has_flatten,
         pointer=pointer,
         unsupported_reason=unsupported_reason,
+        scalar_fields=scalar_fields,
     )
+
+
+def decimal_property_formats(resolver: SchemaResolver, path: Path, node: Any,
+                             seen: frozenset[str] = frozenset()) -> dict[str, str]:
+    """Read only this object's members, including ref and union branches."""
+    if not isinstance(node, dict):
+        return {}
+    result: dict[str, str] = {}
+    reference = node.get('$ref')
+    if isinstance(reference, str) and reference not in seen:
+        target_path, target = resolver.resolve_ref(path, {'$ref': reference})
+        result.update(decimal_property_formats(resolver, target_path, target, seen | {reference}))
+    for name, shape in node.get('properties', {}).items():
+        reference = shape.get('$ref', '') if isinstance(shape, dict) else ''
+        if 'decimal-integers.schema.json#/$defs/' in reference:
+            result[name] = reference.rsplit('/', 1)[-1]
+    for keyword in ('allOf', 'anyOf', 'oneOf'):
+        for branch in node.get(keyword, []):
+            result.update(decimal_property_formats(resolver, path, branch, seen))
+    return result
 
 
 def scan_structs(root: Path = ROOT) -> dict[str, RustStruct]:
@@ -338,9 +362,18 @@ def validate(
             if field_set not in {"declared", "accepted"}:
                 raise ValueError(f"unknown schema_field_set {field_set!r}")
             schema_fields = schema_property_names(resolver, schema_path, node, accepted=field_set == "accepted")
+            decimal_formats = decimal_property_formats(resolver, schema_path, node)
         except (FileNotFoundError, KeyError, ValueError, json.JSONDecodeError) as error:
             errors.append(f"cannot resolve {pointer} for {rust_type}: {error}")
             continue
+        for name, format_name in decimal_formats.items():
+            field_type, attributes = item.scalar_fields.get(name, ('', ''))
+            if re.search(r'\b(?:u64|i64)\b', field_type):
+                valid_helpers = {format_name, 'optional_' + format_name}
+                if name == 'expected_version':
+                    valid_helpers.add('participation_expected_version_decimal')
+                if not any('serde_helpers::' + helper + '"' in attributes for helper in valid_helpers):
+                    errors.append(f'decimal serialization mismatch for {rust_type}.{name}: Spec requires {format_name}')
         if not schema_fields and not declares_empty_object(node):
             errors.append(f"schema target for {rust_type} has no object properties: {pointer}")
             continue

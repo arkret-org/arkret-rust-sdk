@@ -498,7 +498,9 @@ impl IdentityLink {
             })?;
         let response_controller = Did::new(response_controller.to_owned())?;
         let response_key = arkret_wire::base64url::base64url_decode(
-            self.response_signing_public_key_b64u.as_str().as_bytes(),
+            self.response_signing_public_key_base64url
+                .as_str()
+                .as_bytes(),
         )?;
         if project_did_to_core_id(&response_controller)? != self.pairwise_id
             || response_key.len() != 32

@@ -346,16 +346,16 @@ pub struct CallRecordingStartPayload {
     pub capture_kind: RecordingCaptureKind,
     pub mode: RecordingMode,
     pub visible_notice: VisibleCaptureNotice,
-    pub result: RecordingStartOutcome,
+    pub capture_metadata: RecordingStartMetadata,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields)]
-pub struct RecordingStartOutcome {
+pub struct RecordingStartMetadata {
     pub retention: CallRecordingRetention,
 }
 
-impl<'de> Deserialize<'de> for RecordingStartOutcome {
+impl<'de> Deserialize<'de> for RecordingStartMetadata {
     fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -380,7 +380,7 @@ impl<'de> Deserialize<'de> for RecordingStartOutcome {
 
 impl CallRecordingStartPayload {
     pub fn validate(&self) -> std::result::Result<(), &'static str> {
-        if self.result.retention.consent_confirmed != Some(true) {
+        if self.capture_metadata.retention.consent_confirmed != Some(true) {
             return Err(ReasonCode::RECORDING_CONSENT_REQUIRED);
         }
         Ok(())
@@ -407,7 +407,7 @@ pub enum CallRecordingDeletionTrigger {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum CallRecordingDeletionOutcome {
+pub enum CallRecordingDeletionStatus {
     Pending,
     Completed,
     BlockedByLegalHold,
@@ -451,7 +451,7 @@ pub struct CallRecordingRetention {
 #[serde(deny_unknown_fields)]
 pub struct CallRecordingDeletionAudit {
     pub trigger: CallRecordingDeletionTrigger,
-    pub outcome: CallRecordingDeletionOutcome,
+    pub status: CallRecordingDeletionStatus,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub requested_by: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -527,7 +527,7 @@ impl CallRecordingArtifact {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct CallStatePayloadRecordingResult {
+pub struct CallRecordingMetadata {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub content_digest: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -548,7 +548,7 @@ pub struct CallStatePayloadRecordingResult {
     pub failure_message: Option<String>,
 }
 
-impl CallStatePayloadRecordingResult {
+impl CallRecordingMetadata {
     pub fn validate_ready_artifact(
         &self,
         call_id: &CallId,
@@ -615,7 +615,7 @@ impl CallStatePayloadRecordingResult {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct CallStatePayloadTranscriptResult {
+pub struct CallTranscriptMetadata {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub content_digest: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -750,7 +750,7 @@ pub struct CallRecordingTransition {
     pub from: CallRecordingState,
     pub to: CallRecordingState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub result: Option<CallStatePayloadRecordingResult>,
+    pub capture_metadata: Option<CallRecordingMetadata>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -769,7 +769,7 @@ pub struct CallTranscriptTransition {
     pub from: CallTranscriptState,
     pub to: CallTranscriptState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub result: Option<CallStatePayloadTranscriptResult>,
+    pub capture_metadata: Option<CallTranscriptMetadata>,
 }
 
 impl CallStatePayload {
@@ -817,14 +817,14 @@ impl CallStatePayload {
         }
         match transition.to {
             CallRecordingState::Ready => transition
-                .result
+                .capture_metadata
                 .as_ref()
                 .ok_or(ErrorCode::SCHEMA_VIOLATION)?
                 .validate_ready_artifact(&self.call_id, &transition.recording_id),
             CallRecordingState::Failed => {
-                if let Some(result) = &transition.result
-                    && (result.artifact.is_some()
-                        || result
+                if let Some(capture_metadata) = &transition.capture_metadata
+                    && (capture_metadata.artifact.is_some()
+                        || capture_metadata
                             .failure_message
                             .as_deref()
                             .is_some_and(contains_backend_direct_recording_ref))
@@ -846,11 +846,11 @@ impl CallStatePayload {
         }
         match transition.to {
             CallTranscriptState::Ready => {
-                let result = transition
-                    .result
+                let capture_metadata = transition
+                    .capture_metadata
                     .as_ref()
                     .ok_or(ErrorCode::SCHEMA_VIOLATION)?;
-                if result.transcript_start_event_id.is_none() {
+                if capture_metadata.transcript_start_event_id.is_none() {
                     return Err(ErrorCode::SCHEMA_VIOLATION);
                 }
                 Ok(())
@@ -864,8 +864,7 @@ fn validate_recording_deletion_audit(
     retention: &CallRecordingRetention,
     audit: &CallRecordingDeletionAudit,
 ) -> Result<()> {
-    if retention.audit_lock == Some(true)
-        && audit.outcome == CallRecordingDeletionOutcome::Completed
+    if retention.audit_lock == Some(true) && audit.status == CallRecordingDeletionStatus::Completed
     {
         return Err(WireError::Protocol(
             "legal_hold_active: recording deletion cannot complete under audit_lock".to_owned(),
@@ -879,7 +878,7 @@ fn validate_recording_deletion_audit(
             "recording deletion_audit.trigger must match retention.deletion_trigger",
         );
     }
-    if audit.outcome == CallRecordingDeletionOutcome::Completed
+    if audit.status == CallRecordingDeletionStatus::Completed
         && audit
             .erasure_receipt_ref
             .as_deref()
@@ -887,7 +886,7 @@ fn validate_recording_deletion_audit(
     {
         return schema_violation("completed recording deletion_audit requires erasure_receipt_ref");
     }
-    if audit.outcome == CallRecordingDeletionOutcome::BlockedByLegalHold
+    if audit.status == CallRecordingDeletionStatus::BlockedByLegalHold
         && audit.legal_hold_ref.as_deref().is_none_or(str::is_empty)
     {
         return Err(WireError::Protocol(
@@ -1093,10 +1092,10 @@ impl CallParticipant {
 
 /// Validate and collect the sparse original Commits of complete Call axes.
 /// They are signature inputs, never a contiguous replay window or a head.
-pub fn call_current_source_commits(rows: &[TypedCurrentRow]) -> Result<Vec<RealmCommit>> {
+pub fn call_current_source_commits(rows: &[CurrentState]) -> Result<Vec<RealmCommit>> {
     let mut commits = BTreeMap::new();
     for row in rows {
-        let TypedCurrentRow::Value {
+        let CurrentState::Value {
             selector,
             source_stream_ref,
             revision,

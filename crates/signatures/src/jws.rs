@@ -75,8 +75,8 @@ mod tests {
         let header = base64url_decode(parts[0]).expect("header decode");
         assert_eq!(header.as_slice(), br#"{"alg":"Ed25519"}"#);
         // Signature decodes to exactly 64 bytes.
-        let sig = base64url_decode(parts[2]).expect("sig decode");
-        assert_eq!(sig.len(), 64);
+        let signature = base64url_decode(parts[2]).expect("signature decode");
+        assert_eq!(signature.len(), 64);
     }
 
     #[test]

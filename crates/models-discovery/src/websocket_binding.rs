@@ -16,7 +16,7 @@ pub fn validate_websocket_transport(binding: &TransportBinding) -> Result<()> {
     let TransportBinding::Websocket {
         base_url,
         max_frame_bytes,
-        max_channels,
+        max_channel_count,
         ..
     } = binding
     else {
@@ -31,9 +31,9 @@ pub fn validate_websocket_transport(binding: &TransportBinding) -> Result<()> {
             "websocket max_frame_bytes must be 1024..={WEBSOCKET_HARD_MAX_FRAME_BYTES}"
         )));
     }
-    if *max_channels == 0 || *max_channels > 256 {
+    if *max_channel_count == 0 || *max_channel_count > 256 {
         return Err(WireError::Protocol(
-            "websocket max_channels must be 1..=256".to_owned(),
+            "websocket max_channel_count must be 1..=256".to_owned(),
         ));
     }
     Ok(())
@@ -95,7 +95,7 @@ mod tests {
         TransportBinding::Websocket {
             base_url: base_url.to_owned(),
             max_frame_bytes: 2048,
-            max_channels: 16,
+            max_channel_count: 16,
         }
     }
 

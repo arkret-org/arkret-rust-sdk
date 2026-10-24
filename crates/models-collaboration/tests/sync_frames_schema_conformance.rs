@@ -30,8 +30,8 @@ use arkret_models_collaboration::sync_frames::committed_event_subscribe::{
     CommittedEventStreamTrace, CommittedEventSubscribeFrame, CommittedEventSubscribeFrameKind,
     EpochRotationPayload,
 };
-use arkret_models_collaboration::sync_frames::current_results::{
-    AccountCurrentCoverage, AccountCurrentView,
+use arkret_models_collaboration::sync_frames::current_states::{
+    AccountCurrentCoverage, AccountStateView,
 };
 use arkret_models_collaboration::sync_frames::demand_sync::{
     AccountBaselineSegment, RealmDetailUnavailable, RealmInvalidation, RealmListChanges,
@@ -354,7 +354,7 @@ const ACCOUNT_FRAME: &str = "account-subscribe-frame.schema.json";
 const AGENT_DRAFT_PRIVATE: &str = "agent-draft-private.schema.json";
 const EVENTS_FRAME: &str = "committed-event-subscribe-frame.schema.json";
 const WEBSOCKET_FRAME: &str = "websocket-frame.schema.json";
-const ACCOUNT_CURRENT: &str = "account-current-result.schema.json";
+const ACCOUNT_CURRENT: &str = "account-state-view.schema.json";
 
 fn pending_intent_live() -> Value {
     json!({
@@ -857,13 +857,13 @@ fn window_start_metadata_rejects_a_retired_collaboration_role() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn account_current_result_matches_its_schema_shape_and_order() {
-    let current: AccountCurrentView = round_trip(
+fn account_current_state_matches_its_schema_shape_and_order() {
+    let current: AccountStateView = round_trip(
         ACCOUNT_CURRENT,
         "#/$defs/current",
         json!({
             "realm_id": REALM_A,
-            "governance_generation": 2,
+            "governance_generation": "2",
             "stream_heads": [realm_stream_head(REALM_A)],
             "entries": [{
                 "selector": {"kind": "realm_profile"},
@@ -878,16 +878,16 @@ fn account_current_result_matches_its_schema_shape_and_order() {
 }
 
 #[test]
-fn account_current_result_refuses_two_values_for_one_selector() {
+fn account_current_state_refuses_two_values_for_one_selector() {
     let entry = json!({
         "selector": {"kind": "realm_profile"},
         "source_stream_ref": {"kind": "realm", "realm_id": REALM_A},
         "revision": {"commit_id": COMMIT_A, "stream_position": 12},
         "value": {"schema": "ak.schema.realm_profile.v1", "title": "Design"},
     });
-    let current: AccountCurrentView = serde_json::from_value(json!({
+    let current: AccountStateView = serde_json::from_value(json!({
         "realm_id": REALM_A,
-        "governance_generation": 2,
+        "governance_generation": "2",
         "stream_heads": [],
         "entries": [entry.clone(), entry],
     }))
@@ -1008,7 +1008,7 @@ fn realm_sync_entry_field_order_matches_the_schema() {
         current: Some(
             serde_json::from_value(json!({
                 "realm_id": REALM_A,
-                "governance_generation": 1,
+                "governance_generation": "1",
                 "stream_heads": [],
                 "entries": [],
             }))
@@ -1215,11 +1215,11 @@ fn catchup_complete_requires_replayed_data_first() {
 fn websocket_welcome_limits_match_the_schema_order() {
     let limits = WebSocketConnectionLimits {
         max_frame_bytes: 65_536,
-        max_channels: 4,
+        max_channel_count: 4,
         max_connection_pending_bytes: 1_048_576,
         max_channel_pending_bytes: 262_144,
-        max_connection_pending_frames: 256,
-        max_channel_pending_frames: 64,
+        max_connection_pending_frame_count: 256,
+        max_channel_pending_frame_count: 64,
         heartbeat_interval_ms: 30_000,
     };
     limits.validate().unwrap();
@@ -1228,7 +1228,12 @@ fn websocket_welcome_limits_match_the_schema_order() {
         &["$defs", "welcome", "properties"],
     )
     .into_iter()
-    .filter(|key| !matches!(key.as_str(), "kind" | "connection_id" | "auth_expires_at"))
+    .filter(|key| {
+        !matches!(
+            key.as_str(),
+            "kind" | "connection_id" | "authentication_expires_at"
+        )
+    })
     .collect::<Vec<_>>();
     assert_eq!(declaration_order(&limits), expected);
 }
@@ -1239,13 +1244,13 @@ fn websocket_welcome_frame_validates_against_the_schema() {
         "kind": "welcome",
         "connection_id": "conn-00000000000000000001",
         "max_frame_bytes": 65536,
-        "max_channels": 4,
+        "max_channel_count": 4,
         "max_connection_pending_bytes": 1048576,
         "max_channel_pending_bytes": 262144,
-        "max_connection_pending_frames": 256,
-        "max_channel_pending_frames": 64,
+        "max_connection_pending_frame_count": 256,
+        "max_channel_pending_frame_count": 64,
         "heartbeat_interval_ms": 30000,
-        "auth_expires_at": "2026-09-16T12:00:00.000Z",
+        "authentication_expires_at": "2026-09-16T12:00:00.000Z",
     });
     validate_fragment(WEBSOCKET_FRAME, "#/$defs/welcome", &value);
     let frame: WebSocketServerFrame = serde_json::from_value(value.clone()).unwrap();
@@ -1258,7 +1263,7 @@ fn websocket_connection_drain_matches_its_schema_shape_and_order() {
     let value = json!({
         "kind": "drain",
         "reconnect_after_ms": 2500,
-        "deadline": "2026-09-16T12:00:00.000Z",
+        "close_at": "2026-09-16T12:00:00.000Z",
         "reason": "rotation",
     });
     validate_fragment(WEBSOCKET_FRAME, "#/$defs/connection_drain_payload", &value);
@@ -1298,7 +1303,7 @@ fn websocket_account_open_parameters_keep_the_wait_for_branch_order() {
         catchup: Some(true),
         filter: Some(serde_json::from_value(json!({"window_limit": 20})).unwrap()),
         wait_for: Some("ak:cursor:def".to_owned()),
-        realm_list: Some(serde_json::from_value(json!({"limit": 20})).unwrap()),
+        realm_list_parameters: Some(serde_json::from_value(json!({"limit": 20})).unwrap()),
         replace_filter: Some(true),
     };
     parameters.validate().unwrap();

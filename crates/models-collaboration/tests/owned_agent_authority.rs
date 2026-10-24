@@ -1,6 +1,6 @@
 //! Owned Agent carriers are checked against the normative canonical cases.
 use arkret_models_collaboration::events_payloads::CapabilityGrantPayload;
-use arkret_models_collaboration::exact_current_results::ExactCurrentResultsReadRequestBody;
+use arkret_models_collaboration::exact_current_state::ExactCurrentStateReadRequestBody;
 use arkret_models_collaboration::governance::operation_wire::{PolicyRule, PolicySetStatePayload};
 use serde_json::Value;
 
@@ -51,26 +51,26 @@ fn original_issuer_identity_survives_terminal_status_but_not_station_or_ref_chan
 
 #[test]
 fn exact_owned_grant_outcome_binds_value_and_disallows_never_written() {
-    use arkret_models_collaboration::exact_current_results::ExactCurrentResultsReadOutcome;
+    use arkret_models_collaboration::exact_current_state::ExactCurrentStateReadResponseBody;
     let grant = owned_grant_value();
     let commit = arkret_wire::RealmCommitId::from_digest([32; 32]);
-    let request: ExactCurrentResultsReadRequestBody = serde_json::from_value(serde_json::json!({
+    let request: ExactCurrentStateReadRequestBody = serde_json::from_value(serde_json::json!({
         "realm_id":grant["realm_id"], "selector":{"kind":"capability_grant", "grant_id":grant["id"]}
     }))
     .unwrap();
     let value = serde_json::json!({
-        "status":"present", "realm_id":grant["realm_id"], "governance_generation":0,
+        "status":"present", "realm_id":grant["realm_id"], "governance_generation":"0",
         "effective_stream_head":{"stream_ref":{"kind":"realm","realm_id":grant["realm_id"]}, "commit_id":commit,"stream_position":9},
         "entry":{"selector":request.selector,"source_stream_ref":{"kind":"realm","realm_id":grant["realm_id"]},"revision":{"commit_id":commit,"stream_position":9},"value":grant}
     });
-    let outcome: ExactCurrentResultsReadOutcome = serde_json::from_value(value.clone()).unwrap();
+    let outcome: ExactCurrentStateReadResponseBody = serde_json::from_value(value.clone()).unwrap();
     outcome.validate_for_request(&request, 0).unwrap();
     let mut mismatch = value.clone();
     mismatch["entry"]["value"]["id"] = serde_json::json!(arkret_wire::GrantId::from_event_id(
         &arkret_wire::EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [33; 32])
     ));
     assert!(
-        serde_json::from_value::<ExactCurrentResultsReadOutcome>(mismatch)
+        serde_json::from_value::<ExactCurrentStateReadResponseBody>(mismatch)
             .unwrap()
             .validate_for_request(&request, 0)
             .is_err()
@@ -79,7 +79,7 @@ fn exact_owned_grant_outcome_binds_value_and_disallows_never_written() {
     absence["status"] = serde_json::json!("never_written");
     absence.as_object_mut().unwrap().remove("entry");
     absence["selector"] = serde_json::to_value(&request.selector).unwrap();
-    assert!(serde_json::from_value::<ExactCurrentResultsReadOutcome>(absence).is_err());
+    assert!(serde_json::from_value::<ExactCurrentStateReadResponseBody>(absence).is_err());
 }
 
 #[test]
@@ -107,8 +107,8 @@ fn owned_agent_canonical_carriers_match_spec() {
             "#/$defs/policy_rule" => {
                 serde_json::from_str::<PolicyRule>(input).is_ok_and(|rule| rule.validate().is_ok())
             }
-            "#/$defs/exact_current_results_read_request" => {
-                serde_json::from_str::<ExactCurrentResultsReadRequestBody>(input)
+            "#/$defs/exact_current_state_read_request_body" => {
+                serde_json::from_str::<ExactCurrentStateReadRequestBody>(input)
                     .is_ok_and(|request| request.validate().is_ok())
             }
             fragment => panic!("unhandled normative fragment {fragment}"),
@@ -130,7 +130,7 @@ fn agent_rule_cannot_hide_generic_conditions_or_cross_kind_fields() {
     });
     for field in [
         "conditions",
-        "params",
+        "parameters",
         "servers",
         "schema_ref",
         "profile_ref",

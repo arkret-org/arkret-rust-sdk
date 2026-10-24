@@ -99,7 +99,7 @@ current installation/ownership verification, shared quota accounting and MLS
 recipient admission remain the implementing Station's durable transaction
 responsibilities; the pure SDK helpers do not establish them by themselves.
 
-`AppletAuthorityMaterialOutcome` preserves present current results with their
+`AppletAuthorityMaterialResponseBody` preserves present current results with their
 Realm, governance generation and exact covering heads. Its structural validator
 binds grant streams to the requested scope and requires one head per stream.
 The shared `AppletCommittedEvent` retains the regular
@@ -138,7 +138,7 @@ Headline additions:
   takes 4 args (`realm_id, trust_domain, audit_disclosure,
   audit_assurance`).
 - **`ak.call.signal`**: 13-value `signal_kind` enum, required `proof`,
-  monotonic `seq` validator.
+  monotonic `sequence` validator.
 - **`Realm` / `ServiceDescribe` / `AuditRywReceipt`** gain required
   `trust_domain`; the revised `ServiceDescribe` carries 17 required fields.
 

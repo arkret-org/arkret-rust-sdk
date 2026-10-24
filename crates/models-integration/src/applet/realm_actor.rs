@@ -168,10 +168,10 @@ impl RealmActorCreatePayload {
 pub fn realm_actor_creation_current_rows(
     event: &arkret_wire::Event,
     commit: &arkret_wire::RealmCommit,
-) -> Result<Vec<arkret_wire::TypedCurrentRow>> {
+) -> Result<Vec<arkret_wire::CurrentState>> {
     use arkret_wire::{
-        ActorId, CommitStreamRef, CurrentRevision, CurrentSelector, EventKind,
-        RealmActorStatusGate, TypedCurrentRow,
+        ActorId, CommitStreamRef, CurrentRevision, CurrentSelector, CurrentState, EventKind,
+        RealmActorStatusGate,
     };
     let invalid = || WireError::Protocol("Realm actor creation and accepting Commit differ".into());
     let candidate: RealmActorCreatePayload =
@@ -259,7 +259,7 @@ pub fn realm_actor_creation_current_rows(
     ];
     Ok(rows
         .into_iter()
-        .map(|(selector, value)| TypedCurrentRow::Value {
+        .map(|(selector, value)| CurrentState::Value {
             selector,
             source_stream_ref: stream.clone(),
             revision: CurrentRevision {

@@ -92,7 +92,7 @@ pub struct DeviceRevocationPendingState {
     /// producer supplied.
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
-    pub acceptance_seq: u64,
+    pub acceptance_sequence: u64,
     pub status: DeviceRevocationPendingStatus,
     pub denied_actions: [DeviceRevocationDeniedAction; 5],
 }
@@ -114,7 +114,7 @@ pub struct DeviceRevocationRejectedState {
     pub proposal_event_id: EventId,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
-    pub acceptance_seq: u64,
+    pub acceptance_sequence: u64,
     pub status: DeviceRevocationRejectedStatus,
 }
 
@@ -133,7 +133,7 @@ pub struct DeviceRevokedState {
     pub proposal_event_id: EventId,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
-    pub acceptance_seq: u64,
+    pub acceptance_sequence: u64,
     pub status: DeviceRevokedStatus,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub committed_at: DateTime<Utc>,
@@ -164,12 +164,12 @@ pub enum DeviceRevocationGateRecord {
 fn validate_record_common(
     account_id: &AccountId,
     target_device_generation_ref: u64,
-    acceptance_seq: u64,
+    acceptance_sequence: u64,
 ) -> Result<()> {
     account_id.validate()?;
-    if target_device_generation_ref == 0 || acceptance_seq == 0 {
+    if target_device_generation_ref == 0 || acceptance_sequence == 0 {
         return Err(WireError::Protocol(
-            "device revocation generation and acceptance_seq must be positive".to_owned(),
+            "device revocation generation and acceptance_sequence must be positive".to_owned(),
         ));
     }
     Ok(())
@@ -180,7 +180,7 @@ impl DeviceRevocationPendingState {
         validate_record_common(
             &self.account_id,
             self.target_device_generation_ref,
-            self.acceptance_seq,
+            self.acceptance_sequence,
         )?;
         if self.denied_actions != DEVICE_REVOCATION_DENIED_ACTIONS {
             return Err(WireError::Protocol(
@@ -197,7 +197,7 @@ impl DeviceRevocationRejectedState {
         validate_record_common(
             &self.account_id,
             self.target_device_generation_ref,
-            self.acceptance_seq,
+            self.acceptance_sequence,
         )
     }
 }
@@ -207,7 +207,7 @@ impl DeviceRevokedState {
         validate_record_common(
             &self.account_id,
             self.target_device_generation_ref,
-            self.acceptance_seq,
+            self.acceptance_sequence,
         )?;
         if self.committed_at < self.accepted_at {
             return Err(WireError::Protocol(
@@ -227,11 +227,11 @@ impl DeviceRevocationRecord {
         }
     }
 
-    pub fn acceptance_seq(&self) -> u64 {
+    pub fn acceptance_sequence(&self) -> u64 {
         match self {
-            Self::Pending(state) => state.acceptance_seq,
-            Self::Rejected(state) => state.acceptance_seq,
-            Self::Revoked(state) => state.acceptance_seq,
+            Self::Pending(state) => state.acceptance_sequence,
+            Self::Rejected(state) => state.acceptance_sequence,
+            Self::Revoked(state) => state.acceptance_sequence,
         }
     }
 
@@ -262,10 +262,10 @@ impl DeviceRevocationGateRecord {
         }
     }
 
-    pub fn acceptance_seq(&self) -> u64 {
+    pub fn acceptance_sequence(&self) -> u64 {
         match self {
-            Self::Pending(state) => state.acceptance_seq,
-            Self::Revoked(state) => state.acceptance_seq,
+            Self::Pending(state) => state.acceptance_sequence,
+            Self::Revoked(state) => state.acceptance_sequence,
         }
     }
 
@@ -596,11 +596,11 @@ impl DeviceRevocationAdmissionRecord {
 /// In-process result of one device-revocation admission decision.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct DeviceRevocationAdmissionOutcome {
+pub struct DeviceRevocationAdmissionAssessment {
     pub admission_record: DeviceRevocationAdmissionRecord,
 }
 
-impl DeviceRevocationAdmissionOutcome {
+impl DeviceRevocationAdmissionAssessment {
     pub fn validate_for_request(&self, request: &DeviceRevocationAdmissionInput) -> Result<()> {
         self.admission_record.validate_for_request(request)
     }
@@ -914,7 +914,7 @@ mod tests {
     #[test]
     fn gate_outcome_matches_its_schema_shape() {
         assert_schema_shape(
-            &DeviceRevocationAdmissionOutcome {
+            &DeviceRevocationAdmissionAssessment {
                 admission_record: receipt(),
             },
             &["admission_record"],
@@ -1139,7 +1139,7 @@ mod tests {
     #[test]
     fn blocked_or_stale_receipts_admit_nothing() {
         let request = request();
-        let outcome = DeviceRevocationAdmissionOutcome {
+        let outcome = DeviceRevocationAdmissionAssessment {
             admission_record: receipt(),
         };
         assert_eq!(
@@ -1166,7 +1166,7 @@ mod tests {
             if decision == DeviceRevocationAdmissionDecision::Revoked {
                 blocked.accepted_commit_id = Some(accepted_commit_id());
             }
-            let outcome = DeviceRevocationAdmissionOutcome {
+            let outcome = DeviceRevocationAdmissionAssessment {
                 admission_record: blocked,
             };
             let admission = outcome.session_grant_admission(&request, at(2)).unwrap();
@@ -1181,7 +1181,7 @@ mod tests {
         fresh.decision = DeviceRevocationAdmissionDecision::AuthorityMismatch;
         fresh.target_device_authorize_event_id = None;
         fresh.target_device_generation_ref = None;
-        let outcome = DeviceRevocationAdmissionOutcome {
+        let outcome = DeviceRevocationAdmissionAssessment {
             admission_record: fresh,
         };
         assert_eq!(
@@ -1199,7 +1199,7 @@ mod tests {
             target_device_generation_ref: 7,
             proposal_event_id: EventId::from_event_digest(&hash('f')).unwrap(),
             accepted_at: at(0),
-            acceptance_seq: 1,
+            acceptance_sequence: 1,
             status: DeviceRevocationPendingStatus::RevocationPending,
             denied_actions: DEVICE_REVOCATION_DENIED_ACTIONS,
         }
@@ -1214,7 +1214,7 @@ mod tests {
             target_device_generation_ref: 7,
             proposal_event_id: EventId::from_event_digest(&hash('f')).unwrap(),
             accepted_at: at(0),
-            acceptance_seq: 1,
+            acceptance_sequence: 1,
             status: DeviceRevokedStatus::Revoked,
             committed_at: at(5),
         }
@@ -1229,7 +1229,7 @@ mod tests {
             target_device_generation_ref: 7,
             proposal_event_id: EventId::from_event_digest(&hash('f')).unwrap(),
             accepted_at: at(0),
-            acceptance_seq: 1,
+            acceptance_sequence: 1,
             status: DeviceRevocationRejectedStatus::RevocationRejected,
         }
     }
@@ -1244,7 +1244,7 @@ mod tests {
             "target_device_generation_ref",
             "proposal_event_id",
             "accepted_at",
-            "acceptance_seq",
+            "acceptance_sequence",
         ];
         let mut pending_required = common.to_vec();
         pending_required.extend(["status", "denied_actions"]);
@@ -1296,7 +1296,7 @@ mod tests {
         assert!(zero_generation.validate().is_err());
 
         let mut zero_seq = pending_state();
-        zero_seq.acceptance_seq = 0;
+        zero_seq.acceptance_sequence = 0;
         assert!(zero_seq.validate().is_err());
 
         let mut reordered = pending_state();

@@ -2,28 +2,28 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/event-payload.schema.json
-// sha256=6c0740fab50fcb796331bad41ee632e0602de445969cee69c4962e45dab65b27
+// sha256=74e26ef25ba5846ba74149c301a7ff5c7f1afc507f2cfd207cfe0edc060507bf
 //
 // Input: schemas/account-operations.schema.json
-// sha256=5b7dba680c2083d0bebc26ad32e7d37293d150cece8f2298a40bf382e7f31405
+// sha256=78c6503698cd43571f2b25543013f9036927ef9bfd005e71377ad3006f4a64d4
 //
 // Input: schemas/string-profiles.schema.json
 // sha256=aa4422be011e02a256a0cfdc072c66b15534eb8de23b76e31329982702e06e26
 //
 // Input: schemas/common-ids.schema.json
-// sha256=14226f0ac83e4d06639ad791cc0e52e0eb1c3b128cd4c8c12308a99b795141e4
+// sha256=0cc25a02fe0d9a94f6e41f2cf8f64e492ba36362f1e69a699cf1e684924837ee
 //
 // Input: schemas/time.schema.json
 // sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
 //
-// Input: schemas/typed-current-result.schema.json
-// sha256=af1796a65736414a650ecb791939112f02920d691fd8ee4b9e46397ad70aadbd
+// Input: schemas/current-state.schema.json
+// sha256=feba0ff19e227c276a3792aaed506b6534bf9ff8ce6c2e91a0ab36c04777785f
 //
 // Input: schemas/agent-provision.schema.json
-// sha256=4d82da00b1a80c01ca4ce46938ae687ea60b1aff59c31f9e2211e496eed6070c
+// sha256=32904862ed391edbb9ccbe4d29eedb1afb0edd8bbfd1ebb6fd4e70b24332cc53
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=d200bd3e6d76abd1b6154781fb5e54f11fbbc834638cdc29554f83590127fdfa
+// sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
 
 /// Counterpart: `event-payload.schema.json#/$defs/agent_action_approve_payload`.
 /// Counterpart for
@@ -247,9 +247,9 @@ pub struct AgentResumePayload {
     pub reason: Option<AuditReasonText>,
 }
 
-/// Counterpart: `typed-current-result.schema.json#/$defs/agent_provisioning_value`.
-/// Value of the `agent_provisioning` typed current result
-/// (`typed-current-result.schema.json#/$defs/agent_provisioning_value`): the
+/// Counterpart: `current-state.schema.json#/$defs/agent_provisioning_value`.
+/// Value of the `agent_provisioning` current state
+/// (`current-state.schema.json#/$defs/agent_provisioning_value`): the
 /// create-locked members a reader holding only the Agent DID needs.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -260,9 +260,9 @@ pub struct AgentProvisioningValue {
     pub requested_scope_digest: Hash,
 }
 
-/// Counterpart: `typed-current-result.schema.json#/$defs/agent_pcr_genesis_declaration_value`.
-/// Value of the `agent_pcr_genesis_declaration` typed current result
-/// (`typed-current-result.schema.json#/$defs/agent_pcr_genesis_declaration_value`):
+/// Counterpart: `current-state.schema.json#/$defs/agent_pcr_genesis_declaration_value`.
+/// Value of the `agent_pcr_genesis_declaration` current state
+/// (`current-state.schema.json#/$defs/agent_pcr_genesis_declaration_value`):
 /// the index from a forward-declared Agent PCR id to its Agent.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

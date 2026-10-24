@@ -154,9 +154,9 @@ fn ed25519_vectors_round_trip_through_signer_and_verifier() {
         );
 
         // Raw signature bytes match.
-        let sig = signer.sign(&bytes).unwrap();
+        let signature = signer.sign(&bytes).unwrap();
         assert_eq!(
-            hex_encode(&sig),
+            hex_encode(&signature),
             v.signature_hex,
             "vector '{}' signature drift",
             v.name
@@ -175,7 +175,7 @@ fn ed25519_vectors_round_trip_through_signer_and_verifier() {
             bytes: pubkey.to_vec(),
         };
         verifier
-            .verify(&bytes, &sig, &key_material)
+            .verify(&bytes, &signature, &key_material)
             .expect("verifier accepts signature");
         verifier
             .verify_detached_jws(&jws, &bytes, &key_material)
@@ -184,7 +184,11 @@ fn ed25519_vectors_round_trip_through_signer_and_verifier() {
         // Tampered bytes rejected.
         let mut tampered = bytes.clone();
         tampered.push(b'!');
-        assert!(verifier.verify(&tampered, &sig, &key_material).is_err());
+        assert!(
+            verifier
+                .verify(&tampered, &signature, &key_material)
+                .is_err()
+        );
     }
 }
 

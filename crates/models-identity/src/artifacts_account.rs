@@ -120,7 +120,10 @@ pub fn validate_device_summary_evidence(
             let mut previous = None;
             for state in states {
                 state.validate()?;
-                let key = (state.acceptance_seq(), state.proposal_event_id().as_str());
+                let key = (
+                    state.acceptance_sequence(),
+                    state.proposal_event_id().as_str(),
+                );
                 if previous.is_some_and(|previous| previous >= key) {
                     return Err(WireError::Protocol(
                         "revocation_states must be unique and strictly sorted".to_owned(),

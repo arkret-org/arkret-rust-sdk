@@ -124,7 +124,8 @@ mod tests {
             SignatureMaterial::Variant1(_) => panic!("expected detached signature string"),
         };
         let sig_bytes = base64url_decode(proof_b64.trim()).expect("base64url decode");
-        let signature = ed25519_dalek::Signature::from_slice(&sig_bytes).expect("64-byte sig");
+        let signature =
+            ed25519_dalek::Signature::from_slice(&sig_bytes).expect("64-byte signature");
 
         let signing_bytes =
             realm_organization_statement_signing_bytes(&signed).expect("signing bytes");

@@ -2,22 +2,22 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/applet-edge-operations.schema.json
-// sha256=1f0506e1a93a17af4329eb42f1dd5b8cd0ea70c86a364941b0bc06884ca18902
+// sha256=281d081a715af6336246e65f77801ca81d5cc1fac950e87af2f873ddcd963193
 //
 // Input: schemas/string-profiles.schema.json
 // sha256=aa4422be011e02a256a0cfdc072c66b15534eb8de23b76e31329982702e06e26
 //
 // Input: schemas/account-operations.schema.json
-// sha256=5b7dba680c2083d0bebc26ad32e7d37293d150cece8f2298a40bf382e7f31405
+// sha256=78c6503698cd43571f2b25543013f9036927ef9bfd005e71377ad3006f4a64d4
 //
 // Input: schemas/applet-install-authoring.schema.json
-// sha256=134ef4b7401aec43c6b0b6948548be2e7dd5752b0714400f54a6d7cb4012bf2d
+// sha256=a50ea7b5f90e71a8e05979362f75274166543b4e7f194082b27284814279a83c
 //
 // Input: schemas/applet-install-plan.schema.json
-// sha256=e896f502c8ce0ac975fbbf4211dcd153722fcac2b8b30f5fa459c6432da53b33
+// sha256=1dc897dd43ac4d614337e1aafc67dda231eaafd90dedd36f87afa0d4aaafa258
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=d200bd3e6d76abd1b6154781fb5e54f11fbbc834638cdc29554f83590127fdfa
+// sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
 
 /// Counterpart: `applet-edge-operations.schema.json#/$defs/field_definition`.
 /// Counterpart for
@@ -92,20 +92,8 @@ pub struct ScopeGrant {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
     pub circle_ids: Option<Vec<CircleId>>,
-    pub constraints: Vec<BTreeMap<String, Value>>,
-}
-
-/// Counterpart: `applet-install-plan.schema.json#/$defs/capability_constraint`.
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/applet-install-plan.schema.json#/$defs/capability_constraint`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CapabilityConstraint {
-    pub constraint_kind: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
-    pub params: Option<BTreeMap<String, Value>>,
+    pub constraints:
+        Vec<arkret_models_collaboration::governance::grant_constraint::GrantConstraint>,
 }
 
 /// Counterpart: `applet-install-plan.schema.json#/$defs/denied_scope`.
@@ -131,13 +119,13 @@ pub struct E2eeEffect {
     pub authorization_refs: Option<Vec<CommittedEventRef>>,
 }
 
-/// Counterpart: `applet-install-plan.schema.json#/$defs/event_submission`.
+/// Counterpart: `applet-install-plan.schema.json#/$defs/planned_event`.
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/applet-install-plan.schema.json#/$defs/event_submission`.
+/// `spec/v1/artifacts/schemas/applet-install-plan.schema.json#/$defs/planned_event`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct EventSubmission {
+pub struct PlannedEvent {
     pub event_kind: String,
     pub payload: BTreeMap<String, Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

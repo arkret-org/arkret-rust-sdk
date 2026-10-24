@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-10-22.4;
-//! sha256=2dddaeb4d6a71cb86b63f6e2809659819bd8176e86e7afef090798f1dc40ba5a
+//! Input: registry/error-code-registry.json; version=2026-10-24.2;
+//! sha256=669cd59f3ad24a949fe67d8175cbbed0ac4b640bb92526f7b3b69a7dfbccff86
 //! Entries: reason_codes=306, reserved_not_emitted=67
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -1509,12 +1509,12 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::ACCOUNT_STATUS_RECORD_FORK,
         applies_to: &["account_status", "service_call", "state_resolution"],
-        description: "A Station received an AccountStatusRecord that conflicts with the issuer-ledger chain: either the durable status_seq already names a different record, or the next status_seq does not name the durable head as previous_account_status_record_id. The receiver MUST return failed_precondition with this reason, perform zero writes, stop automatic retry or gap recovery for the conflicting record, and quarantine/alert for operator investigation. It MUST NOT reuse duplicate_conflict, which is reserved by this operation for Idempotency-Key reuse with different canonical request bytes. See zh/identity/account-lifecycle.md §3.",
+        description: "A Station received an AccountStatusRecord that conflicts with the issuer-ledger chain: either the durable status_sequence already names a different record, or the next status_sequence does not name the durable head as previous_account_status_record_id. The receiver MUST return failed_precondition with this reason, perform zero writes, stop automatic retry or gap recovery for the conflicting record, and quarantine/alert for operator investigation. It MUST NOT reuse duplicate_conflict, which is reserved by this operation for Idempotency-Key reuse with different canonical request bytes. See zh/identity/account-lifecycle.md §3.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::ACCOUNT_STATUS_RECORD_STALE,
         applies_to: &["account_status", "service_call", "state_resolution"],
-        description: "A Station received an otherwise valid AccountStatusRecord whose status_seq is lower than its durable replica head. The durable head is the only comparison baseline, so this reason applies even when the submitted record is byte-identical to a history row the receiver still stores for that status_seq; a retained history row MUST NOT downgrade the outcome to duplicate. The receiver MUST return failed_precondition with this reason, perform zero writes, and treat the exact record as terminal/non-retryable. duplicate is reserved for a submission whose status_seq and record identity both equal the durable head. The full ordered classification is registry/account-status-replica-decision-table.json. See zh/identity/account-lifecycle.md §3.1.",
+        description: "A Station received an otherwise valid AccountStatusRecord whose status_sequence is lower than its durable replica head. The durable head is the only comparison baseline, so this reason applies even when the submitted record is byte-identical to a history row the receiver still stores for that status_sequence; a retained history row MUST NOT downgrade the outcome to duplicate. The receiver MUST return failed_precondition with this reason, perform zero writes, and treat the exact record as terminal/non-retryable. duplicate is reserved for a submission whose status_sequence and record identity both equal the durable head. The full ordered classification is registry/account-status-replica-decision-table.json. See zh/identity/account-lifecycle.md §3.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::ACCOUNT_STATUS_TRANSITION_INVALID,
@@ -1539,7 +1539,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::AGENT_DEACTIVATED,
         applies_to: &["auth_decision", "service_call", "event_envelope"],
-        description: "A request targeted an Agent principal whose current `agent_status` typed current result is `deactivated` (terminal). The endpoint MUST fail closed and no resume path exists. The accepted parent lifecycle witness is sufficient to make all subordinate authorization ineffective; asynchronous cleanup need not synthesize key/grant revoke Events and cannot restore authority. Callers MUST NOT treat this as transient. See zh/identity/key-management.md §3.6.1.",
+        description: "A request targeted an Agent principal whose current `agent_status` current state is `deactivated` (terminal). The endpoint MUST fail closed and no resume path exists. The accepted parent lifecycle witness is sufficient to make all subordinate authorization ineffective; asynchronous cleanup need not synthesize key/grant revoke Events and cannot restore authority. Callers MUST NOT treat this as transient. See zh/identity/key-management.md §3.6.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::AGENT_GRANT_EXCEEDS_REQUESTED_SCOPE,
@@ -1569,12 +1569,12 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::AGENT_PAUSED,
         applies_to: &["auth_decision", "service_call", "event_envelope"],
-        description: "A request targeted an agent principal whose current `agent_status` typed current result is `paused`. Auth Server MUST reject new agent session grants, and any submit / sidecar / grant-management call by or for the paused agent MUST fail closed until `ak.self.agent.command.resume.v1` lands. Distinct from `capability_denied` so callers can surface the recoverable lifecycle state. See zh/identity/key-management.md §3.6.1.",
+        description: "A request targeted an agent principal whose current `agent_status` current state is `paused`. Auth Server MUST reject new agent session grants, and any submit / sidecar / grant-management call by or for the paused agent MUST fail closed until `ak.self.agent.command.resume.v1` lands. Distinct from `capability_denied` so callers can surface the recoverable lifecycle state. See zh/identity/key-management.md §3.6.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::AGENT_PCR_GENESIS_DECLARATION_CONFLICT,
         applies_to: &["service_call", "event_envelope"],
-        description: "A second ak.agent.provision declared a principal_control_realm_id that another accepted provision already claims. Inside one controller PCR the commit-ordered projection claim typed current result rejects it; across controllers the Station's local uniqueness index rejects it. Either way the write set is empty and the earlier claim is untouched. See zh/identity/key-management.md §3.6.3.",
+        description: "A second ak.agent.provision declared a principal_control_realm_id that another accepted provision already claims. Inside one controller PCR the commit-ordered projection claim current state rejects it; across controllers the Station's local uniqueness index rejects it. Either way the write set is empty and the earlier claim is untouched. See zh/identity/key-management.md §3.6.3.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::AGENT_PCR_GENESIS_DECLARATION_MISSING,
@@ -1594,7 +1594,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::AGENT_REPLY_NOT_PERMITTED,
         applies_to: &["state_resolution"],
-        description: "An Agent attempted to author ak.message.create in a scope where current controller selection and current target policy do not both enable reply_message. See zh/authz/capabilities.md §5.4 and zh/models/private-objects.md §4.1.",
+        description: "An Agent attempted to author ak.message.create in a scope where current controller selection and current target policy do not both enable message_creation_allowed. See zh/authz/capabilities.md §5.4 and zh/models/private-objects.md §4.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::AGENT_REQUESTED_SCOPE_COMMITMENT_INVALID,
@@ -1624,7 +1624,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::APPROVAL_CARRIER_UNREGISTERED,
         applies_to: &["auth_decision", "event_envelope"],
-        description: "A grant approval constraint or ak.policy.action approval requirement targets a capability action whose approval_requirement_eligibility is ineligible_no_registered_carrier. The governance Station rejects the authoring Event at write admission with top-level schema_violation (HTTP 422), this reason_code, and zero Event/RealmCommit/current-result effects. The canonical eligibility registry is capability-action-registry.json; the direct producers are ak.self.events.command.submit.v1 and ak.peer.events.command.submit.v1 authority_forward, with ak.self.applet.command.install.v1 covering its grant Event. See zh/authz/constraint-schema.md section 9.1 and zh/models/governance-objects.md section 3.4.",
+        description: "A grant approval constraint or ak.policy.action approval requirement targets a capability action whose approval_requirement_eligibility is ineligible_no_registered_carrier. The governance Station rejects the authoring Event at write admission with top-level schema_violation (HTTP 422), this reason_code, and zero Event/RealmCommit/current-state effects. The canonical eligibility registry is capability-action-registry.json; the direct producers are ak.self.events.command.submit.v1 and ak.peer.events.command.submit.v1 authority_forward, with ak.self.applet.command.install.v1 covering its grant Event. See zh/authz/constraint-schema.md section 9.1 and zh/models/governance-objects.md section 3.4.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::APPROVAL_NONCE_REUSED,
@@ -1634,7 +1634,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::APPROVAL_REQUIRED,
         applies_to: &["event_envelope", "auth_decision"],
-        description: "An eligible execution was rejected because approval evidence is required and what was supplied through its registered carrier does not meet the requirement. Two independent layers can raise that requirement and both are evaluated: an approval constraint on a matched capability grant (zh/authz/capabilities.md §6 / §8, zh/authz/constraint-schema.md §9), and the Realm governance approval configuration registered as the policy_action typed current result (zh/models/governance-objects.md §3.5), which hangs off an (action token, scope) pair rather than off one grant. Either layer alone is enough to produce this reason code, and a layer writing approval_required=false only withdraws its own demand -- it never cancels the other's. The top-level error is claim_required. This is a require_review-class outcome, not a deny: supplying the missing approval signatures through the carrier named by capability-action-registry.json and retrying is the defined path. Requirements for actions without a registered carrier are instead rejected at configuration write time with approval_carrier_unregistered.",
+        description: "An eligible execution was rejected because approval evidence is required and what was supplied through its registered carrier does not meet the requirement. Two independent layers can raise that requirement and both are evaluated: an approval constraint on a matched capability grant (zh/authz/capabilities.md §6 / §8, zh/authz/constraint-schema.md §9), and the Realm governance approval configuration registered as the policy_action current state (zh/models/governance-objects.md §3.5), which hangs off an (action token, scope) pair rather than off one grant. Either layer alone is enough to produce this reason code, and a layer writing approval_required=false only withdraws its own demand -- it never cancels the other's. The top-level error is claim_required. This is a require_review-class outcome, not a deny: supplying the missing approval signatures through the carrier named by capability-action-registry.json and retrying is the defined path. Requirements for actions without a registered carrier are instead rejected at configuration write time with approval_carrier_unregistered.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::AUDIENCE_MISMATCH,
@@ -1854,7 +1854,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::DIRECT_CONVERSATION_PARTICIPANT_AUTHORITY_DENIED,
         applies_to: &["event_envelope", "auth_decision", "service_call"],
-        description: "The current governance Station's active ak.authority.direct_conversation_participant.v1 evaluator rejected an Event-mapped allowlisted action because it could not establish every required immutable binding, exact participant, active membership, Realm/Strand/current scope-derived MLS group-and-epoch cross-binding, lifecycle, resource, directional Contact, device, or Agent input. The ak.self.events.command.submit.v1 rejection exposes only this non-enumerating reason and writes nothing. Encrypted Signal product actions use their own outer admission carrier and recipient policy, never this Event reason. Consent, created_by, a local projection row, Realm owner aggregation, or an arbitrary Event/current result cannot substitute; see contract-registry.json operation_registry.direct_conversation_admission_mappings.",
+        description: "The current governance Station's active ak.authority.direct_conversation_participant.v1 evaluator rejected an Event-mapped allowlisted action because it could not establish every required immutable binding, exact participant, active membership, Realm/Strand/current scope-derived MLS group-and-epoch cross-binding, lifecycle, resource, directional Contact, device, or Agent input. The ak.self.events.command.submit.v1 rejection exposes only this non-enumerating reason and writes nothing. Encrypted Signal product actions use their own outer admission carrier and recipient policy, never this Event reason. Consent, created_by, a local projection row, Realm owner aggregation, or an arbitrary Event/current state cannot substitute; see contract-registry.json operation_registry.direct_conversation_admission_mappings.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::DIRECT_CONVERSATION_ROOT_MASK_VIOLATION,
@@ -1998,7 +1998,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::GRANT_RELINQUISH_NOT_SUBJECT,
         applies_to: &["event_envelope", "auth_decision"],
-        description: "A ak.capability.relinquish named a grant whose subject is not the actor. Relinquish is subject-only precisely so it needs no revoke capability; allowing any other actor would turn it into an unauthorized revocation. The authority-root typed current result is not a grant and can never be a relinquish target. The rejection MUST NOT disclose whether the target exists.",
+        description: "A ak.capability.relinquish named a grant whose subject is not the actor. Relinquish is subject-only precisely so it needs no revoke capability; allowing any other actor would turn it into an unauthorized revocation. The authority-root current state is not a grant and can never be a relinquish target. The rejection MUST NOT disclose whether the target exists.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::GRANT_VALIDITY_WINDOW_EMPTY,
@@ -2118,7 +2118,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::INVITE_LIVE_TARGET_OCCUPIED,
         applies_to: &["event_envelope", "auth_decision"],
-        description: "Sub-reason for failed_precondition when ak.invite.create targets an account whose Realm live-target slot invite_live_target is already claimed by another live directed Invite. The Event is not accepted, enters no canonical history and derives no typed current result write; the closed error.details is InviteLiveTargetOccupiedProblem carrying the occupying invite_id and create_event_id. See zh/models/governance-objects.md section 5.3.",
+        description: "Sub-reason for failed_precondition when ak.invite.create targets an account whose Realm live-target slot invite_live_target is already claimed by another live directed Invite. The Event is not accepted, enters no canonical history and derives no current state write; the closed error.details is InviteLiveTargetOccupiedProblem carrying the occupying invite_id and create_event_id. See zh/models/governance-objects.md section 5.3.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::INVITE_OOB_ENTROPY_TOO_LOW,
@@ -2138,7 +2138,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::KEY_BACKUP_WIRE_SCHEMA_REQUIRED,
         applies_to: &["schema_validation"],
-        description: "Station device/key surface received a `ak.keys.backups.*` request body that does not validate as `ak.schema.key_backup.v1`. Wire backups MUST carry the dedicated key-backup envelope with `series_id` and `series_seq`; client-local secret-storage envelopes are not accepted on wire endpoints. See zh/crypto-media/device-lifecycle.md §11.",
+        description: "Station device/key surface received a `ak.keys.backups.*` request body that does not validate as `ak.schema.key_backup.v1`. Wire backups MUST carry the dedicated key-backup envelope with `series_id` and `series_sequence`; client-local secret-storage envelopes are not accepted on wire endpoints. See zh/crypto-media/device-lifecycle.md §11.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::KEYPACKAGE_CLAIM_RATE_LIMITED,
@@ -2188,12 +2188,12 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::MEDIA_PLAINTEXT_SERVICE_NOT_AUTHORISED,
         applies_to: &["auth_decision"],
-        description: "An SFU / MCU attempted to negotiate plaintext-decrypting media role without a matching Realm policy plaintext_visible_services[] entry whose data_classes[] contains media_plaintext, OR without the active media key-access revision covering media_service_decrypts=true. Free-text purposes do not grant authority. MUST be rejected; the SFU may still act as opaque RTP relay. See zh/crypto-media/media-service-binding.md §8.2.",
+        description: "An SFU / MCU attempted to negotiate plaintext-decrypting media role without a matching Realm policy plaintext_visible_services[] entry whose data_classes[] contains media_plaintext, OR without the active media key-access revision covering media_service_decryption_allowed=true. Free-text purposes do not grant authority. MUST be rejected; the SFU may still act as opaque RTP relay. See zh/crypto-media/media-service-binding.md §8.2.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::MEDIA_PLAINTEXT_WARNING_REQUIRED,
         applies_to: &["auth_decision"],
-        description: "A client attempted to join a call where media_service_decrypts=true without first displaying the required prominent plaintext-service warning and obtaining explicit second confirmation. The client MUST reject the join before releasing a token or media key. See zh/crypto-media/media-service-binding.md §8.2.",
+        description: "A client attempted to join a call where media_service_decryption_allowed=true without first displaying the required prominent plaintext-service warning and obtaining explicit second confirmation. The client MUST reject the join before releasing a token or media key. See zh/crypto-media/media-service-binding.md §8.2.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::MEDIA_SERVICE_BINDING_UNCOVERED,
@@ -2223,7 +2223,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::MEMBER_IDENTITY_STATE_MISMATCH,
         applies_to: &["event_envelope", "state_resolution"],
-        description: "The optional expected_state_digest optimistic-concurrency guard on ak.member.identity.update does not equal the digest of the current effective set for the same (realm_id, member_id, segment): sha256 over RFC 8785 JCS of the exact signed payload objects of the effective updates ordered by event_id ascending, [] when empty (zh/sync/current-results.md section 2). The Station MUST reject the Event with failed_precondition and zero writes instead of applying it as a valid replacement.",
+        description: "The optional expected_state_digest optimistic-concurrency guard on ak.member.identity.update does not equal the digest of the current effective set for the same (realm_id, member_id, segment): sha256 over RFC 8785 JCS of the exact signed payload objects of the effective updates ordered by event_id ascending, [] when empty (zh/sync/current-state.md section 2). The Station MUST reject the Event with failed_precondition and zero writes instead of applying it as a valid replacement.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::MEMBER_IDENTITY_UNKNOWN_SEGMENT,
@@ -2288,7 +2288,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::MLS_GOVERNANCE_BINDING_STALE,
         applies_to: &["state_resolution", "auth_decision"],
-        description: "A decrypting media service join or token request found that the current MLS group has not yet covered its current key_access_revision (a membership change is still awaiting its winning ak.mls.commit). Media policy fields such as media_service_decrypts and plaintext_visible_services are authorized from the current accepted policy projection and never advance key_access_revision. Receivers MUST refuse to act until a Commit covers the current revision. See zh/crypto-media/media-service-binding.md §8.2 and zh/crypto-media/encryption-and-audit.md §2.4.1.",
+        description: "A decrypting media service join or token request found that the current MLS group has not yet covered its current key_access_revision (a membership change is still awaiting its winning ak.mls.commit). Media policy fields such as media_service_decryption_allowed and plaintext_visible_services are authorized from the current accepted policy projection and never advance key_access_revision. Receivers MUST refuse to act until a Commit covers the current revision. See zh/crypto-media/media-service-binding.md §8.2 and zh/crypto-media/encryption-and-audit.md §2.4.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::MODERATION_CONTROL_SPLIT,
@@ -2472,12 +2472,12 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     },
     ReasonCodeDescriptor {
         code: ReasonCode::PUSH_GATEWAY_UNREACHABLE,
-        applies_to: &["push_notify_outcome"],
+        applies_to: &["push_notify_response_body"],
         description: "Per-device rejection reason in ak.edge.push.command.notify.v1: the gateway could not durably take the route over. One of exactly two caller-retryable notify reasons; it MAY carry retry_after_ms, and its presence is the wire signal that the caller â€” not the gateway â€” owns the next attempt. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/discovery/push-notifications.md §5.2.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::PUSH_PAYLOAD_TOO_LARGE,
-        applies_to: &["push_notify_outcome"],
+        applies_to: &["push_notify_response_body"],
         description: "Per-device rejection reason in ak.edge.push.command.notify.v1: the notification exceeds the push profile, provider, or deployment size limit. Target-level, so the gateway MUST expand it into one same-reason rejected outcome per input device. Terminal until the caller shrinks the payload; MUST NOT carry retry_after_ms. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/discovery/push-notifications.md §5.2.",
     },
     ReasonCodeDescriptor {
@@ -2487,17 +2487,17 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     },
     ReasonCodeDescriptor {
         code: ReasonCode::PUSH_TARGET_UNKNOWN,
-        applies_to: &["push_notify_outcome"],
+        applies_to: &["push_notify_response_body"],
         description: "Per-device rejection reason in ak.edge.push.command.notify.v1: the push target is unknown or no longer visible. Target-level, so the gateway MUST expand it into one same-reason rejected outcome per input device. Terminal; not caller-retryable and MUST NOT carry retry_after_ms. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/discovery/push-notifications.md §5.2.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::PUSH_TOKEN_INVALID,
-        applies_to: &["push_notify_outcome"],
+        applies_to: &["push_notify_response_body"],
         description: "Per-device rejection reason in ak.edge.push.command.notify.v1: the registered route failed provider validation or is no longer bound to this device. Terminal; the caller SHOULD drop the device registration. Cleanup is addressed by the composite identity â€” the response never returns the raw push_key. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/discovery/push-notifications.md §5.2.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::PUSH_TOKEN_UNKNOWN,
-        applies_to: &["push_notify_outcome"],
+        applies_to: &["push_notify_response_body"],
         description: "Per-device rejection reason in ak.edge.push.command.notify.v1: no active push registration exists for this (push_target_id, device_id). Terminal; the caller SHOULD drop the device registration. Cleanup is addressed by the composite identity â€” the response never returns the raw push_key. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/discovery/push-notifications.md §5.2.",
     },
     ReasonCodeDescriptor {
@@ -2512,7 +2512,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     },
     ReasonCodeDescriptor {
         code: ReasonCode::RATE_LIMITED,
-        applies_to: &["push_notify_outcome"],
+        applies_to: &["push_notify_response_body"],
         description: "Per-device rejection reason in ak.edge.push.command.notify.v1: gateway-side admission limiting refused durable takeover of this route. One of exactly two caller-retryable notify reasons; it MAY carry retry_after_ms. A route the gateway already accepted is retried by the gateway and never surfaces this reason. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/discovery/push-notifications.md §5.2.",
     },
     ReasonCodeDescriptor {
@@ -2523,7 +2523,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::REALM_AUTHORITY_ROOT_CONFLICT,
         applies_to: &["event_envelope", "state_resolution"],
-        description: "The authority-root typed current result value was author-supplied or otherwise diverges from the registered value_projection: controller_actor_id not equal to the create envelope actor_id, a non-zero controller_epoch or authority_generation at genesis, or members beyond the closed three-field shape. Reducer MUST reject the whole unit. See zh/models/realm-and-space.md section 2.5.",
+        description: "The authority-root current state value was author-supplied or otherwise diverges from the registered value_projection: controller_actor_id not equal to the create envelope actor_id, a non-zero controller_epoch or authority_generation at genesis, or members beyond the closed three-field shape. Reducer MUST reject the whole unit. See zh/models/realm-and-space.md section 2.5.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::REALM_ID_NOT_EVENT_DERIVED,
@@ -2573,7 +2573,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::RECORDING_CONSENT_REQUIRED,
         applies_to: &["service_call", "event_envelope"],
-        description: "A capture attempted to enter or stay in recording/transcribing without the consent evidence its Realm requires. The reachable trigger is the per-participant consent acknowledgment profile of zh/crypto-media/call-state.md §5.2: a recorded party has no current device-signed acknowledgment, or membership, device or capture epoch changed and the acknowledgment was not re-acquired. This code is NOT how a producer-declared consent value is refused: `call_recording_start_payload.result.retention.consent_confirmed` is `const: true`, so any other value is `schema_violation` before the reducer runs, and the capture-kind start-event ref is stamped by the reducer because the payload MUST NOT carry it. Reducer MUST reject before either capture FSM or result typed current result is written.",
+        description: "A capture attempted to enter or stay in recording/transcribing without the consent evidence its Realm requires. The reachable trigger is the per-participant consent acknowledgment profile of zh/crypto-media/call-state.md §5.2: a recorded party has no current device-signed acknowledgment, or membership, device or capture epoch changed and the acknowledgment was not re-acquired. This code is NOT how a producer-declared consent value is refused: `call_recording_start_payload.capture_metadata.retention.consent_confirmed` is `const: true`, so any other value is `schema_violation` before the reducer runs, and the capture-kind start-event ref is stamped by the reducer because the payload MUST NOT carry it. Reducer MUST reject before either capture FSM or result current state is written.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::RECORDING_STATE_TRANSITION_INVALID,
@@ -2638,7 +2638,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::RELATION_KIND_WATCHES_DERIVED,
         applies_to: &["event_envelope", "schema_validation"],
-        description: "Sub-reason for schema_violation when a direct ak.relation.create / update / delete targets relation_kind=watches. The watches Relation is a derived projection only: its truth source is the strand_watch typed current result written via the ak.strand.watch.set durable event, never a direct Relation write. See zh/models/relation.md §3.2 and zh/models/strand-and-message.md §8.",
+        description: "Sub-reason for schema_violation when a direct ak.relation.create / update / delete targets relation_kind=watches. The watches Relation is a derived projection only: its truth source is the strand_watch current state written via the ak.strand.watch.set durable event, never a direct Relation write. See zh/models/relation.md §3.2 and zh/models/strand-and-message.md §8.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::RESOLUTION_HISTORY_ANCESTOR_UNKNOWN,
@@ -2672,7 +2672,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::RSVP_OCCURRENCE_NOT_CANONICAL,
         applies_to: &["event_envelope", "schema_validation"],
-        description: "payload.occurrence is neither JSON null nor a canonical instance key (YYYY-MM-DD for all-day, YYYY-MM-DDTHH:MM:SS[Zone] for timed), including when its date component is not a real proleptic-Gregorian date. Receivers MUST reject instead of rewriting the key, since the typed current result subject derives from the signed value. See zh/models/calendar-event.md.",
+        description: "payload.occurrence is neither JSON null nor a canonical instance key (YYYY-MM-DD for all-day, YYYY-MM-DDTHH:MM:SS[Zone] for timed), including when its date component is not a real proleptic-Gregorian date. Receivers MUST reject instead of rewriting the key, since the current state subject derives from the signed value. See zh/models/calendar-event.md.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::RUNTIME_KEY_MISSING,
@@ -2732,7 +2732,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::SERIES_SEQ_NOT_MONOTONIC,
         applies_to: &["schema_validation", "state_resolution"],
-        description: "A PUT /_arkret/self/keys/backups/{backup_id} request whose `series_seq` is not strictly greater than the current maximum sequence within the same (actor_id, series_id), or whose genesis envelope sets series_seq != 0. See zh/crypto-media/device-lifecycle.md §12.1.",
+        description: "A PUT /_arkret/self/keys/backups/{backup_id} request whose `series_sequence` is not strictly greater than the current maximum sequence within the same (actor_id, series_id), or whose genesis envelope sets series_sequence != 0. See zh/crypto-media/device-lifecycle.md §12.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::SERVICE_NOT_PLAINTEXT_VISIBLE,
@@ -2757,7 +2757,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::SESSION_FOCUS_NO_SPLIT_BRAIN,
         applies_to: &["service_call"],
-        description: "The committed `ak.call.state.session_focus` is authoritative and write-once: once it exists, a connect / token-exchange failure against that focus MUST be surfaced as focus-unavailable (`focus_unavailable_for_client`) and clients MUST NOT silently fall back to a different focus to keep the media path up. Naming the invariant explicitly closes the split-brain attack where two subsets of a conference converge on different SFUs. See zh/crypto-media/media-service-binding.md §5 and §2 (`foci[].health_endpoint`).",
+        description: "The committed `ak.call.state.session_focus` is authoritative and write-once: once it exists, a connect / token-exchange failure against that focus MUST be surfaced as focus-unavailable (`focus_unavailable_for_client`) and clients MUST NOT silently fall back to a different focus to keep the media path up. Naming the invariant explicitly closes the split-brain attack where two subsets of a conference converge on different SFUs. See zh/crypto-media/media-service-binding.md §5 and §2 (`foci[].health_url`).",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::SESSION_MISSING,
@@ -2887,7 +2887,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::THIRD_PARTY_INVITE_MATERIAL_MISMATCH,
         applies_to: &["service_call", "auth_decision"],
-        description: "Sub-reason for failed_precondition when the accepted ak.invite.third_party attested for activation differs from the frozen provisioning record in author, Realm, expiry or any member of the public third_party_invite object. The verification service MUST refuse rather than adopt the accepted typed current result values, because its private token, salt or pepper and ephemeral key were generated for the frozen material. See zh/sync/third-party-invites.md section 7.5.",
+        description: "Sub-reason for failed_precondition when the accepted ak.invite.third_party attested for activation differs from the frozen provisioning record in author, Realm, expiry or any member of the public third_party_invite object. The verification service MUST refuse rather than adopt the accepted current state values, because its private token, salt or pepper and ephemeral key were generated for the frozen material. See zh/sync/third-party-invites.md section 7.5.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::THIRD_PARTY_INVITE_PROVISIONING_ALREADY_BOUND,
@@ -2976,7 +2976,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     },
     ReasonCodeDescriptor {
         code: ReasonCode::UNSUPPORTED_PROFILE,
-        applies_to: &["push_notify_outcome"],
+        applies_to: &["push_notify_response_body"],
         description: "Per-device rejection reason in ak.edge.push.command.notify.v1: the device has not opted in to the requested notification profile (for example a visible notification sent to a device without visible_notification_opt_in). Terminal; the caller falls back to the blind_wakeup form and MUST NOT resend the same shape. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/discovery/push-notifications.md §5.2.",
     },
     ReasonCodeDescriptor {

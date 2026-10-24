@@ -25,9 +25,9 @@ use std::time::Duration;
 use arkret_egress_policy::OutboundPolicy;
 use arkret_egress_reqwest::EgressGuard;
 use arkret_identity::{
-    DID_WEB_MAX_DOCUMENT_BYTES, DidDocument, DidResolver, DidWebDocumentOutcome, DidWebResolver,
-    DidWebvhDocumentOutcome, DidWebvhLogOutcome, DidWebvhResolver, ResolvedDid, ResolverFailMode,
-    ResolverPolicy, verify_did_webvh_v1_chain_and_witness_bytes,
+    DID_WEB_MAX_DOCUMENT_BYTES, DidDocument, DidResolver, DidWebDocumentHttpResponse,
+    DidWebResolver, DidWebvhDocumentHttpResponse, DidWebvhLogHttpResponse, DidWebvhResolver,
+    ResolvedDid, ResolverFailMode, ResolverPolicy, verify_did_webvh_v1_chain_and_witness_bytes,
 };
 use arkret_wire::Did;
 use chrono::{DateTime, Utc};
@@ -389,7 +389,7 @@ impl HttpDidResolver {
         let mut resolver = DidWebResolver::new();
         let document = resolver.insert_from_https_response(
             did,
-            DidWebDocumentOutcome {
+            DidWebDocumentHttpResponse {
                 url,
                 content_type,
                 body,
@@ -464,7 +464,7 @@ impl HttpDidResolver {
         let mut resolver = DidWebvhResolver::new();
         let document = resolver.insert_from_https_response(
             did,
-            DidWebvhDocumentOutcome {
+            DidWebvhDocumentHttpResponse {
                 url: doc_url,
                 content_type: doc_ct,
                 body: doc_body,
@@ -473,7 +473,7 @@ impl HttpDidResolver {
         // Validate the log too — reject the document if the log chain is bad.
         resolver.ingest_log(
             did,
-            DidWebvhLogOutcome {
+            DidWebvhLogHttpResponse {
                 url: log_url,
                 content_type: log_ct,
                 body: log_body,

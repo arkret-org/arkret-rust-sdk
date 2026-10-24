@@ -284,7 +284,7 @@ impl PushRegistrationRecord {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PushRegisterDeviceOutcome {
+pub struct PushRegisterDeviceResponseBody {
     /// Server-derived pairwise pseudonym for this registration
     /// (`common-ids.schema.json#/$defs/push_target_id`); the caller and the
     /// device MUST use this exact value as the notify target and MUST NOT mint
@@ -313,7 +313,7 @@ pub struct PushUnregisterDeviceRequestBody {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct PushUnregisterDeviceOutcome;
+pub struct PushUnregisterDeviceResponseBody;
 
 /// Closed desired state submitted by a Station to one trusted public Push
 /// Gateway. Source and destination identities remain in the authenticated HTTP
@@ -538,7 +538,7 @@ impl PushRegistrationInstallationReceipt {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PushRegistrationHandoffOutcome {
+pub struct PushRegistrationHandoffResponseBody {
     pub receipt: PushRegistrationInstallationReceipt,
 }
 
@@ -554,7 +554,7 @@ fn proof_controller(method: &DidUrl) -> Option<DidCoreId> {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct OkOutcome {
+pub struct AcknowledgementResponseBody {
     pub ok: bool,
 }
 
@@ -813,12 +813,12 @@ pub struct PushNotifyRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PushNotifyOutcome {
+pub struct PushNotifyResponseBody {
     pub push_target_id: PushTargetId,
-    pub outcomes: Vec<PushNotifyDeviceOutcome>,
+    pub outcomes: Vec<PushGatewaySubmissionOutcome>,
 }
 
-impl PushNotifyDeviceOutcome {
+impl PushGatewaySubmissionOutcome {
     pub fn accepted(device_id: DeviceId) -> Self {
         Self {
             device_id,
@@ -1155,13 +1155,13 @@ mod tests {
     #[test]
     fn push_notify_outcome_serializes_gateway_status_and_reason_code() {
         let request = valid_request();
-        let outcome = PushNotifyOutcome {
+        let outcome = PushNotifyResponseBody {
             push_target_id: request.notification.push_target_id.clone().unwrap(),
             outcomes: vec![
-                PushNotifyDeviceOutcome::accepted(
+                PushGatewaySubmissionOutcome::accepted(
                     request.notification.devices[0].device_id.clone(),
                 ),
-                PushNotifyDeviceOutcome::rejected(
+                PushGatewaySubmissionOutcome::rejected(
                     request.notification.devices[1].device_id.clone(),
                     PushNotifyReasonCode::RateLimited,
                     Some(500),
@@ -1178,7 +1178,7 @@ mod tests {
     #[test]
     fn rejects_invalid_push_notify_device_outcome_fields() {
         let device_id = DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001").unwrap();
-        let accepted_with_reason = PushNotifyDeviceOutcome {
+        let accepted_with_reason = PushGatewaySubmissionOutcome {
             device_id: device_id.clone(),
             gateway_status: PushNotifyGatewayStatus::Accepted,
             reason_code: Some(PushNotifyReasonCode::PushTokenInvalid),
@@ -1186,7 +1186,7 @@ mod tests {
         };
         assert!(accepted_with_reason.validate().is_err());
 
-        let rejected_without_reason = PushNotifyDeviceOutcome {
+        let rejected_without_reason = PushGatewaySubmissionOutcome {
             device_id: device_id.clone(),
             gateway_status: PushNotifyGatewayStatus::Rejected,
             reason_code: None,
@@ -1194,7 +1194,7 @@ mod tests {
         };
         assert!(rejected_without_reason.validate().is_err());
 
-        let non_retryable_backoff = PushNotifyDeviceOutcome::rejected(
+        let non_retryable_backoff = PushGatewaySubmissionOutcome::rejected(
             device_id,
             PushNotifyReasonCode::PushTokenInvalid,
             Some(500),
@@ -1388,12 +1388,12 @@ mod tests {
 #[allow(clippy::large_enum_variant)]
 pub enum PushOperations {
     PushRegisterDeviceRequestBody(PushRegisterDeviceRequestBody),
-    PushRegisterDeviceOutcome(PushRegisterDeviceOutcome),
+    PushRegisterDeviceResponseBody(PushRegisterDeviceResponseBody),
     PushUnregisterDeviceRequestBody(PushUnregisterDeviceRequestBody),
     PushRegistrationHandoffRequestBody(PushRegistrationHandoffRequestBody),
-    PushRegistrationHandoffOutcome(PushRegistrationHandoffOutcome),
+    PushRegistrationHandoffResponseBody(PushRegistrationHandoffResponseBody),
     PushNotifyRequestBody(PushNotifyRequestBody),
-    PushNotifyOutcome(PushNotifyOutcome),
+    PushNotifyResponseBody(PushNotifyResponseBody),
 }
 
 impl PushOperations {

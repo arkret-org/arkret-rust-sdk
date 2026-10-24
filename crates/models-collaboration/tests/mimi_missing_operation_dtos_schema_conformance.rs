@@ -3,11 +3,13 @@
 use std::fs;
 
 use arkret_models_collaboration::mimi_operations::{
-    MimiNotifyOutcome, MimiNotifyRequestBody, MimiReportAbuseRequestBody,
-    MimiRequestConsentOutcome, MimiRoomUpdateOutcome, MimiRoomUpdateRequestBody,
-    MimiUpdateConsentOutcome,
+    MimiNotifyRequestBody, MimiNotifyResponseBody, MimiReportAbuseRequestBody,
+    MimiRequestConsentResponseBody, MimiRoomUpdateRequestBody, MimiRoomUpdateResponseBody,
+    MimiUpdateConsentResponseBody,
 };
-use arkret_models_crypto::{PeerKeyPackagesClaimQueryOutcome, PeerKeyPackagesClaimRequestBody};
+use arkret_models_crypto::{
+    PeerKeyPackagesClaimQueryResponseBody, PeerKeyPackagesClaimRequestBody,
+};
 use arkret_schema_conformance::schema_registry_from_spec_artifacts;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -86,30 +88,30 @@ fn key_material_reuses_closed_native_claim_without_a_second_mimi_carrier() {
         json!({"claim_request_id": parsed.claim_request_id, "state":"pending", "retry_after_ms":1});
     assert!(schema_accepts_from(
         schema,
-        "peer_keypackages_claim_command_outcome",
+        "peer_keypackages_claim_command_response_body",
         &pending
     ));
-    serde_json::from_value::<PeerKeyPackagesClaimQueryOutcome>(pending)
+    serde_json::from_value::<PeerKeyPackagesClaimQueryResponseBody>(pending)
         .unwrap()
         .validate_command_shape()
         .unwrap();
     let unknown = json!({"claim_request_id": parsed.claim_request_id, "state":"unknown"});
     assert!(!schema_accepts_from(
         schema,
-        "peer_keypackages_claim_command_outcome",
+        "peer_keypackages_claim_command_response_body",
         &unknown
     ));
     assert!(
-        serde_json::from_value::<PeerKeyPackagesClaimQueryOutcome>(unknown)
+        serde_json::from_value::<PeerKeyPackagesClaimQueryResponseBody>(unknown)
             .unwrap()
             .validate_command_shape()
             .is_err()
     );
     for retired in [
         json!({"keypackages":[]}),
-        json!({"group_info":{"mls_group_id":MLS_GROUP,"epoch":1,"group_info":"YQ"}}),
+        json!({"group_info":{"mls_group_id":MLS_GROUP,"epoch":"1","group_info":"YQ"}}),
     ] {
-        assert!(serde_json::from_value::<PeerKeyPackagesClaimQueryOutcome>(retired).is_err());
+        assert!(serde_json::from_value::<PeerKeyPackagesClaimQueryResponseBody>(retired).is_err());
     }
     let old: Value = serde_json::from_slice(
         &fs::read(artifacts.join("schemas/mimi-operations.schema.json")).unwrap(),
@@ -209,8 +211,8 @@ fn room_update_and_notify_are_closed() {
             }
         }),
     );
-    assert_closed_roundtrip::<MimiRoomUpdateOutcome>(
-        "mimi_room_update_outcome",
+    assert_closed_roundtrip::<MimiRoomUpdateResponseBody>(
+        "mimi_room_update_response_body",
         json!({"accepted": true}),
     );
     let missing_binding_event: MimiRoomUpdateRequestBody = serde_json::from_value(json!({
@@ -229,17 +231,20 @@ fn room_update_and_notify_are_closed() {
         "mimi_notify_request_body",
         json!({"notification": {"kind": "receipt"}}),
     );
-    assert_closed_roundtrip::<MimiNotifyOutcome>("mimi_notify_outcome", json!({"accepted": true}));
+    assert_closed_roundtrip::<MimiNotifyResponseBody>(
+        "mimi_notify_response_body",
+        json!({"accepted": true}),
+    );
 }
 
 #[test]
 fn consent_outcomes_have_no_retired_status() {
-    assert_closed_roundtrip::<MimiRequestConsentOutcome>(
-        "mimi_request_consent_outcome",
+    assert_closed_roundtrip::<MimiRequestConsentResponseBody>(
+        "mimi_request_consent_response_body",
         json!({"consent_id": CONSENT}),
     );
-    assert_closed_roundtrip::<MimiUpdateConsentOutcome>(
-        "mimi_update_consent_outcome",
+    assert_closed_roundtrip::<MimiUpdateConsentResponseBody>(
+        "mimi_update_consent_response_body",
         json!({
             "consent_id": CONSENT,
             "decision": "accept",

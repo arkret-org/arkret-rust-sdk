@@ -4,8 +4,8 @@ use std::sync::Mutex;
 use arkret_identifiers::{EventId, RealmCommitId};
 use arkret_wire::{
     CommitStreamHead, CommitStreamRef, CommittedEventFullView, CommittedEventView, Event,
-    ReadableFloor, ReadableFloorReason, RealmCommit, StreamScanDirection, StreamScanOutcome,
-    StreamScanRequest,
+    ReadableFloor, ReadableFloorReason, RealmCommit, StreamScanDirection, StreamScanRequestBody,
+    StreamScanResponseBody,
 };
 use thiserror::Error;
 
@@ -45,7 +45,7 @@ pub trait AuthorityCommitStore: Send + Sync {
 
     fn commit_for_event(&self, event_id: &EventId) -> Option<RealmCommit>;
 
-    fn scan(&self, request: &StreamScanRequest) -> CommitLogResult<StreamScanOutcome>;
+    fn scan(&self, request: &StreamScanRequestBody) -> CommitLogResult<StreamScanResponseBody>;
 }
 
 #[derive(Default)]
@@ -153,13 +153,13 @@ impl AuthorityCommitStore for MemoryAuthorityCommitStore {
             .cloned()
     }
 
-    fn scan(&self, request: &StreamScanRequest) -> CommitLogResult<StreamScanOutcome> {
+    fn scan(&self, request: &StreamScanRequestBody) -> CommitLogResult<StreamScanResponseBody> {
         request
             .validate()
             .map_err(|error| CommitLogError::InvalidCommit(error.to_string()))?;
         let inner = self.inner.lock().expect("authority commit store poisoned");
         let Some(head_id) = inner.heads.get(&request.stream_ref) else {
-            return Ok(StreamScanOutcome {
+            return Ok(StreamScanResponseBody {
                 committed_events: Vec::new(),
                 readable_floor: None,
                 truncated: false,
@@ -222,7 +222,7 @@ impl AuthorityCommitStore for MemoryAuthorityCommitStore {
                 event,
             }));
         }
-        Ok(StreamScanOutcome {
+        Ok(StreamScanResponseBody {
             committed_events,
             readable_floor,
             truncated,
@@ -293,7 +293,7 @@ mod tests {
                 verification_method: DidUrl::new("did:web:authority.example#key-1").unwrap(),
                 signed_digest: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
                 created_at: Utc.with_ymd_and_hms(2026, 9, 16, 0, 0, 1).unwrap(),
-                sig: Base64UrlString::new("AA").unwrap(),
+                signature: Base64UrlString::new("AA").unwrap(),
             },
         }
     }
@@ -352,7 +352,7 @@ mod tests {
             previous = Some(sealed.commit_id.clone());
             store.append(&item, sealed).unwrap();
         }
-        let request = |direction| StreamScanRequest {
+        let request = |direction| StreamScanRequestBody {
             realm_id: realm(),
             stream_ref: stream_ref.clone(),
             direction,

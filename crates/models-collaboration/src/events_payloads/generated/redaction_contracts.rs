@@ -2,13 +2,13 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/event-payload.schema.json
-// sha256=6c0740fab50fcb796331bad41ee632e0602de445969cee69c4962e45dab65b27
+// sha256=74e26ef25ba5846ba74149c301a7ff5c7f1afc507f2cfd207cfe0edc060507bf
 //
-// Input: schemas/typed-current-result.schema.json
-// sha256=af1796a65736414a650ecb791939112f02920d691fd8ee4b9e46397ad70aadbd
+// Input: schemas/current-state.schema.json
+// sha256=feba0ff19e227c276a3792aaed506b6534bf9ff8ce6c2e91a0ab36c04777785f
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=d200bd3e6d76abd1b6154781fb5e54f11fbbc834638cdc29554f83590127fdfa
+// sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
 
 /// Counterpart: `event-payload.schema.json#/$defs/cross_object_redaction_payload`.
 /// Counterpart for
@@ -38,7 +38,7 @@ pub struct CrossObjectRedactionPayload {
     pub preserve: Option<Vec<String>>,
 }
 
-/// Counterpart: `typed-current-result.schema.json#/$defs/object_redaction_entry`.
+/// Counterpart: `current-state.schema.json#/$defs/object_redaction_entry`.
 /// One tagged `object_redaction` assertion: the accepting Event's canonical
 /// dot and its unassembled redact payload.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -48,9 +48,9 @@ pub struct ObjectRedactionEntry {
     pub value: ObjectRedactionAssertionValue,
 }
 
-/// Counterpart: `typed-current-result.schema.json#/$defs/object_redaction_value`.
-/// Closed value of the `object_redaction` typed current result
-/// (`typed-current-result.schema.json#/$defs/object_redaction_value`): the
+/// Counterpart: `current-state.schema.json#/$defs/object_redaction_value`.
+/// Closed value of the `object_redaction` current state
+/// (`current-state.schema.json#/$defs/object_redaction_value`): the
 /// canonically sorted dot set of committed redactions of one subject. Both
 /// writers only add a dot, and the object's own `state` and `redaction_ref`
 /// are never mirrored here.

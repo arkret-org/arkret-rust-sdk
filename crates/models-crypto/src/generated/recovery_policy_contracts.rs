@@ -2,22 +2,22 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/recovery-policy.schema.json
-// sha256=819fc1da2cfe93f35ca0ee9802a6a621f227e22d8ec61d499bb11721f546a741
+// sha256=64ee8fa0a54cb044195141e91cfb8989320d304f2ebef750eaa857ef712a4b05
 //
 // Input: schemas/time.schema.json
 // sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
 //
 // Input: schemas/call-recording-artifact.schema.json
-// sha256=d8f6f18b12611c37cf56573ef2cffe8d817a978f0df348bfc1d9a003ad576d92
+// sha256=cb62b6ebc010c0a6b7362f6ec3c71b47d1df97d0c3b5252009bd350627cafa7b
 //
 // Input: schemas/account-operations.schema.json
-// sha256=5b7dba680c2083d0bebc26ad32e7d37293d150cece8f2298a40bf382e7f31405
+// sha256=78c6503698cd43571f2b25543013f9036927ef9bfd005e71377ad3006f4a64d4
 //
 // Input: schemas/common-ids.schema.json
-// sha256=14226f0ac83e4d06639ad791cc0e52e0eb1c3b128cd4c8c12308a99b795141e4
+// sha256=0cc25a02fe0d9a94f6e41f2cf8f64e492ba36362f1e69a699cf1e684924837ee
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=d200bd3e6d76abd1b6154781fb5e54f11fbbc834638cdc29554f83590127fdfa
+// sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
 
 /// Counterpart: `recovery-policy.schema.json#/$defs/recovery_key_entry`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -135,11 +135,11 @@ pub struct RecoveryAuthorityStreamHead {
     pub observed_at: Option<DateTime<Utc>>,
 }
 
-/// Counterpart: `recovery-policy.schema.json#/$defs/recovery_policy_active_outcome`.
+/// Counterpart: `recovery-policy.schema.json#/$defs/recovery_policy_status_view`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RecoveryPolicyActiveOutcome {
+pub struct RecoveryPolicyStatusView {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
     pub account_id: Option<AccountId>,
@@ -154,17 +154,17 @@ pub struct RecoveryPolicyActiveOutcome {
         serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional_timestamp"
     )]
-    pub as_of: Option<DateTime<Utc>>,
+    pub evaluated_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
     pub authority_stream_head: Option<RecoveryAuthorityStreamHead>,
 }
 
-/// Counterpart: `recovery-policy.schema.json#/$defs/recovery_policy_publish_outcome`.
+/// Counterpart: `recovery-policy.schema.json#/$defs/recovery_policy_publish_response_body`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RecoveryPolicyPublishOutcome {
+pub struct RecoveryPolicyPublishResponseBody {
     pub policy_id: PolicyId,
     pub account_id: AccountId,
     pub version: u64,
@@ -173,11 +173,11 @@ pub struct RecoveryPolicyPublishOutcome {
     pub accepted_at: DateTime<Utc>,
 }
 
-/// Counterpart: `recovery-policy.schema.json#/properties/auth_data`.
+/// Counterpart: `recovery-policy.schema.json#/properties/signature_proof`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RecoveryPolicyAuthData {
+pub struct RecoveryPolicySignatureProof {
     pub verification_method: DidUrl,
     pub signature_algorithm: RecoverySignatureAlgorithm,
     pub signature: Base64UrlString,

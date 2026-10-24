@@ -9,7 +9,7 @@ use arkret_models_collaboration::agent_operations::{
 };
 use arkret_models_collaboration::agent_scope::AgentKeyPairRequestBody;
 use arkret_models_collaboration::authority_commit::{
-    PeerAuthoritySubmitRequest, PeerRegisteredAtomicUnit, SelfAuthoritySubmitRequest,
+    PeerAuthoritySubmitRequestBody, PeerRegisteredAtomicUnit, SelfAuthoritySubmitRequestBody,
 };
 use arkret_models_collaboration::consent_operations::ConsentReplaceRequestBody;
 use arkret_models_collaboration::contact_operations::{
@@ -26,7 +26,7 @@ use arkret_models_collaboration::message_authoring::MessageSubmitRequestBody;
 use arkret_models_collaboration::objects::read_receipts::ReadCursorAdvanceRequestBody;
 use arkret_models_collaboration::sidecar_operations::SidecarEnsureRequestBody;
 use arkret_models_collaboration::strand_watch_operations::{
-    PeerWatchAuditReadRequest, WatchAuditReadRequest,
+    PeerWatchAuditReadRequestBody, WatchAuditReadRequestBody,
 };
 use arkret_models_identity::account::{
     AccountDataDeleteRequestBody, AccountDataReplaceRequestBody,
@@ -35,8 +35,8 @@ use arkret_models_integration::{
     AppletInstallRequestBody, AppletRevokeRequestBody, AppletTransactionRequestBody,
 };
 use arkret_wire::{
-    ActorPrivateEventSubmitRequestBody, AuthoritySubmitRequest, Event, EventAdmissionSubmission,
-    EventsSubmitBatchRequestBody, MlsCommitSubmission, RealmCommit,
+    ActorPrivateEventSubmitRequestBody, AuthoritySubmitRequestBody, Event,
+    EventAdmissionSubmission, EventsSubmitBatchRequestBody, MlsCommitSubmission, RealmCommit,
 };
 
 mod sealed {
@@ -112,7 +112,7 @@ request!(
     self.validate()
 );
 request!(
-    PeerWatchAuditReadRequest,
+    PeerWatchAuditReadRequestBody,
     self,
     vec![&self.audit_submission.event],
     self.validate()
@@ -142,7 +142,7 @@ request!(
     self.validate()
 );
 request!(
-    AuthoritySubmitRequest,
+    AuthoritySubmitRequestBody,
     self,
     match self {
         Self::Event(value) => vec![&value.event],
@@ -206,7 +206,7 @@ request!(
     canonical_shape(self)
 );
 request!(
-    WatchAuditReadRequest,
+    WatchAuditReadRequestBody,
     self,
     vec![&self.audit_submission.event],
     self.validate()
@@ -292,7 +292,7 @@ request!(
 );
 
 request!(
-    arkret_models_integration::AppletManagedActorAuthorOutcome,
+    arkret_models_integration::AppletManagedActorAuthorResponseBody,
     self,
     vec![&self.create_event],
     canonical_shape(self)
@@ -344,7 +344,7 @@ impl PublicationRequest for AppletTransactionRequestBody {
     }
 }
 request!(
-    SelfAuthoritySubmitRequest,
+    SelfAuthoritySubmitRequestBody,
     self,
     match self {
         Self::Event(value) => vec![&value.event],
@@ -359,9 +359,9 @@ request!(
     self.validate()
 );
 
-impl sealed::Sealed for PeerAuthoritySubmitRequest {}
+impl sealed::Sealed for PeerAuthoritySubmitRequestBody {}
 
-impl PublicationRequest for PeerAuthoritySubmitRequest {
+impl PublicationRequest for PeerAuthoritySubmitRequestBody {
     fn producer_events(&self) -> Vec<&Event> {
         match self {
             Self::AuthorityForwardEvent(value) => vec![&value.event_submission.event],
@@ -430,7 +430,7 @@ impl PublicationRequest for PeerAuthoritySubmitRequest {
 
 // A durable security transaction publishes these exact producer batches later.
 request!(
-    arkret_models_crypto::SecurityTransactionCreateRequest,
+    arkret_models_crypto::SecurityTransactionCreateRequestBody,
     self,
     match self {
         Self::Recovery(value) => value

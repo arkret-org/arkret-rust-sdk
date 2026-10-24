@@ -13,23 +13,19 @@ ROOT = Path(__file__).resolve().parents[1]
 OWNERS = ("wire", "models-identity", "models-crypto", "models-collaboration",
           "models-discovery", "models-integration")
 DECLARATION = re.compile(r"\bpub\s+(?:struct|enum)\s+(\w+)")
-REJECTED = ("Result", "Candidate", "Item", "ResponseBody", "Response",
+REJECTED = ("Result", "Candidate", "Item", "Response",
             "Wrapper", "Info", "Details", "ResBody", "ReqBody")
 EXCEPTIONS = {
-    ("wire/src/platform.rs", "WasmHttpResponseBody"):
+    ("wire/src/platform.rs", "WasmHttpResponse"):
         "Local browser transport carrier for an HTTP response, not an Arkret operation DTO.",
     ("models-collaboration/src/governance/realm_join_intake.rs", "RealmJoinCandidate"):
         "Domain subject: a candidate service for joining a Realm.",
     ("models-collaboration/src/call_signal.rs", "IceCandidate"):
         "External ICE candidate term.",
-    ("models-collaboration/src/events_payloads/call.rs", "CallStatePayloadRecordingResult"):
+    ("models-collaboration/src/events_payloads/call.rs", "CallRecordingMetadata"):
         "Domain artifact: a produced call recording, not an endpoint result wrapper.",
-    ("models-collaboration/src/events_payloads/call.rs", "CallStatePayloadTranscriptResult"):
+    ("models-collaboration/src/events_payloads/call.rs", "CallTranscriptMetadata"):
         "Domain artifact: a produced call transcript, not an endpoint result wrapper.",
-    ("models-collaboration/src/events_payloads/generated/poll_contracts.rs", "PollResponseBody"):
-        "Domain response to a poll inside a content block, not an HTTP response.",
-    ("models-collaboration/src/poll.rs", "VerifiedPollResponse"):
-        "Domain poll answer bound to a verified authority cut, selections and accepted Event; non-serialized reducer input, not an operation response wrapper.",
     ("models-collaboration/src/sync_frames/account_subscribe.rs", "AccountSubscribeSnapshotResult"):
         "Non-wire SDK orchestration result; no serialization or schema component.",
     ("models-collaboration/src/governance/generated/moderation_queue_contracts.rs", "ModerationQueueItem"):
@@ -45,8 +41,12 @@ def violations(path: str, source: str) -> list[str]:
     # Reuse the audit lexer so declarations in comments and strings do not count.
     from wire_value_audit import mask_non_code
 
-    return [name for name in DECLARATION.findall(mask_non_code(source))
-            if name.endswith(REJECTED) and (path, name) not in EXCEPTIONS]
+    masked = mask_non_code(source)
+    errors = [name for name in DECLARATION.findall(masked)
+              if name.endswith(REJECTED) and (path, name) not in EXCEPTIONS]
+    errors.extend(name for name in re.findall(r'\bpub\s+type\s+(\w+)\s*=', masked)
+                  if name.endswith(('RequestBody', 'ResponseBody')))
+    return errors
 
 
 def main() -> int:

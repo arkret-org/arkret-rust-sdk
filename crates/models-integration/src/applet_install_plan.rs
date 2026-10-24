@@ -4,8 +4,7 @@ use arkret_wire::{AppletId, Hash, PlanId, Result, SchemaId, ScopeRef, WireError,
 use serde::{Deserialize, Serialize};
 
 use crate::artifacts_applet::{
-    CapabilityConstraint, DeniedScope, E2eeEffect, EventSubmission, NamespaceConflict, ScopeGrant,
-    WidgetEffect,
+    DeniedScope, E2eeEffect, NamespaceConflict, PlannedEvent, ScopeGrant, WidgetEffect,
 };
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -22,8 +21,7 @@ pub struct AppletInstallPlan {
     pub requested_scopes: Vec<String>,
     pub approved_scopes: Vec<ScopeGrant>,
     pub denied_scopes: Vec<DeniedScope>,
-    pub event_submissions: Vec<EventSubmission>,
-    pub capability_constraints: Vec<CapabilityConstraint>,
+    pub planned_events: Vec<PlannedEvent>,
     pub namespace_conflicts: Vec<NamespaceConflict>,
     pub e2ee_effect: E2eeEffect,
     pub widget_effect: WidgetEffect,

@@ -54,7 +54,7 @@ fn station(seed: u8, host: &str) -> Station {
             provider_endpoint: &"https://identity.example/".parse().unwrap(),
             registration_key: &registration,
             also_known_as: &[],
-            version_time: registered_at,
+            version_created_at: registered_at,
             did_key_fragment: None,
         },
     )
@@ -126,10 +126,10 @@ fn destination() -> DidCoreId {
 }
 fn body_digest_for_event(event: &Event) -> arkret_wire::Hash {
     use arkret_models_collaboration::authority_commit::{
-        AuthorityForwardBranch, PeerAuthorityForwardEventRequest, authority_forward_body_digest,
+        AuthorityForwardBranch, PeerAuthorityForwardEventRequestBody, authority_forward_body_digest,
     };
     // Evidence is inserted after signing; the sole body preimage excludes exactly that field.
-    authority_forward_body_digest(&PeerAuthorityForwardEventRequest {
+    authority_forward_body_digest(&PeerAuthorityForwardEventRequestBody {
         branch: AuthorityForwardBranch::AuthorityForward,
         event_submission: arkret_wire::EventAdmissionSubmission::new(event.clone()),
         mls_genesis_material: None,
@@ -641,7 +641,7 @@ fn forward_original_source_fact_is_not_the_target_and_binds_destination_and_body
     .unwrap();
     assert!(verify(&evidence, &destination(), &other_digest).is_err());
     let mut wrong_key = fact.clone();
-    wrong_key.key.public_key_b64u =
+    wrong_key.key.public_key_base64url =
         arkret_wire::Base64UrlString::new(arkret_canonical::base64url_encode(
             SigningKey::from_bytes(&[8; 32]).verifying_key().as_bytes(),
         ))
@@ -666,7 +666,10 @@ fn forward_original_source_fact_is_not_the_target_and_binds_destination_and_body
     let alternate_fact = verify(&alternate, &destination(), &body_digest_for_event(&event))
         .unwrap()
         .into_fact();
-    assert_eq!(fact.key.public_key_b64u, alternate_fact.key.public_key_b64u);
+    assert_eq!(
+        fact.key.public_key_base64url,
+        alternate_fact.key.public_key_base64url
+    );
     assert_ne!(fact.digest().unwrap(), alternate_fact.digest().unwrap());
     let mut core_only = evidence.clone();
     let mut transcript: serde_json::Value = serde_json::from_slice(
@@ -703,9 +706,9 @@ fn forward_original_source_fact_is_not_the_target_and_binds_destination_and_body
 
     // The signed body digest covers the actual typed peer wrapper, excluding only its evidence.
     use arkret_models_collaboration::authority_commit::{
-        AuthorityForwardBranch, PeerAuthorityForwardEventRequest, authority_forward_body_digest,
+        AuthorityForwardBranch, PeerAuthorityForwardEventRequestBody, authority_forward_body_digest,
     };
-    let mut body = PeerAuthorityForwardEventRequest {
+    let mut body = PeerAuthorityForwardEventRequestBody {
         branch: AuthorityForwardBranch::AuthorityForward,
         event_submission: arkret_wire::EventAdmissionSubmission::new(event.clone()),
         mls_genesis_material: None,
@@ -723,7 +726,7 @@ fn forward_original_source_fact_is_not_the_target_and_binds_destination_and_body
     );
     body.validate().unwrap();
     verify(&actual_evidence, &destination(), &actual_body_digest).unwrap();
-    let reopened: PeerAuthorityForwardEventRequest =
+    let reopened: PeerAuthorityForwardEventRequestBody =
         serde_json::from_value(serde_json::to_value(&body).unwrap()).unwrap();
     assert_eq!(
         authority_forward_body_digest(&reopened).unwrap(),

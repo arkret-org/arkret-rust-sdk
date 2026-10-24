@@ -2,10 +2,10 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/identity-receipt.schema.json
-// sha256=3a9c3ba080d5b7d12158330e325fc7a5e9048312f012bae545d24976f018a15c
+// sha256=24697f76ae0229af961fcf35404196e0fcc0677398a2d3259c109bc027bd4951
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=d200bd3e6d76abd1b6154781fb5e54f11fbbc834638cdc29554f83590127fdfa
+// sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
 
 /// Counterpart: `identity-receipt.schema.json`.
 /// Signed identity receipt from a DID registry
@@ -18,7 +18,7 @@ pub struct DidRegistryReceipt {
     pub schema: String,
     pub receipt_id: arkret_wire::ReceiptId,
     pub subject_did: Did,
-    pub seq: u64,
+    pub sequence: u64,
     pub accepted_entry_digest: Hash,
     pub registry_id: DidCoreId,
     pub witness_role: IdentityReceiptWitnessRole,

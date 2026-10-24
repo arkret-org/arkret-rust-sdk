@@ -636,7 +636,7 @@ impl<'de> serde::de::Visitor<'de> for CanonicalValueVisitor {
         deserializer.deserialize_any(self)
     }
 
-    fn visit_seq<A>(self, mut seq: A) -> std::result::Result<Value, A::Error>
+    fn visit_seq<A>(self, mut sequence: A) -> std::result::Result<Value, A::Error>
     where
         A: serde::de::SeqAccess<'de>,
     {
@@ -646,7 +646,7 @@ impl<'de> serde::de::Visitor<'de> for CanonicalValueVisitor {
             )));
         }
         let mut items = Vec::new();
-        while let Some(item) = seq.next_element_seed(CanonicalValueSeed {
+        while let Some(item) = sequence.next_element_seed(CanonicalValueSeed {
             depth: self.depth + 1,
         })? {
             items.push(item);
@@ -1161,13 +1161,13 @@ mod tests {
             "actor_id": "ak:did_core:web:alice.example",
             "proof": { "jws": "..." },
             "proofs": [{ "jws": "..." }],
-            "seq": 7,
+            "sequence": 7,
         });
 
         let unsigned = unsigned_value(&signed, &["proof", "proofs"]).unwrap();
         assert_eq!(
             unsigned,
-            json!({ "actor_id": "ak:did_core:web:alice.example", "seq": 7 })
+            json!({ "actor_id": "ak:did_core:web:alice.example", "sequence": 7 })
         );
 
         // An absent member is not an error: an unsigned draft and a family that

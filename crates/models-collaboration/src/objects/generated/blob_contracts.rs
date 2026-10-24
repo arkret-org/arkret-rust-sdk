@@ -2,10 +2,10 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/blob-operations.schema.json
-// sha256=22b779f50a4244645e0612c92ca7dece6ceb7df005f32fa36391c12d47664955
+// sha256=22ea9fba9b25f14681d440a87a556beed4b74611057513e66a5178d01fdfa094
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=d200bd3e6d76abd1b6154781fb5e54f11fbbc834638cdc29554f83590127fdfa
+// sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
 
 /// Counterpart: `blob-operations.schema.json#/$defs/signature`.
 /// Counterpart for `spec/v1/artifacts/schemas/blob-operations.schema.json#/$defs/upload_receipt`.
@@ -15,5 +15,5 @@
 pub struct SignatureValue {
     pub kid: DidUrl,
     pub signature_algorithm: String,
-    pub sig: String,
+    pub signature: String,
 }

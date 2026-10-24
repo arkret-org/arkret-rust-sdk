@@ -350,17 +350,19 @@ impl SignerKeysQueryRequestBody {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ResolvedSignerKey {
-    pub public_key_b64u: Base64UrlString,
+    pub public_key_base64url: Base64UrlString,
     pub authorization_ref: CommittedEventRef,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub revision: CurrentRevision,
     /// Governance generation verified by `revision.commit_id`.
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub governance_generation: u64,
 }
 
 impl ResolvedSignerKey {
     pub fn validate(&self) -> Result<()> {
-        validate_ed25519_public_key(self.public_key_b64u.as_str())?;
+        validate_ed25519_public_key(self.public_key_base64url.as_str())?;
         if self.authorization_ref.commit_id == self.revision.commit_id
             && self.authorization_ref.stream_position != self.revision.stream_position
         {
@@ -442,7 +444,7 @@ impl ResolvedSignerKey {
             ));
         }
         let resolved = Self {
-            public_key_b64u: key.public_key_b64u,
+            public_key_base64url: key.public_key_base64url,
             authorization_ref,
             revision,
             governance_generation,
@@ -457,12 +459,12 @@ impl ResolvedSignerKey {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct CurrentDeviceSigningKey {
-    pub public_key_b64u: Base64UrlString,
+    pub public_key_base64url: Base64UrlString,
 }
 
 impl CurrentDeviceSigningKey {
     pub fn validate(&self) -> Result<()> {
-        validate_ed25519_public_key(self.public_key_b64u.as_str())
+        validate_ed25519_public_key(self.public_key_base64url.as_str())
     }
 }
 
@@ -470,7 +472,7 @@ impl CurrentDeviceSigningKey {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ServiceHistoricalSigningKey {
-    pub public_key_b64u: Base64UrlString,
+    pub public_key_base64url: Base64UrlString,
     pub applet_id: arkret_wire::AppletId,
     pub registration_epoch: arkret_wire::Hash,
     pub registration_ref: CommittedEventRef,
@@ -479,7 +481,7 @@ pub struct ServiceHistoricalSigningKey {
 }
 impl ServiceHistoricalSigningKey {
     pub fn validate(&self) -> Result<()> {
-        validate_ed25519_public_key(self.public_key_b64u.as_str())?;
+        validate_ed25519_public_key(self.public_key_base64url.as_str())?;
         let realm = self.effective_scope.realm_id_opt().ok_or_else(|| {
             self_signer_error(
                 ErrorCode::SchemaViolation,
@@ -544,10 +546,10 @@ enum QueryKeyWireRef<'a> {
 /// resolved answers additionally carry the authorization-effective
 /// `accepted_at`; current answers cannot carry that member. The enum therefore
 /// mirrors the schema's closed outcome branches instead of treating the time as
-/// a nullable or reusable current-result field.
+/// a nullable or reusable current-state field.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum SignerKeyQueryOutcome {
+pub enum SignerKeyResolution {
     HistoricalRealmDeviceResolved {
         selector: SignerKeyQuerySelector,
         key: CurrentDeviceSigningKey,
@@ -579,7 +581,7 @@ pub enum SignerKeyQueryOutcome {
     Unavailable { selector: SignerKeyQuerySelector },
 }
 
-impl SignerKeyQueryOutcome {
+impl SignerKeyResolution {
     pub fn selector(&self) -> &SignerKeyQuerySelector {
         match self {
             Self::HistoricalRealmDeviceResolved { selector, .. }
@@ -752,7 +754,7 @@ struct SignerKeyQueryResultWireRef<'a> {
     accepted_at: Option<DateTime<Utc>>,
 }
 
-impl Serialize for SignerKeyQueryOutcome {
+impl Serialize for SignerKeyResolution {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -876,7 +878,7 @@ impl Serialize for SignerKeyQueryOutcome {
     }
 }
 
-impl<'de> Deserialize<'de> for SignerKeyQueryOutcome {
+impl<'de> Deserialize<'de> for SignerKeyResolution {
     fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -988,7 +990,7 @@ impl<'de> Deserialize<'de> for SignerKeyQueryOutcome {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct SignerKeysQueryOutcome {
+pub struct SignerKeyQueryResponseBody {
     pub request_id: RequestId,
     pub realm_id: RealmId,
     #[serde(
@@ -997,7 +999,7 @@ pub struct SignerKeysQueryOutcome {
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub recipient_account_id: Option<AccountId>,
-    pub results: Vec<SignerKeyQueryOutcome>,
+    pub resolutions: Vec<SignerKeyResolution>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
@@ -1006,7 +1008,7 @@ pub struct SignerKeysQueryOutcome {
     pub recipient_actor_id: Option<ActorId>,
 }
 
-impl SignerKeysQueryOutcome {
+impl SignerKeyQueryResponseBody {
     pub fn validate(&self) -> Result<()> {
         validate_self_signer_bytes(self, SELF_SIGNER_OUTCOME_MAX_BYTES, false)?;
         validate_query_recipient(
@@ -1014,14 +1016,14 @@ impl SignerKeysQueryOutcome {
             self.recipient_actor_id.as_ref(),
             &self.realm_id,
         )?;
-        if self.results.is_empty() || self.results.len() > MAX_SIGNER_KEY_QUERIES {
+        if self.resolutions.is_empty() || self.resolutions.len() > MAX_SIGNER_KEY_QUERIES {
             return Err(self_signer_error(
                 ErrorCode::SchemaViolation,
-                "signer-key outcome requires 1..=64 results",
+                "signer-key outcome requires 1..=64 resolutions",
             ));
         }
         let mut seen = BTreeSet::new();
-        for result in &self.results {
+        for result in &self.resolutions {
             result.validate(&self.realm_id)?;
             if !seen.insert(arkret_canonical::canonical_json_bytes(result.selector())?) {
                 return Err(self_signer_error(
@@ -1052,7 +1054,7 @@ impl SignerKeysQueryOutcome {
             .map(arkret_canonical::canonical_json_bytes)
             .collect::<std::result::Result<_, _>>()?;
         let answered: BTreeSet<Vec<u8>> = self
-            .results
+            .resolutions
             .iter()
             .map(|result| arkret_canonical::canonical_json_bytes(result.selector()))
             .collect::<std::result::Result<_, _>>()?;
@@ -1115,7 +1117,7 @@ mod tests {
                 commit_id: RealmCommitId::from_digest([0xfe; 32]),
                 stream_position: revision_position,
             },
-            public_key_b64u: public_key(),
+            public_key_base64url: public_key(),
             authorization_ref: authorization,
             governance_generation: 4,
         }
@@ -1155,7 +1157,7 @@ mod tests {
             },
         };
         let key = ServiceHistoricalSigningKey {
-            public_key_b64u: public_key(),
+            public_key_base64url: public_key(),
             applet_id: arkret_wire::AppletId::new("ak:applet:018f0f51-7b44-7a2e-8c2f-9b1d6e3a4c5d")
                 .unwrap(),
             registration_epoch: arkret_wire::Hash::new(format!("sha256:{}", "12".repeat(32)))
@@ -1166,7 +1168,7 @@ mod tests {
                 realm_id: realm_id(),
             },
         };
-        let result = SignerKeyQueryOutcome::HistoricalServiceResolved {
+        let result = SignerKeyResolution::HistoricalServiceResolved {
             selector: selector.clone(),
             key,
             accepted_at: accepted_at(),
@@ -1174,20 +1176,20 @@ mod tests {
         result.validate(&realm_id()).unwrap();
         let value = serde_json::to_value(&result).unwrap();
         assert_eq!(
-            serde_json::from_value::<SignerKeyQueryOutcome>(value.clone()).unwrap(),
+            serde_json::from_value::<SignerKeyResolution>(value.clone()).unwrap(),
             result
         );
         for member in ["key", "accepted_at"] {
             let mut missing = value.clone();
             missing.as_object_mut().unwrap().remove(member);
-            assert!(serde_json::from_value::<SignerKeyQueryOutcome>(missing).is_err());
+            assert!(serde_json::from_value::<SignerKeyResolution>(missing).is_err());
             let mut null = value.clone();
             null[member] = json!(null);
-            assert!(serde_json::from_value::<SignerKeyQueryOutcome>(null).is_err());
+            assert!(serde_json::from_value::<SignerKeyResolution>(null).is_err());
         }
         let mut wrong = value;
         wrong["selector"]["sender_kind"] = json!("agent");
-        assert!(serde_json::from_value::<SignerKeyQueryOutcome>(wrong).is_err());
+        assert!(serde_json::from_value::<SignerKeyResolution>(wrong).is_err());
         let mut current = serde_json::to_value(selector).unwrap();
         current["verification_mode"] = json!("current_admission");
         current
@@ -1251,14 +1253,14 @@ mod tests {
     #[test]
     fn a_resolved_result_without_a_key_is_not_representable() {
         let value = json!({ "status": "resolved", "selector": device_selector() });
-        assert!(serde_json::from_value::<SignerKeyQueryOutcome>(value).is_err());
+        assert!(serde_json::from_value::<SignerKeyResolution>(value).is_err());
 
         let value = json!({
             "status": "unavailable",
             "selector": device_selector(),
             "key": resolved_key(committed_ref(4, 0x11), 9),
         });
-        assert!(serde_json::from_value::<SignerKeyQueryOutcome>(value).is_err());
+        assert!(serde_json::from_value::<SignerKeyResolution>(value).is_err());
     }
 
     #[test]
@@ -1271,16 +1273,16 @@ mod tests {
             "key": key,
             "accepted_at": "2026-09-20T00:00:00.000Z",
         });
-        let result: SignerKeyQueryOutcome = serde_json::from_value(value.clone()).unwrap();
+        let result: SignerKeyResolution = serde_json::from_value(value.clone()).unwrap();
         assert_eq!(serde_json::to_value(result).unwrap(), value);
 
         let mut missing = value.clone();
         missing.as_object_mut().unwrap().remove("accepted_at");
-        assert!(serde_json::from_value::<SignerKeyQueryOutcome>(missing).is_err());
+        assert!(serde_json::from_value::<SignerKeyResolution>(missing).is_err());
 
         let mut noncanonical = value;
         noncanonical["accepted_at"] = json!("2026-09-20T00:00:00Z");
-        assert!(serde_json::from_value::<SignerKeyQueryOutcome>(noncanonical).is_err());
+        assert!(serde_json::from_value::<SignerKeyResolution>(noncanonical).is_err());
 
         let explicit_null = json!({
             "selector": historical_agent_selector(committed_ref(12, 0x11)),
@@ -1288,7 +1290,7 @@ mod tests {
             "key": resolved_key(committed_ref(7, 0x22), 15),
             "accepted_at": null,
         });
-        assert!(serde_json::from_value::<SignerKeyQueryOutcome>(explicit_null).is_err());
+        assert!(serde_json::from_value::<SignerKeyResolution>(explicit_null).is_err());
 
         let current_with_timestamp = json!({
             "selector": device_selector(),
@@ -1296,16 +1298,14 @@ mod tests {
             "key": resolved_key(committed_ref(7, 0x22), 15),
             "accepted_at": "2026-09-20T00:00:00.000Z",
         });
-        assert!(serde_json::from_value::<SignerKeyQueryOutcome>(current_with_timestamp).is_err());
+        assert!(serde_json::from_value::<SignerKeyResolution>(current_with_timestamp).is_err());
 
         let unavailable_with_null_key = json!({
             "selector": device_selector(),
             "status": "unavailable",
             "key": null,
         });
-        assert!(
-            serde_json::from_value::<SignerKeyQueryOutcome>(unavailable_with_null_key).is_err()
-        );
+        assert!(serde_json::from_value::<SignerKeyResolution>(unavailable_with_null_key).is_err());
     }
 
     #[test]
@@ -1322,7 +1322,7 @@ mod tests {
     fn historical_target_and_authorization_are_independent_complete_coordinates() {
         let target = committed_ref(12, 0x11);
         let authorization = committed_ref(7, 0x22);
-        let result = SignerKeyQueryOutcome::HistoricalResolved {
+        let result = SignerKeyResolution::HistoricalResolved {
             selector: historical_agent_selector(target),
             key: resolved_key(authorization, 15),
             accepted_at: accepted_at(),
@@ -1340,7 +1340,7 @@ mod tests {
         foreign_target.stream_ref = CommitStreamRef::Realm {
             realm_id: foreign_realm.clone(),
         };
-        let target_error = SignerKeyQueryOutcome::HistoricalResolved {
+        let target_error = SignerKeyResolution::HistoricalResolved {
             selector: historical_agent_selector(foreign_target),
             key: resolved_key(committed_ref(7, 0x22), 15),
             accepted_at: accepted_at(),
@@ -1353,7 +1353,7 @@ mod tests {
         foreign_authorization.stream_ref = CommitStreamRef::Realm {
             realm_id: foreign_realm,
         };
-        SignerKeyQueryOutcome::HistoricalResolved {
+        SignerKeyResolution::HistoricalResolved {
             selector: historical_agent_selector(committed_ref(12, 0x11)),
             key: resolved_key(foreign_authorization, 15),
             accepted_at: accepted_at(),
@@ -1371,7 +1371,7 @@ mod tests {
         let station_key = StationSigningKey {
             actor: actor(),
             verification_method: DidUrl::new(METHOD).unwrap(),
-            public_key_b64u: public_key(),
+            public_key_base64url: public_key(),
             authorization_ref: EventId::from_digest(
                 arkret_canonical::DigestSuite::Sha256,
                 [0x11; 32],
@@ -1422,19 +1422,19 @@ mod tests {
         };
         request.validate().unwrap();
 
-        let outcome = SignerKeysQueryOutcome {
+        let outcome = SignerKeyQueryResponseBody {
             request_id: request.request_id.clone(),
             realm_id: realm_id(),
             recipient_account_id: Some(account_id()),
             recipient_actor_id: None,
-            results: vec![SignerKeyQueryOutcome::Unavailable {
+            resolutions: vec![SignerKeyResolution::Unavailable {
                 selector: device_selector(),
             }],
         };
         outcome.validate_for_request(&request).unwrap();
 
-        let unasked = SignerKeysQueryOutcome {
-            results: vec![SignerKeyQueryOutcome::Unavailable {
+        let unasked = SignerKeyQueryResponseBody {
+            resolutions: vec![SignerKeyResolution::Unavailable {
                 selector: historical_agent_selector(committed_ref(4, 0x11)),
             }],
             ..outcome

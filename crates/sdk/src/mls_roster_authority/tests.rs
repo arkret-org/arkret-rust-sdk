@@ -1,6 +1,6 @@
 use arkret_identity::{DidKeyResolver, DidResolver};
 use arkret_models_crypto::{
-    KeyOperationSignature, PeerKeyPackageClaimReceipt, PeerKeyPackagesClaimUnsignedRequest,
+    KeyOperationSignature, PeerKeyPackageClaimReceipt, PeerKeyPackagesClaimFields,
 };
 use arkret_models_identity::{
     AuthenticatedServiceResolution, ResolutionDidBindingEvidenceKind,
@@ -285,14 +285,14 @@ fn manifest() -> (
         target_epoch: 0,
         authority_head_commit_event_ref: event(),
         caller_actor_id: request.caller_actor_id.clone(),
-        total_records: 1,
+        total_record_count: 1,
         page_count: 1,
         records_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
         issued_at: "2026-09-29T00:00:00Z".parse().unwrap(),
         signature: KeyOperationSignature {
             kid: NonEmptyString::new("did:web:station.example#signing-1").unwrap(),
             signature_algorithm: Some(NonEmptyString::new("Ed25519").unwrap()),
-            sig: Base64UrlString::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+            signature: Base64UrlString::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
                 .unwrap(),
         },
     };
@@ -310,7 +310,7 @@ fn roster_manifest_signature_transcript_rejects_mutations_and_wrong_domain() {
     extra_pages.page_count = 2;
     assert!(extra_pages.validate_for_request(&request).is_err());
     let mut nine_records_in_one_page = manifest.clone();
-    nine_records_in_one_page.total_records = 9;
+    nine_records_in_one_page.total_record_count = 9;
     assert!(
         nine_records_in_one_page
             .validate_for_request(&request)
@@ -361,7 +361,7 @@ fn roster_manifest_signature_transcript_rejects_mutations_and_wrong_domain() {
             .is_err()
         );
     }
-    manifest.total_records = 9;
+    manifest.total_record_count = 9;
     assert!(
         arkret_signatures::keypackages::verify_keypackage_signing_input(
             &public_key,
@@ -388,7 +388,7 @@ fn roster_manifest_signature_transcript_rejects_mutations_and_wrong_domain() {
 
 fn signed_two_page_roster() -> (
     MlsRosterAuthorityReadRequestBody,
-    Vec<MlsRosterAuthorityReadOutcome>,
+    Vec<MlsRosterAuthorityReadResponseBody>,
     AuthenticatedServiceResolution,
 ) {
     let seed = [41_u8; 32];
@@ -433,14 +433,14 @@ fn signed_two_page_roster() -> (
     manifest.target_commit_event_ref = commit.clone();
     manifest.target_epoch = 1;
     manifest.authority_head_commit_event_ref = commit.clone();
-    manifest.total_records = 2;
+    manifest.total_record_count = 2;
     manifest.page_count = 2;
     let at = manifest.issued_at;
     let actor = ActorId::account(arkret_wire::AccountId::new(
         station.clone(),
         station.clone(),
     ));
-    let claim_request: PeerKeyPackagesClaimUnsignedRequest = serde_json::from_value(
+    let claim_request: PeerKeyPackagesClaimFields = serde_json::from_value(
         serde_json::json!({
             "claim_request_id": "0123456789012345678901",
             "target_agent_id": station,
@@ -457,7 +457,7 @@ fn signed_two_page_roster() -> (
     let placeholder = || KeyOperationSignature {
         kid: NonEmptyString::new(method.clone()).unwrap(),
         signature_algorithm: Some(NonEmptyString::new("Ed25519").unwrap()),
-        sig: Base64UrlString::new("AQ").unwrap(),
+        signature: Base64UrlString::new("AQ").unwrap(),
     };
     let mut receipt = PeerKeyPackageClaimReceipt {
         claim_authority_ref: None,
@@ -503,8 +503,10 @@ fn signed_two_page_roster() -> (
             arkret_canonical::DigestSuite::Sha256,
             [14; 32],
         ),
-        leaf_signature_key_b64u: Base64UrlString::new(arkret_canonical::base64url_encode([7; 32]))
-            .unwrap(),
+        leaf_signature_key_base64url: Base64UrlString::new(arkret_canonical::base64url_encode(
+            [7; 32],
+        ))
+        .unwrap(),
         claim_record_digest: Hash::new(format!("sha256:{}", "3".repeat(64))).unwrap(),
         claim_receipt: receipt,
         attested_at: at,
@@ -520,7 +522,7 @@ fn signed_two_page_roster() -> (
         MlsRosterRecord::Genesis {
             genesis_event_ref: genesis,
             actor_id: actor.clone(),
-            leaf_signature_key_b64u: Base64UrlString::new(arkret_canonical::base64url_encode(
+            leaf_signature_key_base64url: Base64UrlString::new(arkret_canonical::base64url_encode(
                 [5; 32],
             ))
             .unwrap(),
@@ -536,7 +538,7 @@ fn signed_two_page_roster() -> (
             commit_event_ref: commit,
             consumed_proposal_ordinal: 0,
             sender_actor_id: actor,
-            proposal_wire_b64u: Base64UrlString::new("AQ").unwrap(),
+            proposal_wire_base64url: Base64UrlString::new("AQ").unwrap(),
             attestation,
             claim_issuer_resolution: None,
             attestor_resolution: resolution.clone(),
@@ -551,13 +553,13 @@ fn signed_two_page_roster() -> (
     )
     .unwrap();
     let pages = vec![
-        MlsRosterAuthorityReadOutcome {
+        MlsRosterAuthorityReadResponseBody {
             manifest: manifest.clone(),
             page_index: 0,
             records: vec![records[0].clone()],
             next_cursor: Some("AQ".to_owned()),
         },
-        MlsRosterAuthorityReadOutcome {
+        MlsRosterAuthorityReadResponseBody {
             manifest,
             page_index: 1,
             records: vec![records[1].clone()],
@@ -664,7 +666,7 @@ fn self_roster_preserves_original_records_and_rejects_key_or_transcript_substitu
     let mut changed = projected.clone();
     changed[1].add_signing_keys[0]
         .attestation_signing_key
-        .public_key_b64u =
+        .public_key_base64url =
         Base64UrlString::new(arkret_canonical::base64url_encode([9; 32])).unwrap();
     assert!(verify_mls_self_roster_authority_pages(&changed, &request, governance, head).is_err());
     let mut changed = projected.clone();
@@ -719,7 +721,7 @@ fn self_roster_station_uses_native_webvh_history_at_each_original_signature_time
             provider_endpoint: &endpoint,
             registration_key: &registration,
             also_known_as: &[],
-            version_time: claim_at - chrono::Duration::seconds(1),
+            version_created_at: claim_at - chrono::Duration::seconds(1),
             did_key_fragment: Some("notary-key"),
         },
         &old_seed,
@@ -745,7 +747,7 @@ fn self_roster_station_uses_native_webvh_history_at_each_original_signature_time
                 .verifying_key()
                 .as_bytes(),
         ),
-        version_time: claim_at + chrono::Duration::seconds(1),
+        version_created_at: claim_at + chrono::Duration::seconds(1),
     })
     .unwrap();
     let resolution = arkret_identity::build_authenticated_webvh_service_resolution(
@@ -814,10 +816,10 @@ fn self_roster_station_uses_native_webvh_history_at_each_original_signature_time
     assert_ne!(
         projected[1].add_signing_keys[0]
             .claim_receipt_signing_key
-            .public_key_b64u,
+            .public_key_base64url,
         projected[1].add_signing_keys[0]
             .attestation_signing_key
-            .public_key_b64u
+            .public_key_base64url
     );
     verify_mls_self_roster_authority_pages(&projected, &request, &station, head).unwrap();
     let mut wrong = projected;
@@ -840,7 +842,7 @@ fn self_roster_station_uses_native_webvh_history_at_each_original_signature_time
     );
 }
 
-fn resign_roster_pages(pages: &mut [MlsRosterAuthorityReadOutcome]) {
+fn resign_roster_pages(pages: &mut [MlsRosterAuthorityReadResponseBody]) {
     let records = pages
         .iter()
         .flat_map(|page| page.records.iter())
@@ -927,7 +929,7 @@ fn sidecar_add_attestation_preserves_exact_scope_and_historical_signature_checks
         project_did_to_core_id(&Did::new("did:web:another-station.example").unwrap()).unwrap();
     assert!(wrong.validate_shape().is_err());
     wrong = attestation;
-    wrong.leaf_signature_key_b64u =
+    wrong.leaf_signature_key_base64url =
         Base64UrlString::new(arkret_canonical::base64url_encode([7; 31])).unwrap();
     assert!(wrong.validate_shape().is_err());
 }
@@ -940,10 +942,11 @@ fn roster_pages_accept_byte_bounded_short_nonfinal_page_and_verify_two_historica
     while low < high {
         let candidate = (low + high).div_ceil(2);
         if let MlsRosterRecord::Add {
-            proposal_wire_b64u, ..
+            proposal_wire_base64url,
+            ..
         } = &mut pages[1].records[0]
         {
-            *proposal_wire_b64u =
+            *proposal_wire_base64url =
                 Base64UrlString::new(arkret_canonical::base64url_encode(vec![7; candidate]))
                     .unwrap();
         }
@@ -958,10 +961,11 @@ fn roster_pages_accept_byte_bounded_short_nonfinal_page_and_verify_two_historica
         }
     }
     if let MlsRosterRecord::Add {
-        proposal_wire_b64u, ..
+        proposal_wire_base64url,
+        ..
     } = &mut pages[1].records[0]
     {
-        *proposal_wire_b64u =
+        *proposal_wire_base64url =
             Base64UrlString::new(arkret_canonical::base64url_encode(vec![7; low])).unwrap();
     }
     resign_roster_pages(&mut pages);
@@ -993,7 +997,7 @@ fn roster_pages_accept_byte_bounded_short_nonfinal_page_and_verify_two_historica
 
     let mut invalid_receipt = pages.clone();
     if let MlsRosterRecord::Add { attestation, .. } = &mut invalid_receipt[1].records[0] {
-        attestation.claim_receipt.signature.sig = Base64UrlString::new("AQ").unwrap();
+        attestation.claim_receipt.signature.signature = Base64UrlString::new("AQ").unwrap();
     }
     resign_roster_pages(&mut invalid_receipt);
     assert!(
@@ -1009,7 +1013,7 @@ fn roster_pages_accept_byte_bounded_short_nonfinal_page_and_verify_two_historica
 
     let mut invalid_attestation = pages.clone();
     if let MlsRosterRecord::Add { attestation, .. } = &mut invalid_attestation[1].records[0] {
-        attestation.signature.sig = Base64UrlString::new("AQ").unwrap();
+        attestation.signature.signature = Base64UrlString::new("AQ").unwrap();
     }
     resign_roster_pages(&mut invalid_attestation);
     assert!(
@@ -1033,7 +1037,7 @@ fn roster_pages_reject_wrong_attestor_resolution_and_oversized_page() {
         .unwrap()
         .remove("attestor_resolution");
     assert!(serde_json::from_value::<MlsRosterRecord>(missing_closure).is_err());
-    let verify = |candidate: &[MlsRosterAuthorityReadOutcome]| {
+    let verify = |candidate: &[MlsRosterAuthorityReadResponseBody]| {
         verify_mls_roster_authority_pages(
             candidate,
             &request,
@@ -1081,10 +1085,11 @@ fn roster_pages_reject_wrong_attestor_resolution_and_oversized_page() {
 
     let mut oversized = pages.clone();
     if let MlsRosterRecord::Add {
-        proposal_wire_b64u, ..
+        proposal_wire_base64url,
+        ..
     } = &mut oversized[1].records[0]
     {
-        *proposal_wire_b64u =
+        *proposal_wire_base64url =
             Base64UrlString::new(arkret_canonical::base64url_encode(vec![7; 1_600_000])).unwrap();
     }
     resign_roster_pages(&mut oversized);
@@ -1101,7 +1106,7 @@ fn roster_pages_reject_wrong_attestor_resolution_and_oversized_page() {
 fn roster_did_key_closure_survives_canonical_wire_round_trip() {
     let (request, pages, resolution) = signed_two_page_roster();
     let wire = arkret_canonical::canonical_json_bytes(&pages).unwrap();
-    let restored: Vec<MlsRosterAuthorityReadOutcome> = serde_json::from_slice(&wire).unwrap();
+    let restored: Vec<MlsRosterAuthorityReadResponseBody> = serde_json::from_slice(&wire).unwrap();
     assert_eq!(
         arkret_canonical::canonical_json_bytes(&restored).unwrap(),
         wire

@@ -566,7 +566,7 @@ impl ContactCurrentProof {
             || self.version == 0
             || self.version > 9_007_199_254_740_991
             || self.issued_at != self.signature.created_at
-            || self.fresh_until <= self.issued_at
+            || self.cache_expires_at <= self.issued_at
             || self.scope_instances.len() > 5
             || self
                 .scope_instances
@@ -1439,7 +1439,7 @@ impl ContactPrivateState {
 /// Exact non-recursive control result commitment from the Contact contract.
 pub fn peer_contact_control_result_digest(
     request_digest: &Hash,
-    result_kind: PeerContactControlKind,
+    operation_kind: PeerContactControlKind,
     attestation: Option<&GlareConcurrencyAttestation>,
     current_proof: Option<&ContactCurrentProof>,
     material: Option<&ContactCurrentMaterial>,
@@ -1447,7 +1447,7 @@ pub fn peer_contact_control_result_digest(
     #[derive(Serialize)]
     struct ResultTranscript<'a> {
         request_digest: &'a Hash,
-        result_kind: PeerContactControlKind,
+        operation_kind: PeerContactControlKind,
         #[serde(skip_serializing_if = "Option::is_none")]
         glare_concurrency_attestation: Option<&'a GlareConcurrencyAttestation>,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -1455,9 +1455,9 @@ pub fn peer_contact_control_result_digest(
         #[serde(skip_serializing_if = "Option::is_none")]
         material: Option<&'a ContactCurrentMaterial>,
     }
-    if (result_kind == PeerContactControlKind::CurrentRefresh
+    if (operation_kind == PeerContactControlKind::CurrentRefresh
         && (material.is_none() || attestation.is_some() || current_proof.is_some()))
-        || (result_kind == PeerContactControlKind::GlareFinalize
+        || (operation_kind == PeerContactControlKind::GlareFinalize
             && (attestation.is_none() || material.is_some()))
     {
         return Err(invalid(
@@ -1468,7 +1468,7 @@ pub fn peer_contact_control_result_digest(
         "ak.peer-contact.control-result.v1",
         &ResultTranscript {
             request_digest,
-            result_kind,
+            operation_kind,
             glare_concurrency_attestation: attestation,
             current_proof,
             material,

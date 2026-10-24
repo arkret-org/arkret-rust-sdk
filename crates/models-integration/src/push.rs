@@ -70,7 +70,7 @@ pub struct PushCondition {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PushRulesConfig {
+pub struct PushRulesConfiguration {
     #[serde(default)]
     pub rules: Vec<PushRule>,
 }

@@ -4,7 +4,7 @@ use std::fs;
 
 use arkret_models_collaboration::events_payloads::strand::StrandWatchSetPayload;
 use arkret_models_collaboration::strand_watch_operations::{
-    StrandWatchCurrentOutcome, StrandWatchCurrentRequestBody, StrandWatchCurrentValue,
+    StrandWatchCurrentRequestBody, StrandWatchCurrentResponseBody, StrandWatchValue,
 };
 use arkret_schema_conformance::schema_registry_from_spec_artifacts;
 use serde_json::{Value, json};
@@ -42,15 +42,15 @@ fn head() -> Value {
 fn never_written() -> Value {
     json!({
         "status": "never_written", "realm_id": REALM,
-        "governance_generation": 2, "stream_head": head(), "selector": selector()
+        "governance_generation": "2", "stream_head": head(), "selector": selector()
     })
 }
 
 fn current(value: Value) -> Value {
     json!({
         "status": "current", "realm_id": REALM,
-        "governance_generation": 2, "stream_head": head(),
-        "result": {
+        "governance_generation": "2", "stream_head": head(),
+        "current_state": {
             "selector": selector(),
             "source_stream_ref": {"kind": "realm", "realm_id": REALM},
             "revision": {"commit_id": COMMIT, "stream_position": 12},
@@ -101,13 +101,12 @@ fn watch_write_preserves_missing_null_and_complete_preimages() {
         let payload: StrandWatchSetPayload = serde_json::from_value(wire.clone()).unwrap();
         match expected {
             None => assert!(payload.expected_value.is_none()),
-            Some(Value::Null) => assert_eq!(
-                payload.expected_value,
-                Some(StrandWatchCurrentValue::Cleared(()))
-            ),
+            Some(Value::Null) => {
+                assert_eq!(payload.expected_value, Some(StrandWatchValue::Cleared(())))
+            }
             Some(_) => assert!(matches!(
                 payload.expected_value,
-                Some(StrandWatchCurrentValue::Set(_))
+                Some(StrandWatchValue::Set(_))
             )),
         }
         assert_eq!(payload.to_value().unwrap(), wire);
@@ -118,7 +117,7 @@ fn watch_write_preserves_missing_null_and_complete_preimages() {
 fn watch_write_can_reset_a_written_null_without_asserting_never_written() {
     let wire = json!({"strand_id": STRAND, "watcher_actor_id": actor(), "level": "participating"});
     let payload: StrandWatchSetPayload = serde_json::from_value(wire).unwrap();
-    let guarded = payload.with_expected_value(StrandWatchCurrentValue::Cleared(()));
+    let guarded = payload.with_expected_value(StrandWatchValue::Cleared(()));
     assert_eq!(guarded.to_value().unwrap()["expected_value"], Value::Null);
     assert_eq!(
         serde_json::from_value::<StrandWatchSetPayload>(guarded.to_value().unwrap()).unwrap(),
@@ -178,11 +177,11 @@ fn generic_typed_watch_result_matches_registered_schema_and_full_actor_selector(
             "source_stream_ref":{"kind":"realm","realm_id":REALM},
             "revision":{"commit_id":COMMIT,"stream_position":12}, "value":value});
         assert!(schema_accepts_in(
-            "typed-current-result.schema.json",
-            "#/$defs/strand_watch_result",
+            "current-state.schema.json",
+            "#/$defs/current_strand_watch",
             &wire
         ));
-        let parsed: arkret_wire::TypedCurrentRow = serde_json::from_value(wire.clone()).unwrap();
+        let parsed: arkret_wire::CurrentState = serde_json::from_value(wire.clone()).unwrap();
         assert_eq!(serde_json::to_value(parsed).unwrap(), wire);
     }
     let parsed: arkret_wire::CurrentSelector = serde_json::from_value(selector()).unwrap();
@@ -228,14 +227,17 @@ fn never_written_and_written_clear_remain_distinct() {
         current(Value::Null),
         current(json!({"level":"all", "level_public":true})),
     ] {
-        assert!(schema_accepts("#/$defs/StrandWatchCurrentOutcome", &value));
-        let parsed: StrandWatchCurrentOutcome = serde_json::from_value(value.clone()).unwrap();
+        assert!(schema_accepts(
+            "#/$defs/StrandWatchCurrentResponseBody",
+            &value
+        ));
+        let parsed: StrandWatchCurrentResponseBody = serde_json::from_value(value.clone()).unwrap();
         parsed.validate_for_request(&request).unwrap();
         assert_eq!(serde_json::to_value(parsed).unwrap(), value);
     }
     assert!(matches!(
-        serde_json::from_value::<StrandWatchCurrentOutcome>(current(Value::Null)).unwrap(),
-        StrandWatchCurrentOutcome::Current { result, .. } if result.value == StrandWatchCurrentValue::Cleared(())
+        serde_json::from_value::<StrandWatchCurrentResponseBody>(current(Value::Null)).unwrap(),
+        StrandWatchCurrentResponseBody::Current { current_state: result, .. } if result.value == StrandWatchValue::Cleared(())
     ));
 }
 
@@ -243,57 +245,57 @@ fn never_written_and_written_clear_remain_distinct() {
 fn malformed_or_mismatched_outcome_fails_closed() {
     let request: StrandWatchCurrentRequestBody = serde_json::from_value(request()).unwrap();
     let mut missing_value = current(Value::Null);
-    missing_value["result"]
+    missing_value["current_state"]
         .as_object_mut()
         .unwrap()
         .remove("value");
     assert!(!schema_accepts(
-        "#/$defs/StrandWatchCurrentOutcome",
+        "#/$defs/StrandWatchCurrentResponseBody",
         &missing_value
     ));
-    assert!(serde_json::from_value::<StrandWatchCurrentOutcome>(missing_value).is_err());
+    assert!(serde_json::from_value::<StrandWatchCurrentResponseBody>(missing_value).is_err());
 
     let mut missing_source = current(Value::Null);
-    missing_source["result"]
+    missing_source["current_state"]
         .as_object_mut()
         .unwrap()
         .remove("source_stream_ref");
     assert!(!schema_accepts(
-        "#/$defs/StrandWatchCurrentOutcome",
+        "#/$defs/StrandWatchCurrentResponseBody",
         &missing_source
     ));
-    assert!(serde_json::from_value::<StrandWatchCurrentOutcome>(missing_source).is_err());
+    assert!(serde_json::from_value::<StrandWatchCurrentResponseBody>(missing_source).is_err());
 
     let mut other_stream = current(Value::Null);
-    other_stream["result"]["source_stream_ref"] = json!({
+    other_stream["current_state"]["source_stream_ref"] = json!({
         "kind": "circle",
         "realm_id": REALM,
         "circle_id": "ak:circle:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9"
     });
     assert!(schema_accepts(
-        "#/$defs/StrandWatchCurrentOutcome",
+        "#/$defs/StrandWatchCurrentResponseBody",
         &other_stream
     ));
-    let parsed: StrandWatchCurrentOutcome = serde_json::from_value(other_stream).unwrap();
+    let parsed: StrandWatchCurrentResponseBody = serde_json::from_value(other_stream).unwrap();
     assert!(parsed.validate_for_request(&request).is_err());
 
     let mut wrong_kind = never_written();
     wrong_kind["selector"]["kind"] = json!("strand");
     assert!(!schema_accepts(
-        "#/$defs/StrandWatchCurrentOutcome",
+        "#/$defs/StrandWatchCurrentResponseBody",
         &wrong_kind
     ));
-    assert!(serde_json::from_value::<StrandWatchCurrentOutcome>(wrong_kind).is_err());
+    assert!(serde_json::from_value::<StrandWatchCurrentResponseBody>(wrong_kind).is_err());
 
     let mut future = current(Value::Null);
-    future["result"]["revision"]["stream_position"] = json!(13);
-    let parsed: StrandWatchCurrentOutcome = serde_json::from_value(future).unwrap();
+    future["current_state"]["revision"]["stream_position"] = json!(13);
+    let parsed: StrandWatchCurrentResponseBody = serde_json::from_value(future).unwrap();
     assert!(parsed.validate_for_request(&request).is_err());
 
     let mut different_cell = never_written();
     different_cell["selector"]["strand_id"] =
         json!("ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9");
-    let parsed: StrandWatchCurrentOutcome = serde_json::from_value(different_cell).unwrap();
+    let parsed: StrandWatchCurrentResponseBody = serde_json::from_value(different_cell).unwrap();
     assert!(parsed.validate_for_request(&request).is_err());
 }
 
@@ -306,7 +308,7 @@ fn peer_watch_answer_binds_the_nonce_verified_generation_and_rejects_sidecar_hea
         current(Value::Null),
         current(json!({"level":"all","level_public":true})),
     ] {
-        let outcome: StrandWatchCurrentOutcome = serde_json::from_value(value).unwrap();
+        let outcome: StrandWatchCurrentResponseBody = serde_json::from_value(value).unwrap();
         outcome.validate_for_generation(&request, 2).unwrap();
         assert!(outcome.validate_for_generation(&request, 1).is_err());
         assert!(outcome.validate_for_generation(&request, 3).is_err());
@@ -325,6 +327,6 @@ fn peer_watch_answer_binds_the_nonce_verified_generation_and_rejects_sidecar_hea
     let mut invalid = never_written();
     invalid["stream_head"]["stream_ref"] = json!({"kind":"sidecar","realm_id":REALM,
         "sidecar_id":arkret_wire::SidecarId::from_event_id(&arkret_wire::EventId::from_digest(arkret_canonical::DigestSuite::Sha256,[19;32]))});
-    let outcome: StrandWatchCurrentOutcome = serde_json::from_value(invalid).unwrap();
+    let outcome: StrandWatchCurrentResponseBody = serde_json::from_value(invalid).unwrap();
     assert!(outcome.validate_for_generation(&request, 2).is_err());
 }

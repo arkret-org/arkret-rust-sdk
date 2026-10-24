@@ -3,7 +3,7 @@
 use std::time::Duration;
 
 use arkret_models_collaboration::SignalStreamFrame;
-use arkret_models_collaboration::signal_operations::SignalSubmitOutcome;
+use arkret_models_collaboration::signal_operations::SignalSubmitResponseBody;
 use arkret_wire::SignalEnvelope;
 use reqwest::header::CONTENT_TYPE;
 use reqwest::{Method, Response};
@@ -79,17 +79,17 @@ impl Client {
     /// Relay an exact peer Signal batch under its registered retry policy.
     pub async fn relay_signals(
         &self,
-        request: &arkret_wire::SignalRelayRequest,
-    ) -> Result<arkret_wire::SignalRelayOutcome> {
+        request: &arkret_wire::SignalRelayRequestBody,
+    ) -> Result<arkret_wire::SignalRelayResponseBody> {
         request.validate()?;
-        let outcome: arkret_wire::SignalRelayOutcome =
+        let outcome: arkret_wire::SignalRelayResponseBody =
             self.post("/_arkret/peer/signal", request).await?;
         outcome.validate()?;
         Ok(outcome)
     }
 
     /// Send one encrypted Signal envelope.
-    pub async fn signal_send(&self, envelope: &SignalEnvelope) -> Result<SignalSubmitOutcome> {
+    pub async fn signal_send(&self, envelope: &SignalEnvelope) -> Result<SignalSubmitResponseBody> {
         self.signal_send_with_transport_observation(envelope)
             .await
             .map(|(outcome, _observation)| outcome)
@@ -100,7 +100,7 @@ impl Client {
     pub async fn signal_send_with_transport_observation(
         &self,
         envelope: &SignalEnvelope,
-    ) -> Result<(SignalSubmitOutcome, SignalSendTransportObservation)> {
+    ) -> Result<(SignalSubmitResponseBody, SignalSendTransportObservation)> {
         envelope.validate_structural()?;
         let request = self.canonical_json_body(
             self.request(Method::POST, "/_arkret/self/signal")?,

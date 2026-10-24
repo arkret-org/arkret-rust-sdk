@@ -124,6 +124,8 @@ pub struct SignalEncryptedPayload {
     /// crate can only check the shape; the equality needs accepted group state
     /// and belongs to the caller.
     pub aead_profile: String,
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
     pub epoch: u64,
     pub nonce: String,
     pub ciphertext: String,
@@ -564,7 +566,7 @@ impl SignalEnvelope {
 pub struct StationSigningKey {
     pub actor: ActorId,
     pub verification_method: DidUrl,
-    pub public_key_b64u: Base64UrlString,
+    pub public_key_base64url: Base64UrlString,
     pub authorization_ref: EventId,
 }
 impl StationSigningKey {
@@ -588,7 +590,7 @@ impl StationSigningKey {
                 "signing method principal mismatch",
             ));
         }
-        let value = self.public_key_b64u.as_str();
+        let value = self.public_key_base64url.as_str();
         if !matches!(self.actor, ActorId::Account { .. })
             || value.len() != 43
             || !value
@@ -615,12 +617,12 @@ fn station_key_error(code: ErrorCode, message: &str) -> WireError {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct SignalRelayRequest {
+pub struct SignalRelayRequestBody {
     pub realm_id: RealmId,
     pub signals: Vec<SignalEnvelope>,
 }
 
-impl SignalRelayRequest {
+impl SignalRelayRequestBody {
     /// Validate request-level invariants before any local fanout.
     pub fn validate(&self) -> Result<()> {
         if self.signals.is_empty() || self.signals.len() > MAX_SIGNAL_RELAY_ITEMS {
@@ -655,11 +657,11 @@ impl SignalRelayRequest {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct SignalRelayOutcome {
+pub struct SignalRelayResponseBody {
     pub accepted: bool,
 }
 
-impl SignalRelayOutcome {
+impl SignalRelayResponseBody {
     pub const ACCEPTED: Self = Self { accepted: true };
 
     pub fn validate(self) -> Result<()> {
@@ -825,24 +827,24 @@ mod tests {
     #[test]
     fn relay_request_is_closed_bounded_and_single_realm() {
         let signal = envelope(SignalClass::Session, 30);
-        let request = SignalRelayRequest {
+        let request = SignalRelayRequestBody {
             realm_id: realm(),
             signals: vec![signal.clone()],
         };
         request.validate().unwrap();
         assert_eq!(
-            serde_json::to_value(SignalRelayOutcome::ACCEPTED).unwrap(),
+            serde_json::to_value(SignalRelayResponseBody::ACCEPTED).unwrap(),
             serde_json::json!({"accepted": true})
         );
-        SignalRelayOutcome::ACCEPTED.validate().unwrap();
+        SignalRelayResponseBody::ACCEPTED.validate().unwrap();
 
-        let empty = SignalRelayRequest {
+        let empty = SignalRelayRequestBody {
             realm_id: realm(),
             signals: Vec::new(),
         };
         assert!(empty.validate().is_err());
 
-        let too_many = SignalRelayRequest {
+        let too_many = SignalRelayRequestBody {
             realm_id: realm(),
             signals: vec![signal.clone(); MAX_SIGNAL_RELAY_ITEMS + 1],
         };
@@ -850,7 +852,7 @@ mod tests {
 
         let other_realm =
             RealmId::new("ak:realm:ARkI10daMTZLo_cMC-hjorA_xQhU-5dVl4H0BWDB_xTA").unwrap();
-        let cross_realm = SignalRelayRequest {
+        let cross_realm = SignalRelayRequestBody {
             realm_id: other_realm,
             signals: vec![signal],
         };
@@ -870,7 +872,7 @@ mod tests {
     fn relay_shape_does_not_promote_one_item_rejection_into_a_batch_oracle() {
         let mut bad = envelope(SignalClass::Session, 31);
         bad.proof.envelope_digest = Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap();
-        let mut request = SignalRelayRequest {
+        let mut request = SignalRelayRequestBody {
             realm_id: realm(),
             signals: vec![bad],
         };
@@ -890,7 +892,7 @@ mod tests {
     fn relay_canonical_body_limit_has_a_machine_readable_size_code() {
         let mut signal = envelope(SignalClass::Session, 30);
         signal.encrypted_payload.ciphertext = "A".repeat(16_000);
-        let request = SignalRelayRequest {
+        let request = SignalRelayRequestBody {
             realm_id: realm(),
             signals: vec![signal; 128],
         };

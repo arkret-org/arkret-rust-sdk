@@ -90,7 +90,7 @@ fn fixture_intent(circle: bool) -> MlsCreatorBootstrapIntent {
         DeviceId::new(DEVICE).unwrap(),
         method,
         MlsGovernanceBindingPayload::new(scope, None, 0, 0, 0).unwrap(),
-        SelfAuthoritySubmitRequest::Event(arkret_wire::EventAdmissionSubmission::new(create)),
+        SelfAuthoritySubmitRequestBody::Event(arkret_wire::EventAdmissionSubmission::new(create)),
     )
     .unwrap()
 }
@@ -161,7 +161,8 @@ fn deserialized_intent_cannot_rebind_genesis_coordinates_or_its_derived_group() 
     let original = fixture_intent(false);
     for field in ["previous_epoch", "next_epoch", "key_access_revision"] {
         let mut value = serde_json::to_value(&original).unwrap();
-        value["proposed_group_genesis_binding"]["proposed_group_genesis_binding"][field] = json!(1);
+        value["proposed_group_genesis_binding"]["proposed_group_genesis_binding"][field] =
+            json!("1");
         let altered: MlsCreatorBootstrapIntent = serde_json::from_value(value).unwrap();
         assert!(altered.validate().is_err(), "changed {field}");
     }
@@ -175,7 +176,7 @@ fn human_creator_cannot_replace_the_device_proof_with_a_generic_account_key() {
     let mut altered = fixture_intent(false);
     let method = DidUrl::new("did:web:alice.example#key").unwrap();
     altered.creator_signer_method = method.clone();
-    let SelfAuthoritySubmitRequest::Event(event) = &mut altered.signed_scope_create_unit else {
+    let SelfAuthoritySubmitRequestBody::Event(event) = &mut altered.signed_scope_create_unit else {
         panic!("fixture must be an Event");
     };
     event
@@ -191,7 +192,8 @@ fn human_creator_cannot_replace_the_device_proof_with_a_generic_account_key() {
 fn runtime_endpoint_does_not_classify_an_agent_account_as_a_human_device() {
     let mut original = fixture_intent(false);
     let method = DidUrl::new("did:web:alice.example#agent-key").unwrap();
-    let SelfAuthoritySubmitRequest::Event(event) = &mut original.signed_scope_create_unit else {
+    let SelfAuthoritySubmitRequestBody::Event(event) = &mut original.signed_scope_create_unit
+    else {
         panic!("fixture must be an Event");
     };
     event
@@ -234,7 +236,7 @@ fn current_cut(
 ) {
     use arkret_wire::{CommitStreamHead, CommitStreamRef, RealmCommitId};
 
-    use crate::sync_frames::current_results::AccountCurrentCoverage;
+    use crate::sync_frames::current_states::AccountCurrentCoverage;
 
     let scope = fixture_intent(circle).effective_scope;
     let stream = CommitStreamRef::from_scope(&scope, None).unwrap();
@@ -271,7 +273,7 @@ fn current_cut(
             },
             complete: true,
         },
-        AccountCurrentView {
+        AccountStateView {
             realm_id,
             governance_generation: 3,
             stream_heads: heads,
@@ -344,7 +346,7 @@ fn creator_cut_cannot_mix_generations_heads_realms_or_duplicate_coverage() {
 #[test]
 fn an_exact_scope_mls_current_entry_is_a_winner_even_if_its_value_is_empty() {
     let (scope, head, mut cut) = current_cut(true);
-    let entry = arkret_wire::TypedCurrentRow::Value {
+    let entry = arkret_wire::CurrentState::Value {
         selector: arkret_wire::CurrentSelector::MlsGroup {
             scope_ref: scope.clone(),
         },
@@ -384,7 +386,7 @@ fn accepted_create(circle: bool) -> (MlsCreatorBootstrapIntent, MlsCreatorBootst
         )
         .unwrap(),
         created_at: timestamp,
-        sig: Base64UrlString::new("AA").unwrap(),
+        signature: Base64UrlString::new("AA").unwrap(),
     };
     let root_commit = RealmCommit {
         commit_id: RealmCommitId::new(
@@ -483,7 +485,7 @@ fn absence_snapshot(
 
 fn device_query_fixture(
     intent: &MlsCreatorBootstrapIntent,
-) -> arkret_models_crypto::KeysQueryOutcome {
+) -> arkret_models_crypto::KeysQueryResponseBody {
     let now = scope_create_event(intent.signed_scope_create_unit())
         .unwrap()
         .created_at;
@@ -533,8 +535,7 @@ fn agent_creator_fixture() -> (
     MlsCreatorBootstrapGovernanceEvidence,
 ) {
     use arkret_models_identity::signer_key_operations::{
-        CurrentSignerKeyQuerySender, ResolvedSignerKey, SignerKeyQueryOutcome,
-        SignerKeyQuerySelector,
+        CurrentSignerKeyQuerySender, ResolvedSignerKey, SignerKeyQuerySelector, SignerKeyResolution,
     };
     let (mut intent, mut create) = accepted_create(false);
     let method = DidUrl::new("did:web:alice.example#runtime").unwrap();
@@ -542,7 +543,8 @@ fn agent_creator_fixture() -> (
     intent.creator_endpoint = arkret_wire::MlsWelcomeRecipientEndpoint::AgentRuntime {
         verification_method: method.clone(),
     };
-    let SelfAuthoritySubmitRequest::Event(original) = &mut intent.signed_scope_create_unit else {
+    let SelfAuthoritySubmitRequestBody::Event(original) = &mut intent.signed_scope_create_unit
+    else {
         unreachable!()
     };
     original
@@ -559,7 +561,7 @@ fn agent_creator_fixture() -> (
     ))
     .unwrap();
     create.validate_binding(&intent).unwrap();
-    let outcome = SignerKeyQueryOutcome::CurrentResolved {
+    let outcome = SignerKeyResolution::CurrentResolved {
         selector: SignerKeyQuerySelector::CurrentAdmission {
             sender: CurrentSignerKeyQuerySender::Agent {
                 actor: intent.owner_actor_id().clone(),
@@ -567,9 +569,9 @@ fn agent_creator_fixture() -> (
             },
         },
         key: ResolvedSignerKey {
-            public_key_b64u: arkret_wire::Base64UrlString::new(arkret_canonical::base64url_encode(
-                [11; 32],
-            ))
+            public_key_base64url: arkret_wire::Base64UrlString::new(
+                arkret_canonical::base64url_encode([11; 32]),
+            )
             .unwrap(),
             authorization_ref: arkret_wire::CommittedEventRef {
                 event_id: create.accepted_event.event_id.clone(),
@@ -603,7 +605,7 @@ fn agent_creator_fixture() -> (
 #[test]
 fn agent_creator_pin_rejects_device_historical_foreign_actor_and_method_substitution() {
     use arkret_models_identity::signer_key_operations::{
-        CurrentSignerKeyQuerySender, SignerKeyQueryOutcome, SignerKeyQuerySelector,
+        CurrentSignerKeyQuerySender, SignerKeyQuerySelector, SignerKeyResolution,
     };
     let (intent, _, evidence) = agent_creator_fixture();
     evidence.validate_binding(&intent).unwrap();
@@ -623,7 +625,7 @@ fn agent_creator_pin_rejects_device_historical_foreign_actor_and_method_substitu
         DidCoreId::new("ak:did_core:web:foreign.example").unwrap(),
     ));
     assert!(authority.validate_binding(&other).is_err());
-    let outcome = SignerKeyQueryOutcome::Unavailable {
+    let outcome = SignerKeyResolution::Unavailable {
         selector: SignerKeyQuerySelector::CurrentAdmission {
             sender: CurrentSignerKeyQuerySender::Agent {
                 actor: intent.owner_actor_id().clone(),
@@ -794,7 +796,7 @@ fn epoch_zero_fixture(
         group_info_ref: blob(&public),
         ratchet_tree_ref: blob(&tree),
         creator_leaf_authority: crate::events_payloads::MlsGenesisCreatorLeafAuthority {
-            leaf_signature_key_b64u: arkret_wire::Base64UrlString::new(
+            leaf_signature_key_base64url: arkret_wire::Base64UrlString::new(
                 arkret_canonical::base64url::base64url_encode([3; 32]),
             )
             .unwrap(),
@@ -938,7 +940,7 @@ fn own_creator_cut(
     .unwrap();
     snapshot
         .current_state_entries
-        .push(arkret_wire::TypedCurrentRow::Value {
+        .push(arkret_wire::CurrentState::Value {
             selector: arkret_wire::CurrentSelector::RealmGenesis,
             source_stream_ref: arkret_wire::CommitStreamRef::Realm {
                 realm_id: snapshot.realm_id.clone(),
@@ -1810,7 +1812,7 @@ fn creator_artifact_and_ready_receipt_bind_the_whole_original_winning_epoch() {
     .unwrap();
     assert!(record.converge_artifacts(bad).is_err());
     let mut changed = serde_json::to_value(&reopened).unwrap();
-    changed["artifacts"]["consistency_checks"]["epoch"] = serde_json::json!(1);
+    changed["artifacts"]["consistency_checks"]["epoch"] = serde_json::json!("1");
     let changed: MlsCreatorBootstrapRecord = serde_json::from_value(changed).unwrap();
     assert!(changed.validate().is_err());
 }

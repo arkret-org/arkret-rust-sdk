@@ -24,7 +24,7 @@ pub enum MediaIceMode {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct MediaIceConfigRequestBody {
+pub struct MediaIceConfigurationRequestBody {
     pub realm_id: RealmId,
     pub call_id: String,
     pub actor_id: ActorId,
@@ -34,7 +34,7 @@ pub struct MediaIceConfigRequestBody {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct MediaIceConfigOutcome {
+pub struct MediaIceConfigurationResponseBody {
     pub realm_id: RealmId,
     pub call_id: String,
     pub actor_id: ActorId,
@@ -52,12 +52,12 @@ pub struct MediaIceConfigOutcome {
     #[serde(default)]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub next_retry_at: Option<DateTime<Utc>>,
-    pub signature: MediaIceConfigSignature,
+    pub signature: MediaIceConfigurationSignature,
     #[serde(default, flatten)]
     pub extensions: XExtensionMap,
 }
 
-impl MediaIceConfigOutcome {
+impl MediaIceConfigurationResponseBody {
     pub const fn bucket_seconds(&self) -> i64 {
         MEDIA_ICE_BUCKET_SECONDS
     }
@@ -155,10 +155,10 @@ pub enum MediaIceSignatureAlgorithm {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct MediaIceConfigSignature {
+pub struct MediaIceConfigurationSignature {
     pub kid: String,
     pub signature_algorithm: MediaIceSignatureAlgorithm,
-    pub sig: String,
+    pub signature: String,
 }
 
 #[derive(Deserialize)]
@@ -292,7 +292,7 @@ pub enum ArkretNativeMediaSignatureAlgorithm {
 pub struct ArkretNativeMediaBackendToken {
     pub kid: DidUrl,
     pub payload: ArkretNativeMediaTokenPayload,
-    pub sig: String,
+    pub signature: String,
     pub signature_algorithm: ArkretNativeMediaSignatureAlgorithm,
 }
 
@@ -328,7 +328,7 @@ struct CallMediaTokenExchangeOutcomeWire {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(try_from = "CallMediaTokenExchangeOutcomeWire")]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct CallMediaTokenExchangeOutcome {
+pub struct CallMediaTokenExchangeResponseBody {
     pub focus_id: String,
     pub connect_url: String,
     pub backend_token: MediaBackendToken,
@@ -344,7 +344,7 @@ pub struct CallMediaTokenExchangeOutcome {
     pub media: crate::call_invitation::CallInvitationMedia,
 }
 
-impl TryFrom<CallMediaTokenExchangeOutcomeWire> for CallMediaTokenExchangeOutcome {
+impl TryFrom<CallMediaTokenExchangeOutcomeWire> for CallMediaTokenExchangeResponseBody {
     type Error = &'static str;
 
     fn try_from(value: CallMediaTokenExchangeOutcomeWire) -> Result<Self, Self::Error> {

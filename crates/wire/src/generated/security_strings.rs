@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/proof-context-registry.json; version=2026-10-23.2;
-//! sha256=4dfcd16f1168c786d41c926720172cf8ba7f59c1c5b427650fd05aafb1be2256 Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-10-24.1;
+//! sha256=2ec5d58dce86a60c81a64ac5a244275dd86f1bba7915a5ed6bc03fff8031aaac Input: registry/
 //! exporter-label-registry.json; version=2026-10-08;
 //! sha256=10a6708dcbb797f8c4b01d7450b51730945305fff33cf77f9cb14278b3d2b5ea Input: registry/
 //! digest-suite-registry.json; version=2026-09-19.1;
@@ -1120,7 +1120,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
     ProofContextDescriptor {
         id: ProofContextId::MimiIdentifierQueryOutcomeProofV1,
         context: "ak.mimi_identifier_query_outcome_proof.v1",
-        object_family: "mimi_identifier_query_outcome",
+        object_family: "mimi_identifier_query_response_body",
         consumer_operation: None,
         binding_fields: &[
             "payload_digest",
@@ -1130,7 +1130,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "domain",
             "audience",
         ],
-        schema_ref: "schemas/mimi-operations.schema.json#/$defs/mimi_identifier_query_outcome",
+        schema_ref: "schemas/mimi-operations.schema.json#/$defs/mimi_identifier_query_response_body",
     },
     ProofContextDescriptor {
         id: ProofContextId::MimiIdentifierQueryRequestProofV1,

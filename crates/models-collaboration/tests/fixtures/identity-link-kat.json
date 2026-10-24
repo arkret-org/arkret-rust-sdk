@@ -9,19 +9,20 @@
     "trust_domain": "ak:trust_domain:station.example",
     "mls_group_id": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
     "mls_leaf_index": 4,
-    "mls_epoch": 2,
+    "mls_epoch": "2",
     "response_signing_verification_method": "did:web:pairwise.example#key-1",
     "response_signing_algorithm": "Ed25519",
-    "response_signing_public_key_b64u": "-kg0FH9uaQw2k-_2EzYEZAPNiuKhTzGzxAc1hWkjlWU",
-    "response_signing_public_key_digest": "sha256:f31f5d967197f8859f3fb184cee0857fd4c36bf520b4389b1cbc6b4e1b14ab04",
+    "response_signing_public_key_base64url": "A6EHv_POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg",
+    "response_signing_public_key_digest": "sha256:56475aa75463474c0285df5dbf2bcab73da651358839e9b77481b2eab107708c",
     "effective_at": "2026-10-06T00:00:00.000Z",
     "proof": {
       "verification_method": "did:web:pairwise.example#key-1",
       "signature_algorithm": "Ed25519",
-      "payload_digest": "sha256:cdf1c8cbaa68778ed47a102cb60e3c75ff0b603b831dd6cc3342112f623ce83f",
-      "signature": "ymwOriDCQOFfj_H9BQ0M_6rOkVbwJTOlaGaBFKbtJK5OJ5KSCMaW4Xw1eeit8mX5HeLoTHqO8uQxCtO8m8_JAA"
+      "payload_digest": "sha256:f7cf410aeef2ef5700912e26bef175ee781a3919ed77a7e93491bcc388d6f4ed",
+      "signature": "bk-24wrvtQa-gdwQhXmWjpGWrpOc9EF-qiOTpydFmTMKF5TrHF9a_Ml-DC_TXukwt85-tsQsPw4JpT1WQyCCDA"
     }
   },
-  "preimage_utf8": "ak.identity_link.v1\n{\"device_id\":\"ak:device:01964137-0000-7000-8000-000000000001\",\"effective_at\":\"2026-10-06T00:00:00.000Z\",\"mls_epoch\":2,\"mls_group_id\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\",\"mls_leaf_index\":4,\"pairwise_id\":\"ak:did_core:web:pairwise.example\",\"principal_id\":\"ak:did_core:web:alice.example\",\"proof\":{\"signature_algorithm\":\"Ed25519\",\"verification_method\":\"did:web:pairwise.example#key-1\"},\"realm_id\":\"ak:realm:ARUALC69_WeDbu3WQ3suidUfmxa1MAW5tIIxjRS1C9yE\",\"response_signing_algorithm\":\"Ed25519\",\"response_signing_public_key_b64u\":\"-kg0FH9uaQw2k-_2EzYEZAPNiuKhTzGzxAc1hWkjlWU\",\"response_signing_public_key_digest\":\"sha256:f31f5d967197f8859f3fb184cee0857fd4c36bf520b4389b1cbc6b4e1b14ab04\",\"response_signing_verification_method\":\"did:web:pairwise.example#key-1\",\"schema\":\"ak.schema.identity_link.v1\",\"status\":\"active\",\"trust_domain\":\"ak:trust_domain:station.example\"}",
-  "digest": "sha256:cdf1c8cbaa68778ed47a102cb60e3c75ff0b603b831dd6cc3342112f623ce83f"
+  "preimage_utf8": "ak.identity_link.v1\n{\"device_id\":\"ak:device:01964137-0000-7000-8000-000000000001\",\"effective_at\":\"2026-10-06T00:00:00.000Z\",\"mls_epoch\":\"2\",\"mls_group_id\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\",\"mls_leaf_index\":4,\"pairwise_id\":\"ak:did_core:web:pairwise.example\",\"principal_id\":\"ak:did_core:web:alice.example\",\"proof\":{\"signature_algorithm\":\"Ed25519\",\"verification_method\":\"did:web:pairwise.example#key-1\"},\"realm_id\":\"ak:realm:ARUALC69_WeDbu3WQ3suidUfmxa1MAW5tIIxjRS1C9yE\",\"response_signing_algorithm\":\"Ed25519\",\"response_signing_public_key_base64url\":\"A6EHv_POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg\",\"response_signing_public_key_digest\":\"sha256:56475aa75463474c0285df5dbf2bcab73da651358839e9b77481b2eab107708c\",\"response_signing_verification_method\":\"did:web:pairwise.example#key-1\",\"schema\":\"ak.schema.identity_link.v1\",\"status\":\"active\",\"trust_domain\":\"ak:trust_domain:station.example\"}",
+  "digest": "sha256:f7cf410aeef2ef5700912e26bef175ee781a3919ed77a7e93491bcc388d6f4ed",
+  "public_test_seed_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
 }

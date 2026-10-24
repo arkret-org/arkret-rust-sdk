@@ -1,22 +1,22 @@
-//! `KeysBackupsList.active_series` carries exactly one backup class, and
+//! `KeysBackupsPage.active_series` carries exactly one backup class, and
 //! every `backups[]` row is the closed `backup_metadata` summary.
 //!
 //! Every case is decided twice: by the live Spec schema
-//! `keys-operations.schema.json#/$defs/keys_backups_list` (or its
+//! `keys-operations.schema.json#/$defs/keys_backups_page` (or its
 //! `backup_metadata` item) and by the SDK DTO. The two must agree, so an
 //! `mls_history` or private class member, an open pointer branch, or an
-//! envelope-only member such as `auth_data` cannot be accepted by the Rust
+//! envelope-only member such as `signature_proof` cannot be accepted by the Rust
 //! type while the closed schema rejects it, and no schema-valid summary is
 //! refused by the Rust type (key-management §7.5.0 / §7.6.1, decision 0097).
 
 use std::fs;
 
-use arkret_models_crypto::{BackupActiveSeriesPointer, KeyBackupSummary, KeysBackupsList};
+use arkret_models_crypto::{BackupActiveSeriesPointer, KeyBackupSummary, KeysBackupsPage};
 use arkret_schema::ProtocolSchemaRegistry;
 use arkret_schema_conformance::{default_spec_artifacts_dir, schema_registry_from_spec_artifacts};
 use serde_json::{Value, json};
 
-const LIST_SCHEMA: &str = "test:keys_backups_list";
+const LIST_SCHEMA: &str = "test:keys_backups_page";
 const METADATA_SCHEMA: &str = "test:backup_metadata";
 const SERIES: &str = "ak:backup_series:01964137-1000-7000-8000-000000000000";
 
@@ -31,7 +31,7 @@ fn registry() -> ProtocolSchemaRegistry {
         .register_reference_document(schema.clone())
         .unwrap();
     registry
-        .register_fragment(LIST_SCHEMA, schema.clone(), "#/$defs/keys_backups_list")
+        .register_fragment(LIST_SCHEMA, schema.clone(), "#/$defs/keys_backups_page")
         .unwrap();
     registry
         .register_fragment(METADATA_SCHEMA, schema, "#/$defs/backup_metadata")
@@ -65,7 +65,7 @@ fn active(version: Value) -> Value {
 
 fn decide(registry: &ProtocolSchemaRegistry, value: &Value) -> (bool, bool) {
     let schema = registry.validate_value(LIST_SCHEMA, value).is_ok();
-    let sdk = serde_json::from_value::<KeysBackupsList>(value.clone()).is_ok();
+    let sdk = serde_json::from_value::<KeysBackupsPage>(value.clone()).is_ok();
     (schema, sdk)
 }
 
@@ -78,11 +78,11 @@ fn schema_and_dto_accept_only_the_secret_storage_pointer_branches() {
         list(active(json!(7))),
     ] {
         assert_eq!(decide(&registry, &accepted), (true, true), "{accepted}");
-        let parsed: KeysBackupsList = serde_json::from_value(accepted.clone()).unwrap();
+        let parsed: KeysBackupsPage = serde_json::from_value(accepted.clone()).unwrap();
         assert_eq!(serde_json::to_value(&parsed).unwrap(), accepted);
     }
 
-    let parsed: KeysBackupsList = serde_json::from_value(list(active(json!(3)))).unwrap();
+    let parsed: KeysBackupsPage = serde_json::from_value(list(active(json!(3)))).unwrap();
     assert_eq!(
         parsed.active_series.secret_storage,
         BackupActiveSeriesPointer::Active {
@@ -169,7 +169,7 @@ fn minimal_metadata() -> Value {
         "backup_kind": "secret_storage",
         "backup_version": "kb_1",
         "series_id": SERIES,
-        "series_seq": 0,
+        "series_sequence": 0,
         "created_at": "2026-09-09T00:00:00.000Z",
         "ciphertext_digest": DIGEST,
         "encryption": {"recipient_method": "secret_storage_key"}
@@ -185,7 +185,7 @@ fn full_metadata() -> Value {
         "backup_kind": "secret_storage",
         "backup_version": "kb_1",
         "series_id": SERIES,
-        "series_seq": 1,
+        "series_sequence": 1,
         "supersedes_id": "ak:backup:01964137-2000-7000-8000-000000000001",
         "supersedes_digest": DIGEST,
         "expires_at": "2027-09-09T00:00:00.000Z",
@@ -193,7 +193,7 @@ fn full_metadata() -> Value {
         "updated_at": "2026-09-10T00:00:00.000Z",
         "ciphertext_digest": DIGEST,
         "encryption": {"recipient_method": "recovery_public_key", "recipient_key_ref": "hpke-1"},
-        "retention": {"delete_after": null, "legal_hold": false}
+        "retention": {"deletion_eligible_at": null, "legal_hold": false}
     })
 }
 
@@ -203,7 +203,7 @@ fn decide_metadata(registry: &ProtocolSchemaRegistry, value: &Value) -> (bool, b
     let mut page = list(absent());
     page["backups"] = json!([value]);
     let listed = registry.validate_value(LIST_SCHEMA, &page).is_ok()
-        == serde_json::from_value::<KeysBackupsList>(page).is_ok();
+        == serde_json::from_value::<KeysBackupsPage>(page).is_ok();
     (schema, sdk, listed)
 }
 
@@ -276,7 +276,7 @@ fn schema_and_dto_reject_envelope_members_nulls_and_malformed_metadata() {
             json!([{"item_kind": "recovery_key_share", "secret_id": "share"}]),
         ),
         (
-            "auth_data",
+            "signature_proof",
             json!({
                 "device_id": "ak:device:01904100-0000-7000-8000-000000000001",
                 "verification_method": "did:web:backup.example#device-signer",
@@ -312,7 +312,7 @@ fn schema_and_dto_reject_envelope_members_nulls_and_malformed_metadata() {
         "backup_kind",
         "backup_version",
         "series_id",
-        "series_seq",
+        "series_sequence",
         "created_at",
         "ciphertext_digest",
         "encryption",
@@ -340,8 +340,8 @@ fn schema_and_dto_reject_envelope_members_nulls_and_malformed_metadata() {
 
     for (name, member, member_value) in [
         ("empty backup_version", "backup_version", json!("")),
-        ("negative series_seq", "series_seq", json!(-1)),
-        ("string series_seq", "series_seq", json!("0")),
+        ("negative series_sequence", "series_sequence", json!(-1)),
+        ("string series_sequence", "series_sequence", json!("0")),
         ("mls_history class", "backup_kind", json!("mls_history")),
         (
             "retired source_commit_ref",

@@ -2,31 +2,34 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/agent-sidecar-view-state.schema.json
-// sha256=fbc80c6108c5c5aca9325263526b87359649422b612e970b3141275a9f105692
+// sha256=6a0a647dfc477e52508f9b5cbc04a7c12a614f0b7bc5b0a5ad1282312a5e0698
 //
 // Input: schemas/agent-sidecar-exchange-projection.schema.json
-// sha256=ea7ed1176398153bc9f81506a687b75d00bb1365f9f54557a519c4a7eae20c17
+// sha256=952900cbdbafc71f26a703a9cf423fa07fc67d9741e833df9ad949fce0db9508
 //
 // Input: schemas/agent-operations.schema.json
-// sha256=0d2950977b4b8d7c76137b107fd4dbf11401b0b1e5b480ba6ce34d31b82ad5aa
+// sha256=15fedd4b4e4462c678d93ac6521a5dfd0372854cd62cd76ec5e777fd88857ae5
 //
 // Input: schemas/common-ids.schema.json
-// sha256=14226f0ac83e4d06639ad791cc0e52e0eb1c3b128cd4c8c12308a99b795141e4
+// sha256=0cc25a02fe0d9a94f6e41f2cf8f64e492ba36362f1e69a699cf1e684924837ee
+//
+// Input: schemas/decimal-integers.schema.json
+// sha256=7ea09c46f777e010c72a1fd069b7fbefc7d66924e7b3ad5a5961ce9914858987
 //
 // Input: schemas/account-operations.schema.json
-// sha256=5b7dba680c2083d0bebc26ad32e7d37293d150cece8f2298a40bf382e7f31405
+// sha256=78c6503698cd43571f2b25543013f9036927ef9bfd005e71377ad3006f4a64d4
 //
-// Input: schemas/typed-current-result.schema.json
-// sha256=af1796a65736414a650ecb791939112f02920d691fd8ee4b9e46397ad70aadbd
+// Input: schemas/current-state.schema.json
+// sha256=feba0ff19e227c276a3792aaed506b6534bf9ff8ce6c2e91a0ab36c04777785f
 //
 // Input: schemas/agent-sidecar-exchange-control.schema.json
-// sha256=cd1c305b7dfa2b4ffce9c28c0f41c7d0b31b30a3947f5d2189e43eb9019be802
+// sha256=0c1ecd7521ba0c11819ccefe10ce224c13cd432e2da463bf1cb2548132603b38
 //
 // Input: schemas/agent-sidecar-event-exchange-binding.schema.json
-// sha256=84d81dd33c09024d6cc49836a51a18470b4c7dcdd457582bc391fff847169e5b
+// sha256=6652f814405afb672ebc20ca69bdd58f47a3847606d5f5b890b3306b5949d947
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=d200bd3e6d76abd1b6154781fb5e54f11fbbc834638cdc29554f83590127fdfa
+// sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
 
 /// Counterpart: `agent-sidecar-view-state.schema.json`.
 /// Controller-private encrypted account-data plaintext for one hosted Sidecar
@@ -101,7 +104,8 @@ pub struct AgentSidecarMlsContext {
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
     pub mls_group_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_uint64_decimal")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
     pub epoch: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
@@ -119,13 +123,13 @@ pub struct PendingSidecarAccessReconciliation {
 }
 
 /// Counterpart:
-/// `typed-current-result.schema.json#/$defs/agent_sidecar_exchange_controls_value/properties/
-/// assertions/items`. One accepted encrypted control carrier, identified by the Event's only
-/// registered keyed-set write (`typed-current-result.schema.json`).
+/// `current-state.schema.json#/$defs/agent_sidecar_exchange_controls_value/properties/assertions/
+/// items`. One accepted encrypted control carrier, identified by the Event's only
+/// registered keyed-set write (`current-state.schema.json`).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarExchangeControlAssertion {
-    pub tag_id: crate::exact_current_results::CanonicalEventDot,
+    pub tag_id: crate::exact_current_state::CanonicalEventDot,
     pub value: crate::events_payloads::sidecar::AgentSidecarExchangeControlPayload,
 }
 

@@ -2,8 +2,8 @@
 
 use anyhow::Result;
 use arkret_models_collaboration::objects::media::{
-    MediaIceConfigOutcome, MediaIceConfigRequestBody, MediaIceConfigSignature, MediaIceServer,
-    MediaIceSignatureAlgorithm,
+    MediaIceConfigurationRequestBody, MediaIceConfigurationResponseBody,
+    MediaIceConfigurationSignature, MediaIceServer, MediaIceSignatureAlgorithm,
 };
 use chrono::{DateTime, Utc};
 use ed25519_dalek::Signer as _;
@@ -13,11 +13,11 @@ use crate::service_identity::ServiceIdentityFixture;
 /// Structural signing material only: the fixed public TURN tag and placeholder
 /// credential provide no privacy, live issuance, allocation or admission evidence.
 pub fn signed_config(
-    request: &MediaIceConfigRequestBody,
+    request: &MediaIceConfigurationRequestBody,
     authority: &ServiceIdentityFixture,
     issued_at: DateTime<Utc>,
-) -> Result<MediaIceConfigOutcome> {
-    let mut outcome = MediaIceConfigOutcome {
+) -> Result<MediaIceConfigurationResponseBody> {
+    let mut outcome = MediaIceConfigurationResponseBody {
         realm_id: request.realm_id.clone(),
         call_id: request.call_id.clone(),
         actor_id: request.actor_id.clone(),
@@ -46,14 +46,14 @@ pub fn signed_config(
         turn_required: false,
         constraints: None,
         next_retry_at: None,
-        signature: MediaIceConfigSignature {
+        signature: MediaIceConfigurationSignature {
             kid: authority.verification_method.to_string(),
             signature_algorithm: MediaIceSignatureAlgorithm::Ed25519,
-            sig: String::new(),
+            signature: String::new(),
         },
         extensions: Default::default(),
     };
-    outcome.signature.sig = arkret_canonical::base64url_encode(
+    outcome.signature.signature = arkret_canonical::base64url_encode(
         authority
             .signing_key
             .sign(&outcome.signature_input()?)

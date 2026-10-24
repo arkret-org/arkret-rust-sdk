@@ -698,7 +698,7 @@ pub struct BindingResolveRequest {
     /// The concrete verification method being accepted, when key-specific.
     pub verification_method: Option<DidUrl>,
     /// The registered freshness profile this call site references (§5.4). It is
-    /// the single source of the reuse threshold, `refresh_after` and
+    /// the single source of the reuse threshold, `refresh_at` and
     /// `expires_at`, so those three can never drift apart.
     pub freshness: FreshnessProfile,
 }
@@ -1002,7 +1002,7 @@ where
             evidence_dependencies,
             policy_digest: request.policy_digest.clone(),
             verified_at: now,
-            refresh_after: request.freshness.refresh_after(now),
+            refresh_at: request.freshness.refresh_at(now),
             expires_at: request.freshness.expires_at(now),
             status: DidBindingStatus::Active,
         },

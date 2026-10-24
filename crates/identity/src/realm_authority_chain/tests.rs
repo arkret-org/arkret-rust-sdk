@@ -104,7 +104,7 @@ fn placeholder_signature(context: DetachedSignatureContext) -> DetachedObjectSig
         verification_method: method(STATION_A),
         signed_digest: hash('1'),
         created_at: issued_at(),
-        sig: Base64UrlString::new("A".repeat(86)).unwrap(),
+        signature: Base64UrlString::new("A".repeat(86)).unwrap(),
     }
 }
 
@@ -347,7 +347,7 @@ fn chain_with_purpose(purpose: &str) -> Chain {
         realm_id: realm.clone(),
     };
     change_event.payload = serde_json::from_value(json!({
-        "expected_governance_generation": 0,
+        "expected_governance_generation": "0",
         "expected_realm_stream_commit_id": genesis_commit.commit_id,
         "new_governance_station_id": core_id(STATION_B),
     }))
@@ -1182,7 +1182,7 @@ fn human_original_fact_is_frozen_before_commit_identity_and_governance_signature
         device_id: device,
         verification_method: vm,
         key: ResolvedSignerKey {
-            public_key_b64u: Base64UrlString::new(arkret_canonical::base64url_encode(
+            public_key_base64url: Base64UrlString::new(arkret_canonical::base64url_encode(
                 SigningKey::from_bytes(&device_seed)
                     .verifying_key()
                     .as_bytes(),
@@ -1302,7 +1302,7 @@ fn human_original_fact_is_frozen_before_commit_identity_and_governance_signature
     .unwrap();
     assert!(altered.commit.verify_commit_id_matches_content().is_err());
     let mut wrong = fact.clone();
-    wrong.key.public_key_b64u = Base64UrlString::new(arkret_canonical::base64url_encode(
+    wrong.key.public_key_base64url = Base64UrlString::new(arkret_canonical::base64url_encode(
         signing_key(22).verifying_key().as_bytes(),
     ))
     .unwrap();
@@ -1365,7 +1365,7 @@ fn human_original_fact_is_frozen_before_commit_identity_and_governance_signature
     unsupported_digest.producer_signer_fact_digest =
         Some(Hash::new(format!("blake3:{}", "00".repeat(32))).unwrap());
     assert!(unsupported_digest.validate_shape().is_err());
-    let scan_request = arkret_wire::StreamScanRequest {
+    let scan_request = arkret_wire::StreamScanRequestBody {
         realm_id: accepted.commit.realm_id.clone(),
         stream_ref: accepted.commit.stream_ref.clone(),
         direction: arkret_wire::StreamScanDirection::Before(Some(
@@ -1373,7 +1373,7 @@ fn human_original_fact_is_frozen_before_commit_identity_and_governance_signature
         )),
         limit: 1,
     };
-    let page = arkret_models_collaboration::authority_commit::PeerStreamScanOutcome {
+    let page = arkret_models_collaboration::authority_commit::PeerStreamScanResponseBody {
         committed_events: vec![CommittedEventView::Full(accepted.clone())],
         readable_floor: Some(arkret_wire::ReadableFloor {
             oldest_position: accepted.commit.stream_position,
@@ -1564,7 +1564,7 @@ fn handoff_inventory_digest_is_bound_by_both_real_station_signatures() {
 #[test]
 fn new_handoff_submission_requires_signed_inventory_and_exact_snapshot_original() {
     use arkret_models_collaboration::authority_commit::{
-        AuthorityHandoffRequest, historical_signer_facts_digest,
+        AuthorityRealmAuthorityHandoffRequestBody, historical_signer_facts_digest,
     };
     use arkret_wire::{HistoryAccess, RealmStateSnapshot, RetentionAndHistoryFloor};
     let mut chain = chain();
@@ -1738,7 +1738,7 @@ fn new_handoff_submission_requires_signed_inventory_and_exact_snapshot_original(
     )
     .unwrap();
     verify(&chain).unwrap();
-    let request = AuthorityHandoffRequest {
+    let request = AuthorityRealmAuthorityHandoffRequestBody {
         management_private_state: Some(management_private_state),
         pcr_private_state: None,
         handoff,
@@ -1756,7 +1756,7 @@ fn new_handoff_submission_requires_signed_inventory_and_exact_snapshot_original(
             .validate_imported_signer_facts(&[chain.item.clone()])
             .is_err()
     );
-    let reopened: AuthorityHandoffRequest =
+    let reopened: AuthorityRealmAuthorityHandoffRequestBody =
         serde_json::from_value(serde_json::to_value(&request).unwrap()).unwrap();
     reopened.validate_new_handoff().unwrap();
     let mut missing = request.clone();
@@ -1830,7 +1830,7 @@ fn service_original_fact_verifies_real_proof_and_rejects_replacement_installatio
         actor,
         verification_method: vm,
         key: ServiceHistoricalSigningKey {
-            public_key_b64u: Base64UrlString::new(arkret_canonical::base64url_encode(
+            public_key_base64url: Base64UrlString::new(arkret_canonical::base64url_encode(
                 SigningKey::from_bytes(&seed).verifying_key().as_bytes(),
             ))
             .unwrap(),
@@ -1869,7 +1869,7 @@ fn service_original_fact_verifies_real_proof_and_rejects_replacement_installatio
     )
     .unwrap();
     let mut replaced = fact.clone();
-    replaced.key.public_key_b64u = Base64UrlString::new(arkret_canonical::base64url_encode(
+    replaced.key.public_key_base64url = Base64UrlString::new(arkret_canonical::base64url_encode(
         SigningKey::from_bytes(&[79; 32]).verifying_key().as_bytes(),
     ))
     .unwrap();

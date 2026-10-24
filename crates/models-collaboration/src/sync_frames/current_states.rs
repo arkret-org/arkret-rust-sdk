@@ -4,8 +4,8 @@
 //! coordinate; those two are the whole vocabulary this surface exposes.
 
 pub use arkret_wire::{
-    CircleMemberStateCurrent, CurrentRevision, CurrentSelector, MemberStateCurrent,
-    MembershipState, MlsGroupCurrent, TypedCurrentRow,
+    CircleMemberStateValue, CurrentRevision, CurrentSelector, CurrentState, MemberStateValue,
+    MembershipState, MlsGroupValue,
 };
 use arkret_wire::{CommitStreamHead, RealmId, Result, WireError};
 use serde::{Deserialize, Serialize};
@@ -18,7 +18,7 @@ impl AccountCurrentCoverage {
     }
 }
 
-impl AccountCurrentView {
+impl AccountStateView {
     /// One head per stream, and one entry per selector: a repeated selector
     /// would be two current values for one single-valued coordinate.
     pub fn validate(&self) -> Result<()> {
@@ -36,16 +36,16 @@ impl AccountCurrentView {
     }
 
     /// The current entry for one domain selector, if this result carries it.
-    pub fn entry(&self, selector: &CurrentSelector) -> Option<&TypedCurrentRow> {
+    pub fn entry(&self, selector: &CurrentSelector) -> Option<&CurrentState> {
         self.entries
             .iter()
             .find(|entry| selector_of(entry) == selector)
     }
 }
 
-const fn selector_of(entry: &TypedCurrentRow) -> &CurrentSelector {
+const fn selector_of(entry: &CurrentState) -> &CurrentSelector {
     match entry {
-        TypedCurrentRow::Value { selector, .. } => selector,
+        CurrentState::Value { selector, .. } => selector,
     }
 }
 
@@ -61,4 +61,4 @@ fn unique_stream_heads(heads: &[CommitStreamHead], what: &str) -> Result<()> {
     Ok(())
 }
 
-include!("generated/current_results_contracts.rs");
+include!("generated/current_state_contracts.rs");

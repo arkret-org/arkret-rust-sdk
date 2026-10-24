@@ -484,7 +484,7 @@ mod tests {
                 "version": "1.0",
                 "content_type": "application/vnd.arkret.message+json",
                 "encryption_context": {
-                    "epoch": 1,
+                    "epoch": "1",
                     "group_state_ref": group_state_ref
                 },
                 "ciphertext": "b3BhcXVl",

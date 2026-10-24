@@ -45,7 +45,7 @@ fn fixture() -> (
             provider_endpoint: &endpoint,
             registration_key: &registration,
             also_known_as: &[],
-            version_time: now(),
+            version_created_at: now(),
             did_key_fragment: None,
         },
     )
@@ -70,7 +70,7 @@ fn fixture() -> (
         state: &state,
         current_update_seed: &inception.next_update_key_seed,
         next_update_public_key_multibase: &key(&[43; 32]),
-        version_time: now() + Duration::seconds(1),
+        version_created_at: now() + Duration::seconds(1),
     })
     .unwrap();
     logs.push(next.log_entry);
@@ -81,7 +81,7 @@ fn fixture() -> (
         state: &state,
         current_update_seed: &[43; 32],
         next_update_public_key_multibase: &key(&[44; 32]),
-        version_time: now() + Duration::seconds(2),
+        version_created_at: now() + Duration::seconds(2),
     })
     .unwrap();
     logs.push(next.log_entry);
@@ -270,7 +270,7 @@ fn portable_method_relocation_preserves_the_accepted_service_state() {
         current_did: &old_did,
         target_did: &target,
         previous_entries: &log_entries,
-        version_time: now() + Duration::seconds(3),
+        version_created_at: now() + Duration::seconds(3),
         current_update_seed: &[44; 32],
         next_update_public_key_multibase: &key(&[45; 32]),
         state: &state,
@@ -357,7 +357,7 @@ fn independently_valid_native_forks_cannot_replace_an_accepted_branch() {
             state: &state,
             current_update_seed: &[44; 32],
             next_update_public_key_multibase: &key(seed),
-            version_time: now() + Duration::seconds(3),
+            version_created_at: now() + Duration::seconds(3),
         })
         .unwrap();
         let mut entries = log_entries.clone();

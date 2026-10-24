@@ -1,9 +1,9 @@
 //! Convenience wrapper for encrypted key-backup operations.
 
 use arkret_models_crypto::{
-    KeyBackup, KeyBackupsListQuery, KeysBackupsDeleteChallenge, KeysBackupsDeleteOutcome,
-    KeysBackupsDeleteRequestBody, KeysBackupsIssueDeleteChallengeRequestBody, KeysBackupsList,
-    KeysBackupsReplaceOutcome, KeysBackupsUnlockRequestBody,
+    KeyBackup, KeyBackupsListQuery, KeysBackupsDeleteChallenge, KeysBackupsDeleteRequestBody,
+    KeysBackupsDeleteResponseBody, KeysBackupsIssueDeleteChallengeRequestBody, KeysBackupsPage,
+    KeysBackupsReplaceResponseBody, KeysBackupsUnlockRequestBody,
 };
 use arkret_wire::BackupId;
 
@@ -23,7 +23,10 @@ impl KeyBackupClient {
         &self.client
     }
 
-    pub async fn put_key_backup(&self, record: &KeyBackup) -> Result<KeysBackupsReplaceOutcome> {
+    pub async fn put_key_backup(
+        &self,
+        record: &KeyBackup,
+    ) -> Result<KeysBackupsReplaceResponseBody> {
         let digest = arkret_canonical::canonical_sha256(record)?;
         let idempotency_key = format!("arkret-key-backup-{}", digest.trim_start_matches("sha256:"));
         self.client
@@ -41,7 +44,7 @@ impl KeyBackupClient {
         Ok(record)
     }
 
-    pub async fn list_key_backups(&self, query: &KeyBackupsListQuery) -> Result<KeysBackupsList> {
+    pub async fn list_key_backups(&self, query: &KeyBackupsListQuery) -> Result<KeysBackupsPage> {
         self.client.list_key_backups(query).await
     }
 
@@ -59,7 +62,7 @@ impl KeyBackupClient {
         &self,
         backup_id: &BackupId,
         request: &KeysBackupsDeleteRequestBody,
-    ) -> Result<KeysBackupsDeleteOutcome> {
+    ) -> Result<KeysBackupsDeleteResponseBody> {
         self.client.delete_key_backup(backup_id, request).await
     }
 }

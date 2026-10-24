@@ -58,7 +58,7 @@ pub struct AccountRegistrationInvitationPolicy {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AccountRegistrationRateLimitPolicy {
-    pub max_attempts: u32,
+    pub max_attempt_count: u32,
     pub window_seconds: u64,
 }
 
@@ -255,7 +255,7 @@ impl AccountDataList {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AccountDataDeleteOutcome {
+pub struct AccountDataDeleteResponseBody {
     pub account_data_key: String,
     pub revision: u64,
 }
@@ -795,7 +795,7 @@ pub enum AccountHandoffBinding {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AccountHandoffOutcome {
+pub struct AccountHandoffResponseBody {
     pub request_id: RequestId,
     /// Canonical handle of the authenticated service account.
     ///
@@ -820,7 +820,7 @@ pub struct AccountHandoffOutcome {
     pub binding: AccountHandoffBinding,
 }
 
-impl AccountHandoffOutcome {
+impl AccountHandoffResponseBody {
     pub fn validate(&self) -> Result<()> {
         if self.allowed_operations != ACCOUNT_HANDOFF_ALLOWED_OPERATIONS {
             return Err(WireError::Protocol(
@@ -916,7 +916,7 @@ impl IdentityAbandonmentRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct IdentityAbandonmentOutcome {
+pub struct IdentityAbandonmentResponseBody {
     pub request_id: RequestId,
     pub account_subject: Hash,
     pub principal_id: DidCoreId,
@@ -966,7 +966,7 @@ pub enum AccountRequestErasureStatus {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AccountRequestErasureOutcome {
+pub struct AccountRequestErasureResponseBody {
     pub request_id: RequestId,
     pub status: AccountRequestErasureStatus,
     pub principal_id: DidCoreId,
@@ -982,7 +982,7 @@ pub struct AccountRequestErasureOutcome {
     pub withdrawal_window_ends_at: Option<DateTime<Utc>>,
 }
 
-impl AccountRequestErasureOutcome {
+impl AccountRequestErasureResponseBody {
     pub fn validate(&self) -> Result<()> {
         if self
             .withdrawal_window_ends_at
@@ -1064,7 +1064,7 @@ pub enum DidBindingPurpose {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct DidBindingChallengeOutcome {
+pub struct DidBindingChallengeResponseBody {
     pub request_id: RequestId,
     pub challenge_id: String,
     pub challenge: String,
@@ -1086,7 +1086,7 @@ pub struct DidBindingChallengeOutcome {
     pub expires_at: DateTime<Utc>,
 }
 
-impl DidBindingChallengeOutcome {
+impl DidBindingChallengeResponseBody {
     pub fn validate(&self) -> Result<()> {
         if self.challenge_id.is_empty()
             || self.challenge.len() < 22
@@ -1258,7 +1258,7 @@ impl InitialSessionGrantIntent {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct IdentityBindingChallengeOutcome {
+pub struct IdentityBindingChallengeResponseBody {
     pub request_id: RequestId,
     pub challenge_id: String,
     pub challenge: String,
@@ -1761,7 +1761,7 @@ impl AccountBindingReceipt {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AccountUpdateProfileOutcome {
+pub struct AccountUpdateProfileResponseBody {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub profile: crate::actor_profile::AccountMaterializedProfile,
     /// The exact RealmCommit covering the submitted profile Event.
@@ -1789,7 +1789,7 @@ pub struct AccountCursorRevokeRequestBody {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AccountCursorRevokeOutcome {
+pub struct AccountCursorRevokeResponseBody {
     pub revoked: bool,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
@@ -1948,7 +1948,7 @@ mod account_handoff_tests {
         assert!(receipt.validate_shape().is_err());
     }
 
-    fn handoff_request() -> AccountHandoffRequestBody {
+    fn realm_authority_handoff_request_body() -> AccountHandoffRequestBody {
         AccountHandoffRequestBody {
             request_id: RequestId::new("ak:request:019b0000-0000-7000-8000-000000000001").unwrap(),
             proof: AccountHandoffAuthenticationProof {
@@ -1970,7 +1970,7 @@ mod account_handoff_tests {
 
     #[test]
     fn handoff_request_digest_omits_digest_and_signature_fields() {
-        let first = handoff_request();
+        let first = realm_authority_handoff_request_body();
         let mut second = first.clone();
         second.proof.request_canonical_digest =
             Hash::new(format!("sha256:{}", "f".repeat(64))).unwrap();
@@ -1988,8 +1988,8 @@ mod account_handoff_tests {
 
     #[test]
     fn account_handoff_outcome_enforces_canonical_allowlist() {
-        let mut outcome = AccountHandoffOutcome {
-            request_id: handoff_request().request_id,
+        let mut outcome = AccountHandoffResponseBody {
+            request_id: realm_authority_handoff_request_body().request_id,
             account_handle: Handle::parse("alice:example.com").unwrap(),
             account_subject: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
             preferred_locale: Some(arkret_locale::UiLocale::En),
@@ -2009,7 +2009,7 @@ mod account_handoff_tests {
 
     #[test]
     fn account_handoff_request_rejects_unknown_fields() {
-        let mut value = serde_json::to_value(handoff_request()).unwrap();
+        let mut value = serde_json::to_value(realm_authority_handoff_request_body()).unwrap();
         value
             .as_object_mut()
             .unwrap()
@@ -2019,8 +2019,8 @@ mod account_handoff_tests {
 
     #[test]
     fn account_handoff_outcome_requires_canonical_account_handle() {
-        let outcome = AccountHandoffOutcome {
-            request_id: handoff_request().request_id,
+        let outcome = AccountHandoffResponseBody {
+            request_id: realm_authority_handoff_request_body().request_id,
             account_handle: Handle::parse("alice:example.com").unwrap(),
             account_subject: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
             preferred_locale: Some(arkret_locale::UiLocale::Zh),
@@ -2034,19 +2034,19 @@ mod account_handoff_tests {
         };
         let mut value = serde_json::to_value(outcome).unwrap();
         value.as_object_mut().unwrap().remove("account_handle");
-        assert!(serde_json::from_value::<AccountHandoffOutcome>(value.clone()).is_err());
+        assert!(serde_json::from_value::<AccountHandoffResponseBody>(value.clone()).is_err());
 
         value
             .as_object_mut()
             .unwrap()
             .insert("account_handle".to_owned(), json!("not-a-canonical-handle"));
-        assert!(serde_json::from_value::<AccountHandoffOutcome>(value).is_err());
+        assert!(serde_json::from_value::<AccountHandoffResponseBody>(value).is_err());
     }
 
     #[test]
     fn account_handoff_locale_is_private_typed_metadata() {
-        let outcome = AccountHandoffOutcome {
-            request_id: handoff_request().request_id,
+        let outcome = AccountHandoffResponseBody {
+            request_id: realm_authority_handoff_request_body().request_id,
             account_handle: Handle::parse("alice:example.com").unwrap(),
             account_subject: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
             preferred_locale: Some(arkret_locale::UiLocale::En),
@@ -2063,7 +2063,7 @@ mod account_handoff_tests {
 
         let mut unsupported = value;
         unsupported["preferred_locale"] = json!("fr");
-        assert!(serde_json::from_value::<AccountHandoffOutcome>(unsupported).is_err());
+        assert!(serde_json::from_value::<AccountHandoffResponseBody>(unsupported).is_err());
     }
 
     #[test]
@@ -2109,7 +2109,7 @@ mod account_handoff_tests {
     fn onboarding_state_is_a_closed_server_goal_projection() {
         let did = Did::new("did:webvh:z6mkfixture:example.com").unwrap();
         let snapshot = AccountOnboardingState {
-            handoff_request_id: handoff_request().request_id,
+            handoff_request_id: realm_authority_handoff_request_body().request_id,
             account_subject: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
             observed_at: Utc::now(),
             binding: AccountHandoffBinding::Bound {
@@ -2129,7 +2129,7 @@ mod account_handoff_tests {
     fn bound_onboarding_rejects_a_core_and_did_mismatch() {
         let alice = Did::new("did:webvh:z6mkalice:alice.example").unwrap();
         let snapshot = AccountOnboardingState {
-            handoff_request_id: handoff_request().request_id,
+            handoff_request_id: realm_authority_handoff_request_body().request_id,
             account_subject: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
             observed_at: Utc::now(),
             binding: AccountHandoffBinding::Bound {
@@ -2149,7 +2149,7 @@ mod account_handoff_tests {
     /// therefore round-trip a response that leaves the field out.
     #[test]
     fn acceptance_outcome_round_trips_without_a_withdrawal_window() {
-        let outcome = AccountRequestErasureOutcome {
+        let outcome = AccountRequestErasureResponseBody {
             request_id: RequestId::new("ak:request:0196419b-0000-7000-8000-00000000000a").unwrap(),
             status: AccountRequestErasureStatus::Accepted,
             principal_id: DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
@@ -2163,7 +2163,7 @@ mod account_handoff_tests {
         outcome.validate().unwrap();
         let wire = serde_json::to_value(&outcome).unwrap();
         assert!(wire.get("withdrawal_window_ends_at").is_none());
-        let parsed: AccountRequestErasureOutcome = serde_json::from_value(wire).unwrap();
+        let parsed: AccountRequestErasureResponseBody = serde_json::from_value(wire).unwrap();
         assert_eq!(parsed, outcome);
     }
 
@@ -2172,7 +2172,7 @@ mod account_handoff_tests {
     #[test]
     fn acceptance_outcome_rejects_a_window_that_does_not_outlast_recording() {
         let recorded_at = DateTime::from_timestamp_millis(1_775_000_000_000).unwrap();
-        let outcome = AccountRequestErasureOutcome {
+        let outcome = AccountRequestErasureResponseBody {
             request_id: RequestId::new("ak:request:0196419b-0000-7000-8000-00000000000b").unwrap(),
             status: AccountRequestErasureStatus::Accepted,
             principal_id: DidCoreId::new("ak:did_core:web:alice.example").unwrap(),

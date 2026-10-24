@@ -246,7 +246,7 @@ pub trait SignalPlaintextProfile: Serialize + DeserializeOwned {
 
     /// Sender-device sequence within the signed Signal scope. Independent of
     /// any product sequence the profile also carries (`ak.call.signal`'s
-    /// per-call `seq`, `ak.message.stream`'s per-stream `seq`); neither
+    /// per-call `sequence`, `ak.message.stream`'s per-stream `sequence`); neither
     /// substitutes for the other.
     fn payload_sequence(&self) -> u64;
 

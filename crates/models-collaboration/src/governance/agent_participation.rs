@@ -18,49 +18,54 @@ use serde::{Deserialize, Serialize};
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ParticipationBits {
-    pub reply_message: bool,
-    pub reaction_add: bool,
-    pub reaction_remove: bool,
-    pub accept_third_party_mention: bool,
-    pub act_on_behalf: bool,
+    pub message_creation_allowed: bool,
+    pub reaction_addition_allowed: bool,
+    pub reaction_removal_allowed: bool,
+    pub third_party_mention_delivery_allowed: bool,
+    pub acting_on_behalf_allowed: bool,
 }
 
 impl ParticipationBits {
     pub const NONE: Self = Self {
-        reply_message: false,
-        reaction_add: false,
-        reaction_remove: false,
-        accept_third_party_mention: false,
-        act_on_behalf: false,
+        message_creation_allowed: false,
+        reaction_addition_allowed: false,
+        reaction_removal_allowed: false,
+        third_party_mention_delivery_allowed: false,
+        acting_on_behalf_allowed: false,
     };
 
     pub const ALL: Self = Self {
-        reply_message: true,
-        reaction_add: true,
-        reaction_remove: true,
-        accept_third_party_mention: true,
-        act_on_behalf: true,
+        message_creation_allowed: true,
+        reaction_addition_allowed: true,
+        reaction_removal_allowed: true,
+        third_party_mention_delivery_allowed: true,
+        acting_on_behalf_allowed: true,
     };
 
     #[must_use]
     pub fn intersect(self, other: Self) -> Self {
         Self {
-            reply_message: self.reply_message && other.reply_message,
-            reaction_add: self.reaction_add && other.reaction_add,
-            reaction_remove: self.reaction_remove && other.reaction_remove,
-            accept_third_party_mention: self.accept_third_party_mention
-                && other.accept_third_party_mention,
-            act_on_behalf: self.act_on_behalf && other.act_on_behalf,
+            message_creation_allowed: self.message_creation_allowed
+                && other.message_creation_allowed,
+            reaction_addition_allowed: self.reaction_addition_allowed
+                && other.reaction_addition_allowed,
+            reaction_removal_allowed: self.reaction_removal_allowed
+                && other.reaction_removal_allowed,
+            third_party_mention_delivery_allowed: self.third_party_mention_delivery_allowed
+                && other.third_party_mention_delivery_allowed,
+            acting_on_behalf_allowed: self.acting_on_behalf_allowed
+                && other.acting_on_behalf_allowed,
         }
     }
 
     #[must_use]
     pub fn is_subset_of(self, ceiling: Self) -> bool {
-        (!self.reply_message || ceiling.reply_message)
-            && (!self.reaction_add || ceiling.reaction_add)
-            && (!self.reaction_remove || ceiling.reaction_remove)
-            && (!self.accept_third_party_mention || ceiling.accept_third_party_mention)
-            && (!self.act_on_behalf || ceiling.act_on_behalf)
+        (!self.message_creation_allowed || ceiling.message_creation_allowed)
+            && (!self.reaction_addition_allowed || ceiling.reaction_addition_allowed)
+            && (!self.reaction_removal_allowed || ceiling.reaction_removal_allowed)
+            && (!self.third_party_mention_delivery_allowed
+                || ceiling.third_party_mention_delivery_allowed)
+            && (!self.acting_on_behalf_allowed || ceiling.acting_on_behalf_allowed)
     }
 }
 
@@ -117,6 +122,8 @@ impl ParticipationScope {
 pub struct ParticipationReplaceRequestBody {
     pub target_scope: ParticipationScope,
     pub selection: ParticipationBits,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    #[serde(with = "participation_expected_version_decimal")]
     pub expected_version: u64,
 }
 
@@ -199,7 +206,30 @@ pub const MAX_PARTICIPATION_REPLACE_EXPECTED_VERSION: u64 = i64::MAX as u64 - 1;
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ParticipationNextReplaceInput {
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    #[serde(with = "participation_expected_version_decimal")]
     pub expected_version: u64,
+}
+
+mod participation_expected_version_decimal {
+    pub fn serialize<S: serde::Serializer>(value: &u64, serializer: S) -> Result<S::Ok, S::Error> {
+        if *value > super::MAX_PARTICIPATION_REPLACE_EXPECTED_VERSION {
+            return Err(serde::ser::Error::custom(
+                "participation replace version exhausted",
+            ));
+        }
+        arkret_canonical::serde_helpers::nonnegative_int64_decimal::serialize(value, serializer)
+    }
+    pub fn deserialize<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<u64, D::Error> {
+        let value =
+            arkret_canonical::serde_helpers::nonnegative_int64_decimal::deserialize(deserializer)?;
+        if value > super::MAX_PARTICIPATION_REPLACE_EXPECTED_VERSION {
+            return Err(serde::de::Error::custom(
+                "participation replace version exhausted",
+            ));
+        }
+        Ok(value)
+    }
 }
 
 /// One controller-owned, versioned per-scope participation selection.
@@ -212,18 +242,28 @@ pub struct AgentParticipationEntry {
     #[serde(rename = "target_scope")]
     pub scope: ParticipationScope,
     pub selection: ParticipationBits,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    #[serde(with = "arkret_canonical::serde_helpers::nonnegative_int64_decimal")]
     pub version: u64,
-    pub next_replace_input: ParticipationNextReplaceInput,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub next_replace_input: Option<ParticipationNextReplaceInput>,
 }
 
 impl AgentParticipationEntry {
     pub fn validate(&self) -> Result<(), String> {
-        if self.version == 0 || self.version > MAX_PARTICIPATION_REPLACE_EXPECTED_VERSION {
+        if self.version == 0 || self.version > i64::MAX as u64 {
             return Err(
                 "agent participation entry version is outside the replace echo range".to_owned(),
             );
         }
-        if self.next_replace_input.expected_version != self.version {
+        let expected =
+            (self.version <= MAX_PARTICIPATION_REPLACE_EXPECTED_VERSION).then_some(self.version);
+        if self
+            .next_replace_input
+            .as_ref()
+            .map(|input| input.expected_version)
+            != expected
+        {
             return Err(
                 "agent participation next_replace_input.expected_version must equal version"
                     .to_owned(),
@@ -239,8 +279,13 @@ struct AgentParticipationEntryWire {
     #[serde(rename = "target_scope")]
     scope: ParticipationScope,
     selection: ParticipationBits,
+    #[serde(with = "arkret_canonical::serde_helpers::nonnegative_int64_decimal")]
     version: u64,
-    next_replace_input: ParticipationNextReplaceInput,
+    #[serde(
+        default,
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    next_replace_input: Option<ParticipationNextReplaceInput>,
 }
 
 impl<'de> Deserialize<'de> for AgentParticipationEntry {
@@ -401,12 +446,33 @@ mod observation_tests {
                 scope,
                 selection: ParticipationBits::ALL,
                 version: 2,
-                next_replace_input: ParticipationNextReplaceInput {
+                next_replace_input: Some(ParticipationNextReplaceInput {
                     expected_version: 2,
-                },
+                }),
             }],
         }
     }
+    #[test]
+    fn exhausted_version_is_readable_but_cannot_be_a_replace_input() {
+        let maximum = i64::MAX as u64;
+        let mut entry = observation().entries[0].clone();
+        entry.version = maximum;
+        entry.next_replace_input = None;
+        entry.validate().unwrap();
+        let wire = serde_json::to_value(&entry).unwrap();
+        assert_eq!(wire["version"], maximum.to_string());
+        assert!(wire.get("next_replace_input").is_none());
+        assert!(serde_json::from_value::<AgentParticipationEntry>(wire).is_ok());
+        let exhausted = serde_json::json!({"expected_version": maximum.to_string()});
+        assert!(serde_json::from_value::<ParticipationNextReplaceInput>(exhausted).is_err());
+        assert!(
+            serde_json::to_value(ParticipationNextReplaceInput {
+                expected_version: maximum
+            })
+            .is_err()
+        );
+    }
+
     #[test]
     fn authenticated_claims_consume_the_canonical_participations_member() {
         use arkret_models_identity::{
@@ -456,13 +522,21 @@ mod observation_tests {
         let old = observation();
         let mut next = old.clone();
         next.entries[0].version = 1;
-        next.entries[0].next_replace_input.expected_version = 1;
+        next.entries[0]
+            .next_replace_input
+            .as_mut()
+            .unwrap()
+            .expected_version = 1;
         assert!(old.validate_successor(&next).is_err());
         let mut next = old.clone();
         next.entries[0].selection = ParticipationBits::NONE;
         assert!(old.validate_successor(&next).is_err());
         next.entries[0].version = 3;
-        next.entries[0].next_replace_input.expected_version = 3;
+        next.entries[0]
+            .next_replace_input
+            .as_mut()
+            .unwrap()
+            .expected_version = 3;
         old.validate_successor(&next).unwrap();
         assert_eq!(
             next.observed_selection_for_scopes(&[next.entries[0].scope.clone()]),

@@ -1,9 +1,9 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/applet-managed-authority-registry.json; version=2026-10-21.4;
-//! sha256=3b2d94cbfdf28df731075275467b57d71030fceebdfba60a482c617b571f9e27 Input: registry/
-//! contract-registry.json; version=2026-10-23.3;
-//! sha256=6552ac03bae32d141a4cfe33845c2a4855b57bb1aacd2947927e87868418cfa5
+//! Input: registry/applet-managed-authority-registry.json; version=2026-10-24.1;
+//! sha256=1446428d84b2350fffb192d9a8a103b536c713f4d1b1c3fbc499003d216a2c47 Input: registry/
+//! contract-registry.json; version=2026-10-24.2;
+//! sha256=e79e94261c890e82a59726272e1d22118c7d3ba48720b3b9e810971299b09c0f
 //! Entries: managed_device_operations=22
 
 use super::{CapabilityActionId, ServiceOperationId};
@@ -80,7 +80,7 @@ pub const fn applet_managed_device_scope_rule(
         ServiceOperationId::SelfSignerKeysReadResolveV1 => {
             ManagedDeviceScopeRule::AllActions(&[CapabilityActionId::EventRead])
         }
-        ServiceOperationId::SelfCurrentResultsReadExactV1 => {
+        ServiceOperationId::SelfCurrentStateReadExactV1 => {
             ManagedDeviceScopeRule::AllActions(&[CapabilityActionId::EventRead])
         }
         ServiceOperationId::SelfCommittedEventResourceGetV1 => {

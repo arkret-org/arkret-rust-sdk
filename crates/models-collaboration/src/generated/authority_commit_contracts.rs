@@ -2,13 +2,13 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/authority-commit-operations.schema.json
-// sha256=648427c352e65a3ae31a3d9946079a846701513a5c594063501c39e95273a2db
+// sha256=f95cb1acfa8517176738115925b1795d3b13d206a1d99ddf0b5050f670136d2f
 //
 // Input: schemas/common-ids.schema.json
-// sha256=14226f0ac83e4d06639ad791cc0e52e0eb1c3b128cd4c8c12308a99b795141e4
+// sha256=0cc25a02fe0d9a94f6e41f2cf8f64e492ba36362f1e69a699cf1e684924837ee
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=d200bd3e6d76abd1b6154781fb5e54f11fbbc834638cdc29554f83590127fdfa
+// sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
 
 /// Counterpart: `authority-commit-operations.schema.json#/$defs/mls_genesis_material`.
 /// Raw epoch-0 public material of one forwarded `ak.mls.genesis`
@@ -17,8 +17,8 @@
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MlsGenesisMaterial {
-    pub group_info_bytes_b64: String,
-    pub ratchet_tree_bytes_b64: String,
+    pub group_info_base64url: String,
+    pub ratchet_tree_base64url: String,
 }
 
 /// Counterpart:
@@ -46,10 +46,10 @@ pub struct HistoricalProducerSignerFactEntry {
     pub producer_signer_fact: HistoricalProducerSignerFact,
 }
 
-/// Counterpart: `authority-commit-operations.schema.json#/$defs/peer_stream_scan_outcome`.
+/// Counterpart: `authority-commit-operations.schema.json#/$defs/peer_stream_scan_response_body`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PeerStreamScanOutcome {
+pub struct PeerStreamScanResponseBody {
     pub committed_events: Vec<arkret_wire::CommittedEventView>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
@@ -58,10 +58,11 @@ pub struct PeerStreamScanOutcome {
     pub producer_signer_facts: Vec<HistoricalProducerSignerFactEntry>,
 }
 
-/// Counterpart: `authority-commit-operations.schema.json#/$defs/handoff_request`.
+/// Counterpart:
+/// `authority-commit-operations.schema.json#/$defs/realm_authority_handoff_request_body`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AuthorityHandoffRequest {
+pub struct AuthorityRealmAuthorityHandoffRequestBody {
     pub handoff: RealmAuthorityHandoff,
     pub final_stream_heads: Vec<CommitStreamHead>,
     pub snapshot: RealmStateSnapshot,
@@ -112,6 +113,7 @@ pub struct CommittedEventSubmission {
 pub struct PcrPrivateHandoffManifest {
     pub realm_id: RealmId,
     pub holder_account_id: arkret_wire::AccountId,
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub governance_generation: u64,
     pub effective_stream_head: CommitStreamHead,
     pub nonce: String,
@@ -124,6 +126,7 @@ pub struct PcrPrivateHandoffManifest {
 #[serde(deny_unknown_fields)]
 pub struct ManagementPrivateHandoffManifest {
     pub realm_id: RealmId,
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub governance_generation: u64,
     pub final_stream_heads_digest: Hash,
     pub nonce: String,
@@ -148,7 +151,7 @@ pub struct RealmDeviceHistoricalSignerFact {
     pub event_id: EventId,
     pub actor_id: ActorId,
     pub verification_method: DidUrl,
-    pub public_key_b64u: arkret_wire::Base64UrlString,
+    pub public_key_base64url: arkret_wire::Base64UrlString,
     #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
     pub device_id: arkret_wire::DeviceId,
@@ -174,7 +177,7 @@ pub struct RealmControlHistoricalSignerFact {
     pub event_id: EventId,
     pub actor_id: ActorId,
     pub verification_method: DidUrl,
-    pub public_key_b64u: arkret_wire::Base64UrlString,
+    pub public_key_base64url: arkret_wire::Base64UrlString,
     #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
     pub control_event_ref: arkret_wire::CommittedEventRef,
@@ -199,7 +202,7 @@ pub struct RealmRecoveryServiceHistoricalSignerFact {
     pub actor_id: ActorId,
     pub target_actor_id: ActorId,
     pub verification_method: DidUrl,
-    pub public_key_b64u: arkret_wire::Base64UrlString,
+    pub public_key_base64url: arkret_wire::Base64UrlString,
     #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
     pub applet_id: arkret_wire::AppletId,

@@ -372,7 +372,7 @@ pub enum DirectConversationSendBlocker {
 mod tests {
     use serde_json::json;
 
-    use super::{DirectConversationResolveOutcome, DirectConversationSendBlocker};
+    use super::{DirectConversationResolveResponseBody, DirectConversationSendBlocker};
 
     #[test]
     fn direct_conversation_send_blockers_match_the_closed_wire_literals() {
@@ -415,12 +415,12 @@ mod tests {
                 }
             }
         });
-        let parsed: DirectConversationResolveOutcome =
+        let parsed: DirectConversationResolveResponseBody =
             serde_json::from_value(current.clone()).unwrap();
         assert_eq!(serde_json::to_value(parsed).unwrap(), current);
 
         assert!(
-            serde_json::from_value::<DirectConversationResolveOutcome>(json!({
+            serde_json::from_value::<DirectConversationResolveResponseBody>(json!({
                 "state": "creation_required",
                 "expected_contact_revision": 7
             }))
@@ -441,7 +441,7 @@ mod tests {
             "group_state_ref": "ak:event:AamoRNGFU65QceSF_1sOMBzEncXa6v055qULEAVWcDYs",
             "send_blockers": []
         });
-        let parsed: DirectConversationResolveOutcome =
+        let parsed: DirectConversationResolveResponseBody =
             serde_json::from_value(current.clone()).unwrap();
         parsed.validate_shape().unwrap();
         assert_eq!(serde_json::to_value(parsed).unwrap(), current);
@@ -450,7 +450,7 @@ mod tests {
         let coordinates = legacy["coordinates"].as_object_mut().unwrap();
         let value = coordinates.remove("binding_event_ref").unwrap();
         coordinates.insert("binding_ref".to_owned(), value);
-        assert!(serde_json::from_value::<DirectConversationResolveOutcome>(legacy).is_err());
+        assert!(serde_json::from_value::<DirectConversationResolveResponseBody>(legacy).is_err());
     }
 }
 
@@ -487,7 +487,7 @@ pub enum DirectConversationPeerMlsAdmission {
     clippy::large_enum_variant,
     reason = "Keep schema-mapped wire variants inline; transport and runtime containers own allocation policy."
 )]
-pub enum DirectConversationResolveOutcome {
+pub enum DirectConversationResolveResponseBody {
     CreationRequired {
         next_founding_input: DirectConversationFoundingInput,
     },
@@ -524,7 +524,7 @@ pub enum DirectConversationResolveOutcome {
     },
 }
 
-impl DirectConversationResolveOutcome {
+impl DirectConversationResolveResponseBody {
     /// Section 7.2 provisional history send ends when the peer's Welcome is
     /// durable. Exact-pair founding completion permits only a binding
     /// endorsement, even though the resolver still reports `provisional`.
@@ -599,14 +599,16 @@ mod resolve_material_tests {
             "realm_id":"ak:realm:ASOv-EoZPg5yuM1Pv__u1K8vD3Q9342GxwoWmkKwjqOn",
             "main_strand_id":"ak:strand:AcoR1oH31En1_7UqsmGtCAr0ByQ_638Axv43HIC06sGg"
         }, "authorization_basis":basis, "peer_mls_admission":"missing"});
-        let outcome: DirectConversationResolveOutcome =
+        let outcome: DirectConversationResolveResponseBody =
             serde_json::from_value(value.clone()).unwrap();
         outcome.validate_shape().unwrap();
         assert_eq!(serde_json::to_value(&outcome).unwrap(), value);
         value.as_object_mut().unwrap().remove("authorization_basis");
-        assert!(serde_json::from_value::<DirectConversationResolveOutcome>(value.clone()).is_err());
+        assert!(
+            serde_json::from_value::<DirectConversationResolveResponseBody>(value.clone()).is_err()
+        );
         value["authorization_basis"] = json!({"kind":"agent_controller", "event_refs":[]});
-        let outcome: DirectConversationResolveOutcome = serde_json::from_value(value).unwrap();
+        let outcome: DirectConversationResolveResponseBody = serde_json::from_value(value).unwrap();
         assert!(outcome.validate_shape().is_err());
     }
 
@@ -621,7 +623,7 @@ mod resolve_material_tests {
             "ak:event:ASOv-EoZPg5yuM1Pv__u1K8vD3Q9342GxwoWmkKwjqOn"
         ]}, "peer_mls_admission":"missing"});
         let parse =
-            |value| serde_json::from_value::<DirectConversationResolveOutcome>(value).unwrap();
+            |value| serde_json::from_value::<DirectConversationResolveResponseBody>(value).unwrap();
         assert!(!parse(value.clone()).provisional_history_send_allowed());
         value["group_state_ref"] = json!("ak:event:AWgGCEbMHnelRQfzqg1C_onV9Ej_FdpdAZyM_JoFgAd3");
         for admission in ["missing", "pending", "repair_required"] {

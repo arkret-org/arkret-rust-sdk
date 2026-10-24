@@ -329,9 +329,9 @@ pub fn verify_forwarded_account_device_signer_fact(
         device_id: core.device_id.clone(),
         verification_method: source.verification_method.clone(),
         key: arkret_models_identity::ResolvedSignerKey {
-            public_key_b64u: arkret_wire::Base64UrlString::new(arkret_canonical::base64url_encode(
-                raw,
-            ))
+            public_key_base64url: arkret_wire::Base64UrlString::new(
+                arkret_canonical::base64url_encode(raw),
+            )
             .map_err(|error| signature_invalid(error.to_owned()))?,
             authorization_ref: source.authorization_ref.clone(),
             revision: source.revision.clone(),
@@ -367,7 +367,7 @@ pub fn verify_historical_account_device_event_signature(
     digest_suite: DigestSuite,
 ) -> Result<()> {
     fact.validate_event_binding(event, digest_suite)?;
-    let raw = arkret_canonical::base64url_decode(fact.key.public_key_b64u.as_str())
+    let raw = arkret_canonical::base64url_decode(fact.key.public_key_base64url.as_str())
         .map_err(|error| signature_invalid(error.to_string()))?;
     let envelope = EventProofBuilder::new()
         .envelope_bytes(event)
@@ -390,7 +390,7 @@ pub fn verify_historical_account_device_event_signature(
 /// chain. The caller separately authenticates the new handoff's two signatures and frozen import
 /// cut.
 pub fn verify_handoff_account_device_signer_inventory(
-    request: &arkret_models_collaboration::authority_commit::AuthorityHandoffRequest,
+    request: &arkret_models_collaboration::authority_commit::AuthorityRealmAuthorityHandoffRequestBody,
     imported: &[arkret_wire::CommittedEventFullView],
     authority: &crate::realm_authority_chain::VerifiedRealmAuthority,
     keys: &dyn crate::realm_authority_chain::RealmAuthorityKeyDirectory,
@@ -477,9 +477,9 @@ pub fn verify_historical_producer_event_signature(
         F::RealmDevice(_) | F::RealmControl(_) | F::RealmRecoveryService(_) => {
             fact.validate_event_binding(event, suite)?;
             let (method, key) = match fact {
-                F::RealmDevice(f) => (&f.verification_method, &f.public_key_b64u),
-                F::RealmControl(f) => (&f.verification_method, &f.public_key_b64u),
-                F::RealmRecoveryService(f) => (&f.verification_method, &f.public_key_b64u),
+                F::RealmDevice(f) => (&f.verification_method, &f.public_key_base64url),
+                F::RealmControl(f) => (&f.verification_method, &f.public_key_base64url),
+                F::RealmRecoveryService(f) => (&f.verification_method, &f.public_key_base64url),
                 _ => unreachable!(),
             };
             let raw = arkret_canonical::base64url_decode(key.as_str())
@@ -500,7 +500,7 @@ pub fn verify_historical_producer_event_signature(
         }
         F::Service(fact) => {
             fact.validate_event_binding(event, suite)?;
-            let raw = arkret_canonical::base64url_decode(fact.key.public_key_b64u.as_str())
+            let raw = arkret_canonical::base64url_decode(fact.key.public_key_base64url.as_str())
                 .map_err(|e| signature_invalid(e.to_string()))?;
             let bytes = EventProofBuilder::new()
                 .envelope_bytes(event)

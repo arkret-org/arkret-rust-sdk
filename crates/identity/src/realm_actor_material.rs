@@ -1,7 +1,7 @@
 //! Cryptographic verification of exact, private Realm actor material.
 use arkret_models_identity::AuthenticatedServiceResolution;
 use arkret_models_integration::{
-    RealmActorMaterial, RealmActorMaterialOutcome, RealmActorMaterialRequest,
+    RealmActorMaterial, RealmActorMaterialRequestBody, RealmActorMaterialResponseBody,
 };
 use arkret_wire::{ActorId, DetachedSignatureContext};
 use chrono::{DateTime, Utc};
@@ -9,19 +9,19 @@ use chrono::{DateTime, Utc};
 use crate::{IdentityError, RealmAuthorityKeyDirectory, Result, VerifiedRealmAuthority};
 
 /// Holding this value proves the response binding and Station signature, not write permission.
-pub struct VerifiedRealmActorMaterial(RealmActorMaterialOutcome);
+pub struct VerifiedRealmActorMaterial(RealmActorMaterialResponseBody);
 impl VerifiedRealmActorMaterial {
-    pub fn material(&self) -> &RealmActorMaterialOutcome {
+    pub fn material(&self) -> &RealmActorMaterialResponseBody {
         &self.0
     }
-    pub fn into_material(self) -> RealmActorMaterialOutcome {
+    pub fn into_material(self) -> RealmActorMaterialResponseBody {
         self.0
     }
 }
 
 pub fn verify_realm_actor_material(
-    material: RealmActorMaterialOutcome,
-    request: &RealmActorMaterialRequest,
+    material: RealmActorMaterialResponseBody,
+    request: &RealmActorMaterialRequestBody,
     requester: &ActorId,
     authority: &VerifiedRealmAuthority,
     resolution: &AuthenticatedServiceResolution,
@@ -71,7 +71,7 @@ pub fn verify_realm_actor_material(
         event,
         commit,
         producer_signer_fact,
-    } = &material.result
+    } = &material.material
     {
         let full = arkret_wire::CommittedEventFullView {
             event: event.clone(),

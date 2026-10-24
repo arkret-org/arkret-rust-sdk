@@ -12,7 +12,7 @@ pub use arkret_models_collaboration::sync_frames::account_subscribe::{
     DEFAULT_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS, MAX_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS,
 };
 use arkret_models_collaboration::sync_frames::account_subscribe::{
-    AccountSyncRoundBudget, StreamTraceValidator, SyncRequestBody,
+    AccountSubscribeParameters, AccountSyncRoundBudget, StreamTraceValidator,
 };
 
 use crate::{Error, Result};
@@ -32,7 +32,7 @@ pub struct AccountSubscribeFolder {
 
 impl AccountSubscribeFolder {
     /// Create a folder bound to the exact account-subscribe request context.
-    pub fn for_request(request: &SyncRequestBody) -> Self {
+    pub fn for_request(request: &AccountSubscribeParameters) -> Self {
         Self {
             frames: Vec::new(),
             done: None,
@@ -119,13 +119,13 @@ mod tests {
 
     use super::*;
 
-    fn request(catchup: bool, after: Option<&str>) -> SyncRequestBody {
-        SyncRequestBody {
+    fn request(catchup: bool, after: Option<&str>) -> AccountSubscribeParameters {
+        AccountSubscribeParameters {
             after: after.map(ToOwned::to_owned),
             catchup: Some(catchup),
             filter: None,
 
-            realm_list: None,
+            realm_list_parameters: None,
             replace_filter: None,
         }
     }

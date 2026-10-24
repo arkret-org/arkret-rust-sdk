@@ -96,7 +96,7 @@ pub struct QuotaReservation {
     pub counter_key: String,
     /// `floor(verification_time_ms / period_ms)`.
     pub window_id: i64,
-    pub max_operations: u64,
+    pub max_operation_count: u64,
     pub period_ms: i64,
     pub burst: Option<u64>,
     pub verification_ms: i64,
@@ -801,7 +801,7 @@ fn canonical_evaluation_class(constraint: &GrantConstraint) -> Option<Evaluation
             (Kind::ScopeLimitation, _)
                 if !constraint.allowed_from_container_refs.is_empty()
                     || !constraint.allowed_to_container_refs.is_empty()
-                    || constraint.wip_limit_override.is_some() =>
+                    || constraint.wip_limit_override_allowed.is_some() =>
             {
                 EvaluationClass::RealmState
             }
@@ -809,7 +809,7 @@ fn canonical_evaluation_class(constraint: &GrantConstraint) -> Option<Evaluation
             (Kind::AuthorityControl, _) => EvaluationClass::GrantLocal,
             (Kind::Quota, Some(Subkind::Rate)) => EvaluationClass::External,
             (Kind::Quota, Some(Subkind::Resource))
-                if constraint.max_resources.is_some()
+                if constraint.max_resource_count.is_some()
                     || constraint.max_total_blob_bytes.is_some() =>
             {
                 EvaluationClass::External
@@ -1507,7 +1507,7 @@ fn quota_reservation(
     grant: &CapabilityGrant,
     constraint: &GrantConstraint,
 ) -> Option<QuotaReservation> {
-    let max_operations = constraint.max_operations?;
+    let max_operation_count = constraint.max_operation_count?;
     let period_ms = fixed_duration(constraint.period.as_deref()?)?
         .num_milliseconds()
         .max(0);
@@ -1539,7 +1539,7 @@ fn quota_reservation(
         constraint_key: constraint_key(constraint)?,
         counter_key,
         window_id: verification_ms.div_euclid(period_ms),
-        max_operations,
+        max_operation_count,
         period_ms,
         burst: constraint.burst,
         verification_ms,

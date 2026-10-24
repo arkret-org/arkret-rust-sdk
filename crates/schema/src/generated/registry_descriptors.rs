@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-23.3;
-//! sha256=6552ac03bae32d141a4cfe33845c2a4855b57bb1aacd2947927e87868418cfa5 Input: registry/
-//! account-data-key-registry.json; version=2026-10-05.2;
-//! sha256=894d17f3dff9426a3f7f71b3cd81d6ae398c4fc223c8d714dadb6e97e2c53885 Entries: id_kinds=48,
-//! special_forms=15, actions=153, approval_carriers=2, schemas=229, account_data_patterns=24
+//! Input: registry/contract-registry.json; version=2026-10-24.2;
+//! sha256=e79e94261c890e82a59726272e1d22118c7d3ba48720b3b9e810971299b09c0f Input: registry/
+//! account-data-key-registry.json; version=2026-10-24.1;
+//! sha256=6232b072b675125888fa4c7d8f8b85d4f1513963c29855f2d5c9ce0a0bb8edd6 Entries: id_kinds=48,
+//! special_forms=15, actions=153, approval_carriers=2, schemas=230, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -423,8 +423,8 @@ pub const APPROVAL_EVIDENCE_CARRIERS: &[ApprovalEvidenceCarrierDescriptor] = &[
         carrier_id: "applet_configuration.approval_signatures",
         carrier_class: "non_event_operation",
         operation_id: "ak.self.applet.configuration.command.submit.v1",
-        request_schema_ref: "schemas/applet-configuration-operations.schema.json#/$defs/request",
-        carrier_schema_ref: "schemas/applet-configuration-operations.schema.json#/$defs/request/properties/approval_signatures",
+        request_schema_ref: "schemas/applet-configuration-operations.schema.json#/$defs/applet_configuration_request_body",
+        carrier_schema_ref: "schemas/applet-configuration-operations.schema.json#/$defs/applet_configuration_request_body/properties/approval_signatures",
         carrier_field: "approval_signatures",
         evidence_schema_ref: "schemas/approval-signature.schema.json",
         allowed_target_kinds: &["operation"],
@@ -433,7 +433,7 @@ pub const APPROVAL_EVIDENCE_CARRIERS: &[ApprovalEvidenceCarrierDescriptor] = &[
         carrier_id: "event_admission_submission.approval_signatures",
         carrier_class: "event_submission",
         operation_id: "ak.self.events.command.submit.v1",
-        request_schema_ref: "schemas/authority-commit-operations.schema.json#/$defs/self_submit_request",
+        request_schema_ref: "schemas/authority-commit-operations.schema.json#/$defs/self_submit_request_body",
         carrier_schema_ref: "schemas/service-operation-dtos.schema.json#/$defs/EventAdmissionSubmission/properties/approval_signatures",
         carrier_field: "approval_signatures",
         evidence_schema_ref: "schemas/approval-signature.schema.json",
@@ -1296,7 +1296,12 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         action: CapabilityActionId::MessageMentionBroadcast,
         category: "discussion",
         risk_tier: CapabilityRiskTier::High,
-        required_constraints: &["expires_at", "max_operations", "period", "constraint_scope"],
+        required_constraints: &[
+            "expires_at",
+            "max_operation_count",
+            "period",
+            "constraint_scope",
+        ],
         required_evaluator_checks: &[
             "message_create_or_revise_authorized",
             "audience_mention_policy_allows_audience",
@@ -3244,10 +3249,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/account-blocklist.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::ACCOUNT_CURRENT_RESULT_V1,
-        file: "schemas/account-current-result.schema.json",
-    },
-    SchemaDescriptor {
         schema_id: SchemaId::ACCOUNT_DATA_ENCRYPTED_VALUE_V1,
         file: "schemas/account-data-encrypted-value.schema.json",
     },
@@ -3262,6 +3263,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::ACCOUNT_OPERATIONS_V1,
         file: "schemas/account-operations.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::ACCOUNT_STATE_VIEW_V1,
+        file: "schemas/account-state-view.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::ACCOUNT_STATUS_RECORD_V1,
@@ -3440,8 +3445,8 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/authority-set-policy.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::AUTHZ_OPERATIONS_V1,
-        file: "schemas/authz-operations.schema.json",
+        schema_id: SchemaId::AUTHORIZATION_OPERATIONS_V1,
+        file: "schemas/authorization-operations.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::BACKUP_SERIES_ERASE_CONFIRMATION_V1,
@@ -3520,24 +3525,32 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/agent-authority-evidence.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_OUTCOME_V1,
-        file: "schemas/agent-authority-evidence.schema.json",
-    },
-    SchemaDescriptor {
         schema_id: SchemaId::CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_REQUEST_BODY_V1,
         file: "schemas/agent-authority-evidence.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::CURRENT_PRINCIPAL_OUTCOME_V1,
-        file: "schemas/identity-resolution.schema.json",
+        schema_id: SchemaId::CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_RESPONSE_BODY_V1,
+        file: "schemas/agent-authority-evidence.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::CURRENT_PRINCIPAL_REQUEST_V1,
         file: "schemas/identity-resolution.schema.json",
     },
     SchemaDescriptor {
+        schema_id: SchemaId::CURRENT_PRINCIPAL_RESPONSE_BODY_V1,
+        file: "schemas/identity-resolution.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::CURRENT_STATE_V1,
+        file: "schemas/current-state.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: SchemaId::CURSOR_V1,
         file: "schemas/cursor.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::DECIMAL_INTEGERS_V1,
+        file: "schemas/decimal-integers.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::DETACHED_OBJECT_SIGNATURE_V1,
@@ -3612,8 +3625,8 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/event-payload.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::EXACT_CURRENT_RESULTS_READ_V1,
-        file: "schemas/exact-current-results-read.schema.json",
+        schema_id: SchemaId::EXACT_CURRENT_STATE_READ_V1,
+        file: "schemas/exact-current-state-read.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::EXTENSION_MANIFEST_V1,
@@ -3650,10 +3663,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::HTTP_PROBLEM_DETAILS_V1,
         file: "schemas/http-problem-details.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::ICE_CONFIG_RESPONSE_V1,
-        file: "schemas/ice-config-response.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::IDENTITY_LINK_V1,
@@ -3716,6 +3725,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/management-review-operations.schema.json",
     },
     SchemaDescriptor {
+        schema_id: SchemaId::MEDIA_ICE_CONFIGURATION_RESPONSE_BODY_V1,
+        file: "schemas/media-ice-configuration-response-body.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: SchemaId::MEDIA_METADATA_V1,
         file: "schemas/media-metadata.schema.json",
     },
@@ -3724,12 +3737,12 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/media-operations.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::MEDIA_SERVICE_BINDING_OUTCOME_V1,
-        file: "schemas/media-service-binding-result.schema.json",
+        schema_id: SchemaId::MEDIA_SERVICE_BINDING_REQUEST_V1,
+        file: "schemas/media-service-binding-operations.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::MEDIA_SERVICE_BINDING_REQUEST_V1,
-        file: "schemas/media-service-binding-result.schema.json",
+        schema_id: SchemaId::MEDIA_SERVICE_BINDING_RESPONSE_BODY_V1,
+        file: "schemas/media-service-binding-operations.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::MEMBER_IDENTITY_V1,
@@ -3892,11 +3905,11 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/realm-genesis.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::REALM_JOIN_BOOTSTRAP_OUTCOME_V1,
+        schema_id: SchemaId::REALM_JOIN_BOOTSTRAP_REQUEST_V1,
         file: "schemas/realm-join-intake.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::REALM_JOIN_BOOTSTRAP_REQUEST_V1,
+        schema_id: SchemaId::REALM_JOIN_BOOTSTRAP_RESPONSE_BODY_V1,
         file: "schemas/realm-join-intake.schema.json",
     },
     SchemaDescriptor {
@@ -3904,15 +3917,11 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/realm-join-candidate.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::REALM_JOIN_PEER_PREVIEW_OUTCOME_V1,
-        file: "schemas/realm-join-intake.schema.json",
-    },
-    SchemaDescriptor {
         schema_id: SchemaId::REALM_JOIN_PEER_PREVIEW_REQUEST_V1,
         file: "schemas/realm-join-intake.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::REALM_JOIN_PREPARE_OUTCOME_V1,
+        schema_id: SchemaId::REALM_JOIN_PEER_PREVIEW_RESPONSE_BODY_V1,
         file: "schemas/realm-join-intake.schema.json",
     },
     SchemaDescriptor {
@@ -3920,11 +3929,15 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/realm-join-intake.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::REALM_JOIN_SELF_PREVIEW_OUTCOME_V1,
+        schema_id: SchemaId::REALM_JOIN_PREPARE_RESPONSE_BODY_V1,
         file: "schemas/realm-join-intake.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::REALM_JOIN_SELF_PREVIEW_REQUEST_V1,
+        file: "schemas/realm-join-intake.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::REALM_JOIN_SELF_PREVIEW_RESPONSE_BODY_V1,
         file: "schemas/realm-join-intake.schema.json",
     },
     SchemaDescriptor {
@@ -3948,7 +3961,7 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/realm-state-snapshot.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::REALM_STREAM_LIST_V1,
+        schema_id: SchemaId::REALM_STREAM_PAGE_V1,
         file: "schemas/realm-read-operations.schema.json",
     },
     SchemaDescriptor {
@@ -3982,10 +3995,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::RESOURCE_SELECTOR_V1,
         file: "schemas/resource-selector.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::RESULT_PROJECTION_V1,
-        file: "schemas/typed-current-result.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::RSVP_V1,
@@ -4044,11 +4053,11 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/signal-typing.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::SIGNER_KEY_QUERY_OUTCOME_V1,
+        schema_id: SchemaId::SIGNER_KEY_QUERY_REQUEST_V1,
         file: "schemas/signer-key-operations.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::SIGNER_KEY_QUERY_REQUEST_V1,
+        schema_id: SchemaId::SIGNER_KEY_QUERY_RESPONSE_BODY_V1,
         file: "schemas/signer-key-operations.schema.json",
     },
     SchemaDescriptor {

@@ -5,7 +5,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use arkret_models_identity::signer_key_operations::{
-    SignerKeysQueryOutcome, SignerKeysQueryRequestBody,
+    SignerKeyQueryResponseBody, SignerKeysQueryRequestBody,
 };
 use arkret_schema::ProtocolSchemaRegistry;
 use arkret_schema_conformance::schema_registry_from_spec_artifacts;
@@ -98,11 +98,11 @@ fn historical_request_and_station_response_match_the_published_schema() {
             "principal_id": "ak:did_core:web:recipient.example",
             "station_id": "ak:did_core:web:station.example"
         },
-        "results": [{
+        "resolutions": [{
             "selector": historical_selector(),
             "status": "resolved",
             "key": {
-                "public_key_b64u": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                "public_key_base64url": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
                 "authorization_ref": {
                     "event_id": "ak:event:Aao964Xuq1Q7PmnLt9I97ih00Qs2N6qMkBgKgYCvUFFe",
                     "commit_id": "ak:realm_commit:AdA0TA9zF1BPiudM7qe4WqKZLjMn0r7--gKAHqstAWDZ",
@@ -116,17 +116,17 @@ fn historical_request_and_station_response_match_the_published_schema() {
                     "commit_id": "ak:realm_commit:AQPhm6Di_JMyu-JM932ww_EvyQU0dIIEO2ykFmYb9nD5",
                     "stream_position": 15
                 },
-                "governance_generation": 4
+                "governance_generation": "4"
             },
             "accepted_at": "2026-09-20T00:00:00.000Z"
         }]
     });
-    assert_schema_and_serde::<SignerKeysQueryOutcome>("#/$defs/query_outcome", outcome);
+    assert_schema_and_serde::<SignerKeyQueryResponseBody>("#/$defs/query_response_body", outcome);
 }
 
 #[test]
 fn human_current_privacy_fixture_matches_sdk_and_schema() {
-    use arkret_models_identity::signer_key_operations::SignerKeyQueryOutcome;
+    use arkret_models_identity::signer_key_operations::SignerKeyResolution;
     let fixture: Value = serde_json::from_str(
         &fs::read_to_string(
             artifacts_dir().join("fixtures/current-signer-contact-endpoint-fixture.json"),
@@ -140,7 +140,7 @@ fn human_current_privacy_fixture_matches_sdk_and_schema() {
             continue;
         }
         let instance = case["instance"].clone();
-        let parsed = serde_json::from_value::<SignerKeyQueryOutcome>(instance.clone());
+        let parsed = serde_json::from_value::<SignerKeyResolution>(instance.clone());
         if case["expect_valid"] == true {
             validate_fragment(
                 &format!("#{}", schema.split_once('#').unwrap().1),

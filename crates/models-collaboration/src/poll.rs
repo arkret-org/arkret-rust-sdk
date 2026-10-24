@@ -44,7 +44,7 @@ pub enum PollError {
 pub fn validate_poll_selections(
     selections: &[String],
     answer_ids: &BTreeSet<String>,
-    max_selections: usize,
+    max_selection_count: usize,
 ) -> Result<BTreeSet<String>, PollError> {
     if selections.is_empty() {
         return Err(PollError::EmptySelection);
@@ -56,21 +56,21 @@ pub fn validate_poll_selections(
     if !unique.is_subset(answer_ids) {
         return Err(PollError::UnknownAnswer);
     }
-    if unique.len() > max_selections {
+    if unique.len() > max_selection_count {
         return Err(PollError::SelectionLimitExceeded);
     }
     Ok(unique)
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct VerifiedPollResponse {
+pub struct VerifiedPollVote {
     pub partition: PollPartition,
     pub accepted_ref: CommittedEventRef,
     pub selections: BTreeSet<String>,
     pub declared_heads: Vec<PollResponseHead>,
 }
 
-impl VerifiedPollResponse {
+impl VerifiedPollVote {
     /// `resolve_response` must read accepted response Event bindings at the
     /// same authority cut. Unknown, quarantined or different-partition heads
     /// are rejected before this response can enter the reducer.
@@ -79,7 +79,7 @@ impl VerifiedPollResponse {
         accepted_ref: CommittedEventRef,
         selections: &[String],
         answer_ids: &BTreeSet<String>,
-        max_selections: usize,
+        max_selection_count: usize,
         declared_heads: Vec<PollResponseHead>,
         mut resolve_response: impl FnMut(&EventId) -> Option<(PollPartition, CommittedEventRef)>,
     ) -> Result<Self, PollError> {
@@ -90,7 +90,7 @@ impl VerifiedPollResponse {
         {
             return Err(PollError::InvalidScope);
         }
-        let selections = validate_poll_selections(selections, answer_ids, max_selections)?;
+        let selections = validate_poll_selections(selections, answer_ids, max_selection_count)?;
         let mut seen = BTreeSet::new();
         if declared_heads.len() > 64 {
             return Err(PollError::InvalidHead);
@@ -121,7 +121,7 @@ impl VerifiedPollResponse {
 
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct PollResponseSet {
-    responses: BTreeMap<PollPartition, BTreeMap<EventId, VerifiedPollResponse>>,
+    responses: BTreeMap<PollPartition, BTreeMap<EventId, VerifiedPollVote>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -133,7 +133,7 @@ pub struct PollProjection {
 }
 
 impl PollResponseSet {
-    pub fn insert(&mut self, response: VerifiedPollResponse) -> Result<(), PollError> {
+    pub fn insert(&mut self, response: VerifiedPollVote) -> Result<(), PollError> {
         let rows = self
             .responses
             .entry(response.partition.clone())

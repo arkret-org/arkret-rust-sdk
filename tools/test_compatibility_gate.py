@@ -78,7 +78,7 @@ class CompatibilityGateTests(ManifestFixture, unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             output = Path(temporary) / "github-output.txt"
             gate.write_github_outputs(resolved, output)
-            lines = dict(line.split("=", 1) for line in output.read_text().splitlines())
+            lines = dict(line.split("=", 1) for line in output.read_text(encoding="utf-8").splitlines())
         self.assertEqual(lines["arkret_rust_sdk"], sdk_candidate)
         self.assertEqual(lines["garth"], consumer_candidate)
         self.assertEqual(self.manifest, original)
@@ -185,7 +185,7 @@ class CompatibilityGateTests(ManifestFixture, unittest.TestCase):
                 results = gate.run_checks({"checks": [check]}, Path(temporary),
                                           {check["category"]}, set())
             resolve.assert_called_once_with(original_command[0])
-            self.assertEqual(json.loads(output.read_text()), arguments)
+            self.assertEqual(json.loads(output.read_text(encoding="utf-8")), arguments)
         self.assertEqual(results[0]["status"], "passed")
         self.assertEqual(results[0]["command"], original_command)
         self.assertEqual(check["command"], original_command)
@@ -205,7 +205,7 @@ class CompatibilityGateTests(ManifestFixture, unittest.TestCase):
                 expected_command = list(checks[1]["command"])
                 expected_command[0] = gate.shutil.which(expected_command[0]) or expected_command[0]
                 execute.assert_called_once_with(expected_command, cwd=Path(temporary), check=False)
-            self.assertEqual(results, json.loads(report.read_text())["checks"])
+            self.assertEqual(results, json.loads(report.read_text(encoding="utf-8"))["checks"])
         self.assertEqual([row["status"] for row in results], ["not_run", "passed"])
         self.assertEqual(results[0]["reason"], "check not selected")
 
@@ -226,7 +226,7 @@ class CompatibilityGateTests(ManifestFixture, unittest.TestCase):
                     gate.run_checks({"checks": checks}, Path(temporary), {"static"},
                                     set(), report, {checks[1]["id"], checks[2]["id"]})
                 self.assertEqual(execute.call_count, 1)
-            results = json.loads(report.read_text())["checks"]
+            results = json.loads(report.read_text(encoding="utf-8"))["checks"]
         self.assertEqual([row["status"] for row in results], ["not_run", "blocked", "passed"])
 
     def test_sdk_compile_matrix_is_shared_with_standalone_ci(self) -> None:
@@ -246,7 +246,7 @@ class CompatibilityGateTests(ManifestFixture, unittest.TestCase):
             self.assertEqual(checks[name]["command"], ["cargo", "check", *args, "--locked"])
             self.assertEqual(checks[name]["category"], "compile")
             self.assertEqual(checks[name]["working_directory"], "arkret-rust-sdk")
-        workflow = (self.sdk_root / ".github/workflows/ci.yml").read_text()
+        workflow = (self.sdk_root / ".github/workflows/ci.yml").read_text(encoding="utf-8")
         self.assertEqual(set(re.findall(r"--check (sdk\.compile[.\w-]*)", workflow)), set(expected) | {"sdk.compile"})
         self.assertNotIn("- run: cargo check --no-default-features", workflow)
         self.assertNotIn("- run: cargo check -p arkret --target", workflow)
@@ -274,7 +274,7 @@ class CompatibilityGateTests(ManifestFixture, unittest.TestCase):
                 self.assertEqual(checks[name]["category"], "static")
                 script = arguments[-1].replace(".", "/") + ".py" if arguments[0] == "-m" else arguments[0]
                 self.assertTrue((self.sdk_root / script).is_file())
-        workflow = (self.sdk_root / ".github/workflows/ci.yml").read_text()
+        workflow = (self.sdk_root / ".github/workflows/ci.yml").read_text(encoding="utf-8")
         block = workflow.split("- name: Run manifest SDK structure, time and Event checks\n", 1)[1]
         block = block.split("- name: Run manifest SDK type boundary checks", 1)[0]
         self.assertEqual(set(re.findall(r"--check (sdk[.\w-]+)", block)), set(expected))
@@ -299,13 +299,14 @@ class CompatibilityGateTests(ManifestFixture, unittest.TestCase):
             "sdk.operation-coverage": ["python", "tools/generate-operation-coverage-matrix.py", "--check",
                                        "--artifacts", "../arkret-spec/spec/v1/artifacts"],
         }
+        expected["sdk.independent-wire-kats"] = ["python", "tools/regenerate-independent-wire-kats.py", "--check"]
         checks = {check["id"]: check for check in self.manifest["checks"]}
         for name, command in expected.items():
             with self.subTest(check=name):
                 self.assertEqual(checks[name]["command"], command)
                 self.assertEqual(checks[name]["category"], "static")
                 self.assertEqual(checks[name]["working_directory"], "arkret-rust-sdk")
-        workflow = (self.sdk_root / ".github/workflows/ci.yml").read_text()
+        workflow = (self.sdk_root / ".github/workflows/ci.yml").read_text(encoding="utf-8")
         for start, end, names, report in [
             ("Run manifest SDK type boundary checks", "Guard default arkret dependency surface",
              set(list(expected)[:6]), "sdk-type-boundaries.json"),
@@ -328,7 +329,7 @@ class CompatibilityGateTests(ManifestFixture, unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             output = Path(temporary) / "github-output.txt"
             gate.write_github_outputs(self.manifest, output)
-            lines = dict(line.split("=", 1) for line in output.read_text().splitlines())
+            lines = dict(line.split("=", 1) for line in output.read_text(encoding="utf-8").splitlines())
         self.assertEqual(lines["arkret_rust_sdk"], self.manifest["repositories"]["arkret-rust-sdk"]["commit"])
 
 

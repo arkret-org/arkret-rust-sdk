@@ -1,6 +1,6 @@
 use arkret_identity::AuthorityHistoryUnavailable;
 use arkret_models_collaboration::contact_operations::{ContactLineage, ContactScopeUpdatePayload};
-use arkret_models_identity::IdentityLogListOutcome;
+use arkret_models_identity::IdentityLogListResponseBody;
 use arkret_signatures::webvh::{ServiceInceptionInput, prepare_service_inception};
 use arkret_wire::{AccountId, Base64UrlString, Did, DidUrl};
 use chrono::{Duration, TimeZone as _};
@@ -12,7 +12,7 @@ use super::*;
 
 struct Fixture {
     key: SigningKey,
-    history: IdentityLogListOutcome,
+    history: IdentityLogListResponseBody,
     signature: ProtocolSignature,
     issuer: ContactPeer,
     peer: ContactPeer,
@@ -22,7 +22,7 @@ impl AuthorityDidHistoryResolver for Fixture {
     fn resolve_complete_history(
         &self,
         _did: &Did,
-    ) -> std::result::Result<IdentityLogListOutcome, AuthorityHistoryUnavailable> {
+    ) -> std::result::Result<IdentityLogListResponseBody, AuthorityHistoryUnavailable> {
         Ok(self.history.clone())
     }
 }
@@ -37,7 +37,7 @@ impl Fixture {
                 principal_endpoint: &endpoint,
                 local_id: "service",
                 also_known_as: &[],
-                version_time: at,
+                version_created_at: at,
                 did_key_fragment: Some("assertion-1"),
             },
         )
@@ -46,7 +46,7 @@ impl Fixture {
         let station = arkret_wire::project_did_to_core_id(&did).unwrap();
         Self {
             key: SigningKey::from_bytes(&inception.did_key_seed),
-            history: IdentityLogListOutcome {
+            history: IdentityLogListResponseBody {
                 did,
                 method: DidMethodUri::Webvh,
                 native_history: Some(true),
@@ -94,7 +94,7 @@ impl Fixture {
             producer_signer: ContactProducerSigner::Direct(
                 arkret_models_collaboration::contact_operations::ContactDirectProducerSigner {
                     verification_method: self.signature.verification_method.clone(),
-                    public_key_b64u: Base64UrlString::new(arkret_canonical::base64url_encode(
+                    public_key_base64url: Base64UrlString::new(arkret_canonical::base64url_encode(
                         self.key.verifying_key().to_bytes(),
                     ))
                     .unwrap(),
@@ -132,7 +132,7 @@ impl Fixture {
                 .collect(),
             closed_round: None,
             issued_at: self.signature.created_at,
-            fresh_until: self.signature.created_at + Duration::minutes(5),
+            cache_expires_at: self.signature.created_at + Duration::minutes(5),
             signature: self.signature.clone(),
         };
         proof.signature.jws = self.sign(&proof.canonical_signing_bytes().unwrap());
@@ -170,7 +170,7 @@ impl CarrierFixture {
         ContactProducerSigner::Direct(
             arkret_models_collaboration::contact_operations::ContactDirectProducerSigner {
                 verification_method: self.method.clone(),
-                public_key_b64u: Base64UrlString::new(arkret_canonical::base64url_encode(
+                public_key_base64url: Base64UrlString::new(arkret_canonical::base64url_encode(
                     self.device_key.verifying_key().to_bytes(),
                 ))
                 .unwrap(),
@@ -477,7 +477,7 @@ fn carrier_projection_binds_exact_method_and_key_without_changing_original_event
                 original.verification_method().clone()
             },
             if change_method {
-                original.public_key_b64u().clone()
+                original.public_key_base64url().clone()
             } else {
                 Base64UrlString::new(arkret_canonical::base64url_encode(
                     fixture.source.key.verifying_key().to_bytes(),
@@ -616,7 +616,7 @@ fn carrier_controller_device_requires_accepted_immutable_agent_pcr_delegation() 
         principal_endpoint: &endpoint,
         local_id: "contact-agent",
         controller_principal_id: &controller.principal_id,
-        version_time: at - Duration::seconds(2),
+        version_created_at: at - Duration::seconds(2),
         root_seed: &[41; 32],
         next_root_public_key_multibase: &next,
     })
@@ -625,7 +625,7 @@ fn carrier_controller_device_requires_accepted_immutable_agent_pcr_delegation() 
         did: &inception.did,
         local_id: &inception.local_id,
         previous_entries: std::slice::from_ref(&inception.log_entry),
-        version_time: at - Duration::seconds(1),
+        version_created_at: at - Duration::seconds(1),
         current_root_seed: &[42; 32],
         next_root_public_key_multibase: &future,
         controller_principal_id: &controller.principal_id,
@@ -650,7 +650,7 @@ fn carrier_controller_device_requires_accepted_immutable_agent_pcr_delegation() 
         controller_account_id: controller,
     };
     let mut history = Fixture::new();
-    history.history = IdentityLogListOutcome {
+    history.history = IdentityLogListResponseBody {
         did,
         method: DidMethodUri::Webvh,
         native_history: Some(true),
@@ -661,7 +661,7 @@ fn carrier_controller_device_requires_accepted_immutable_agent_pcr_delegation() 
     verify_agent_holder_binding(&event, &holder, None, &history).unwrap();
     let producer = ContactProducerSigner::delegated(
         f.method.clone(),
-        f.producer_signer().public_key_b64u().clone(),
+        f.producer_signer().public_key_base64url().clone(),
         history.history.did.clone(),
     )
     .unwrap();
@@ -683,7 +683,7 @@ fn carrier_controller_device_requires_accepted_immutable_agent_pcr_delegation() 
         fn resolve_complete_history(
             &self,
             did: &Did,
-        ) -> std::result::Result<IdentityLogListOutcome, AuthorityHistoryUnavailable> {
+        ) -> std::result::Result<IdentityLogListResponseBody, AuthorityHistoryUnavailable> {
             if did == &self.source.history.did {
                 Ok(self.source.history.clone())
             } else if did == &self.agent.history.did {
@@ -748,7 +748,7 @@ fn carrier_controller_device_requires_accepted_immutable_agent_pcr_delegation() 
             did: history.history.did.as_str(),
             local_id: "contact-agent",
             previous_entries: &history.history.entries,
-            version_time: at + Duration::seconds(1),
+            version_created_at: at + Duration::seconds(1),
             current_root_seed: &[43; 32],
             next_root_public_key_multibase: &next_root,
             state: &removed_binding,
@@ -813,7 +813,7 @@ impl AuthorityDidHistoryResolver for Ceremony {
     fn resolve_complete_history(
         &self,
         did: &Did,
-    ) -> std::result::Result<IdentityLogListOutcome, AuthorityHistoryUnavailable> {
+    ) -> std::result::Result<IdentityLogListResponseBody, AuthorityHistoryUnavailable> {
         for source in [&self.a, &self.b] {
             if &source.history.did == did {
                 return Ok(source.history.clone());
@@ -1175,7 +1175,7 @@ fn lease_expiry_does_not_revoke_an_already_verified_ordinary_scope() {
     let direction = verified.direction().unwrap();
     assert!(
         direction
-            .require_current_at(material.current_proof.fresh_until)
+            .require_current_at(material.current_proof.cache_expires_at)
             .is_err()
     );
     assert!(
@@ -1190,7 +1190,7 @@ fn lease_expiry_does_not_revoke_an_already_verified_ordinary_scope() {
             material.head_operation.peer(),
             &domain(),
             DigestSuite::Sha256,
-            material.current_proof.fresh_until,
+            material.current_proof.cache_expires_at,
             &fixture
         ),
         Err(ContactAuthorizationError::NotCurrent)
@@ -1309,7 +1309,7 @@ fn historical_first_close_requires_the_full_signed_control_result() {
             ),
     };
     let request_digest = Hash::new(arkret_canonical::canonical_sha256(&request).unwrap()).unwrap();
-    let result_digest = peer_contact_control_result_digest(
+    let control_material_digest = peer_contact_control_result_digest(
         &request_digest,
         PeerContactControlKind::CurrentRefresh,
         None,
@@ -1318,7 +1318,7 @@ fn historical_first_close_requires_the_full_signed_control_result() {
     )
     .unwrap();
     let at = fixture.at + Duration::seconds(1);
-    let unsigned = serde_json::json!({"domain":"ak.peer_contact.control_receipt.v1","request_kind":"current_refresh","request_digest":request_digest,"outcome":"accepted","result_digest":result_digest,"recipient_id":fixture.b.service_id,"received_at":arkret_canonical::format_timestamp_canonical(at),"issuer_id":fixture.b.service_id});
+    let unsigned = serde_json::json!({"domain":"ak.peer_contact.control_receipt.v1","request_kind":"current_refresh","request_digest":request_digest,"outcome":"accepted","control_material_digest":control_material_digest,"recipient_id":fixture.b.service_id,"received_at":arkret_canonical::format_timestamp_canonical(at),"issuer_id":fixture.b.service_id});
     let signature = fixture
         .b
         .sign(
@@ -1330,19 +1330,20 @@ fn historical_first_close_requires_the_full_signed_control_result() {
         domain: PeerContactControlReceiptDomain::V1,
         request_kind: PeerContactControlKind::CurrentRefresh,
         request_digest,
-        outcome: PeerContactOutcome::Accepted,
-        result_digest: Some(result_digest),
+        outcome: PeerContactAdmissionAttemptOutcome::Accepted,
+        control_material_digest: Some(control_material_digest),
         recipient_id: fixture.b.service_id.clone(),
         received_at: at,
         issuer_id: fixture.b.service_id.clone(),
         signature,
     };
-    let result =
-        PeerContactSubmitOutcome::Control(PeerContactControlSubmitOutcome::CurrentRefresh {
-            status: PeerContactOutcome::Accepted,
+    let result = PeerContactSubmitResponseBody::Control(
+        PeerContactControlSubmitResponseBody::CurrentRefresh {
+            status: PeerContactAdmissionAttemptOutcome::Accepted,
             control_receipt: receipt,
             material,
-        });
+        },
+    );
     verify_contact_current_refresh_response(
         &request,
         &result,
@@ -1352,10 +1353,9 @@ fn historical_first_close_requires_the_full_signed_control_result() {
     )
     .unwrap();
     let mut tampered = result;
-    let PeerContactSubmitOutcome::Control(PeerContactControlSubmitOutcome::CurrentRefresh {
-        material,
-        ..
-    }) = &mut tampered
+    let PeerContactSubmitResponseBody::Control(
+        PeerContactControlSubmitResponseBody::CurrentRefresh { material, .. },
+    ) = &mut tampered
     else {
         unreachable!()
     };
@@ -1438,7 +1438,7 @@ fn delayed_lineage_uses_issuance_key_while_receipts_retain_acceptance_key() {
             principal_endpoint: &"https://station-b.example/".parse().unwrap(),
             local_id: "service",
             also_known_as: &[],
-            version_time: f.at - Duration::minutes(1),
+            version_created_at: f.at - Duration::minutes(1),
             did_key_fragment: Some("source-b"),
         },
         &[12; 32],
@@ -1465,7 +1465,7 @@ fn delayed_lineage_uses_issuance_key_while_receipts_retain_acceptance_key() {
         state: &state,
         current_update_seed: &inception.next_update_key_seed,
         next_update_public_key_multibase: &next,
-        version_time: f.at + Duration::seconds(1),
+        version_created_at: f.at + Duration::seconds(1),
     })
     .unwrap();
     f.b.history.entries.push(rotation.log_entry);

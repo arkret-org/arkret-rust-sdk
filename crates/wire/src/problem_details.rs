@@ -66,12 +66,12 @@ impl<'de> Deserialize<'de> for AccountRevisionStaleProblem {
 /// Closed issuer-ledger state returned for an exact replay whose recorded
 /// grant has expired. This is not a hint to transparently issue again.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-pub struct SessionGrantReplayExpiredProblem {
+pub struct SessionGrantReplayExpiredProblemExtensions {
     session_grant_id: crate::SessionGrantId,
     state: &'static str,
 }
 
-impl SessionGrantReplayExpiredProblem {
+impl SessionGrantReplayExpiredProblemExtensions {
     pub fn new(session_grant_id: crate::SessionGrantId) -> Self {
         Self {
             session_grant_id,
@@ -88,7 +88,7 @@ impl SessionGrantReplayExpiredProblem {
     }
 }
 
-impl<'de> Deserialize<'de> for SessionGrantReplayExpiredProblem {
+impl<'de> Deserialize<'de> for SessionGrantReplayExpiredProblemExtensions {
     fn deserialize<D>(deserializer: D) -> StdResult<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -119,12 +119,12 @@ pub enum SessionGrantReplayTerminalState {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct SessionGrantReplayTerminalProblem {
+pub struct SessionGrantReplayTerminalProblemExtensions {
     session_grant_id: crate::SessionGrantId,
     state: SessionGrantReplayTerminalState,
 }
 
-impl SessionGrantReplayTerminalProblem {
+impl SessionGrantReplayTerminalProblemExtensions {
     pub fn new(
         session_grant_id: crate::SessionGrantId,
         state: SessionGrantReplayTerminalState,
@@ -156,12 +156,12 @@ pub enum SessionGrantReplayProblemError {
 /// The fields are private so callers cannot construct a value with a different
 /// reason code or an empty approval request id.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-pub struct AgentHumanApprovalProblem {
+pub struct AgentHumanApprovalProblemExtensions {
     reason_code: &'static str,
     approval_request_id: crate::OpaqueLocalId,
 }
 
-impl AgentHumanApprovalProblem {
+impl AgentHumanApprovalProblemExtensions {
     pub fn new(
         approval_request_id: impl Into<String>,
     ) -> StdResult<Self, AgentHumanApprovalProblemError> {
@@ -195,7 +195,7 @@ impl AgentHumanApprovalProblem {
     }
 }
 
-impl<'de> Deserialize<'de> for AgentHumanApprovalProblem {
+impl<'de> Deserialize<'de> for AgentHumanApprovalProblemExtensions {
     fn deserialize<D>(deserializer: D) -> StdResult<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -464,7 +464,7 @@ impl Problem {
     /// The `claim_required` problem carrying the closed human-approval object.
     pub fn claim_required_human_approval(
         detail: impl Into<String>,
-        details: AgentHumanApprovalProblem,
+        details: AgentHumanApprovalProblemExtensions,
     ) -> Self {
         Self::from_code(crate::error_codes::ErrorCode::CLAIM_REQUIRED, detail)
             .with_extensions(details.into_wire_details())
@@ -573,7 +573,8 @@ impl Problem {
     /// their open extensions.
     pub fn agent_human_approval_details(
         &self,
-    ) -> StdResult<Option<AgentHumanApprovalProblem>, AgentHumanApprovalProblemError> {
+    ) -> StdResult<Option<AgentHumanApprovalProblemExtensions>, AgentHumanApprovalProblemError>
+    {
         if self.code() != crate::error_codes::ErrorCode::CLAIM_REQUIRED {
             return Ok(None);
         }
@@ -587,7 +588,8 @@ impl Problem {
     /// details.
     pub fn session_grant_replay_expired_details(
         &self,
-    ) -> StdResult<Option<SessionGrantReplayExpiredProblem>, SessionGrantReplayProblemError> {
+    ) -> StdResult<Option<SessionGrantReplayExpiredProblemExtensions>, SessionGrantReplayProblemError>
+    {
         if self.code() != crate::error_codes::ErrorCode::SESSION_GRANT_REPLAY_EXPIRED {
             return Ok(None);
         }
@@ -600,7 +602,10 @@ impl Problem {
     /// matching registry code.
     pub fn session_grant_replay_terminal_details(
         &self,
-    ) -> StdResult<Option<SessionGrantReplayTerminalProblem>, SessionGrantReplayProblemError> {
+    ) -> StdResult<
+        Option<SessionGrantReplayTerminalProblemExtensions>,
+        SessionGrantReplayProblemError,
+    > {
         if self.code() != crate::error_codes::ErrorCode::SESSION_GRANT_REPLAY_TERMINAL {
             return Ok(None);
         }
@@ -636,7 +641,7 @@ mod tests {
 
     #[test]
     fn human_approval_details_are_closed_and_round_trip_through_the_problem() {
-        let details = AgentHumanApprovalProblem::new("approval-opaque-01").unwrap();
+        let details = AgentHumanApprovalProblemExtensions::new("approval-opaque-01").unwrap();
         let envelope =
             Problem::claim_required_human_approval("controller approval required", details.clone());
 
@@ -689,7 +694,9 @@ mod tests {
                 "captcha": "not-allowed",
             }),
         ] {
-            assert!(serde_json::from_value::<AgentHumanApprovalProblem>(invalid).is_err());
+            assert!(
+                serde_json::from_value::<AgentHumanApprovalProblemExtensions>(invalid).is_err()
+            );
         }
     }
 
@@ -831,7 +838,10 @@ mod tests {
             json!({"session_grant_id": session_grant_id(), "state": "active"}),
             json!({"state": "expired"}),
         ] {
-            assert!(serde_json::from_value::<SessionGrantReplayExpiredProblem>(invalid).is_err());
+            assert!(
+                serde_json::from_value::<SessionGrantReplayExpiredProblemExtensions>(invalid)
+                    .is_err()
+            );
         }
     }
 

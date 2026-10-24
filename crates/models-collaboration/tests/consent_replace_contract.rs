@@ -1,7 +1,7 @@
 //! Exact-peer replacement preserves the complete permission set.
 use arkret_canonical::format_timestamp_canonical;
 use arkret_models_collaboration::call_invitation::{
-    ConsentCurrentReadOutcome, ConsentCurrentReadRequestBody,
+    ConsentCurrentReadRequestBody, ConsentCurrentReadResponseBody,
 };
 use arkret_models_collaboration::consent_operations::ConsentValue;
 use arkret_models_collaboration::events_payloads::consent::{
@@ -81,7 +81,10 @@ fn native_event_requires_peer_precondition_and_full_set() {
 fn permission_read(
     value: &ConsentValue,
     now: chrono::DateTime<chrono::Utc>,
-) -> (ConsentCurrentReadRequestBody, ConsentCurrentReadOutcome) {
+) -> (
+    ConsentCurrentReadRequestBody,
+    ConsentCurrentReadResponseBody,
+) {
     let request: ConsentCurrentReadRequestBody = serde_json::from_value(json!({
         "holder_account_id":{"principal_id":"ak:did_core:web:holder.example","station_id":"ak:did_core:web:station.example"},
         "peer":{"kind":"actor","actor_id":{"kind":"service","service_id":"ak:did_core:web:peer.example"}},
@@ -93,9 +96,9 @@ fn permission_read(
     let arkret_models_collaboration::events_payloads::consent::ConsentPeer::Actor { actor_id } =
         &request.peer;
     let outcome=serde_json::from_value(json!({
-        "request_digest":request.digest().unwrap(),"realm_id":realm,"governance_generation":0,
+        "request_digest":request.digest().unwrap(),"realm_id":realm,"governance_generation":"0",
         "effective_stream_head":{"stream_ref":{"kind":"realm","realm_id":realm},"stream_position":7,"commit_id":commit},
-        "current":{"state":"present","result":{"selector":{"kind":"consent","peer_id":actor_id},
+        "current":{"state":"present","current_state":{"selector":{"kind":"consent","peer_id":actor_id},
             "source_stream_ref":{"kind":"realm","realm_id":realm},"revision":{"commit_id":commit,"stream_position":7},"value":value}},
         "evaluated_at":format_timestamp_canonical(now),
         "expires_at":format_timestamp_canonical(now+chrono::Duration::seconds(30)),

@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
 
 use super::message::{ContentBlock, MessageRedactPayload};
-use crate::exact_current_results::CanonicalEventDot;
+use crate::exact_current_state::CanonicalEventDot;
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -60,7 +60,7 @@ impl<'de> Deserialize<'de> for CrossObjectRedactionPayload {
 }
 
 /// The complete redact payload one `object_redaction` assertion carries
-/// (`typed-current-result.schema.json#/$defs/object_redaction_entry`): the
+/// (`current-state.schema.json#/$defs/object_redaction_entry`): the
 /// Message redact payload for an `ak:message:` subject, the cross-object
 /// payload for every other subject.
 #[derive(Clone, Debug, Serialize, Deserialize)]

@@ -11,7 +11,6 @@ mod generated {
     pub mod presence;
 }
 pub mod directory_artifacts;
-pub mod http_bodies;
 pub mod ops;
 pub mod presence;
 pub mod service_description;
@@ -22,7 +21,6 @@ pub mod websocket_binding;
 
 pub use directory::*;
 pub use directory_artifacts::*;
-pub use http_bodies::*;
 pub use ops::*;
 pub use presence::*;
 pub use service_description::*;

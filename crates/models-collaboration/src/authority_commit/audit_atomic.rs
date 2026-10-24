@@ -206,13 +206,13 @@ impl AtomicSlotProducerEvidence {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PeerAuthorityForwardAtomicRequest {
+pub struct PeerAuthorityForwardAtomicRequestBody {
     pub branch: AuthorityForwardBranch,
     pub atomic_submission: AuditPairedEventUnitSubmission,
     pub atomic_producer_evidence: [AtomicSlotProducerEvidence; 2],
 }
 
-impl PeerAuthorityForwardAtomicRequest {
+impl PeerAuthorityForwardAtomicRequestBody {
     pub fn validate(&self) -> Result<()> {
         self.atomic_submission.validate()?;
         let digest = authority_forward_body_digest(self)?;
@@ -359,12 +359,12 @@ impl AuditPairedEventFederationSubmission {
     clippy::large_enum_variant,
     reason = "Closed outcome branches retain their existing Commit types."
 )]
-pub enum PeerAuthorityForwardOutcomeValue {
-    Ordinary(arkret_wire::AuthoritySubmitOutcome),
+pub enum ForwardedAuthorityResponseBody {
+    Ordinary(arkret_wire::AuthoritySubmitResponseBody),
     AuditPairedEvent(AuditPairedEventAcceptanceOutcome),
 }
 
-impl PeerAuthorityForwardOutcomeValue {
+impl ForwardedAuthorityResponseBody {
     pub fn validate_shape(&self) -> Result<()> {
         match self {
             Self::Ordinary(value) => value.validate_shape(),

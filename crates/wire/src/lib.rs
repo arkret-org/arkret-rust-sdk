@@ -111,7 +111,7 @@ pub use patch::*;
 pub use payload_signer::{PayloadSignature, PayloadSigner};
 pub use peer_operation_paths::*;
 pub use plaintext::PlaintextDataClassKind;
-pub use platform::{WasmHttpRequestBody, WasmHttpResponseBody};
+pub use platform::{WasmHttpRequest, WasmHttpResponse};
 pub use primitives::{proof_kind, *};
 pub use problem_details::*;
 pub use query_auth::{
@@ -123,9 +123,9 @@ pub use realm_authority_signer::{
 };
 pub use receive_policy::*;
 pub use recovery_authority::{
-    CanonicalEncoding, CanonicalPublicMaterial, IssueRecoveryCompletionGrantOutcome,
-    IssueRecoveryCompletionGrantRequest, RecoveryCompletionAttestation,
-    RecoveryCompletionAttestationAuthData, UnsignedRecoveryCompletionAttestation,
+    CanonicalEncoding, CanonicalPublicMaterial, IssueRecoveryCompletionGrantResponseBody,
+    RecoveryCompletionAttestation, RecoveryCompletionAttestationSignatureProof,
+    RecoveryCompletionGrantRequestBody, UnsignedRecoveryCompletionAttestation,
     UnsignedRecoveryCompletionAttestationBody,
 };
 pub use request_digest::{framed_request_digest, management_creation_request_digest};
@@ -139,8 +139,8 @@ pub use signal::{
     MAX_SIGNAL_RELAY_CANONICAL_BODY_BYTES, MAX_SIGNAL_RELAY_ITEMS, MAX_SIGNAL_STREAM_REASON_CHARS,
     MAX_SIGNAL_STREAM_RECONNECT_AFTER_MS, MAX_SIGNAL_TTL, SIGNAL_AEAD_PURPOSE, SIGNAL_AEAD_SCHEME,
     SIGNAL_EXPORTER_LABEL, SignalAeadBinding, SignalClass, SignalEncryptedPayload, SignalEnvelope,
-    SignalKeyRef, SignalProof, SignalRelayOutcome, SignalRelayRequest, SignalSenderEndpoint,
-    StationSigningKey,
+    SignalKeyRef, SignalProof, SignalRelayRequestBody, SignalRelayResponseBody,
+    SignalSenderEndpoint, StationSigningKey,
 };
 pub use signer_evidence::SignerEvidenceRef;
 pub use string_profiles::*;

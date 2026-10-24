@@ -7,8 +7,6 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::identity::IdentityDocumentView;
-
 /// `ak.gate.account.command.logout.v1` request (Station device logout).
 /// Empty body — the session bearer identifies the device session to terminate.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -18,11 +16,6 @@ pub struct AccountLogoutRequestBody {}
 /// `ak.gate.account.command.logout.v1` outcome.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct AccountLogoutOutcome {
+pub struct AccountLogoutResponseBody {
     pub revoked: bool,
 }
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct IdentityDocumentViewOutcome(pub IdentityDocumentView);

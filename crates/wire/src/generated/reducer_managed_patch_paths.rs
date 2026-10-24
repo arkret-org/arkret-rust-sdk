@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/reducer-managed-path-registry.json; version=2026-10-19.1;
-//! sha256=ad9156a13fa9b93243cbe7ef35aa3bb2d35e61797dd6608edf8c816d367acdb0 Entries: objects=7,
+//! Input: registry/reducer-managed-path-registry.json; version=2026-10-24.1;
+//! sha256=626bfeba7a18ac8b2b29c8af72bd75834e23ca547f4c8670cfc10083498cb452 Entries: objects=7,
 //! effective_paths=77, universal_paths=9
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -73,9 +73,9 @@ pub const REDUCER_MANAGED_PATCH_OBJECTS: &[ReducerManagedPatchObject] = &[
             },
             ReducerManagedPatchPath {
                 path: "resolution",
-                basis: "result_projection",
+                basis: "state_projection",
                 reason_code: "patch_path_reducer_managed",
-                owner_kind: "result_family",
+                owner_kind: "state_family",
                 schema_enforced: Some(true),
             },
             ReducerManagedPatchPath {
@@ -373,9 +373,9 @@ pub const REDUCER_MANAGED_PATCH_OBJECTS: &[ReducerManagedPatchObject] = &[
         forbidden_paths: &[
             ReducerManagedPatchPath {
                 path: "child_scope_policy",
-                basis: "result_projection",
+                basis: "state_projection",
                 reason_code: "patch_path_reducer_managed",
-                owner_kind: "result_family",
+                owner_kind: "state_family",
                 schema_enforced: Some(true),
             },
             ReducerManagedPatchPath {
@@ -401,9 +401,9 @@ pub const REDUCER_MANAGED_PATCH_OBJECTS: &[ReducerManagedPatchObject] = &[
             },
             ReducerManagedPatchPath {
                 path: "parent_space_id",
-                basis: "result_projection",
+                basis: "state_projection",
                 reason_code: "patch_path_reducer_managed",
-                owner_kind: "result_family",
+                owner_kind: "state_family",
                 schema_enforced: Some(true),
             },
             ReducerManagedPatchPath {

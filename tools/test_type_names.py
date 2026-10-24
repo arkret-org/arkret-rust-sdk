@@ -9,6 +9,11 @@ spec.loader.exec_module(gate)
 
 
 class TypeNameTests(unittest.TestCase):
+    def test_body_aliases_must_use_the_canonical_type_directly(self):
+        self.assertEqual(gate.violations('wire/src/new.rs',
+                         'pub type IssueResponseBody = Receipt; pub type Result<T> = std::result::Result<T, Error>;'),
+                         ['IssueResponseBody'])
+
     def test_rejects_result_and_other_wrappers(self):
         source = "pub struct KeyResult {} pub enum KeyItem {} pub struct KeyDetails {}"
         self.assertEqual(gate.violations("wire/src/new.rs", source),
@@ -24,11 +29,11 @@ class TypeNameTests(unittest.TestCase):
         self.assertEqual(gate.violations("wire/src/new.rs", source), ["IceCandidate"])
 
     def test_verified_poll_answer_exception_is_exact(self):
-        source = "pub struct VerifiedPollResponse {} pub struct OtherResponse {}"
+        source = "pub struct VerifiedPollVote {} pub struct OtherResponse {}"
         self.assertEqual(gate.violations("models-collaboration/src/poll.rs", source),
                          ["OtherResponse"])
         self.assertEqual(gate.violations("wire/src/new.rs", source),
-                         ["VerifiedPollResponse", "OtherResponse"])
+                         ["OtherResponse"])
 
     def test_comments_strings_and_error_aliases_are_not_dtos(self):
         self.assertEqual(gate.violations("wire/src/new.rs", '''

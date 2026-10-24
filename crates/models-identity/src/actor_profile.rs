@@ -218,7 +218,7 @@ fn validate_display_members(
             ));
         }
     }
-    for member in ["bio", "status_message"] {
+    for member in ["biography", "status_message"] {
         match profile_fields.get(member) {
             None => {}
             Some(Value::String(text)) if text.chars().count() <= PROFILE_TEXT_FIELD_MAX => {}

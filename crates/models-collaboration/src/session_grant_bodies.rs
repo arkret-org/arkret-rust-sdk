@@ -2,9 +2,9 @@
 //! possession proof (`service-operation-dtos.schema.json`).
 //!
 //! `ak.gate.account.command.issue_session_grant` admits a closed
-//! `HumanSessionGrantRequest | RecoverySessionGrantRequest |
-//! AgentSessionGrantRequest` union, and its rotation admits a closed
-//! `HumanSessionGrantRefreshRequest | AgentSessionGrantRefreshRequest` union.
+//! `HumanSessionGrantRequestBody | RecoverySessionGrantRequestBody |
+//! AgentSessionGrantRequestBody` union, and its rotation admits a closed
+//! `HumanSessionGrantRefreshRequestBody | AgentSessionGrantRefreshRequestBody` union.
 //! The human branches live in [`crate::session_grants`]; this module owns the
 //! fresh-device recovery issuance branch and the Agent runtime-key rotation
 //! branch, which revalidates current runtime-key authorization through its own
@@ -32,9 +32,9 @@ pub const AGENT_SESSION_REFRESH_PROOF_MAX_LIFETIME_SECONDS: i64 = 300;
 // device is deliberately not required to hold an accepted-device
 // authorization yet.
 // Field declaration order is byte-for-byte the properties order of
-// service-operation-dtos.schema.json#/$defs/RecoverySessionGrantRequest.
+// service-operation-dtos.schema.json#/$defs/RecoverySessionGrantRequestBody.
 
-impl RecoverySessionGrantRequest {
+impl RecoverySessionGrantRequestBody {
     pub fn validate(&self) -> Result<()> {
         if self.credential_class != SessionGrantCredentialClass::RecoverySession {
             return Err(WireError::Protocol(
@@ -52,9 +52,9 @@ impl RecoverySessionGrantRequest {
 // proof; this body carries no client-generated challenge and no polymorphic
 // proof kind.
 // Field declaration order is byte-for-byte the properties order of
-// service-operation-dtos.schema.json#/$defs/AgentSessionGrantRefreshRequest.
+// service-operation-dtos.schema.json#/$defs/AgentSessionGrantRefreshRequestBody.
 
-impl AgentSessionGrantRefreshRequest {
+impl AgentSessionGrantRefreshRequestBody {
     pub fn validate(&self) -> Result<()> {
         if self.grant_jwt.trim().is_empty() {
             return Err(WireError::Protocol(
@@ -306,13 +306,13 @@ mod tests {
 
     #[test]
     fn recovery_request_round_trips_and_is_closed() {
-        let decoded: RecoverySessionGrantRequest =
+        let decoded: RecoverySessionGrantRequestBody =
             serde_json::from_value(recovery_value()).unwrap();
         assert_eq!(serde_json::to_value(&decoded).unwrap(), recovery_value());
         decoded.validate().unwrap();
 
-        assert_rejects_unknown_member::<RecoverySessionGrantRequest>(recovery_value());
-        assert_rejects_each_omitted_required_member::<RecoverySessionGrantRequest>(
+        assert_rejects_unknown_member::<RecoverySessionGrantRequestBody>(recovery_value());
+        assert_rejects_each_omitted_required_member::<RecoverySessionGrantRequestBody>(
             recovery_value(),
             &[
                 "credential_class",
@@ -331,13 +331,13 @@ mod tests {
             .as_object_mut()
             .unwrap()
             .insert("credential_class".to_owned(), json!("standard"));
-        let decoded: RecoverySessionGrantRequest = serde_json::from_value(standard).unwrap();
+        let decoded: RecoverySessionGrantRequestBody = serde_json::from_value(standard).unwrap();
         assert!(decoded.validate().is_err());
     }
 
     #[test]
     fn agent_refresh_request_round_trips_and_is_closed() {
-        let decoded: AgentSessionGrantRefreshRequest =
+        let decoded: AgentSessionGrantRefreshRequestBody =
             serde_json::from_value(agent_refresh_value()).unwrap();
         assert_eq!(
             serde_json::to_value(&decoded).unwrap(),
@@ -345,8 +345,8 @@ mod tests {
         );
         decoded.validate().unwrap();
 
-        assert_rejects_unknown_member::<AgentSessionGrantRefreshRequest>(agent_refresh_value());
-        assert_rejects_each_omitted_required_member::<AgentSessionGrantRefreshRequest>(
+        assert_rejects_unknown_member::<AgentSessionGrantRefreshRequestBody>(agent_refresh_value());
+        assert_rejects_each_omitted_required_member::<AgentSessionGrantRefreshRequestBody>(
             agent_refresh_value(),
             &[
                 "grant_jwt",
@@ -357,7 +357,9 @@ mod tests {
         );
         let mut with_device = agent_refresh_value();
         with_device["device_id"] = json!(DEVICE);
-        assert!(serde_json::from_value::<AgentSessionGrantRefreshRequest>(with_device).is_err());
+        assert!(
+            serde_json::from_value::<AgentSessionGrantRefreshRequestBody>(with_device).is_err()
+        );
     }
 
     #[test]
@@ -367,7 +369,7 @@ mod tests {
             .as_object_mut()
             .unwrap()
             .remove("audience_id");
-        let decoded: AgentSessionGrantRefreshRequest =
+        let decoded: AgentSessionGrantRefreshRequestBody =
             serde_json::from_value(without_audience.clone()).unwrap();
         assert!(decoded.audience_id.is_none());
         assert_eq!(serde_json::to_value(&decoded).unwrap(), without_audience);
@@ -381,7 +383,8 @@ mod tests {
             .as_object_mut()
             .unwrap()
             .insert("audience_id".to_owned(), json!(PRINCIPAL));
-        let decoded: AgentSessionGrantRefreshRequest = serde_json::from_value(mismatched).unwrap();
+        let decoded: AgentSessionGrantRefreshRequestBody =
+            serde_json::from_value(mismatched).unwrap();
         assert!(decoded.validate().is_err());
     }
 

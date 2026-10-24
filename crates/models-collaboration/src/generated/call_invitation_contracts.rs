@@ -2,16 +2,16 @@
 //! Generator: tools/generate-closed-models.py
 //!
 //! Input: schemas/call-invitation-operations.schema.json
-//! sha256=a7a5319c9fe02763036f0b3edbf20b6f6e7d7066ec53be2ed913ccb5f71ba06f
+//! sha256=88f06d26b99092fdcafd2f95d0d755ecab82ec71089520093382afc8c5a3dffd
 //!
-//! Input: schemas/typed-current-result.schema.json
-//! sha256=af1796a65736414a650ecb791939112f02920d691fd8ee4b9e46397ad70aadbd
+//! Input: schemas/current-state.schema.json
+//! sha256=feba0ff19e227c276a3792aaed506b6534bf9ff8ce6c2e91a0ab36c04777785f
 //!
 //! Input: schemas/consent-operations.schema.json
-//! sha256=d9b6404831907708fc525f6187e7b133b9f8b63eaf6587ccc9d18966c611ee6b
+//! sha256=a367b21ca191391ab7a62c8b1413a48f9866b7cdca5692c65e5bd58c5a330b09
 //!
 //! Bindings: tools/closed-model-bindings.json
-//! sha256=d200bd3e6d76abd1b6154781fb5e54f11fbbc834638cdc29554f83590127fdfa
+//! sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
 
 /// Counterpart: `call-invitation-operations.schema.json#/$defs/media`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -50,7 +50,8 @@ pub struct CallVoluntaryJoinProof {
     pub jws: String,
 }
 
-/// Counterpart: `call-invitation-operations.schema.json#/$defs/send_outcome/properties/status`.
+/// Counterpart:
+/// `call-invitation-operations.schema.json#/$defs/send_response_body/properties/status`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum CallInvitationSendStatus {
@@ -122,11 +123,11 @@ pub struct CallInvitationSendRequestBody {
     pub envelope: arkret_wire::SignalEnvelope,
 }
 
-/// Counterpart: `call-invitation-operations.schema.json#/$defs/send_outcome`.
+/// Counterpart: `call-invitation-operations.schema.json#/$defs/send_response_body`.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct CallInvitationSendOutcome {
+pub struct CallInvitationSendResponseBody {
     pub status: CallInvitationSendStatus,
 }
 
@@ -150,13 +151,15 @@ pub struct CallInvitationAdmissionRequestBody {
     pub desired_media: Option<CallInvitationMedia>,
 }
 
-/// Counterpart: `call-invitation-operations.schema.json#/$defs/admission_outcome`.
+/// Counterpart: `call-invitation-operations.schema.json#/$defs/admission_decision`.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct CallInvitationAdmissionOutcome {
+pub struct CallInvitationAdmissionDecision {
     pub request_digest: String,
     pub admitted: bool,
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
     pub authority_generation: u64,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub evaluated_at: chrono::DateTime<chrono::Utc>,
@@ -172,7 +175,7 @@ pub struct CallInvitationAdmissionOutcome {
 pub struct CallInvitationDeliveryView {
     pub invitation: CallInvitationEnvelope,
     pub request: CallInvitationAdmissionRequestBody,
-    pub outcome: CallInvitationAdmissionOutcome,
+    pub decision: CallInvitationAdmissionDecision,
 }
 
 /// Counterpart: `call-invitation-operations.schema.json#/$defs/invitation_join_context`.
@@ -223,7 +226,7 @@ pub enum CallMediaJoinContext {
 }
 
 /// Counterpart:
-/// `typed-current-result.schema.json#/$defs/consent_result/properties/selector/properties/kind`.
+/// `current-state.schema.json#/$defs/current_consent/properties/selector/properties/kind`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum ConsentCurrentSelectorKind {
@@ -231,7 +234,7 @@ pub enum ConsentCurrentSelectorKind {
     Consent,
 }
 
-/// Counterpart: `typed-current-result.schema.json#/$defs/consent_result/properties/selector`.
+/// Counterpart: `current-state.schema.json#/$defs/current_consent/properties/selector`.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
@@ -240,11 +243,11 @@ pub struct ConsentCurrentSelector {
     pub peer_id: arkret_wire::ActorId,
 }
 
-/// Counterpart: `typed-current-result.schema.json#/$defs/consent_result`.
+/// Counterpart: `current-state.schema.json#/$defs/current_consent`.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct ConsentCurrentRow {
+pub struct CurrentConsent {
     pub selector: ConsentCurrentSelector,
     pub source_stream_ref: arkret_wire::CommitStreamRef,
     pub revision: arkret_wire::CurrentRevision,
@@ -271,16 +274,18 @@ pub struct ConsentCurrentReadRequestBody {
     pub nonce: String,
 }
 
-/// Counterpart: `consent-operations.schema.json#/$defs/consent_current_read_outcome`.
+/// Counterpart: `consent-operations.schema.json#/$defs/consent_current_read_response_body`.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct ConsentCurrentReadOutcome {
+pub struct ConsentCurrentReadResponseBody {
     pub request_digest: String,
     pub realm_id: arkret_wire::RealmId,
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
     pub governance_generation: u64,
     pub effective_stream_head: arkret_wire::CommitStreamHead,
-    pub current: crate::call_invitation::ConsentCurrentState,
+    pub current: crate::call_invitation::ConsentCurrentReadState,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub evaluated_at: chrono::DateTime<chrono::Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]

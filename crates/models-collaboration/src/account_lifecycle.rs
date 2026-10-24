@@ -125,21 +125,21 @@ pub enum AccountStatusPropagationState {
 }
 
 // Field declaration order is byte-for-byte the properties order of
-// account-operations.schema.json#/$defs/account_status_publication_outcome.
+// account-operations.schema.json#/$defs/account_status_publication_response_body.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct AccountStatusPublicationOutcome {
+pub struct AccountStatusPublicationResponseBody {
     pub status: AccountStatusPublicationStatus,
     pub account_status_record_id: arkret_wire::AccountStatusRecordId,
-    pub status_seq: u64,
+    pub status_sequence: u64,
     pub account_id: AccountId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub current_account_status_record_id: Option<arkret_wire::AccountStatusRecordId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub current_status_seq: Option<u64>,
+    pub current_status_sequence: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub required_status_seq: Option<u64>,
+    pub required_status_sequence: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub barrier_cursor: Option<Cursor>,
     pub propagation_state: AccountStatusPropagationState,
@@ -149,7 +149,7 @@ pub struct AccountStatusPublicationOutcome {
     pub receipt: Option<AccountStatusReceipt>,
 }
 
-impl AccountStatusPublicationOutcome {
+impl AccountStatusPublicationResponseBody {
     pub fn validate_for_request(
         &self,
         request: &AccountStatusPublicationRequestBody,
@@ -157,7 +157,7 @@ impl AccountStatusPublicationOutcome {
         request.validate_shape()?;
         let record = request.publication.record();
         if self.account_status_record_id != record.account_status_record_id
-            || self.status_seq != record.status_seq
+            || self.status_sequence != record.status_sequence
             || self.account_id != record.account_id
         {
             return Err(WireError::Protocol(
@@ -165,10 +165,10 @@ impl AccountStatusPublicationOutcome {
             ));
         }
         if (self.status == AccountStatusPublicationStatus::DependencyMissing)
-            != self.required_status_seq.is_some()
+            != self.required_status_sequence.is_some()
         {
             return Err(WireError::Protocol(
-                "required_status_seq is present exactly for dependency_missing".to_owned(),
+                "required_status_sequence is present exactly for dependency_missing".to_owned(),
             ));
         }
         if let Some(receipt) = self.receipt.as_ref() {
@@ -186,14 +186,14 @@ impl AccountStatusPublicationOutcome {
 pub struct AccountStatusResolveRequestBody {
     pub account_authority_id: DidCoreId,
     pub account_id: AccountId,
-    pub from_status_seq: u64,
+    pub from_status_sequence: u64,
     pub limit: u16,
 }
 
 impl AccountStatusResolveRequestBody {
     pub fn validate(&self) -> Result<()> {
         self.account_id.validate()?;
-        if self.from_status_seq == 0 || !(1..=128).contains(&self.limit) {
+        if self.from_status_sequence == 0 || !(1..=128).contains(&self.limit) {
             return Err(WireError::Protocol(
                 "account status resolve bounds are invalid".to_owned(),
             ));
@@ -203,20 +203,20 @@ impl AccountStatusResolveRequestBody {
 }
 
 // Field declaration order is byte-for-byte the properties order of
-// account-operations.schema.json#/$defs/account_status_resolve_outcome.
+// account-operations.schema.json#/$defs/account_status_resolve_response_body.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct AccountStatusResolveOutcome {
+pub struct AccountStatusResolveResponseBody {
     pub account_authority_id: DidCoreId,
     pub account_id: AccountId,
     pub records: Vec<AccountStatusRecord>,
     pub has_more: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub next_status_seq: Option<u64>,
+    pub next_status_sequence: Option<u64>,
 }
 
-impl AccountStatusResolveOutcome {
+impl AccountStatusResolveResponseBody {
     pub fn validate_for_request(&self, request: &AccountStatusResolveRequestBody) -> Result<()> {
         request.validate()?;
         if self.account_authority_id != request.account_authority_id
@@ -231,17 +231,17 @@ impl AccountStatusResolveOutcome {
             record.validate_shape()?;
             if record.account_authority_id != self.account_authority_id
                 || record.account_id != self.account_id
-                || record.status_seq != request.from_status_seq + offset as u64
+                || record.status_sequence != request.from_status_sequence + offset as u64
             {
                 return Err(WireError::Protocol(
                     "account status resolve range is not contiguous".to_owned(),
                 ));
             }
         }
-        let expected_next = self.records.last().map(|record| record.status_seq + 1);
-        if self.has_more != self.next_status_seq.is_some()
+        let expected_next = self.records.last().map(|record| record.status_sequence + 1);
+        if self.has_more != self.next_status_sequence.is_some()
             || self
-                .next_status_seq
+                .next_status_sequence
                 .is_some_and(|next| Some(next) != expected_next)
         {
             return Err(WireError::Protocol(
@@ -293,11 +293,11 @@ impl SessionRevokeRequestBody {
 }
 
 // Field declaration order is byte-for-byte the properties order of
-// account-operations.schema.json#/$defs/session_revoke_outcome.
+// account-operations.schema.json#/$defs/session_revoke_response_body.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct SessionRevokeOutcome {
+pub struct SessionRevokeResponseBody {
     pub revoked_count: u64,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub revoked_session_grant_ids: Vec<SessionGrantId>,
@@ -316,12 +316,12 @@ mod tests {
         fn assert_to_schema<T: salvo_oapi::ToSchema>() {}
 
         assert_to_schema::<AccountStatusPublicationRequestBody>();
-        assert_to_schema::<AccountStatusPublicationOutcome>();
+        assert_to_schema::<AccountStatusPublicationResponseBody>();
         assert_to_schema::<AccountStatusResolveRequestBody>();
-        assert_to_schema::<AccountStatusResolveOutcome>();
+        assert_to_schema::<AccountStatusResolveResponseBody>();
         assert_to_schema::<AccountStatusRecord>();
         assert_to_schema::<AccountStatusReceipt>();
-        assert_to_schema::<SessionRevokeOutcome>();
+        assert_to_schema::<SessionRevokeResponseBody>();
     }
 
     fn proof_value() -> serde_json::Value {
@@ -421,13 +421,13 @@ mod tests {
     #[test]
     fn session_revoke_outcome_round_trips() {
         let value = json!({"revoked_count": 2});
-        let parsed: SessionRevokeOutcome =
+        let parsed: SessionRevokeResponseBody =
             serde_json::from_value(value.clone()).expect("closed outcome");
         assert_eq!(parsed.revoked_count, 2);
         assert!(parsed.revoked_session_grant_ids.is_empty());
         assert_eq!(serde_json::to_value(&parsed).unwrap(), value);
         assert!(
-            serde_json::from_value::<SessionRevokeOutcome>(json!({})).is_err(),
+            serde_json::from_value::<SessionRevokeResponseBody>(json!({})).is_err(),
             "revoked_count must not become optional"
         );
     }

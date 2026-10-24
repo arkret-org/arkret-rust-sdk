@@ -8,6 +8,24 @@ from tools.wire_value_audit import SchemaResolver
 
 
 class SchemaStructGateTests(unittest.TestCase):
+    def test_full_width_coordinate_cannot_fall_back_to_json_number(self) -> None:
+        for helper in ('', '#[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]'):
+            with self.subTest(helper=helper), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                source = root / 'crates/models/src/lib.rs'
+                source.parent.mkdir(parents=True)
+                source.write_text(f'pub struct Payload {{\n{helper}\npub epoch: u64,\n}}', encoding='utf-8')
+                schemas = root / 'schemas'
+                schemas.mkdir()
+                (schemas / 'example.schema.json').write_text(json.dumps({'properties': {
+                    'epoch': {'$ref': './decimal-integers.schema.json#/$defs/uint64_decimal'}}}), encoding='utf-8')
+                registry = root / 'registry.json'
+                registry.write_text(json.dumps({'version': 1, 'mappings': [{
+                    'rust_type': 'crates/models/src/lib.rs::Payload', 'schema': 'example.schema.json#'}],
+                    'exemptions': []}), encoding='utf-8')
+                errors = validate(registry, schemas, root)
+                self.assertEqual(any('decimal serialization mismatch' in error for error in errors), not bool(helper), errors)
+
     def property_names(self, node: dict) -> set[str]:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

@@ -24,7 +24,7 @@ use crate::sync_frames::account_sync::{
     AccountSubscribeRealmSummary, AccountSubscribeUnreadCounts, RealmStreamWindow,
     StateAtWindowStart,
 };
-use crate::sync_frames::current_results::{AccountCurrentCoverage, AccountCurrentView};
+use crate::sync_frames::current_states::{AccountCurrentCoverage, AccountStateView};
 use crate::sync_frames::demand_sync::{
     AccountBaselineSegment, RealmDetailUnavailable, RealmInvalidation, RealmListChanges,
     RealmListPage,
@@ -67,7 +67,7 @@ fn bounded_unique<T: Ord>(values: &[T], maximum: usize, field: &str) -> Result<(
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct SyncRequestBody {
+pub struct AccountSubscribeParameters {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub after: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -75,12 +75,12 @@ pub struct SyncRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub filter: Option<AccountFilter>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub realm_list: Option<RealmListRequest>,
+    pub realm_list_parameters: Option<RealmListParameters>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub replace_filter: Option<bool>,
 }
 
-impl SyncRequestBody {
+impl AccountSubscribeParameters {
     pub fn validate(&self) -> Result<()> {
         if let Some(after) = &self.after {
             validate_cursor(after)?;
@@ -93,7 +93,7 @@ impl SyncRequestBody {
         if let Some(filter) = &self.filter {
             filter.validate()?;
         }
-        if let Some(realm_list) = &self.realm_list {
+        if let Some(realm_list) = &self.realm_list_parameters {
             realm_list.validate()?;
         }
         Ok(())
@@ -131,14 +131,14 @@ impl AccountFilter {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RealmListRequest {
+pub struct RealmListParameters {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub after: Option<Cursor>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub limit: Option<u32>,
 }
 
-impl RealmListRequest {
+impl RealmListParameters {
     pub fn validate(&self) -> Result<()> {
         if let Some(after) = &self.after {
             validate_cursor(after.as_str())?;
@@ -397,7 +397,7 @@ pub struct RealmSyncEntry {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub state_at_window_start: Option<StateAtWindowStart>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub current: Option<AccountCurrentView>,
+    pub current: Option<AccountStateView>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub account_data: Option<EventContainer>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -555,7 +555,7 @@ pub struct RecipientDeliveryContainer {
     #[serde(default)]
     pub deliveries: Vec<RecipientDelivery>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub ack_token: Option<String>,
+    pub acknowledgement_token: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lost: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

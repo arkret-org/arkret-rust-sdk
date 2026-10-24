@@ -33,7 +33,7 @@ pub struct KeysUploadRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct KeysUploadUnsignedRequest {
+pub struct KeysUploadFields {
     pub device_id: DeviceId,
     pub one_time_keys: AlgorithmKeyRecords,
     pub fallback_keys: AlgorithmKeyRecords,
@@ -41,8 +41,8 @@ pub struct KeysUploadUnsignedRequest {
 
 impl KeysUploadRequestBody {
     #[must_use]
-    pub fn unsigned(&self) -> KeysUploadUnsignedRequest {
-        KeysUploadUnsignedRequest {
+    pub fn unsigned(&self) -> KeysUploadFields {
+        KeysUploadFields {
             device_id: self.device_id.clone(),
             one_time_keys: self.one_time_keys.clone(),
             fallback_keys: self.fallback_keys.clone(),
@@ -50,7 +50,7 @@ impl KeysUploadRequestBody {
     }
 }
 
-impl KeysUploadUnsignedRequest {
+impl KeysUploadFields {
     #[must_use]
     pub fn into_signed(self, device_signature: KeyOperationSignature) -> KeysUploadRequestBody {
         KeysUploadRequestBody {
@@ -65,9 +65,7 @@ impl KeysUploadUnsignedRequest {
 pub const KEYS_UPLOAD_SIGNATURE_DOMAIN: &str = "ak.keys-upload-v1\n";
 
 /// Build the one SDK-owned `keys/upload` signing transcript.
-pub fn keys_upload_signing_input(
-    unsigned: &KeysUploadUnsignedRequest,
-) -> arkret_canonical::Result<Vec<u8>> {
+pub fn keys_upload_signing_input(unsigned: &KeysUploadFields) -> arkret_canonical::Result<Vec<u8>> {
     let canonical = arkret_canonical::canonical_json_bytes(unsigned)?;
     let mut input = Vec::with_capacity(KEYS_UPLOAD_SIGNATURE_DOMAIN.len() + canonical.len());
     input.extend_from_slice(KEYS_UPLOAD_SIGNATURE_DOMAIN.as_bytes());
@@ -78,7 +76,7 @@ pub fn keys_upload_signing_input(
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct KeysUploadOutcome {
+pub struct KeysUploadResponseBody {
     pub one_time_key_counts: AlgorithmCounts,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub fallback_keys: AlgorithmKeyRecords,
@@ -143,7 +141,7 @@ impl KeysQueryRequestBody {
 ///
 /// `active` = a `ak.device.authorize` is in effect and the device is not
 /// revoked; `revoked` = a `ak.device.revoke` is in effect. Servers MUST omit
-/// non-active devices from the rows of [`KeysQueryOutcome::device_keys`].
+/// non-active devices from the rows of [`KeysQueryResponseBody::device_keys`].
 /// Shared device lifecycle status. Individual wire surfaces narrow the allowed
 /// variants in their own schema; for example, a keys-query attestation pins
 /// `keys-operations.schema.json#/$defs/device_projection_attestation_core/properties/device_status`
@@ -415,7 +413,7 @@ fn validate_query_failures(failures: &[QueryFailure]) -> arkret_wire::Result<()>
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct KeysQueryOutcome {
+pub struct KeysQueryResponseBody {
     #[serde(
         deserialize_with = "arkret_wire::deserialize_identity_entries",
         serialize_with = "arkret_wire::serialize_identity_entries"
@@ -480,7 +478,7 @@ impl arkret_wire::CanonicalIdentityEntry for AccountDeviceGenerationEntry {
     }
 }
 
-impl KeysQueryOutcome {
+impl KeysQueryResponseBody {
     pub fn validate(&self) -> arkret_wire::Result<()> {
         validate_query_failures(&self.failures)?;
         validate_keys_query_bytes(self, false)
@@ -618,7 +616,7 @@ impl PeerKeysQueryRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PeerKeysQueryOutcome {
+pub struct PeerKeysQueryResponseBody {
     pub request_id: arkret_wire::RequestId,
     #[serde(
         default,
@@ -648,7 +646,7 @@ pub struct PeerKeysQueryOutcome {
     pub failures: Vec<QueryFailure>,
 }
 
-impl PeerKeysQueryOutcome {
+impl PeerKeysQueryResponseBody {
     pub fn validate(&self) -> arkret_wire::Result<()> {
         peer_keys_requester(&self.requester_account_id, &self.requester_actor_id)?;
         validate_query_failures(&self.failures)?;
@@ -751,7 +749,7 @@ pub struct KeysOperationFailure {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct KeysClaimOutcome {
+pub struct KeysClaimResponseBody {
     #[serde(
         deserialize_with = "arkret_wire::deserialize_identity_entries",
         serialize_with = "arkret_wire::serialize_identity_entries"
@@ -770,7 +768,7 @@ mod device_generation_tests {
 
     #[test]
     fn keys_upload_transcript_is_sdk_owned_and_keeps_empty_maps() {
-        let unsigned = KeysUploadUnsignedRequest {
+        let unsigned = KeysUploadFields {
             device_id: DeviceId::new("ak:device:0196419b-0000-7000-8000-000000000001").unwrap(),
             one_time_keys: BTreeMap::new(),
             fallback_keys: BTreeMap::new(),
@@ -788,7 +786,7 @@ mod device_generation_tests {
         let signed = unsigned.into_signed(KeyOperationSignature {
             kid: NonEmptyString::new("did:web:alice.example#device").unwrap(),
             signature_algorithm: Some(NonEmptyString::new("Ed25519").unwrap()),
-            sig: Base64UrlString::new("c2ln").unwrap(),
+            signature: Base64UrlString::new("c2ln").unwrap(),
         });
         assert_eq!(
             signed
@@ -1021,7 +1019,7 @@ mod device_generation_tests {
             {"account_id": id, "generation_state": {"current_device_generation_ref": 1}},
             {"account_id": id, "generation_state": {"current_device_generation_ref": 2}}
         ]});
-        assert!(serde_json::from_value::<KeysQueryOutcome>(duplicate).is_err());
+        assert!(serde_json::from_value::<KeysQueryResponseBody>(duplicate).is_err());
         for ids in [json!([]), json!([DEVICE_ID, DEVICE_ID])] {
             assert!(
                 serde_json::from_value::<KeysQueryRequestBody>(json!({
@@ -1039,7 +1037,7 @@ mod device_generation_tests {
         let value = json!({"device_keys": [{
             "account_id": own, "device_keys": {DEVICE_ID: self_row(7)}
         }]});
-        let outcome: KeysQueryOutcome = serde_json::from_value(value).unwrap();
+        let outcome: KeysQueryResponseBody = serde_json::from_value(value).unwrap();
         assert!(outcome.devices_for(&own).is_some());
         assert!(outcome.devices_for(&other).is_none());
     }
@@ -1055,9 +1053,9 @@ mod device_generation_tests {
             "requester_account_id": own,
             "device_keys": [{"account_id": own, "device_keys": {DEVICE_ID: peer_row(7)}}]
         });
-        serde_json::from_value::<PeerKeysQueryOutcome>(value.clone()).unwrap();
+        serde_json::from_value::<PeerKeysQueryResponseBody>(value.clone()).unwrap();
         value["device_keys"][0]["account_id"] = serde_json::to_value(other).unwrap();
-        assert!(serde_json::from_value::<PeerKeysQueryOutcome>(value).is_err());
+        assert!(serde_json::from_value::<PeerKeysQueryResponseBody>(value).is_err());
     }
 
     #[test]
@@ -1193,7 +1191,7 @@ mod peer_keys_query_tests {
             "ak:did_core:web:home.example",
         )));
         assert!(wrong.validate().is_err());
-        let mut outcome = PeerKeysQueryOutcome {
+        let mut outcome = PeerKeysQueryResponseBody {
             request_id: request.request_id.clone(),
             requester_account_id: None,
             requester_actor_id: request.requester_actor_id.clone(),
@@ -1320,7 +1318,7 @@ mod peer_keys_query_tests {
     #[test]
     fn peer_outcome_must_answer_the_exact_request_and_selected_accounts() {
         let request = request();
-        let outcome = PeerKeysQueryOutcome {
+        let outcome = PeerKeysQueryResponseBody {
             request_id: request.request_id.clone(),
             requester_account_id: request.requester_account_id.clone(),
             requester_actor_id: request.requester_actor_id.clone(),
@@ -1351,7 +1349,7 @@ mod peer_keys_query_tests {
     #[test]
     fn peer_outcome_rejects_an_unselected_account_row() {
         let request = request();
-        let outcome = PeerKeysQueryOutcome {
+        let outcome = PeerKeysQueryResponseBody {
             request_id: request.request_id.clone(),
             requester_account_id: request.requester_account_id.clone(),
             requester_actor_id: request.requester_actor_id.clone(),

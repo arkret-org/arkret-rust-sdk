@@ -76,7 +76,7 @@ pub struct ResolvedVerificationMethodKey {
     ///
     /// The exemption covers **only** values carried verbatim out of a DID
     /// Document. Before this value is compared against anything on the wire — a
-    /// `ProducerEventProof.verification_method`, an `auth_data.verification_method`, a
+    /// `ProducerEventProof.verification_method`, an `signature_proof.verification_method`, a
     /// `binding_proof.verification_method` — it MUST be absolutized into a
     /// `DidUrl` via [`ResolvedVerificationMethodKey::absolutize`], which is the
     /// single exit from this exemption.

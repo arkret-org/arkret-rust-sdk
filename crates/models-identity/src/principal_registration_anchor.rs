@@ -113,7 +113,7 @@ impl PrincipalRegistrationAnchor {
                         "webvh registration anchor requires a did:webvh operation".to_owned(),
                     ));
                 }
-                if registration_did_operation.prev_event_digest.is_some() {
+                if registration_did_operation.previous_event_digest.is_some() {
                     return Err(WireError::Protocol(
                         "registration anchor carries its predecessor as log_entries, not a digest"
                             .to_owned(),
@@ -135,11 +135,11 @@ impl PrincipalRegistrationAnchor {
                     }
                 }
                 let terminal_version = webvh_version_number(terminal);
-                if registration_did_operation.seq.is_some()
-                    && registration_did_operation.seq != terminal_version
+                if registration_did_operation.sequence.is_some()
+                    && registration_did_operation.sequence != terminal_version
                 {
                     return Err(WireError::Protocol(
-                        "registration anchor seq is not the terminal entry version".to_owned(),
+                        "registration anchor sequence is not the terminal entry version".to_owned(),
                     ));
                 }
                 if canonical::canonical_sha256(&registration_did_operation.operation)?
@@ -259,8 +259,8 @@ mod tests {
             registration_did_operation: Box::new(DidOperationSubmitRequestBody {
                 did: did.clone(),
                 did_method: crate::DidMethodName::Webvh,
-                seq: Some(1),
-                prev_event_digest: None,
+                sequence: Some(1),
+                previous_event_digest: None,
                 operation: terminal.clone(),
             }),
             log_entries: vec![terminal],
@@ -316,7 +316,7 @@ mod tests {
         } = webvh_anchor();
         let terminal = entry("2-QmcLQFWBGJzDb3yvVEanEBiit18J4aiWCZSZ6xiX8cHhTa");
         registration_did_operation.operation = terminal.clone();
-        registration_did_operation.seq = Some(2);
+        registration_did_operation.sequence = Some(2);
         PrincipalRegistrationAnchor::WebvhRegistration {
             registration_did_operation,
             log_entries: vec![terminal],

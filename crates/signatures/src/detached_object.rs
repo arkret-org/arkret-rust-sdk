@@ -11,10 +11,10 @@
 //! 1. `signed_digest` is the SHA-256 of the RFC 8785/JCS bytes of the body **without** its
 //!    signature member. It is the only thing tying a signature to a body, which is why a verifier
 //!    recomputes it instead of trusting the carried value.
-//! 2. `sig` is Ed25519 over the context wire string, a newline, then the JCS bytes of the signature
-//!    object minus `sig`. That covers the context, the algorithm, the verification method,
-//!    `signed_digest` and `created_at` at once, so a signature cannot be lifted into another
-//!    context, re-pointed at another key, or re-dated.
+//! 2. `signature` is Ed25519 over the context wire string, a newline, then the JCS bytes of the
+//!    signature object minus `signature`. That covers the context, the algorithm, the verification
+//!    method, `signed_digest` and `created_at` at once, so a signature cannot be lifted into
+//!    another context, re-pointed at another key, or re-dated.
 
 use arkret_canonical::base64url::base64url_encode;
 use arkret_canonical::canonical;
@@ -28,9 +28,9 @@ use serde::Serialize;
 
 use crate::{Error, PublicKeyMaterial, Result};
 
-/// Exactly the members of [`DetachedObjectSignature`] that `sig` covers.
+/// Exactly the members of [`DetachedObjectSignature`] that `signature` covers.
 ///
-/// `sig` itself is the one excluded member; every other member is bound, so
+/// `signature` itself is the one excluded member; every other member is bound, so
 /// the verifier's reconstruction is total and needs no field allowlist.
 #[derive(Serialize)]
 struct DetachedSignatureBinding<'a> {
@@ -50,7 +50,7 @@ pub fn detached_object_signed_digest<T: Serialize>(unsigned_body: &T) -> Result<
     Hash::new(canonical::canonical_sha256(unsigned_body)?).map_err(Into::into)
 }
 
-/// The exact bytes `sig` is computed over.
+/// The exact bytes `signature` is computed over.
 pub fn detached_object_signing_bytes(
     context: DetachedSignatureContext,
     verification_method: &DidUrl,
@@ -95,7 +95,7 @@ pub fn sign_detached_object<T: Serialize>(
         verification_method,
         signed_digest,
         created_at,
-        sig: Base64UrlString::new(base64url_encode(signature.to_bytes()))
+        signature: Base64UrlString::new(base64url_encode(signature.to_bytes()))
             .map_err(|error| Error::Protocol(format!("invalid detached signature: {error}")))?,
     })
 }
@@ -131,7 +131,7 @@ pub fn verify_detached_object_signature<T: Serialize>(
     )?;
     crate::proof::verify_ed25519_raw_transcript_signature(
         &bytes,
-        signature.sig.as_str(),
+        signature.signature.as_str(),
         public_key,
     )
     .map_err(|error| Error::Protocol(format!("detached object signature is invalid: {error}")))

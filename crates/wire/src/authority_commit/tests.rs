@@ -214,7 +214,7 @@ fn approval_shape_closed_carriers_reject_missing_extra_and_invalid_ids() {
 #[test]
 fn actor_private_submit_outcome_is_closed_per_event_kind() {
     let event_id = "ak:event:AXrw54_r8iPVFSBGJhTZduzx5vRg62wu8bdDrUhCm9hR";
-    let push: ActorPrivateEventSubmitOutcome = serde_json::from_value(json!({
+    let push: ActorPrivateEventSubmitResponseBody = serde_json::from_value(json!({
         "event_kind": "ak.device.push_route",
         "accepted_event_id": event_id,
         "revision": 3
@@ -229,7 +229,7 @@ fn actor_private_submit_outcome_is_closed_per_event_kind() {
             "revision": 3
         })
     );
-    let draft: ActorPrivateEventSubmitOutcome = serde_json::from_value(json!({
+    let draft: ActorPrivateEventSubmitResponseBody = serde_json::from_value(json!({
         "event_kind": "ak.agent.draft.propose",
         "accepted_event_id": event_id
     }))
@@ -242,7 +242,8 @@ fn actor_private_submit_outcome_is_closed_per_event_kind() {
         json!({"event_kind": "ak.account.blocklist", "accepted_event_id": event_id}),
     ] {
         assert!(
-            serde_json::from_value::<ActorPrivateEventSubmitOutcome>(rejected.clone()).is_err(),
+            serde_json::from_value::<ActorPrivateEventSubmitResponseBody>(rejected.clone())
+                .is_err(),
             "{rejected}"
         );
     }
@@ -845,7 +846,7 @@ fn parent_membership_revision_requires_exact_realm_actor_and_join() {
         commit_id: RealmCommitId::from_digest([42; 32]),
         stream_position: 7,
     };
-    let row = TypedCurrentRow::Value {
+    let row = CurrentState::Value {
         selector: CurrentSelector::MemberState {
             actor_id: member.clone(),
         },
@@ -873,7 +874,7 @@ fn parent_membership_revision_requires_exact_realm_actor_and_join() {
     );
     for state in ["leave", "ban", "knock"] {
         let mut excluded = row.clone();
-        let TypedCurrentRow::Value { value, .. } = &mut excluded;
+        let CurrentState::Value { value, .. } = &mut excluded;
         *value = json!({"membership":state});
         assert!(
             excluded
@@ -882,7 +883,7 @@ fn parent_membership_revision_requires_exact_realm_actor_and_join() {
         );
     }
     let mut foreign_stream = row;
-    let TypedCurrentRow::Value {
+    let CurrentState::Value {
         source_stream_ref, ..
     } = &mut foreign_stream;
     *source_stream_ref = CommitStreamRef::Circle {
@@ -951,10 +952,10 @@ fn circle_currents_reject_foreign_subjects_and_noncanonical_effective_time() {
         "parent_membership_revision": parent,
         "effective_at": "2026-09-27T12:00:00.000Z"
     });
-    let parsed = serde_json::from_value::<CircleMemberStateCurrent>(current.clone()).unwrap();
+    let parsed = serde_json::from_value::<CircleMemberStateValue>(current.clone()).unwrap();
     assert_eq!(serde_json::to_value(&parsed).unwrap(), current);
     let leave = json!({"membership":"leave","effective_at":"2026-09-27T12:00:00.000Z"});
-    let parsed_leave = serde_json::from_value::<CircleMemberStateCurrent>(leave.clone()).unwrap();
+    let parsed_leave = serde_json::from_value::<CircleMemberStateValue>(leave.clone()).unwrap();
     assert_eq!(serde_json::to_value(parsed_leave).unwrap(), leave);
     let realm_id = realm(41);
     let parent_revision: CurrentRevision = serde_json::from_value(parent.clone()).unwrap();
@@ -1005,7 +1006,7 @@ fn circle_currents_reject_foreign_subjects_and_noncanonical_effective_time() {
         json!({"membership":"join","parent_membership_revision":parent,"effective_at":"2026-09-27T12:00:00.000Z","revision":1}),
     ] {
         assert!(
-            serde_json::from_value::<CircleMemberStateCurrent>(invalid.clone()).is_err(),
+            serde_json::from_value::<CircleMemberStateValue>(invalid.clone()).is_err(),
             "{invalid}"
         );
     }
@@ -1122,7 +1123,7 @@ fn direct_conversation_binding_selector_has_only_pair_key() {
 #[test]
 fn relation_current_carrier_reuses_the_exact_primary_domain_and_closed_value() {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(
-        "../../../arkret-spec/spec/v1/artifacts/fixtures/exact-current-results-read-fixture.json",
+        "../../../arkret-spec/spec/v1/artifacts/fixtures/exact-current-state-read-fixture.json",
     );
     let fixture: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
     let entry = fixture["valid_outcomes"]
@@ -1132,9 +1133,9 @@ fn relation_current_carrier_reuses_the_exact_primary_domain_and_closed_value() {
         .find(|case| case["name"] == "authorized_relation_present_snapshot_carrier")
         .unwrap()["value"]["entry"]
         .clone();
-    let row: TypedCurrentRow = serde_json::from_value(entry.clone()).unwrap();
+    let row: CurrentState = serde_json::from_value(entry.clone()).unwrap();
     assert_eq!(serde_json::to_value(&row).unwrap(), entry);
-    let TypedCurrentRow::Value {
+    let CurrentState::Value {
         selector: CurrentSelector::Relation {
             primary_conflict_domain,
         },
@@ -1241,7 +1242,7 @@ fn signature(context: DetachedSignatureContext) -> DetachedObjectSignature {
         verification_method: DidUrl::new("did:web:station.example#key-1").unwrap(),
         signed_digest: Hash::new(format!("sha256:{}", "11".repeat(32))).unwrap(),
         created_at: Utc.timestamp_opt(1_800_000_000, 0).unwrap(),
-        sig: Base64UrlString::new("AQ").unwrap(),
+        signature: Base64UrlString::new("AQ").unwrap(),
     }
 }
 
@@ -1305,13 +1306,13 @@ fn stream_row_rejects_a_commit_bound_to_another_independent_stream() {
 #[test]
 fn scan_without_after_position_starts_at_that_streams_genesis() {
     let realm_id = realm(0x10);
-    let request = StreamScanRequest {
+    let request = StreamScanRequestBody {
         realm_id: realm_id.clone(),
         stream_ref: circle_item(realm_id.clone(), 0).commit.stream_ref,
         direction: StreamScanDirection::After(None),
         limit: 10,
     };
-    let outcome = StreamScanOutcome {
+    let outcome = StreamScanResponseBody {
         committed_events: vec![CommittedEventView::Full(circle_item(realm_id, 1))],
         readable_floor: None,
         truncated: false,
@@ -1402,7 +1403,7 @@ fn scan_request_has_exactly_one_present_direction_even_when_null() {
         StreamScanDirection::After(None),
         StreamScanDirection::Before(None),
     ] {
-        let request = StreamScanRequest {
+        let request = StreamScanRequestBody {
             realm_id: realm_id.clone(),
             stream_ref: stream_ref.clone(),
             direction,
@@ -1418,11 +1419,11 @@ fn scan_request_has_exactly_one_present_direction_even_when_null() {
             matches!(direction, StreamScanDirection::Before(_))
         );
         assert_eq!(
-            serde_json::from_value::<StreamScanRequest>(wire).unwrap(),
+            serde_json::from_value::<StreamScanRequestBody>(wire).unwrap(),
             request
         );
     }
-    let base = serde_json::to_value(StreamScanRequest {
+    let base = serde_json::to_value(StreamScanRequestBody {
         realm_id,
         stream_ref,
         direction: StreamScanDirection::After(None),
@@ -1431,16 +1432,16 @@ fn scan_request_has_exactly_one_present_direction_even_when_null() {
     .unwrap();
     let mut both = base.clone();
     both["before_position"] = Value::Null;
-    assert!(serde_json::from_value::<StreamScanRequest>(both).is_err());
+    assert!(serde_json::from_value::<StreamScanRequestBody>(both).is_err());
     let mut neither = base.clone();
     neither.as_object_mut().unwrap().remove("after_position");
-    assert!(serde_json::from_value::<StreamScanRequest>(neither).is_err());
+    assert!(serde_json::from_value::<StreamScanRequestBody>(neither).is_err());
     let mut unknown = base.clone();
     unknown["direction"] = serde_json::json!("after");
-    assert!(serde_json::from_value::<StreamScanRequest>(unknown).is_err());
+    assert!(serde_json::from_value::<StreamScanRequestBody>(unknown).is_err());
     let mut negative = base;
     negative["after_position"] = serde_json::json!(-1);
-    assert!(serde_json::from_value::<StreamScanRequest>(negative).is_err());
+    assert!(serde_json::from_value::<StreamScanRequestBody>(negative).is_err());
 }
 
 #[test]
@@ -1448,7 +1449,7 @@ fn before_scan_requires_descending_chain_and_verifiable_floor() {
     let realm_id = realm(0x10);
     let rows =
         [6, 5, 4].map(|position| CommittedEventView::Full(circle_item(realm_id.clone(), position)));
-    let request = StreamScanRequest {
+    let request = StreamScanRequestBody {
         realm_id,
         stream_ref: rows[0].commit().stream_ref.clone(),
         direction: StreamScanDirection::Before(None),
@@ -1459,7 +1460,7 @@ fn before_scan_requires_descending_chain_and_verifiable_floor() {
         floor_commit_id: rows[2].commit().commit_id.clone(),
         floor_reason: ReadableFloorReason::MembershipJoin,
     };
-    let outcome = StreamScanOutcome {
+    let outcome = StreamScanResponseBody {
         committed_events: rows.to_vec(),
         readable_floor: Some(floor.clone()),
         truncated: false,
@@ -1478,17 +1479,17 @@ fn before_scan_requires_descending_chain_and_verifiable_floor() {
     let mut ascending = outcome;
     ascending.committed_events.reverse();
     assert!(ascending.validate_for_request(&request).is_err());
-    let forward = StreamScanRequest {
+    let forward = StreamScanRequestBody {
         direction: StreamScanDirection::After(None),
         ..request
     };
-    let forward_page = StreamScanOutcome {
+    let forward_page = StreamScanResponseBody {
         committed_events: rows.into_iter().rev().collect(),
         readable_floor: Some(floor),
         truncated: true,
     };
     forward_page.validate_for_request(&forward).unwrap();
-    let skipped = StreamScanRequest {
+    let skipped = StreamScanRequestBody {
         direction: StreamScanDirection::After(Some(4)),
         ..forward
     };
@@ -1580,7 +1581,7 @@ fn realm_stream_list_enforces_order_floor_and_continuation() {
             floor_reason: ReadableFloorReason::StreamStart,
         }),
     };
-    let page = RealmStreamList {
+    let page = RealmStreamPage {
         realm_id: realm_id.clone(),
         streams: vec![realm_row.clone()],
         next_cursor: None,
@@ -1590,12 +1591,12 @@ fn realm_stream_list_enforces_order_floor_and_continuation() {
     let wire = serde_json::to_value(&page).unwrap();
     assert!(wire.get("next_cursor").is_none());
     assert_eq!(
-        serde_json::from_value::<RealmStreamList>(wire.clone()).unwrap(),
+        serde_json::from_value::<RealmStreamPage>(wire.clone()).unwrap(),
         page
     );
     let mut unknown = wire;
     unknown["unexpected"] = json!(true);
-    assert!(serde_json::from_value::<RealmStreamList>(unknown).is_err());
+    assert!(serde_json::from_value::<RealmStreamPage>(unknown).is_err());
 
     let mut dangling = page.clone();
     dangling.has_more = true;
@@ -1653,10 +1654,10 @@ fn realm_stream_list_enforces_order_floor_and_continuation() {
     full_cut
         .streams
         .sort_by_cached_key(|row| canonical_json_bytes_for_test(&row.stream_ref));
-    RealmStreamList::validate_rows(&full_cut.realm_id, &full_cut.streams).unwrap();
+    RealmStreamPage::validate_rows(&full_cut.realm_id, &full_cut.streams).unwrap();
     assert!(full_cut.validate().is_err());
     full_cut.streams[500] = full_cut.streams[499].clone();
-    assert!(RealmStreamList::validate_rows(&full_cut.realm_id, &full_cut.streams).is_err());
+    assert!(RealmStreamPage::validate_rows(&full_cut.realm_id, &full_cut.streams).is_err());
     let mut reversed = ordered.clone();
     reversed.streams.reverse();
     assert!(reversed.validate().is_err());

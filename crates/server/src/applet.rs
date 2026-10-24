@@ -12,8 +12,8 @@
 
 use arkret_models_discovery::service_description::ServiceDescribe;
 use arkret_models_integration::applet_models::{
-    AppletActorView, AppletPingOutcome, AppletProtocolMetadata, AppletRealmView,
-    AppletTransactionOutcome, AppletTransactionRequestBody,
+    AppletActorView, AppletPingResponseBody, AppletProtocolMetadata, AppletRealmView,
+    AppletTransactionRequestBody, AppletTransactionResponseBody,
 };
 use arkret_signatures::VerificationMethodDocument;
 use arkret_wire::{DidUrl, Result};
@@ -42,7 +42,7 @@ pub trait AppletHandler: Send + Sync + 'static {
     ) -> Result<VerificationMethodDocument>;
 
     /// `ak.edge.applet.read.ping.v1` — `GET /_arkret/edge/applet/ping`
-    fn ping(&self) -> Result<AppletPingOutcome>;
+    fn ping(&self) -> Result<AppletPingResponseBody>;
     /// `ak.edge.applet.read.describe.v1` — `GET /_arkret/edge/applet/describe`
     fn describe(&self) -> Result<ServiceDescribe>;
     /// `ak.edge.applet.command.transaction.v1` — `POST /_arkret/edge/applet/transactions`
@@ -60,7 +60,7 @@ pub trait AppletHandler: Send + Sync + 'static {
         &self,
         idempotency_key: &str,
         req: AppletTransactionRequestBody,
-    ) -> Result<AppletTransactionOutcome>;
+    ) -> Result<AppletTransactionResponseBody>;
     /// `ak.edge.applet.actor.read.resolve.v1` — `GET /_arkret/edge/applet/actors/{actor_id}`
     fn resolve_actor(&self, actor_id: &str) -> Result<AppletActorView>;
     /// `ak.edge.applet.realm.read.resolve.v1` — `GET

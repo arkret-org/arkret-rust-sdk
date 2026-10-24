@@ -401,7 +401,7 @@ pub struct CircleMemberDeleteRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct CircleMembershipOutcome {
+pub struct CircleMembershipResponseBody {
     pub circle_id: CircleId,
     pub member_id: ActorId,
     pub membership: CircleMembership,
@@ -421,7 +421,7 @@ pub struct CircleScopeRotateRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct CircleScopeRotateOutcome {
+pub struct CircleScopeRotateResponseBody {
     pub circle_id: CircleId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mls_group_id: Option<String>,

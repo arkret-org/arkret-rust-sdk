@@ -1,7 +1,7 @@
 //! Historical Account Authority verification for signed registration receipts.
 
 use arkret_models_identity::{
-    AccountBindingReceipt, DidDocument, DidMethodUri, IdentityLogListOutcome,
+    AccountBindingReceipt, DidDocument, DidMethodUri, IdentityLogListResponseBody,
 };
 use arkret_wire::{Did, DidCoreId, Hash};
 
@@ -24,7 +24,7 @@ pub trait AuthorityDidHistoryResolver {
     fn resolve_complete_history(
         &self,
         did: &Did,
-    ) -> Result<IdentityLogListOutcome, AuthorityHistoryUnavailable>;
+    ) -> Result<IdentityLogListResponseBody, AuthorityHistoryUnavailable>;
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -162,7 +162,7 @@ fn classify_receipt_proof_error(error: BindingVerifyError) -> AuthorityHistoryVe
 mod tests {
     use arkret_models_identity::{
         AccountBindingKind, AccountBindingState, IdentityCreationOperationStatus,
-        IdentityLogListOutcome,
+        IdentityLogListResponseBody,
     };
     use arkret_signatures::webvh::{ServiceInceptionInput, prepare_service_inception};
     use arkret_wire::{DidUrl, PayloadProof};
@@ -176,14 +176,14 @@ mod tests {
 
     #[derive(Clone)]
     struct FrozenResolver {
-        outcome: IdentityLogListOutcome,
+        outcome: IdentityLogListResponseBody,
     }
 
     impl AuthorityDidHistoryResolver for FrozenResolver {
         fn resolve_complete_history(
             &self,
             _did: &Did,
-        ) -> Result<IdentityLogListOutcome, AuthorityHistoryUnavailable> {
+        ) -> Result<IdentityLogListResponseBody, AuthorityHistoryUnavailable> {
             Ok(self.outcome.clone())
         }
     }
@@ -194,14 +194,14 @@ mod tests {
         fn resolve_complete_history(
             &self,
             _did: &Did,
-        ) -> Result<IdentityLogListOutcome, AuthorityHistoryUnavailable> {
+        ) -> Result<IdentityLogListResponseBody, AuthorityHistoryUnavailable> {
             Err(AuthorityHistoryUnavailable {
                 message: "fixture transport unavailable".to_owned(),
             })
         }
     }
 
-    fn receipt_fixture() -> (AccountBindingReceipt, IdentityLogListOutcome) {
+    fn receipt_fixture() -> (AccountBindingReceipt, IdentityLogListResponseBody) {
         let issued_at = Utc.with_ymd_and_hms(2026, 8, 9, 12, 0, 0).unwrap();
         let endpoint = Url::parse("https://account-authority.example/").unwrap();
         let mut rng = ChaChaRng::seed_from_u64(0x4155_5448);
@@ -211,7 +211,7 @@ mod tests {
                 principal_endpoint: &endpoint,
                 local_id: "service",
                 also_known_as: &[],
-                version_time: issued_at,
+                version_created_at: issued_at,
                 did_key_fragment: Some("assertion-1"),
             },
         )
@@ -252,7 +252,7 @@ mod tests {
             &SigningKey::from_bytes(&inception.did_key_seed),
         )
         .unwrap();
-        let history = IdentityLogListOutcome {
+        let history = IdentityLogListResponseBody {
             did: authority_did,
             method: DidMethodUri::Webvh,
             native_history: Some(true),

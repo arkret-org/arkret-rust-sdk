@@ -79,7 +79,7 @@ fn root_ref() -> serde_json::Value {
             arkret_canonical::DigestSuite::Sha256,
             [0x55; 32],
         ),
-        "authority_generation": 0
+        "authority_generation": "0"
     })
 }
 
@@ -886,7 +886,7 @@ fn registered_windows_have_fixed_lengths_only() {
 fn rate(scope: GrantConstraintScope) -> GrantConstraint {
     let mut constraint = constraint(GrantConstraintKind::Quota, GrantConstraintEffect::Allow);
     constraint.constraint_subkind = Some(GrantConstraintSubkind::Rate);
-    constraint.max_operations = Some(3);
+    constraint.max_operation_count = Some(3);
     constraint.period = Some("PT1H".to_owned());
     constraint.constraint_scope = Some(scope);
     constraint
@@ -1193,7 +1193,7 @@ fn a_rate_quota_is_owed_as_a_reservation_and_is_required_for_broadcast() {
     assert!(evaluation.unreserved().is_empty());
     let reservation = &satisfied[0].reservations[0];
     assert_eq!(reservation.grant_id, grants[0].id);
-    assert_eq!(reservation.max_operations, 3);
+    assert_eq!(reservation.max_operation_count, 3);
     assert_eq!(reservation.period_ms, 3_600_000);
     assert_eq!(reservation.window_id, now().timestamp_millis() / 3_600_000);
     assert_eq!(
@@ -1502,7 +1502,7 @@ fn approval_proof_never_discharges_mixed_predicates() {
                 now() - TimeDelta::days(1)
             )),
         ),
-        ("max_resources", serde_json::json!(0)),
+        ("max_resource_count", serde_json::json!(0)),
         ("allowed_space_ids", serde_json::json!([LIST_B])),
         ("accountability_required", serde_json::json!(true)),
         ("condition", serde_json::json!({"kind":"always"})),

@@ -18,7 +18,7 @@ pub const ACTOR_PROFILE_RESOLVE_MAX_ACTORS: usize = 64;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ActorProfileResolveRequest {
+pub struct ActorProfileResolveRequestBody {
     /// Shared Collaboration Realm establishing the relationship.
     ///
     /// A Principal Control Realm must not be used: PCR co-membership is the
@@ -28,7 +28,7 @@ pub struct ActorProfileResolveRequest {
     pub actor_ids: Vec<ActorId>,
 }
 
-impl ActorProfileResolveRequest {
+impl ActorProfileResolveRequestBody {
     pub fn new(realm_id: RealmId, actor_ids: Vec<ActorId>) -> Self {
         Self {
             realm_id,
@@ -106,13 +106,13 @@ pub struct ActorProfileResolveFailure {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ActorProfileResolveOutcome {
+pub struct ActorProfileResolveResponseBody {
     pub profiles: Vec<ResolvedActorProfile>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub failures: Option<Vec<ActorProfileResolveFailure>>,
 }
 
-impl ActorProfileResolveOutcome {
+impl ActorProfileResolveResponseBody {
     /// Every requested actor must appear exactly once across `profiles` and
     /// `failures`, so a caller cannot distinguish an omitted actor from a
     /// withheld one.

@@ -89,7 +89,7 @@ pub fn structural_realm_commit_at(
             verification_method,
             signed_digest: Hash::new(format!("sha256:{}", "3".repeat(64))).unwrap(),
             created_at: committed_at,
-            sig: crate::Base64UrlString::new("c2lnbmF0dXJl".to_owned()).unwrap(),
+            signature: crate::Base64UrlString::new("c2lnbmF0dXJl".to_owned()).unwrap(),
         },
     }
 }
@@ -101,7 +101,7 @@ pub fn structural_realm_commit_at(
 /// `^[A-Za-z0-9_-]+\.(?:[A-Za-z0-9_-]+)?\.[A-Za-z0-9_-]+$`, so a placeholder
 /// still owes the base64url protected header, the empty detached payload
 /// segment, and the signature segment. Single-token placeholders such as
-/// `"sig"` are wire-invalid and are rejected by `ProducerEventProof::validate`.
+/// `"signature"` are wire-invalid and are rejected by `ProducerEventProof::validate`.
 ///
 /// The signature segment is `payload_digest` itself, so the value is a function
 /// of the bytes it claims to cover: a fixture cannot pin a constant that

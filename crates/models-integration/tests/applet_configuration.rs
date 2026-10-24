@@ -1,12 +1,12 @@
 //! Registered configuration transcripts and closed correlation boundaries.
 use arkret_models_integration::{
-    AppletConfigurationExecutionOutcome, AppletConfigurationExecutionRequest,
+    AppletConfigurationExecutionRequestBody, AppletConfigurationExecutionResponseBody,
 };
 use serde_json::{Value, json};
 
 #[test]
 fn peer_configuration_carries_full_account_and_preserves_the_original_request() {
-    use arkret_models_integration::AppletConfigurationPeerRequest;
+    use arkret_models_integration::AppletConfigurationPeerRequestBody;
     let corpus = fixtures();
     let execution = &corpus["signature_kats"][0]["unsigned_host"]["intent"];
     let body = json!({
@@ -21,7 +21,7 @@ fn peer_configuration_carries_full_account_and_preserves_the_original_request() 
             }
         }
     });
-    let request: AppletConfigurationPeerRequest = serde_json::from_value(body.clone()).unwrap();
+    let request: AppletConfigurationPeerRequestBody = serde_json::from_value(body.clone()).unwrap();
     request.validate().unwrap();
     assert_eq!(serde_json::to_value(request).unwrap(), body);
     for invalid in [
@@ -29,7 +29,7 @@ fn peer_configuration_carries_full_account_and_preserves_the_original_request() 
         json!({"requester_account_id": execution["originating_actor_id"], "request": body["request"]}),
         json!({"requester_account_id": body["requester_account_id"], "request": body["request"], "login_token": "forbidden"}),
     ] {
-        assert!(serde_json::from_value::<AppletConfigurationPeerRequest>(invalid).is_err());
+        assert!(serde_json::from_value::<AppletConfigurationPeerRequestBody>(invalid).is_err());
     }
 }
 
@@ -59,9 +59,9 @@ fn configuration_transcripts_match_formal_signature_vectors() {
     let corpus = fixtures();
     let command = &corpus["signature_kats"][0];
     let result = &corpus["signature_kats"][1];
-    let request: AppletConfigurationExecutionRequest =
+    let request: AppletConfigurationExecutionRequestBody =
         serde_json::from_value(signed(command)).unwrap();
-    let outcome: AppletConfigurationExecutionOutcome =
+    let outcome: AppletConfigurationExecutionResponseBody =
         serde_json::from_value(signed(result)).unwrap();
     request
         .validate_at("2026-10-19T08:02:00.000Z".parse().unwrap())
@@ -82,7 +82,7 @@ fn configuration_transcripts_match_formal_signature_vectors() {
 #[test]
 fn handoff_refresh_preserves_intent_and_changes_the_signed_command() {
     let corpus = fixtures();
-    let request: AppletConfigurationExecutionRequest =
+    let request: AppletConfigurationExecutionRequestBody =
         serde_json::from_value(signed(&corpus["signature_kats"][0])).unwrap();
     let mut refreshed = request.clone();
     refreshed.governance_generation += 1;
@@ -114,7 +114,7 @@ fn handoff_refresh_preserves_intent_and_changes_the_signed_command() {
 #[test]
 fn outcome_cannot_change_intent_or_claim_acceptance_without_original_refs() {
     let corpus = fixtures();
-    let command: AppletConfigurationExecutionRequest =
+    let command: AppletConfigurationExecutionRequestBody =
         serde_json::from_value(signed(&corpus["signature_kats"][0])).unwrap();
     let value = signed(&corpus["signature_kats"][1]);
     for mutation in [
@@ -128,15 +128,18 @@ fn outcome_cannot_change_intent_or_claim_acceptance_without_original_refs() {
             .as_object_mut()
             .unwrap()
             .extend(mutation.as_object().unwrap().clone());
-        let outcome: AppletConfigurationExecutionOutcome = serde_json::from_value(changed).unwrap();
+        let outcome: AppletConfigurationExecutionResponseBody =
+            serde_json::from_value(changed).unwrap();
         assert!(outcome.validate_for(&command.intent).is_err());
     }
     for field in ["actor_id", "creation_refs", "create_event"] {
         let mut changed = value.clone();
         changed[field] = Value::Null;
-        assert!(serde_json::from_value::<AppletConfigurationExecutionOutcome>(changed).is_err());
+        assert!(
+            serde_json::from_value::<AppletConfigurationExecutionResponseBody>(changed).is_err()
+        );
     }
     let mut unknown = value;
     unknown["accepted"] = json!(true);
-    assert!(serde_json::from_value::<AppletConfigurationExecutionOutcome>(unknown).is_err());
+    assert!(serde_json::from_value::<AppletConfigurationExecutionResponseBody>(unknown).is_err());
 }

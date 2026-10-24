@@ -5,11 +5,11 @@ use arkret_models_crypto::MlsGovernanceBindingPayload;
 use arkret_wire::{ActorId, DeviceId, DidUrl, Event, EventId, EventKind, MlsGroupId, ScopeRef};
 use serde::{Deserialize, Serialize};
 
-use crate::authority_commit::SelfAuthoritySubmitRequest;
+use crate::authority_commit::SelfAuthoritySubmitRequestBody;
 use crate::events_payloads::MlsGenesisBindingProposalCarrier;
 use crate::internal_prelude::{Result, WireError};
 use crate::sync_frames::account_subscribe::RealmDetailBaseline;
-use crate::sync_frames::current_results::AccountCurrentView;
+use crate::sync_frames::current_states::AccountStateView;
 
 mod endpoint_authority;
 pub use endpoint_authority::{
@@ -32,7 +32,7 @@ pub struct MlsCreatorBootstrapIntent {
     creator_endpoint: arkret_wire::MlsWelcomeRecipientEndpoint,
     mls_group_id: MlsGroupId,
     proposed_group_genesis_binding: MlsGenesisBindingProposalCarrier,
-    signed_scope_create_unit: SelfAuthoritySubmitRequest,
+    signed_scope_create_unit: SelfAuthoritySubmitRequestBody,
     scope_create_event_id: EventId,
 }
 
@@ -43,7 +43,7 @@ impl MlsCreatorBootstrapIntent {
         creator_device_id: DeviceId,
         creator_signer_method: DidUrl,
         proposed_group_genesis_binding: MlsGovernanceBindingPayload,
-        signed_scope_create_unit: SelfAuthoritySubmitRequest,
+        signed_scope_create_unit: SelfAuthoritySubmitRequestBody,
     ) -> Result<Self> {
         let endpoint = arkret_wire::MlsWelcomeRecipientEndpoint::Device {
             device_id: creator_device_id.clone(),
@@ -68,7 +68,7 @@ impl MlsCreatorBootstrapIntent {
         creator_signer_method: DidUrl,
         creator_endpoint: arkret_wire::MlsWelcomeRecipientEndpoint,
         proposed_group_genesis_binding: MlsGovernanceBindingPayload,
-        signed_scope_create_unit: SelfAuthoritySubmitRequest,
+        signed_scope_create_unit: SelfAuthoritySubmitRequestBody,
     ) -> Result<Self> {
         let create = scope_create_event(&signed_scope_create_unit)?;
         let value = Self {
@@ -182,7 +182,7 @@ impl MlsCreatorBootstrapIntent {
     pub fn proposal(&self) -> &MlsGenesisBindingProposalCarrier {
         &self.proposed_group_genesis_binding
     }
-    pub fn signed_scope_create_unit(&self) -> &SelfAuthoritySubmitRequest {
+    pub fn signed_scope_create_unit(&self) -> &SelfAuthoritySubmitRequestBody {
         &self.signed_scope_create_unit
     }
     pub fn scope_create_event_id(&self) -> &EventId {
@@ -198,11 +198,11 @@ impl MlsCreatorBootstrapIntent {
 #[serde(deny_unknown_fields)]
 pub struct MlsCreatorBootstrapCurrentCut {
     baseline: RealmDetailBaseline,
-    current: AccountCurrentView,
+    current: AccountStateView,
 }
 
 impl MlsCreatorBootstrapCurrentCut {
-    pub fn new(baseline: RealmDetailBaseline, current: AccountCurrentView) -> Self {
+    pub fn new(baseline: RealmDetailBaseline, current: AccountStateView) -> Self {
         Self { baseline, current }
     }
 
@@ -266,7 +266,7 @@ impl MlsCreatorBootstrapCurrentCut {
         &self.baseline
     }
 
-    pub fn current(&self) -> &AccountCurrentView {
+    pub fn current(&self) -> &AccountStateView {
         &self.current
     }
 }
@@ -352,7 +352,7 @@ fn validate_creator_own_snapshot(snapshot: &arkret_wire::RealmStateSnapshot) -> 
     let mut subjects = std::collections::BTreeSet::new();
     let mut commits = std::collections::BTreeMap::new();
     for row in &snapshot.current_state_entries {
-        let arkret_wire::TypedCurrentRow::Value {
+        let arkret_wire::CurrentState::Value {
             selector,
             source_stream_ref,
             revision,
@@ -446,7 +446,7 @@ impl MlsCreatorBootstrapAuthority {
                     .current_state_entries
                     .iter()
                     .filter_map(|row| match row {
-                        arkret_wire::TypedCurrentRow::Value {
+                        arkret_wire::CurrentState::Value {
                             source_stream_ref: stream_ref,
                             selector: arkret_wire::CurrentSelector::RealmGenesis,
                             value,
@@ -610,7 +610,7 @@ pub struct MlsCreatorBootstrapDeviceAuthority {
 impl MlsCreatorBootstrapDeviceAuthority {
     pub fn from_self_keys_query(
         intent: &MlsCreatorBootstrapIntent,
-        outcome: &arkret_models_crypto::KeysQueryOutcome,
+        outcome: &arkret_models_crypto::KeysQueryResponseBody,
         verified_at: chrono::DateTime<chrono::Utc>,
     ) -> Result<Self> {
         outcome.validate()?;
@@ -1193,6 +1193,7 @@ impl MlsCreatorBootstrapWinner {
 pub struct MlsCreatorBootstrapArtifactChecks {
     pub effective_scope: ScopeRef,
     pub mls_group_id: MlsGroupId,
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub epoch: u64,
     pub cipher_suite: String,
     pub creator_leaf_authority: crate::events_payloads::MlsGenesisCreatorLeafAuthority,
@@ -2736,7 +2737,7 @@ pub fn validate_creator_genesis_absence_snapshot(
     accepted: &MlsCreatorBootstrapAcceptedCreate,
     snapshot: &arkret_wire::RealmStateSnapshot,
 ) -> Result<()> {
-    use arkret_wire::{CommitStreamRef, CurrentSelector, TypedCurrentRow};
+    use arkret_wire::{CommitStreamRef, CurrentSelector, CurrentState};
     let stream = CommitStreamRef::from_scope(intent.effective_scope(), None)?;
     accepted.validate_binding(intent)?;
     let root = &accepted.authority_root;
@@ -2777,7 +2778,7 @@ pub fn validate_creator_genesis_absence_snapshot(
         || !snapshot.visible_stream_heads.contains(root.realm_head()?)
         || snapshot.current_state_entries.iter().any(|entry| {
             let selector = match entry {
-                TypedCurrentRow::Value { selector, .. } => selector,
+                CurrentState::Value { selector, .. } => selector,
             };
             selector
                 == &CurrentSelector::MlsGroup {
@@ -2899,15 +2900,17 @@ impl MlsCreatorBootstrapAcceptedCreate {
     }
 }
 
-fn scope_create_event(request: &SelfAuthoritySubmitRequest) -> Result<&Event> {
+fn scope_create_event(request: &SelfAuthoritySubmitRequestBody) -> Result<&Event> {
     match request {
-        SelfAuthoritySubmitRequest::Event(submission) => Ok(&submission.event),
-        SelfAuthoritySubmitRequest::OrdinaryRealmBootstrap(unit) => unit
+        SelfAuthoritySubmitRequestBody::Event(submission) => Ok(&submission.event),
+        SelfAuthoritySubmitRequestBody::OrdinaryRealmBootstrap(unit) => unit
             .events
             .first()
             .map(|submission| &submission.event)
             .ok_or_else(|| WireError::Protocol("creator intent has no signed create unit".into())),
-        SelfAuthoritySubmitRequest::DirectConversationFounding(unit) => Ok(&unit.events[0].event),
+        SelfAuthoritySubmitRequestBody::DirectConversationFounding(unit) => {
+            Ok(&unit.events[0].event)
+        }
         _ => Err(WireError::Protocol(
             "creator intent is not a scope creation unit".into(),
         )),

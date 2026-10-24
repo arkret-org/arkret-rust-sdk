@@ -86,7 +86,7 @@ pub struct HandleAttestation {
 ///
 /// This is intentionally a product/shared contract, not the normative DID
 /// data model for the SDK. The protocol response envelope
-/// (`IdentityResolveOutcome`) while this type provides the
+/// (`IdentityResolveResponseBody`) while this type provides the
 /// serde shape and convenience helpers used by identity resolvers.
 ///
 /// Equality is semantic, not representational: two documents are equal when

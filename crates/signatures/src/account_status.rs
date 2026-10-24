@@ -89,7 +89,7 @@ mod tests {
             )
             .unwrap(),
             binding_version: 7,
-            status_seq: 1,
+            status_sequence: 1,
             previous_account_status_record_id: None,
             status: AccountStatus::Active,
             reason_code: None,
@@ -146,7 +146,7 @@ mod tests {
                 record_digest: record.payload_digest().unwrap(),
                 account_authority_id: record.account_authority_id.clone(),
                 account_id: record.account_id.clone(),
-                status_seq: record.status_seq,
+                status_sequence: record.status_sequence,
                 receiver_id: DidCoreId::new("ak:did_core:web:receiver.example").unwrap(),
                 accepted_at: "2026-08-16T00:00:01.000Z".parse().unwrap(),
                 verification_method: DidUrl::new("did:web:receiver.example#notary-key").unwrap(),
@@ -164,7 +164,7 @@ mod tests {
         receipt.validate_for_record(&record).unwrap();
 
         let mut other_record = record;
-        other_record.status_seq += 1;
+        other_record.status_sequence += 1;
         assert!(receipt.validate_for_record(&other_record).is_err());
     }
 

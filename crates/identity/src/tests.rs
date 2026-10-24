@@ -166,8 +166,8 @@ fn vector_valid_log(key1: &SigningKey, key2: &SigningKey) -> (Did, Vec<u8>) {
     (did, body.into_bytes())
 }
 
-fn vector_log_response(did: &Did, body: Vec<u8>) -> DidWebvhLogOutcome {
-    DidWebvhLogOutcome {
+fn vector_log_response(did: &Did, body: Vec<u8>) -> DidWebvhLogHttpResponse {
+    DidWebvhLogHttpResponse {
         url: DidWebvhResolver::log_url(did).unwrap(),
         content_type: "application/jsonl".to_owned(),
         body,
@@ -401,7 +401,7 @@ fn canonical_principal_builders_produce_a_verified_rotation_chain() {
         principal_endpoint: &endpoint,
         local_id: "alice",
         also_known_as: &[],
-        version_time: DateTime::parse_from_rfc3339("2026-05-06T00:00:00.000Z")
+        version_created_at: DateTime::parse_from_rfc3339("2026-05-06T00:00:00.000Z")
             .unwrap()
             .with_timezone(&Utc),
         root_seed: &root_seed,
@@ -413,7 +413,7 @@ fn canonical_principal_builders_produce_a_verified_rotation_chain() {
         did: &inception.did,
         local_id: &inception.local_id,
         previous_entries: std::slice::from_ref(&inception.log_entry),
-        version_time: DateTime::parse_from_rfc3339("2026-05-07T00:00:00.000Z")
+        version_created_at: DateTime::parse_from_rfc3339("2026-05-07T00:00:00.000Z")
             .unwrap()
             .with_timezone(&Utc),
         current_root_seed: &current_seed,
@@ -711,7 +711,7 @@ fn did_resolver_adapters_resolve_web_key_and_keri() {
     web_https_resolver
         .insert_from_https_response(
             &web,
-            DidWebDocumentOutcome {
+            DidWebDocumentHttpResponse {
                 url: DidWebResolver::document_url(&web).unwrap(),
                 content_type: "application/did+json; charset=utf-8".to_owned(),
                 body: web_body,
@@ -722,7 +722,7 @@ fn did_resolver_adapters_resolve_web_key_and_keri() {
         web_https_resolver
             .insert_from_https_response(
                 &web,
-                DidWebDocumentOutcome {
+                DidWebDocumentHttpResponse {
                     url: DidWebResolver::document_url(&web).unwrap(),
                     content_type: "text/plain".to_owned(),
                     body: b"{}".to_vec(),
@@ -734,7 +734,7 @@ fn did_resolver_adapters_resolve_web_key_and_keri() {
         web_https_resolver
             .insert_from_https_response(
                 &web,
-                DidWebDocumentOutcome {
+                DidWebDocumentHttpResponse {
                     url: DidWebResolver::document_url(&web).unwrap(),
                     content_type: "application/json".to_owned(),
                     body: vec![b' '; DID_WEB_MAX_DOCUMENT_BYTES + 1],
@@ -924,7 +924,7 @@ fn did_registry_receipt_verifies_detached_jws_binding() {
 
     // Any field tamper breaks the payload digest binding.
     let mut tampered = receipt.clone();
-    tampered.seq = 8;
+    tampered.sequence = 8;
     assert!(tampered.verify(&resolver).is_err());
 
     // A wrong registry key fails Ed25519 verification.

@@ -68,7 +68,7 @@ pub struct VerifiedContactDirection {
     round: Hash,
     head: EventId,
     current_from: DateTime<Utc>,
-    fresh_until: DateTime<Utc>,
+    cache_expires_at: DateTime<Utc>,
     intervals: Vec<ContactScopeInterval>,
 }
 impl VerifiedContactDirection {
@@ -97,7 +97,7 @@ impl VerifiedContactDirection {
     }
     /// Required by current Contact mutations and Direct Conversation founding.
     pub fn require_current_at(&self, at: DateTime<Utc>) -> Result<()> {
-        if at < self.current_from || at >= self.fresh_until {
+        if at < self.current_from || at >= self.cache_expires_at {
             return Err(ContactAuthorizationError::NotCurrent);
         }
         Ok(())
@@ -757,7 +757,7 @@ fn verify_current_material_inner(
         observed_at,
         resolver,
     )?;
-    if observed_at >= proof.fresh_until {
+    if observed_at >= proof.cache_expires_at {
         return Err(ContactAuthorizationError::NotCurrent);
     }
     verify_original_operation(&material.head_operation, suite, observed_at, resolver)?;
@@ -838,7 +838,7 @@ fn verify_current_material_inner(
             round: round.clone(),
             head: proof.head_event_ref.clone(),
             current_from: proof.issued_at,
-            fresh_until: proof.fresh_until,
+            cache_expires_at: proof.cache_expires_at,
             intervals,
         });
     Ok(VerifiedContactCurrentMaterial {
@@ -989,14 +989,15 @@ pub fn verify_contact_current_material(
 /// Authenticate exact response ownership and its complete historical boundaries.
 pub fn verify_contact_current_refresh_response(
     request: &PeerContactSubmitRequestBody,
-    outcome: &arkret_models_collaboration::contact_operations::PeerContactSubmitOutcome,
+    outcome: &arkret_models_collaboration::contact_operations::PeerContactSubmitResponseBody,
     suite: DigestSuite,
     observed_at: DateTime<Utc>,
     resolver: &dyn AuthorityDidHistoryResolver,
 ) -> Result<VerifiedContactCurrentMaterial> {
     use arkret_models_collaboration::contact_operations::{
-        PeerContactControlKind, PeerContactControlSubmitOutcome, PeerContactOutcome,
-        PeerContactSubmitOutcome, peer_contact_control_result_digest,
+        PeerContactAdmissionAttemptOutcome, PeerContactControlKind,
+        PeerContactControlSubmitResponseBody, PeerContactSubmitResponseBody,
+        peer_contact_control_result_digest,
     };
     let PeerContactSubmitRequestBody::CurrentRefresh {
         requester,
@@ -1010,11 +1011,13 @@ pub fn verify_contact_current_refresh_response(
     else {
         return Err(invalid("not current_refresh"));
     };
-    let PeerContactSubmitOutcome::Control(PeerContactControlSubmitOutcome::CurrentRefresh {
-        status,
-        control_receipt,
-        material,
-    }) = outcome
+    let PeerContactSubmitResponseBody::Control(
+        PeerContactControlSubmitResponseBody::CurrentRefresh {
+            status,
+            control_receipt,
+            material,
+        },
+    ) = outcome
     else {
         return Err(ContactAuthorizationError::NotCurrent);
     };
@@ -1044,11 +1047,12 @@ pub fn verify_contact_current_refresh_response(
     .map_err(invalid)?;
     if !matches!(
         status,
-        PeerContactOutcome::Accepted | PeerContactOutcome::Duplicate
+        PeerContactAdmissionAttemptOutcome::Accepted
+            | PeerContactAdmissionAttemptOutcome::Duplicate
     ) || control_receipt.outcome != *status
         || control_receipt.request_kind != PeerContactControlKind::CurrentRefresh
         || control_receipt.request_digest != request_digest
-        || control_receipt.result_digest.as_ref() != Some(&expected_digest)
+        || control_receipt.control_material_digest.as_ref() != Some(&expected_digest)
         || control_receipt.issuer_id != *contact_address.recipient.delivery_station_id()
         || control_receipt.recipient_id != control_receipt.issuer_id
         || control_receipt.received_at > observed_at

@@ -1,7 +1,6 @@
 use arkret_canonical::{base64url, canonical};
 use arkret_models_crypto::{
-    EncryptedEnvelope, MAX_EVENT_CONTENT_INTEGER, MlsCommitEnvelope, MlsCommitPayload,
-    MlsGovernanceBindingPayload,
+    EncryptedEnvelope, MlsCommitEnvelope, MlsCommitPayload, MlsGovernanceBindingPayload,
 };
 use arkret_schema_conformance::{event_payload_validator_catalog, spec_json_artifact};
 use arkret_wire::{EncryptedPayloadScheme, EventId, Hash, RealmId, ScopeRef};
@@ -11,7 +10,7 @@ fn encrypted_envelope_wire() -> serde_json::Value {
         "version": "1.0",
         "content_type": "application/vnd.arkret.strand.patch-value+json",
         "encryption_context": {
-            "epoch": 1,
+            "epoch": "1",
             "group_state_ref": EventId::from_event_digest(
                 &Hash::new(canonical::sha256_digest(b"winning-state")).unwrap()
             ).unwrap()
@@ -46,11 +45,11 @@ fn encrypted_envelope_exporter_counter_is_never_a_valid_context() {
     for counter in [
         serde_json::Value::Null,
         serde_json::json!(0),
-        serde_json::json!(MAX_EVENT_CONTENT_INTEGER),
+        serde_json::json!(u64::MAX),
         serde_json::json!("0"),
         serde_json::json!(-1),
         serde_json::json!(0.5),
-        serde_json::json!(MAX_EVENT_CONTENT_INTEGER + 1),
+        serde_json::json!(u64::MAX - 1),
     ] {
         let mut wire = encrypted_envelope_wire();
         wire["encryption_context"]["counter"] = counter;
@@ -137,11 +136,11 @@ fn mls_commit_payload_matches_registered_event_schema() {
         .unwrap();
     assert!(value.get("group_id").is_none());
     assert!(value.get("expected_prev_epoch").is_none());
-    assert_eq!(value["previous_epoch"], 0);
-    assert_eq!(value["next_epoch"], 1);
-    assert_eq!(value["covers_key_access_revision"], 0);
+    assert_eq!(value["previous_epoch"], "0");
+    assert_eq!(value["next_epoch"], "1");
+    assert_eq!(value["covers_key_access_revision"], "0");
     assert_eq!(
-        value["commit_bytes_b64"],
+        value["commit_base64url"],
         base64url::base64url_encode(commit_bytes)
     );
     assert!(value.get("commit_digest").is_none());

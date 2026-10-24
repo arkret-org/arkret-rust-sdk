@@ -56,7 +56,10 @@ pub fn verify_realm_actor_native_history(
         || arkret_canonical::canonical_sha256(
             entries.last().ok_or_else(|| invalid("empty history"))?,
         )? != resolution.method_history_head
-        || log.entries.iter().any(|entry| entry.version_time > at)
+        || log
+            .entries
+            .iter()
+            .any(|entry| entry.version_created_at > at)
     {
         return Err(invalid("native history terminal or effective time differs"));
     }

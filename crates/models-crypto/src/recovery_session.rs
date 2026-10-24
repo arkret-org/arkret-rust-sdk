@@ -234,7 +234,7 @@ impl RecoverySessionProof {
 // recovery-session.schema.json#/$defs/recovery_session_proof_submit_request_body.
 
 // Field declaration order is byte-for-byte the properties order of
-// recovery-session.schema.json#/$defs/recovery_session_proof_submit_outcome.
+// recovery-session.schema.json#/$defs/recovery_session_proof_submit_response_body.
 
 // Field declaration order is byte-for-byte the properties order of
 // recovery-session.schema.json#/$defs/did_root_transcript.
@@ -667,12 +667,12 @@ mod tests {
     #[test]
     fn proof_submit_outcome_round_trips_and_is_closed() {
         let value = json!({"recovery_session_id": SESSION_ID});
-        let parsed: RecoverySessionProofSubmitOutcome =
+        let parsed: RecoverySessionProofSubmitResponseBody =
             serde_json::from_value(value.clone()).expect("closed outcome");
         assert_eq!(serde_json::to_value(&parsed).unwrap(), value);
 
         assert!(
-            serde_json::from_value::<RecoverySessionProofSubmitOutcome>(
+            serde_json::from_value::<RecoverySessionProofSubmitResponseBody>(
                 json!({"state": "verified"})
             )
             .is_err()

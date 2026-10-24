@@ -361,7 +361,7 @@ pub struct ControllerAccountGateIssuanceInput {
 /// Domain result of deployment-private controller-gate issuance.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ControllerAccountGateIssuanceOutcome {
+pub struct ControllerAccountGateAttestationIssueResponseBody {
     pub request_id: RequestId,
     pub controller_account_gate_attestation: ControllerAccountGateAttestation,
 }
@@ -456,7 +456,7 @@ mod tests {
     fn controller_gate_rejects_unknown_member() {
         for extra in [
             "account_id",
-            "account_current_result",
+            "account_current_state",
             "caller_asserted_active",
         ] {
             let mut json = attestation_json();
@@ -588,7 +588,7 @@ mod tests {
             assert!(serde_json::from_value::<ControllerAccountGateAttestation>(bad).is_err());
         }
         let mut extra = json.clone();
-        extra["basis"]["status_seq"] = serde_json::json!(3);
+        extra["basis"]["status_sequence"] = serde_json::json!(3);
         assert!(serde_json::from_value::<ControllerAccountGateAttestation>(extra).is_err());
         for field in ["status_record_digest", "basis_digest"] {
             let mut bad = json.clone();
@@ -640,7 +640,7 @@ mod tests {
             "request_id": "ak:request:01970000-0000-7000-8000-000000000021",
             "controller_account_gate_attestation": attestation_json()
         });
-        let outcome: ControllerAccountGateIssuanceOutcome =
+        let outcome: ControllerAccountGateAttestationIssueResponseBody =
             serde_json::from_value(outcome_json.clone()).unwrap();
         assert_eq!(serde_json::to_value(&outcome).unwrap(), outcome_json);
     }

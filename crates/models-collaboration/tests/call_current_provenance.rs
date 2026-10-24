@@ -1,6 +1,6 @@
 use arkret_canonical::{DigestSuite, canonical_json_bytes, sha256_bytes};
 use arkret_models_collaboration::events_payloads::call::*;
-use arkret_models_collaboration::exact_current_results::CanonicalEventDot;
+use arkret_models_collaboration::exact_current_state::CanonicalEventDot;
 use arkret_wire::{CurrentRevision, EventId, RealmCommit, RealmCommitId};
 use serde_json::json;
 
@@ -11,7 +11,7 @@ fn commit(byte: u8, position: u64) -> RealmCommit {
         "stream_ref": {"kind":"realm","realm_id":"ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19"},
         "stream_position": position,
         "previous_commit_ref": "ak:realm_commit:ARNRmzDi2r78zveOLmoHOb6AephFMwVuGE1fwXmCoeo4",
-        "event_ref": event, "governance_generation":0,
+        "event_ref": event, "governance_generation":"0",
         "authority_ref": event,
         "committed_at":"2026-10-15T00:00:00.000Z"
     });
@@ -21,7 +21,7 @@ fn commit(byte: u8, position: u64) -> RealmCommit {
         "context":"ak.realm_commit_signature.v1", "signature_algorithm":"Ed25519",
         "verification_method":"did:web:station.example#authority",
         "signed_digest":format!("sha256:{}", "0".repeat(64)),
-        "created_at":"2026-10-15T00:00:00.000Z", "sig":"A".repeat(86)
+        "created_at":"2026-10-15T00:00:00.000Z", "signature":"A".repeat(86)
     });
     serde_json::from_value(value).unwrap()
 }
@@ -267,7 +267,7 @@ fn normative_checkpoints_match_the_actual_incremental_projector() {
         let payload = &row["event"]["payload"];
         if let Some(delta) = payload.get("roster_delta") {
             let value: CallRosterDelta = serde_json::from_value(delta.clone()).unwrap();
-            let key=matches!(&value,CallRosterDelta::Join {participant} if participant.participant_binding.is_some()).then(||CallParticipantSigningKey {public_key_b64u:fixture["test_keys"]["issuer_public_key_b64u"].as_str().unwrap().into()});
+            let key=matches!(&value,CallRosterDelta::Join {participant} if participant.participant_binding.is_some()).then(||CallParticipantSigningKey {public_key_base64url:fixture["test_keys"]["issuer_public_key_b64u"].as_str().unwrap().into()});
             roster = Some(
                 CallRosterCurrentValue::apply_delta(
                     roster.as_ref(),

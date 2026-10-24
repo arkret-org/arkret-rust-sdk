@@ -2,7 +2,7 @@
 
 use arkret_canonical::base64url::base64url_decode;
 use arkret_models_collaboration::objects::media::{
-    MediaIceConfigOutcome, MediaIceServer, MediaIceSignatureAlgorithm,
+    MediaIceConfigurationResponseBody, MediaIceServer, MediaIceSignatureAlgorithm,
 };
 use arkret_wire::{ActorId, Did, RealmId};
 use ed25519_dalek::Signature;
@@ -12,7 +12,7 @@ use crate::media::MediaServiceAnchors;
 use crate::{Error, Result};
 
 /// Strongly-typed ICE configuration parsed from a verified
-/// [`MediaIceConfigOutcome`] (`webrtc-signaling.md` §4 / §4.1).
+/// [`MediaIceConfigurationResponseBody`] (`webrtc-signaling.md` §4 / §4.1).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct IceConfig {
     pub realm_id: RealmId,
@@ -61,7 +61,7 @@ fn validate_ice_server_credential_privacy(server: &MediaIceServer) -> Result<()>
     Ok(())
 }
 
-fn ice_config_signing_input(outcome: &MediaIceConfigOutcome) -> Result<Vec<u8>> {
+fn ice_config_signing_input(outcome: &MediaIceConfigurationResponseBody) -> Result<Vec<u8>> {
     outcome.signature_input().map_err(|err| {
         Error::Protocol(format!(
             "ice_config_denied: transcript construction failed: {err}"
@@ -70,7 +70,7 @@ fn ice_config_signing_input(outcome: &MediaIceConfigOutcome) -> Result<Vec<u8>> 
 }
 
 fn verify_ice_config_signature(
-    outcome: &MediaIceConfigOutcome,
+    outcome: &MediaIceConfigurationResponseBody,
     anchors: &MediaServiceAnchors,
     kid: &str,
 ) -> Result<()> {
@@ -79,7 +79,7 @@ fn verify_ice_config_signature(
             "ice_config_denied: unsupported signature algorithm".to_owned(),
         ));
     }
-    let sig_b64 = &outcome.signature.sig;
+    let sig_b64 = &outcome.signature.signature;
     let key = anchors.verifying_key(kid).ok_or_else(|| {
         Error::Protocol(format!(
             "ice_config_denied: no verifying key registered for ICE config kid {kid}"
@@ -87,12 +87,12 @@ fn verify_ice_config_signature(
     })?;
     let sig_bytes = base64url_decode(sig_b64).map_err(|err| {
         Error::Protocol(format!(
-            "ice_config_denied: signature.sig is not base64url: {err}"
+            "ice_config_denied: signature.signature is not base64url: {err}"
         ))
     })?;
     let sig_array: [u8; 64] = sig_bytes.as_slice().try_into().map_err(|_| {
         Error::Protocol(format!(
-            "ice_config_denied: signature.sig must be 64 bytes, got {}",
+            "ice_config_denied: signature.signature must be 64 bytes, got {}",
             sig_bytes.len()
         ))
     })?;
@@ -102,7 +102,7 @@ fn verify_ice_config_signature(
         return Ok(());
     }
     Err(Error::Protocol(
-        "ice_config_denied: signature.sig verification failed".to_owned(),
+        "ice_config_denied: signature.signature verification failed".to_owned(),
     ))
 }
 
@@ -112,10 +112,10 @@ fn verify_ice_config_signature(
 /// Checks (fail closed):
 /// - the top-level `signature.kid` resolves to an anchored media-service DID;
 /// - `refresh_lead_seconds < ttl_seconds` and `ttl_seconds > 0`;
-/// - `signature.sig` verifies as Ed25519(ed25519) over the canonical transcript;
+/// - `signature.signature` verifies as Ed25519(ed25519) over the canonical transcript;
 /// - every TURN credential passes the pairwise-pseudonym privacy guard.
 pub fn verify_ice_config_outcome(
-    outcome: &MediaIceConfigOutcome,
+    outcome: &MediaIceConfigurationResponseBody,
     anchors: &MediaServiceAnchors,
 ) -> Result<IceConfig> {
     let kid = outcome.signature.kid.clone();
@@ -168,7 +168,7 @@ pub fn verify_ice_config_outcome(
 #[cfg(test)]
 mod tests {
     use arkret_models_collaboration::objects::media::{
-        MediaIceConfigSignature, MediaIceSignatureAlgorithm,
+        MediaIceConfigurationSignature, MediaIceSignatureAlgorithm,
     };
     use arkret_wire::XExtensionMap;
     use ed25519_dalek::{Signer, SigningKey};
@@ -201,25 +201,25 @@ mod tests {
     }
 
     fn sign_ice_outcome(
-        mut outcome: MediaIceConfigOutcome,
+        mut outcome: MediaIceConfigurationResponseBody,
         kid: &str,
         key: &SigningKey,
-    ) -> MediaIceConfigOutcome {
+    ) -> MediaIceConfigurationResponseBody {
         let signing_input = ice_config_signing_input(&outcome).unwrap();
-        outcome.signature = MediaIceConfigSignature {
+        outcome.signature = MediaIceConfigurationSignature {
             kid: kid.to_owned(),
             signature_algorithm: MediaIceSignatureAlgorithm::Ed25519,
-            sig: arkret_canonical::base64url_encode(key.sign(&signing_input).to_bytes()),
+            signature: arkret_canonical::base64url_encode(key.sign(&signing_input).to_bytes()),
         };
         outcome
     }
 
-    fn signed_ice_outcome(kid: &str, key: &SigningKey) -> MediaIceConfigOutcome {
+    fn signed_ice_outcome(kid: &str, key: &SigningKey) -> MediaIceConfigurationResponseBody {
         sign_ice_outcome(ice_outcome(kid), kid, key)
     }
 
-    fn ice_outcome(kid: &str) -> MediaIceConfigOutcome {
-        MediaIceConfigOutcome {
+    fn ice_outcome(kid: &str) -> MediaIceConfigurationResponseBody {
+        MediaIceConfigurationResponseBody {
             realm_id: realm(),
             call_id: "ak:call:AVxshP1cCAeTx94DZvt3ODhEjNR9Da4hbdzLBzwPU-T1".to_owned(),
             actor_id: ActorId::service(actor("alice")),
@@ -245,10 +245,10 @@ mod tests {
             turn_required: false,
             constraints: None,
             next_retry_at: None,
-            signature: MediaIceConfigSignature {
+            signature: MediaIceConfigurationSignature {
                 kid: kid.to_owned(),
                 signature_algorithm: MediaIceSignatureAlgorithm::Ed25519,
-                sig: "AAAA".to_owned(),
+                signature: "AAAA".to_owned(),
             },
             extensions: XExtensionMap::default(),
         }
@@ -295,7 +295,7 @@ mod tests {
         let anchors = anchors_with_issuer_key(&key);
 
         let mut missing_sig = ice_outcome(MEDIA_KID);
-        missing_sig.signature.sig.clear();
+        missing_sig.signature.signature.clear();
         assert!(verify_ice_config_outcome(&missing_sig, &anchors).is_err());
 
         let mut tampered = signed_ice_outcome(MEDIA_KID, &key);

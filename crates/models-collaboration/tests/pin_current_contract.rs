@@ -1,5 +1,5 @@
 use arkret_canonical::DigestSuite;
-use arkret_models_collaboration::exact_current_results::CanonicalEventDot;
+use arkret_models_collaboration::exact_current_state::CanonicalEventDot;
 use arkret_models_collaboration::objects::productivity::{
     PinAddPayload, PinAssertionEntry, PinAssertionPayload, PinCurrentValue,
 };

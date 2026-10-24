@@ -15,6 +15,8 @@ use crate::MlsEndpointIdentity;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MlsProposalEnvelope {
     pub group_id: MlsGroupId,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub epoch: u64,
     pub proposal_type: String,
     pub proposal: String,
@@ -27,6 +29,8 @@ pub struct MlsProposalEnvelope {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MlsCommitEnvelope {
     pub group_id: MlsGroupId,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub epoch: u64,
     pub commit: String,
     pub commit_digest: Hash,
@@ -38,6 +42,7 @@ pub struct MlsCommitEnvelope {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MlsWelcomeEnvelope {
     pub group_id: MlsGroupId,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
     pub epoch: u64,
     pub recipient: MlsEndpointIdentity,
     pub welcome: String,
@@ -49,6 +54,7 @@ pub struct MlsWelcomeEnvelope {
 #[serde(deny_unknown_fields)]
 struct MlsWelcomeEnvelopeWire {
     group_id: MlsGroupId,
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     epoch: u64,
     #[serde(
         default,

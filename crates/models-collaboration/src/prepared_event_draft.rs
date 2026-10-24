@@ -6,20 +6,20 @@ use serde::{Deserialize, Serialize};
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct PreparedEventDraft {
-    pub unsigned_event_bytes: Base64UrlString,
+    pub unsigned_event_base64url: Base64UrlString,
     pub event_digest: Hash,
 }
 
 impl PreparedEventDraft {
     pub fn unsigned_event(&self) -> arkret_wire::Result<AuthoredEvent> {
-        let bytes = arkret_canonical::base64url_decode(self.unsigned_event_bytes.as_str())?;
+        let bytes = arkret_canonical::base64url_decode(self.unsigned_event_base64url.as_str())?;
         let digest_suite = self.event_digest.digest_suite().map_err(|error| {
             arkret_wire::WireError::Protocol(format!("prepared Event digest is invalid: {error}"))
         })?;
         let event = Event::from_digest_payload_bytes(&bytes, digest_suite)?;
         if Hash::new(event.event_digest_with_digest_suite(digest_suite)?)? != self.event_digest {
             return Err(arkret_wire::WireError::Protocol(
-                "prepared Event digest does not match unsigned_event_bytes".to_owned(),
+                "prepared Event digest does not match unsigned_event_base64url".to_owned(),
             ));
         }
         AuthoredEvent::from_verified_with_digest_suite(event, digest_suite)

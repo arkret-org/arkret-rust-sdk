@@ -1,7 +1,7 @@
 //! Producer and holder-authority proofs for transient call admission.
 
 use arkret_models_collaboration::call_invitation::{
-    CallInvitationAdmissionOutcome, CallInvitationAdmissionRequestBody, CallInvitationEnvelope,
+    CallInvitationAdmissionDecision, CallInvitationAdmissionRequestBody, CallInvitationEnvelope,
 };
 use arkret_wire::{DidUrl, SignalEnvelope};
 use chrono::{DateTime, Utc};
@@ -19,14 +19,14 @@ pub fn sign_call_invitation(
     Ok(())
 }
 pub fn sign_consent_current_read(
-    outcome: &mut arkret_models_collaboration::consent_operations::ConsentCurrentReadOutcome,
+    outcome: &mut arkret_models_collaboration::consent_operations::ConsentCurrentReadResponseBody,
     key: &SigningKey,
 ) -> Result<()> {
     outcome.proof.jws = sign_ed25519_detached_jws(key, &outcome.signature_input()?)?;
     Ok(())
 }
 pub fn verify_consent_current_read(
-    outcome: &arkret_models_collaboration::consent_operations::ConsentCurrentReadOutcome,
+    outcome: &arkret_models_collaboration::consent_operations::ConsentCurrentReadResponseBody,
     request: &arkret_models_collaboration::consent_operations::ConsentCurrentReadRequestBody,
     authority_method: &DidUrl,
     key: &PublicKeyMaterial,
@@ -64,7 +64,7 @@ pub fn verify_call_invitation(
 }
 
 pub fn sign_call_invitation_admission(
-    outcome: &mut CallInvitationAdmissionOutcome,
+    outcome: &mut CallInvitationAdmissionDecision,
     key: &SigningKey,
 ) -> Result<()> {
     outcome.proof.jws = sign_ed25519_detached_jws(key, &outcome.signature_input()?)?;
@@ -120,7 +120,7 @@ pub fn verify_call_voluntary_join(
 /// anchored current holder authority. Neither key nor generation is sourced
 /// from the untrusted outcome itself.
 pub fn verify_call_invitation_admission(
-    outcome: &CallInvitationAdmissionOutcome,
+    outcome: &CallInvitationAdmissionDecision,
     request: &CallInvitationAdmissionRequestBody,
     method: &DidUrl,
     key: &PublicKeyMaterial,
@@ -142,7 +142,7 @@ pub fn verify_call_invitation_admission(
 #[cfg(test)]
 mod tests {
     use arkret_models_collaboration::call_invitation::*;
-    use arkret_models_collaboration::consent_operations::ConsentCurrentRow;
+    use arkret_models_collaboration::consent_operations::CurrentConsent;
     use arkret_wire::{AccountId, ActorId};
     use chrono::TimeZone;
     use serde_json::json;
@@ -166,7 +166,7 @@ mod tests {
             "sender_device_id":"ak:device:01904100-0000-7000-8000-bbbbbbbbbbbb",
             "authority_commit_id":arkret_wire::RealmCommitId::from_digest([42;32]),
             "signal_class":"setup", "sent_at":"2026-10-14T08:00:00.000Z", "expires_at":"2026-10-14T08:01:00.000Z",
-            "encrypted_payload":{"scheme":arkret_wire::SIGNAL_AEAD_SCHEME,"key_ref":{"group_state_ref":"ak:event:AdIAmf-J5rIPxEomGXwJblJdhNg-TllVN8uRTI85EUIM"},"purpose":arkret_wire::SIGNAL_AEAD_PURPOSE,"aead_profile":"MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519","epoch":7,"nonce":"AAAAAAAAAAAAAAAA","ciphertext":"Q2lwaGVydGV4dFBsYWNlaG9sZGVy"},
+            "encrypted_payload":{"scheme":arkret_wire::SIGNAL_AEAD_SCHEME,"key_ref":{"group_state_ref":"ak:event:AdIAmf-J5rIPxEomGXwJblJdhNg-TllVN8uRTI85EUIM"},"purpose":arkret_wire::SIGNAL_AEAD_PURPOSE,"aead_profile":"MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519","epoch":"7","nonce":"AAAAAAAAAAAAAAAA","ciphertext":"Q2lwaGVydGV4dFBsYWNlaG9sZGVy"},
             "proof":{"kind":"detached_jws","verification_method":"did:web:alice.example#ak:device:01904100-0000-7000-8000-bbbbbbbbbbbb","envelope_digest":format!("sha256:{}","0".repeat(64)),"jws":"AA..AA"}
         })).unwrap();
         envelope.proof.envelope_digest = envelope.envelope_digest().unwrap();
@@ -240,7 +240,7 @@ mod tests {
             desired_media: Some(invitation.media.clone()),
         };
         let method = DidUrl::new("did:web:station.example#key-1").unwrap();
-        let mut outcome = CallInvitationAdmissionOutcome {
+        let mut outcome = CallInvitationAdmissionDecision {
             request_digest: canonical_request_digest(&request).unwrap(),
             admitted: true,
             authority_generation: 4,
@@ -292,7 +292,7 @@ mod tests {
             video: false,
             screen: false,
         };
-        let row: ConsentCurrentRow = serde_json::from_value(json!({
+        let row: CurrentConsent = serde_json::from_value(json!({
             "selector":{"kind":"consent","peer_id":peer},
             "source_stream_ref":{"kind":"realm","realm_id":"ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI"},
             "revision":{"commit_id":arkret_wire::RealmCommitId::from_digest([3;32]),"stream_position":1},

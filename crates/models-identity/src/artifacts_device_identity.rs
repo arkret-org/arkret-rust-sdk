@@ -28,7 +28,7 @@ pub struct IdentityReceipt {
     pub schema: String,
     pub receipt_id: String,
     pub subject_did: Did,
-    pub seq: u64,
+    pub sequence: u64,
     pub accepted_entry_digest: Hash,
     pub registry_id: DidCoreId,
     pub witness_role: String,
@@ -44,11 +44,11 @@ impl IdentityReceipt {
     pub fn validate_accepted_entry(
         &self,
         did: &Did,
-        seq: u64,
+        sequence: u64,
         entry: &impl Serialize,
     ) -> Result<()> {
         if &self.subject_did != did
-            || self.seq != seq
+            || self.sequence != sequence
             || self.accepted_entry_digest.as_str() != canonical::canonical_sha256(entry)?
         {
             return Err(WireError::Protocol(
@@ -445,7 +445,7 @@ mod tests {
             "schema": "ak.schema.identity_receipt.v1",
             "receipt_id": "ak:receipt:019a6aa0-0000-7000-8000-0000000000cc",
             "subject_did": "did:webvh:z6mkfixture:alice.example",
-            "seq": 1,
+            "sequence": 1,
             "accepted_entry_digest":
                 "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "registry_id": "ak:did_core:webvh:z6mkfixture",
@@ -478,7 +478,7 @@ mod tests {
             "schema": "ak.schema.identity_receipt.v1",
             "receipt_id": "ak:receipt:019a6aa0-0000-7000-8000-0000000000cc",
             "subject_did": "did:webvh:z6mkfixture:alice.example",
-            "seq": 1,
+            "sequence": 1,
             "accepted_entry_digest":
                 "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "registry_id": "ak:did_core:webvh:z6mkfixture",

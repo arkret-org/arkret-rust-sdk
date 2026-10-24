@@ -54,7 +54,7 @@ pub struct CurrentPrincipalRequestBody {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct CurrentPrincipalOutcome {
+pub struct CurrentPrincipalResponseBody {
     pub request_id: arkret_wire::RequestId,
     pub account_id: AccountId,
     pub principal_control_realm_id: RealmId,
@@ -86,7 +86,7 @@ impl CurrentPrincipalRequestBody {
         self.account_id.validate()
     }
 }
-impl CurrentPrincipalOutcome {
+impl CurrentPrincipalResponseBody {
     pub fn validate(&self) -> arkret_wire::Result<()> {
         current_principal_bytes(self, false)?;
         self.account_id.validate()?;
@@ -229,7 +229,7 @@ impl PublicPrincipalResolution {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct PrincipalResolutionAuditRequest {
+pub struct PrincipalResolutionAuditRequestBody {
     pub account_id: AccountId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub history_depth: Option<u16>,
@@ -240,7 +240,7 @@ pub struct PrincipalResolutionAuditRequest {
 /// Closed upper bound on disclosed predecessor resolution Events.
 pub const PRINCIPAL_RESOLUTION_AUDIT_MAX_HISTORY_DEPTH: u16 = 256;
 
-impl PrincipalResolutionAuditRequest {
+impl PrincipalResolutionAuditRequestBody {
     pub fn new(account_id: AccountId) -> Self {
         Self {
             account_id,
@@ -889,7 +889,7 @@ impl RouteAssistance {
 #[cfg(test)]
 mod current_principal_tests {
     use super::*;
-    fn fixture() -> (CurrentPrincipalRequestBody, CurrentPrincipalOutcome) {
+    fn fixture() -> (CurrentPrincipalRequestBody, CurrentPrincipalResponseBody) {
         let account_id = AccountId::new(
             DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
             DidCoreId::new("ak:did_core:web:station.example").unwrap(),
@@ -902,7 +902,7 @@ mod current_principal_tests {
             account_id,
         };
         let at = DateTime::<Utc>::from_timestamp(1_800_000_000, 0).unwrap();
-        let result = CurrentPrincipalOutcome {
+        let result = CurrentPrincipalResponseBody {
             request_id: request.request_id.clone(),
             account_id: request.account_id.clone(),
             principal_control_realm_id: RealmId::new(
@@ -938,7 +938,7 @@ mod current_principal_tests {
         assert!(changed.validate_for_request(&request).is_err());
         let mut wire = serde_json::to_value(result).unwrap();
         wire["history"] = serde_json::json!([]);
-        assert!(serde_json::from_value::<CurrentPrincipalOutcome>(wire).is_err());
+        assert!(serde_json::from_value::<CurrentPrincipalResponseBody>(wire).is_err());
     }
     #[test]
     fn current_principal_byte_budget_precedes_projection_shape_error() {

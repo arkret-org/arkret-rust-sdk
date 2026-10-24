@@ -1,6 +1,5 @@
 use arkret_models_crypto::encrypted_envelope::{
     EncryptedEnvelope, EncryptedEnvelopeEncryptionContext, EncryptedEnvelopeRoutingContext,
-    MAX_EVENT_CONTENT_INTEGER,
 };
 use arkret_schema_conformance::{schema_registry_from_spec_artifacts, spec_json_artifact};
 use arkret_wire::{EncryptedPayloadScheme, EventId, RealmId, ScopeRef, event_kind_str};
@@ -43,7 +42,7 @@ fn schema_accepts(value: &Value) -> bool {
 
 #[test]
 fn encrypted_envelope_round_trip_matches_closed_schema_and_authenticated_header() {
-    for epoch in [0, 4, MAX_EVENT_CONTENT_INTEGER] {
+    for epoch in [0, 4, 9_007_199_254_740_992, u64::MAX] {
         for reaction in [false, true] {
             let original = envelope(epoch, reaction);
             let wire = serde_json::to_value(&original).unwrap();
@@ -86,7 +85,7 @@ fn encrypted_envelope_rejects_retired_counter_and_unknown_context_fields() {
         json!(null),
         json!(0),
         json!(7),
-        json!(MAX_EVENT_CONTENT_INTEGER),
+        json!(u64::MAX),
         json!(-1),
         json!("0"),
         json!(0.5),
@@ -115,9 +114,10 @@ fn encrypted_envelope_rejects_null_or_open_routing_and_invalid_epoch() {
     for invalid in [
         json!(null),
         json!(-1),
-        json!("0"),
+        json!(0),
+        json!("00"),
         json!(0.5),
-        json!(MAX_EVENT_CONTENT_INTEGER + 1),
+        json!("18446744073709551616"),
     ] {
         let mut wire = serde_json::to_value(envelope(4, false)).unwrap();
         wire["encryption_context"]["epoch"] = invalid;
@@ -132,10 +132,6 @@ fn encrypted_envelope_rejects_null_or_open_routing_and_invalid_epoch() {
     unknown_routing["encryption_context"]["routing_context"]["counter"] = json!(0);
     assert!(!schema_accepts(&unknown_routing));
     assert!(serde_json::from_value::<EncryptedEnvelope>(unknown_routing).is_err());
-    assert!(serde_json::to_value(envelope(MAX_EVENT_CONTENT_INTEGER + 1, false)).is_err());
-    assert!(
-        envelope(MAX_EVENT_CONTENT_INTEGER + 1, false)
-            .validate()
-            .is_err()
-    );
+    assert!(serde_json::to_value(envelope(u64::MAX, false)).is_ok());
+    assert!(envelope(u64::MAX, false).validate().is_ok());
 }

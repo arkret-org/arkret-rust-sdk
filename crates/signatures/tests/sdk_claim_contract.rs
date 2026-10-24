@@ -73,7 +73,7 @@ fn published_claim_fixture_uses_real_signature_and_distinct_negative_failures() 
         let result = claim.validate_against_contract(
             &contract,
             &claim.sdk_artifact.digest,
-            &claim.spec_revision,
+            &claim.specification_revision,
             verify_claim_signature,
         );
         match expected {

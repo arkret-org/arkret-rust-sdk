@@ -30,7 +30,7 @@ pub const EXECUTABLE_CALENDAR_TZDB_VERSION: &str = IANA_TZDB_VERSION;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct CalendarExpansionRequest {
+pub struct CalendarExpansionInput {
     /// Finite local range lower bound. It uses the schedule branch: a date for
     /// all-day events and a whole-second LocalDateTime for timed events.
     pub range_start: String,
@@ -177,7 +177,7 @@ impl CalendarEventFields {
                 local_end.format("%Y-%m-%dT%H:%M:%S").to_string(),
             )
         };
-        self.expand_occurrences(&CalendarExpansionRequest {
+        self.expand_occurrences(&CalendarExpansionInput {
             range_start,
             range_end,
             limit,
@@ -190,7 +190,7 @@ impl CalendarEventFields {
     /// build. A schedule pinned to any other release fails closed.
     pub fn expand_occurrences(
         &self,
-        request: &CalendarExpansionRequest,
+        request: &CalendarExpansionInput,
     ) -> Result<CalendarOccurrencePage, CalendarExpansionError> {
         if self.tzdb_version != IANA_TZDB_VERSION {
             return Err(CalendarExpansionError::TzdbMismatch {
@@ -328,7 +328,7 @@ impl CalendarEventFields {
 
 fn validate_request(
     fields: &CalendarEventFields,
-    request: &CalendarExpansionRequest,
+    request: &CalendarExpansionInput,
 ) -> Result<(), CalendarExpansionError> {
     if request.limit == 0 || request.limit > MAX_CALENDAR_EXPANSION_OCCURRENCES {
         return Err(CalendarExpansionError::InvalidRequest(
@@ -360,7 +360,7 @@ fn validate_request(
 
 fn validate_continuation(
     fields: &CalendarEventFields,
-    request: &CalendarExpansionRequest,
+    request: &CalendarExpansionInput,
     payload: &ContinuationPayload,
 ) -> Result<(), CalendarExpansionError> {
     if payload.cursor_version != 1
@@ -391,7 +391,7 @@ fn validate_continuation(
 
 fn limited_page(
     fields: &CalendarEventFields,
-    request: &CalendarExpansionRequest,
+    request: &CalendarExpansionInput,
     occurrences: Vec<CalendarOccurrence>,
     limited_by: CalendarExpansionLimit,
     position: ExpansionPosition,

@@ -29,7 +29,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   allowlists; typed HTTP clients can use independent Service or Device
   signatures without inheriting account sessions. Retired Applet self-actor
   client-pull operation IDs and Applet disclosure/result detached-signature domains.
-- Preserved exact current-result cuts in Applet authority material and unified
+- Preserved exact current-state cuts in Applet authority material and unified
   the Applet committed Event carrier with its required regular Account Device
   evidence. Browser Device nonces use the `getrandom` Web Crypto backend.
 
@@ -66,7 +66,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Raised the minimum supported Rust version from `1.96` to `1.97`, and pinned
   every CI job and the compile baseline to the same toolchain.
-- `VerifiedDidBindingInput.{verified_at,refresh_after,expires_at}` and
+- `VerifiedDidBindingInput.{verified_at,refresh_at,expires_at}` and
   `CalendarOccurrence.{start_instant,end_instant}` now serialize through the
   canonical UTC-millisecond timestamp adapter instead of chrono's default
   RFC 3339 encoding, matching the rest of the wire surface.

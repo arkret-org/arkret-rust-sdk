@@ -92,7 +92,7 @@ fn invite_commit_for(event: &Value) -> Value {
         "stream_position": 0,
         "previous_commit_ref": null,
         "event_ref": event["event_id"],
-        "governance_generation": 0,
+        "governance_generation": "0",
         "authority_ref": event["event_id"],
         "committed_at": "2026-09-20T00:00:00.000Z",
         "signature": {
@@ -101,7 +101,7 @@ fn invite_commit_for(event: &Value) -> Value {
             "verification_method": "did:web:station.example#authority",
             "signed_digest": format!("sha256:{}", "4".repeat(64)),
             "created_at": "2026-09-20T00:00:00.000Z",
-            "sig": "A".repeat(86)
+            "signature": "A".repeat(86)
         }
     })
 }
@@ -377,9 +377,9 @@ fn invite_fact_presence_and_closed_source_match_the_original_commit_schema() {
             .verification_method
             .clone(),
         key: ResolvedSignerKey {
-            public_key_b64u: arkret_wire::Base64UrlString::new(arkret_canonical::base64url_encode(
-                signing.verifying_key().as_bytes(),
-            ))
+            public_key_base64url: arkret_wire::Base64UrlString::new(
+                arkret_canonical::base64url_encode(signing.verifying_key().as_bytes()),
+            )
             .unwrap(),
             authorization_ref: CommittedEventRef {
                 event_id: arkret_wire::EventId::from_digest(

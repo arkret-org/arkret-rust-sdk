@@ -2,14 +2,14 @@ use std::collections::BTreeMap;
 
 use arkret_canonical::{base64url_decode, base64url_encode};
 use arkret_models_crypto::{
-    KeyOperationSignature, KeyPackageUploadEntry, KeyPackagesConsumeRequestBody,
-    KeyPackagesConsumeUnsignedRequest, KeyPackagesUploadRequestBody,
-    KeyPackagesUploadUnsignedRequest, MLS_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE,
-    MlsEndpointIdentity, MlsGovernanceBindingPayload, MlsKeyPackageRecord,
-    RecipientMlsDurableReceipt, RecipientMlsDurableSigner, decode_keypackage_capability_extension,
-    decode_mls_basic_credential_identity, keypackages_consume_signing_input,
-    keypackages_upload_signing_input, mls_basic_credential_identity,
-    mls_key_package_record_upload_entry, validate_advertised_keypackage_capabilities,
+    KeyOperationSignature, KeyPackageUploadEntry, KeyPackagesConsumeFields,
+    KeyPackagesConsumeRequestBody, KeyPackagesUploadFields, KeyPackagesUploadRequestBody,
+    MLS_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE, MlsEndpointIdentity, MlsGovernanceBindingPayload,
+    MlsKeyPackageRecord, RecipientMlsDurableReceipt, RecipientMlsDurableSigner,
+    decode_keypackage_capability_extension, decode_mls_basic_credential_identity,
+    keypackages_consume_signing_input, keypackages_upload_signing_input,
+    mls_basic_credential_identity, mls_key_package_record_upload_entry,
+    validate_advertised_keypackage_capabilities,
 };
 use arkret_wire::{
     ActorId, DeviceId, DidCoreId, DidUrl, Hash, KeypackageClaimId, ScopeRef, canonical,
@@ -444,7 +444,7 @@ impl ArkretMlsIdentity {
                     ));
                 }
             };
-        let unsigned = KeyPackagesUploadUnsignedRequest {
+        let unsigned = KeyPackagesUploadFields {
             actor_id: self.actor_id.clone(),
             principal_id,
             device_id,
@@ -560,7 +560,7 @@ impl ArkretMlsIdentity {
                 "consume requires this endpoint's original signed durable receipt".into(),
             ));
         }
-        let unsigned = KeyPackagesConsumeUnsignedRequest {
+        let unsigned = KeyPackagesConsumeFields {
             claim_id,
             recipient_durable_receipt,
         };

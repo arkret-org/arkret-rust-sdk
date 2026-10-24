@@ -55,7 +55,7 @@ pub struct KeyPackagesUploadRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize)]
 #[serde(deny_unknown_fields)]
-pub struct KeyPackagesUploadUnsignedRequest {
+pub struct KeyPackagesUploadFields {
     pub actor_id: ActorId,
     pub principal_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -198,8 +198,8 @@ where
 }
 
 impl KeyPackagesUploadWire {
-    fn into_unsigned(self) -> KeyPackagesUploadUnsignedRequest {
-        KeyPackagesUploadUnsignedRequest {
+    fn into_unsigned(self) -> KeyPackagesUploadFields {
+        KeyPackagesUploadFields {
             actor_id: self.actor_id,
             principal_id: self.principal_id,
             device_id: self.device_id,
@@ -226,7 +226,7 @@ impl<'de> Deserialize<'de> for KeyPackagesUploadRequestBody {
     }
 }
 
-impl<'de> Deserialize<'de> for KeyPackagesUploadUnsignedRequest {
+impl<'de> Deserialize<'de> for KeyPackagesUploadFields {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let wire = KeyPackagesUploadWire::deserialize(deserializer)?;
         if wire.endpoint_signature.is_some() {
@@ -256,8 +256,8 @@ impl KeyPackagesUploadRequestBody {
     }
 
     #[must_use]
-    pub fn unsigned(&self) -> KeyPackagesUploadUnsignedRequest {
-        KeyPackagesUploadUnsignedRequest {
+    pub fn unsigned(&self) -> KeyPackagesUploadFields {
+        KeyPackagesUploadFields {
             actor_id: self.actor_id.clone(),
             principal_id: self.principal_id.clone(),
             device_id: self.device_id.clone(),
@@ -271,7 +271,7 @@ impl KeyPackagesUploadRequestBody {
     }
 }
 
-impl KeyPackagesUploadUnsignedRequest {
+impl KeyPackagesUploadFields {
     pub fn validate_shape(&self) -> Result<(), &'static str> {
         validate_keypackage_account_actor(&self.actor_id, &self.principal_id)?;
         if self.keypackages.is_empty() {
@@ -355,7 +355,7 @@ fn keypackage_signing_input<T: Serialize>(
 }
 
 pub fn keypackages_upload_signing_input(
-    unsigned: &KeyPackagesUploadUnsignedRequest,
+    unsigned: &KeyPackagesUploadFields,
 ) -> arkret_canonical::Result<Vec<u8>> {
     unsigned
         .validate_shape()
@@ -366,7 +366,7 @@ pub fn keypackages_upload_signing_input(
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct KeyPackagesUploadOutcome {
+pub struct KeyPackagesUploadResponseBody {
     pub accepted: u32,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub rejections: Vec<Failure>,
@@ -421,7 +421,7 @@ pub enum PeerKeyPackageRequesterAuthorization {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PeerKeyPackagesClaimUnsignedRequest {
+pub struct PeerKeyPackagesClaimFields {
     pub claim_request_id: Base64UrlString,
     #[serde(
         default,
@@ -613,8 +613,8 @@ pub struct PeerKeyPackagesClaimRequestBody {
 }
 
 impl PeerKeyPackagesClaimRequestBody {
-    pub fn unsigned_request(&self) -> PeerKeyPackagesClaimUnsignedRequest {
-        PeerKeyPackagesClaimUnsignedRequest {
+    pub fn unsigned_request(&self) -> PeerKeyPackagesClaimFields {
+        PeerKeyPackagesClaimFields {
             claim_request_id: self.claim_request_id.clone(),
             target_account_id: self.target_account_id.clone(),
             target_actor_id: self.target_actor_id.clone(),
@@ -740,8 +740,8 @@ pub struct KeyPackagesClaimRequestBody {
 }
 
 impl KeyPackagesClaimRequestBody {
-    pub fn unsigned_request(&self) -> PeerKeyPackagesClaimUnsignedRequest {
-        PeerKeyPackagesClaimUnsignedRequest {
+    pub fn unsigned_request(&self) -> PeerKeyPackagesClaimFields {
+        PeerKeyPackagesClaimFields {
             claim_request_id: self.claim_request_id.clone(),
             target_account_id: self.target_account_id.clone(),
             target_actor_id: self.target_actor_id.clone(),
@@ -801,7 +801,7 @@ impl From<&KeyPackagesClaimRequestBody> for PeerKeyPackagesClaimRequestBody {
 }
 
 fn validate_key_packages_claim_request_shape(
-    unsigned_request: &PeerKeyPackagesClaimUnsignedRequest,
+    unsigned_request: &PeerKeyPackagesClaimFields,
     requester_authorization: &PeerKeyPackageRequesterAuthorization,
 ) -> Result<(), PeerKeyPackageClaimShapeError> {
     validate_peer_claim_fields(unsigned_request)?;
@@ -874,7 +874,7 @@ pub struct PeerKeyPackageClaimReceipt {
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub claim_authority_ref: Option<arkret_wire::RealmCommitAuthorityRef>,
-    pub request: PeerKeyPackagesClaimUnsignedRequest,
+    pub request: PeerKeyPackagesClaimFields,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub claimed_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -885,7 +885,7 @@ pub struct PeerKeyPackageClaimReceipt {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PeerKeyPackagesClaimOutcome {
+pub struct PeerKeyPackagesClaimResponseBody {
     pub claim_request_id: Base64UrlString,
     #[serde(deserialize_with = "deserialize_keypackage_nonempty")]
     pub claims: Vec<KeyPackageClaimRecord>,
@@ -895,14 +895,14 @@ pub struct PeerKeyPackagesClaimOutcome {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct KeyPackagesClaimOutcome {
+pub struct KeyPackagesClaimResponseBody {
     pub claim_request_id: Base64UrlString,
     #[serde(deserialize_with = "deserialize_keypackage_nonempty")]
     pub claims: Vec<KeyPackageClaimRecord>,
     pub claim_receipt: PeerKeyPackageClaimReceipt,
 }
 
-impl KeyPackagesClaimOutcome {
+impl KeyPackagesClaimResponseBody {
     /// Enforce the cross-field receipt/outcome bindings that JSON Schema
     /// cannot express by itself.
     pub fn validate_shape(&self) -> Result<(), PeerKeyPackageClaimShapeError> {
@@ -914,8 +914,8 @@ impl KeyPackagesClaimOutcome {
     }
 }
 
-impl From<PeerKeyPackagesClaimOutcome> for KeyPackagesClaimOutcome {
-    fn from(value: PeerKeyPackagesClaimOutcome) -> Self {
+impl From<PeerKeyPackagesClaimResponseBody> for KeyPackagesClaimResponseBody {
+    fn from(value: PeerKeyPackagesClaimResponseBody) -> Self {
         Self {
             claim_request_id: value.claim_request_id,
             claims: value.claims,
@@ -924,7 +924,7 @@ impl From<PeerKeyPackagesClaimOutcome> for KeyPackagesClaimOutcome {
     }
 }
 
-impl PeerKeyPackagesClaimOutcome {
+impl PeerKeyPackagesClaimResponseBody {
     /// Enforce the cross-field receipt/outcome bindings that JSON Schema
     /// cannot express by itself.
     pub fn validate_shape(&self) -> Result<(), PeerKeyPackageClaimShapeError> {
@@ -968,7 +968,7 @@ fn validate_key_packages_claim_outcome_shape(
 
 /// Owner read of one claim of the caller's own KeyPackage
 /// (`ak.self.keys.keypackages.read.claim.v1`). The response is the
-/// byte-identical original [`KeyPackagesClaimOutcome`].
+/// byte-identical original [`KeyPackagesClaimResponseBody`].
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -1072,7 +1072,7 @@ impl KeyPackageClaimTerminalReceipt {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PeerKeyPackagesClaimQueryOutcome {
+pub struct PeerKeyPackagesClaimQueryResponseBody {
     pub claim_request_id: Base64UrlString,
     pub state: PeerKeyPackagesClaimQueryState,
     #[serde(
@@ -1080,7 +1080,7 @@ pub struct PeerKeyPackagesClaimQueryOutcome {
         skip_serializing_if = "Option::is_none",
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
-    pub claim_outcome: Option<PeerKeyPackagesClaimOutcome>,
+    pub claim_outcome: Option<PeerKeyPackagesClaimResponseBody>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
@@ -1107,7 +1107,7 @@ pub struct PeerKeyPackagesClaimQueryOutcome {
     pub error_code: Option<PeerKeyPackageClaimErrorCode>,
 }
 
-impl PeerKeyPackagesClaimQueryOutcome {
+impl PeerKeyPackagesClaimQueryResponseBody {
     /// Peer command uses the same closed durable view, except that it cannot
     /// return unknown after admitting a command identity.
     pub fn validate_command_shape(&self) -> Result<(), PeerKeyPackageClaimShapeError> {
@@ -1333,7 +1333,7 @@ pub fn validate_target_claim_evidence(
 }
 
 fn validate_peer_claim_fields(
-    request: &PeerKeyPackagesClaimUnsignedRequest,
+    request: &PeerKeyPackagesClaimFields,
 ) -> Result<(), PeerKeyPackageClaimShapeError> {
     if !(22..=128).contains(&request.claim_request_id.as_str().len()) {
         return Err(PeerKeyPackageClaimShapeError::InvalidClaimRequestId);
@@ -1439,7 +1439,7 @@ fn validate_keypackage_account_actor(
     Ok(())
 }
 
-impl PeerKeyPackagesClaimUnsignedRequest {
+impl PeerKeyPackagesClaimFields {
     /// Validate the unsigned selectors before authoring or consuming a claim.
     pub fn validate_shape(&self) -> Result<(), PeerKeyPackageClaimShapeError> {
         validate_peer_claim_fields(self)
@@ -1480,7 +1480,7 @@ impl PeerKeyPackagesClaimUnsignedRequest {
 #[derive(Serialize)]
 struct PeerKeyPackageAuthorizationTranscript<'a> {
     authorization: PeerKeyPackageAuthorizationMetadata<'a>,
-    request: &'a PeerKeyPackagesClaimUnsignedRequest,
+    request: &'a PeerKeyPackagesClaimFields,
     service_binding: &'a KeyPackagesClaimServiceBinding,
 }
 
@@ -1501,7 +1501,7 @@ struct PeerKeyPackageAuthorizationMetadata<'a> {
 }
 
 pub fn keypackage_claim_authorization_signing_bytes(
-    request: &PeerKeyPackagesClaimUnsignedRequest,
+    request: &PeerKeyPackagesClaimFields,
     service_binding: &KeyPackagesClaimServiceBinding,
     authorization: &PeerKeyPackageRequesterAuthorization,
 ) -> arkret_canonical::Result<Vec<u8>> {
@@ -1572,7 +1572,7 @@ struct PeerKeyPackageClaimReceiptUnsigned<'a> {
     destination_id: &'a DidCoreId,
     #[serde(skip_serializing_if = "Option::is_none")]
     claim_authority_ref: &'a Option<arkret_wire::RealmCommitAuthorityRef>,
-    request: &'a PeerKeyPackagesClaimUnsignedRequest,
+    request: &'a PeerKeyPackagesClaimFields,
     #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
     claimed_at: DateTime<Utc>,
     #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
@@ -1609,6 +1609,7 @@ pub struct RecipientMlsDurableReceipt {
     pub recipient_id: DidCoreId,
     pub realm_id: RealmId,
     pub mls_group_id: MlsGroupId,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
     pub mls_epoch: u64,
     /// The delivery is not an Event and has no independent RealmCommit
     /// (`keypackage-operations.schema.json#/$defs/recipient_mls_durable_receipt`).
@@ -1691,6 +1692,7 @@ struct RecipientMlsDurableReceiptWire {
     recipient_id: DidCoreId,
     realm_id: RealmId,
     mls_group_id: MlsGroupId,
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     mls_epoch: u64,
     welcome_ref: MlsWelcomeDeliveryId,
     welcome_digest: Hash,
@@ -1912,15 +1914,15 @@ pub struct KeyPackagesConsumeRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct KeyPackagesConsumeUnsignedRequest {
+pub struct KeyPackagesConsumeFields {
     pub claim_id: KeypackageClaimId,
     pub recipient_durable_receipt: RecipientMlsDurableReceipt,
 }
 
 impl KeyPackagesConsumeRequestBody {
     #[must_use]
-    pub fn unsigned(&self) -> KeyPackagesConsumeUnsignedRequest {
-        KeyPackagesConsumeUnsignedRequest {
+    pub fn unsigned(&self) -> KeyPackagesConsumeFields {
+        KeyPackagesConsumeFields {
             claim_id: self.claim_id.clone(),
             recipient_durable_receipt: self.recipient_durable_receipt.clone(),
         }
@@ -1950,7 +1952,7 @@ impl KeyPackagesConsumeRequestBody {
     }
 }
 
-impl KeyPackagesConsumeUnsignedRequest {
+impl KeyPackagesConsumeFields {
     #[must_use]
     pub fn into_signed(self, signature: KeyOperationSignature) -> KeyPackagesConsumeRequestBody {
         KeyPackagesConsumeRequestBody {
@@ -1961,14 +1963,14 @@ impl KeyPackagesConsumeUnsignedRequest {
     }
 }
 
-impl KeyPackagesConsumeUnsignedRequest {
+impl KeyPackagesConsumeFields {
     pub fn validate_shape(&self) -> Result<(), &'static str> {
         self.recipient_durable_receipt.validate_shape()
     }
 }
 
 pub fn keypackages_consume_signing_input(
-    unsigned: &KeyPackagesConsumeUnsignedRequest,
+    unsigned: &KeyPackagesConsumeFields,
 ) -> arkret_canonical::Result<Vec<u8>> {
     keypackage_signing_input(KEYPACKAGES_CONSUME_SIGNATURE_DOMAIN, unsigned)
 }
@@ -2025,7 +2027,7 @@ fn signed_receipt_canonical_signing_bytes(
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct KeyPackagesConsumeOutcome {
+pub struct KeyPackagesConsumeResponseBody {
     pub consume_receipt: KeyPackageConsumeReceipt,
 }
 
@@ -2051,7 +2053,7 @@ pub struct KeyPackagesRevokeRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct KeyPackagesRevokeUnsignedRequest {
+pub struct KeyPackagesRevokeFields {
     #[serde(
         rename = "keypackage_refs",
         deserialize_with = "deserialize_keypackage_string_list"
@@ -2068,8 +2070,8 @@ pub struct KeyPackagesRevokeUnsignedRequest {
 
 impl KeyPackagesRevokeRequestBody {
     #[must_use]
-    pub fn unsigned(&self) -> KeyPackagesRevokeUnsignedRequest {
-        KeyPackagesRevokeUnsignedRequest {
+    pub fn unsigned(&self) -> KeyPackagesRevokeFields {
+        KeyPackagesRevokeFields {
             key_package_refs: self.key_package_refs.clone(),
             device_id: self.device_id.clone(),
             reason: self.reason.clone(),
@@ -2077,7 +2079,7 @@ impl KeyPackagesRevokeRequestBody {
     }
 }
 
-impl KeyPackagesRevokeUnsignedRequest {
+impl KeyPackagesRevokeFields {
     #[must_use]
     pub fn into_signed(self, signature: KeyOperationSignature) -> KeyPackagesRevokeRequestBody {
         KeyPackagesRevokeRequestBody {
@@ -2090,7 +2092,7 @@ impl KeyPackagesRevokeUnsignedRequest {
 }
 
 pub fn keypackages_revoke_signing_input(
-    unsigned: &KeyPackagesRevokeUnsignedRequest,
+    unsigned: &KeyPackagesRevokeFields,
 ) -> arkret_canonical::Result<Vec<u8>> {
     keypackage_signing_input(KEYPACKAGES_REVOKE_SIGNATURE_DOMAIN, unsigned)
 }
@@ -2098,7 +2100,7 @@ pub fn keypackages_revoke_signing_input(
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct KeyPackagesRevokeOutcome {
+pub struct KeyPackagesRevokeResponseBody {
     pub revoked: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub failures: Vec<Failure>,

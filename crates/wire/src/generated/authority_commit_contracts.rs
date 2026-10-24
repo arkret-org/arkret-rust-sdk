@@ -2,31 +2,31 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/realm-read-operations.schema.json
-// sha256=5a3d386837724180dd7a845741ff3b9d0de57966d2f29177bcc21cebb17f5e7c
+// sha256=a92f3062e1bb6271c244752397f427d129f37641a5931bfbb16770e59b3c959b
 //
 // Input: schemas/authority-commit-operations.schema.json
-// sha256=648427c352e65a3ae31a3d9946079a846701513a5c594063501c39e95273a2db
+// sha256=f95cb1acfa8517176738115925b1795d3b13d206a1d99ddf0b5050f670136d2f
 //
-// Input: schemas/authz-operations.schema.json
-// sha256=a77316365476c8c617f70a84a5bf3f6ee0be723b84b2f4713072cf1ed02e6832
+// Input: schemas/authorization-operations.schema.json
+// sha256=b367d60aeb13aa9e524c5201cc1857d8ac9defd5c78293f696a4f4c0a5d4450b
 //
 // Input: schemas/service-operation-dtos.schema.json
-// sha256=3e3a36a140c4328b66c09fa32714d5b36acc9c9d64fabf0b961add6fa0567fe0
+// sha256=18415d05b61700be7b69081cf070ed3c41de10f8e43cabea16992ae94a0f37d9
 //
-// Input: schemas/typed-current-result.schema.json
-// sha256=af1796a65736414a650ecb791939112f02920d691fd8ee4b9e46397ad70aadbd
+// Input: schemas/current-state.schema.json
+// sha256=feba0ff19e227c276a3792aaed506b6534bf9ff8ce6c2e91a0ab36c04777785f
 //
 // Input: schemas/realm-authority-handoff.schema.json
-// sha256=939b4e73ee20754160bfb2ca93660e4bf7d73ee044973ef794904c550002b1ce
+// sha256=3c13fbab2eb3ef175f4074d773997452693c0897b0fe4f7f84cd1702937df062
 //
 // Input: schemas/account-operations.schema.json
-// sha256=5b7dba680c2083d0bebc26ad32e7d37293d150cece8f2298a40bf382e7f31405
+// sha256=78c6503698cd43571f2b25543013f9036927ef9bfd005e71377ad3006f4a64d4
 //
 // Input: schemas/realm-commit.schema.json
-// sha256=5429e875d095ff71e7c0d290032f96c9ac7c89714ea99fd6df70c906759ca5c4
+// sha256=6feb8f90ab444004084e457cc4c52193dbfc9d630f4739eda7712c21257af590
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=d200bd3e6d76abd1b6154781fb5e54f11fbbc834638cdc29554f83590127fdfa
+// sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
 
 /// Counterpart: `realm-read-operations.schema.json#/$defs/realm_stream_row`.
 /// One established authority stream the caller may know exists
@@ -42,12 +42,12 @@ pub struct RealmStreamRow {
     pub readable_floor: Option<ReadableFloor>,
 }
 
-/// Counterpart: `realm-read-operations.schema.json#/$defs/realm_stream_list`.
+/// Counterpart: `realm-read-operations.schema.json#/$defs/realm_stream_page`.
 /// ACL-filtered stream enumeration page
-/// (`realm-read-operations.schema.json#/$defs/realm_stream_list`).
+/// (`realm-read-operations.schema.json#/$defs/realm_stream_page`).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RealmStreamList {
+pub struct RealmStreamPage {
     pub realm_id: RealmId,
     pub streams: Vec<RealmStreamRow>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -67,13 +67,14 @@ pub struct ActorPrivateEventSubmitRequestBody {
     pub event: Event,
 }
 
-/// Counterpart: `typed-current-result.schema.json#/$defs/realm_authority_root_value`.
-/// Closed `typed-current-result.schema.json#/$defs/realm_authority_root_value`.
+/// Counterpart: `current-state.schema.json#/$defs/realm_authority_root_value`.
+/// Closed `current-state.schema.json#/$defs/realm_authority_root_value`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmAuthorityRootValue {
     pub controller_actor_id: ActorId,
     pub controller_epoch: u64,
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub authority_generation: u64,
     pub authority_event_ref: EventId,
 }
@@ -84,7 +85,9 @@ pub struct RealmAuthorityRootValue {
 pub struct RealmAuthorityHandoff {
     pub handoff_id: RealmAuthorityHandoffId,
     pub realm_id: RealmId,
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub from_generation: u64,
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub to_generation: u64,
     pub from_service_id: DidCoreId,
     pub to_service_id: DidCoreId,
@@ -126,6 +129,8 @@ pub struct RealmCommit {
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_required_nullable")]
     pub previous_commit_ref: Option<RealmCommitId>,
     pub event_ref: EventId,
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
     pub governance_generation: u64,
     pub authority_ref: RealmCommitAuthorityRef,
     #[serde(serialize_with = "crate::serde_helpers::serialize_canonical_timestamp")]

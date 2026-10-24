@@ -403,7 +403,7 @@ impl WebSocketFrameIngress {
 
 use crate::string_marker;
 use crate::sync_frames::account_subscribe::{
-    AccountFilter, AccountSubscribeFrame, AccountSubscribeFrameKind, RealmListRequest,
+    AccountFilter, AccountSubscribeFrame, AccountSubscribeFrameKind, RealmListParameters,
 };
 use crate::sync_frames::committed_event_subscribe::{
     CommittedEventSubscribeFrame, CommittedEventSubscribeFrameKind,
@@ -479,7 +479,7 @@ pub struct WebSocketAccountOpenParameters {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub wait_for: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub realm_list: Option<RealmListRequest>,
+    pub realm_list_parameters: Option<RealmListParameters>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub replace_filter: Option<bool>,
 }
@@ -510,7 +510,7 @@ impl WebSocketAccountOpenParameters {
         if let Some(filter) = &self.filter {
             filter.validate()?;
         }
-        if let Some(realm_list) = &self.realm_list {
+        if let Some(realm_list) = &self.realm_list_parameters {
             realm_list.validate()?;
         }
         if self.replace_filter == Some(true) && (self.after.is_none() || self.filter.is_none()) {
@@ -756,7 +756,7 @@ pub struct WebSocketConnectionDrainPayload {
     pub kind: WebSocketDrainMarker,
     pub reconnect_after_ms: u32,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub deadline: DateTime<Utc>,
+    pub close_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
 }
@@ -789,11 +789,11 @@ impl WebSocketConnectionDrainPayload {
 #[serde(deny_unknown_fields)]
 pub struct WebSocketConnectionLimits {
     pub max_frame_bytes: u32,
-    pub max_channels: u32,
+    pub max_channel_count: u32,
     pub max_connection_pending_bytes: u64,
     pub max_channel_pending_bytes: u64,
-    pub max_connection_pending_frames: u32,
-    pub max_channel_pending_frames: u32,
+    pub max_connection_pending_frame_count: u32,
+    pub max_channel_pending_frame_count: u32,
     pub heartbeat_interval_ms: u32,
 }
 
@@ -806,7 +806,12 @@ impl WebSocketConnectionLimits {
                 1024,
                 1_048_576,
             ),
-            ("max_channels", u64::from(self.max_channels), 1, 256),
+            (
+                "max_channel_count",
+                u64::from(self.max_channel_count),
+                1,
+                256,
+            ),
             (
                 "max_connection_pending_bytes",
                 self.max_connection_pending_bytes,
@@ -820,14 +825,14 @@ impl WebSocketConnectionLimits {
                 16_777_216,
             ),
             (
-                "max_connection_pending_frames",
-                u64::from(self.max_connection_pending_frames),
+                "max_connection_pending_frame_count",
+                u64::from(self.max_connection_pending_frame_count),
                 1,
                 65_536,
             ),
             (
-                "max_channel_pending_frames",
-                u64::from(self.max_channel_pending_frames),
+                "max_channel_pending_frame_count",
+                u64::from(self.max_channel_pending_frame_count),
                 1,
                 16_384,
             ),
@@ -867,7 +872,7 @@ pub enum WebSocketServerFrame {
     Welcome {
         connection_id: String,
         limits: WebSocketConnectionLimits,
-        auth_expires_at: DateTime<Utc>,
+        authentication_expires_at: DateTime<Utc>,
     },
     Opened {
         channel_id: String,
@@ -930,7 +935,7 @@ enum ServerFrameWire {
         #[serde(flatten)]
         limits: WebSocketConnectionLimits,
         #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-        auth_expires_at: DateTime<Utc>,
+        authentication_expires_at: DateTime<Utc>,
     },
     Opened {
         channel_id: String,
@@ -1006,11 +1011,11 @@ impl From<WebSocketServerFrame> for ServerFrameWire {
             WebSocketServerFrame::Welcome {
                 connection_id,
                 limits,
-                auth_expires_at,
+                authentication_expires_at,
             } => Self::Welcome {
                 connection_id,
                 limits,
-                auth_expires_at,
+                authentication_expires_at,
             },
             WebSocketServerFrame::Opened {
                 channel_id,
@@ -1088,11 +1093,11 @@ impl From<ServerFrameWire> for WebSocketServerFrame {
             ServerFrameWire::Welcome {
                 connection_id,
                 limits,
-                auth_expires_at,
+                authentication_expires_at,
             } => Self::Welcome {
                 connection_id,
                 limits,
-                auth_expires_at,
+                authentication_expires_at,
             },
             ServerFrameWire::Opened {
                 channel_id,
@@ -1493,10 +1498,10 @@ impl WebSocketConnectionState {
                     return Err(protocol_error("channel_id is already in use"));
                 }
                 if let Some(limits) = &self.limits
-                    && self.open_channels().count() >= limits.max_channels as usize
+                    && self.open_channels().count() >= limits.max_channel_count as usize
                 {
                     return Err(protocol_error(
-                        "opening this channel would exceed max_channels",
+                        "opening this channel would exceed max_channel_count",
                     ));
                 }
                 self.channels.push(WebSocketChannel {
@@ -1834,11 +1839,11 @@ mod tests {
     fn limits() -> WebSocketConnectionLimits {
         WebSocketConnectionLimits {
             max_frame_bytes: 65_536,
-            max_channels: 2,
+            max_channel_count: 2,
             max_connection_pending_bytes: 1_048_576,
             max_channel_pending_bytes: 262_144,
-            max_connection_pending_frames: 256,
-            max_channel_pending_frames: 64,
+            max_connection_pending_frame_count: 256,
+            max_channel_pending_frame_count: 64,
             heartbeat_interval_ms: 30_000,
         }
     }
@@ -1867,7 +1872,7 @@ mod tests {
         WebSocketServerFrame::Welcome {
             connection_id: connection_id(),
             limits: limits(),
-            auth_expires_at: instant(),
+            authentication_expires_at: instant(),
         }
     }
 
@@ -1924,7 +1929,7 @@ mod tests {
                 .observe_client(&events_open("c3"))
                 .unwrap_err()
                 .to_string()
-                .contains("max_channels")
+                .contains("max_channel_count")
         );
     }
 
@@ -2045,7 +2050,7 @@ mod tests {
                 payload: WebSocketConnectionDrainPayload {
                     kind: WebSocketDrainMarker::Drain,
                     reconnect_after_ms: 2_000,
-                    deadline: instant(),
+                    close_at: instant(),
                     reason: Some("rotation".to_owned()),
                 },
             })
@@ -2084,7 +2089,7 @@ mod tests {
         let mut payload = WebSocketConnectionDrainPayload {
             kind: WebSocketDrainMarker::Drain,
             reconnect_after_ms: 2_000,
-            deadline: instant(),
+            close_at: instant(),
             reason: Some("a".repeat(129)),
         };
         assert!(payload.validate().is_err());
@@ -2096,7 +2101,7 @@ mod tests {
     #[test]
     fn welcome_limits_are_range_checked() {
         let mut over = limits();
-        over.max_channels = 257;
+        over.max_channel_count = 257;
         assert!(over.validate().is_err());
         let mut under = limits();
         under.heartbeat_interval_ms = 999;
@@ -2112,7 +2117,7 @@ mod tests {
             payload: WebSocketConnectionDrainPayload {
                 kind: WebSocketDrainMarker::Drain,
                 reconnect_after_ms: 0,
-                deadline: instant(),
+                close_at: instant(),
                 reason: None,
             },
         })
@@ -2134,7 +2139,7 @@ mod tests {
             payload: WebSocketConnectionDrainPayload {
                 kind: WebSocketDrainMarker::Drain,
                 reconnect_after_ms: 0,
-                deadline: instant(),
+                close_at: instant(),
                 reason: None,
             },
         };

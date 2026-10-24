@@ -9,16 +9,17 @@
 
 use arkret_models_collaboration::governance::invite_addressing::{
     INVITE_LOCATOR_ISSUE_PATH, INVITE_LOCATOR_RESOLVE_PATH, INVITE_LOCATOR_REVOKE_PATH,
-    INVITE_LOCATOR_ROTATE_PATH, InviteDeliveryOutcome, InviteLocatorIssueOutcome,
-    InviteLocatorIssueRequestBody, InviteLocatorResolveRequestBody, InviteLocatorRevokeOutcome,
-    InviteLocatorRevokeRequestBody, InviteLocatorRotateRequestBody, PrincipalLocator,
-    SelfInviteDispatchRequestBody,
+    INVITE_LOCATOR_ROTATE_PATH, InviteDeliveryResponseBody, InviteLocatorIssueRequestBody,
+    InviteLocatorIssueResponseBody, InviteLocatorResolveRequestBody,
+    InviteLocatorRevokeRequestBody, InviteLocatorRevokeResponseBody,
+    InviteLocatorRotateRequestBody, PrincipalLocator, SelfInviteDispatchRequestBody,
 };
 use arkret_models_collaboration::governance::third_party_invite::{
-    ThirdPartyInviteAcceptanceAttestationOutcome, ThirdPartyInviteAcceptanceAttestationRequestBody,
-    ThirdPartyInviteActivationOutcome, ThirdPartyInviteActivationRequestBody,
-    ThirdPartyInviteProvisionOutcome, ThirdPartyInviteProvisionRequestBody,
-    ThirdPartyInviteProvisioningStatusOutcome, ThirdPartyInviteProvisioningStatusRequestBody,
+    ThirdPartyInviteAcceptanceAttestationRequestBody,
+    ThirdPartyInviteAcceptanceAttestationResponseBody, ThirdPartyInviteActivationRequestBody,
+    ThirdPartyInviteActivationResponseBody, ThirdPartyInviteProvisionRequestBody,
+    ThirdPartyInviteProvisionResponseBody, ThirdPartyInviteProvisioningStatusRequestBody,
+    ThirdPartyInviteProvisioningStatusResponseBody,
 };
 
 use crate::{Client, Result};
@@ -42,7 +43,7 @@ impl Client {
     pub async fn issue_invite_locator(
         &self,
         request: &InviteLocatorIssueRequestBody,
-    ) -> Result<InviteLocatorIssueOutcome> {
+    ) -> Result<InviteLocatorIssueResponseBody> {
         request.validate_minimal()?;
         self.post(INVITE_LOCATOR_ISSUE_PATH, request).await
     }
@@ -50,7 +51,7 @@ impl Client {
     pub async fn rotate_invite_locator(
         &self,
         request: &InviteLocatorRotateRequestBody,
-    ) -> Result<InviteLocatorIssueOutcome> {
+    ) -> Result<InviteLocatorIssueResponseBody> {
         request.validate_minimal()?;
         self.post(INVITE_LOCATOR_ROTATE_PATH, request).await
     }
@@ -59,9 +60,9 @@ impl Client {
     pub async fn revoke_invite_locator(
         &self,
         request: &InviteLocatorRevokeRequestBody,
-    ) -> Result<InviteLocatorRevokeOutcome> {
+    ) -> Result<InviteLocatorRevokeResponseBody> {
         request.validate_minimal()?;
-        let outcome: InviteLocatorRevokeOutcome =
+        let outcome: InviteLocatorRevokeResponseBody =
             self.post(INVITE_LOCATOR_REVOKE_PATH, request).await?;
         if outcome.locator_id != request.locator_id {
             return Err(crate::Error::Protocol(
@@ -75,7 +76,7 @@ impl Client {
     pub async fn dispatch_invite(
         &self,
         request: &SelfInviteDispatchRequestBody,
-    ) -> Result<InviteDeliveryOutcome> {
+    ) -> Result<InviteDeliveryResponseBody> {
         request.validate_minimal()?;
         self.post("/_arkret/self/invites/dispatch", request).await
     }
@@ -90,9 +91,9 @@ impl Client {
     pub async fn third_party_invite_provision(
         &self,
         request: &ThirdPartyInviteProvisionRequestBody,
-    ) -> Result<ThirdPartyInviteProvisionOutcome> {
+    ) -> Result<ThirdPartyInviteProvisionResponseBody> {
         request.validate_for_service(&request.verification_id)?;
-        let outcome: ThirdPartyInviteProvisionOutcome = self
+        let outcome: ThirdPartyInviteProvisionResponseBody = self
             .post("/_arkret/open/third-party-invites/provision", request)
             .await?;
         outcome.validate_for_request(request)?;
@@ -109,8 +110,8 @@ impl Client {
     pub async fn third_party_invite_acceptance_attestation(
         &self,
         request: &ThirdPartyInviteAcceptanceAttestationRequestBody,
-    ) -> Result<ThirdPartyInviteAcceptanceAttestationOutcome> {
-        let outcome: ThirdPartyInviteAcceptanceAttestationOutcome = self
+    ) -> Result<ThirdPartyInviteAcceptanceAttestationResponseBody> {
+        let outcome: ThirdPartyInviteAcceptanceAttestationResponseBody = self
             .post(
                 "/_arkret/self/third-party-invites/acceptance-attestation",
                 request,
@@ -129,9 +130,9 @@ impl Client {
     pub async fn third_party_invite_activate(
         &self,
         request: &ThirdPartyInviteActivationRequestBody,
-    ) -> Result<ThirdPartyInviteActivationOutcome> {
+    ) -> Result<ThirdPartyInviteActivationResponseBody> {
         request.validate()?;
-        let outcome: ThirdPartyInviteActivationOutcome = self
+        let outcome: ThirdPartyInviteActivationResponseBody = self
             .post("/_arkret/open/third-party-invites/activate", request)
             .await?;
         outcome.validate_for_request(request)?;
@@ -148,8 +149,8 @@ impl Client {
     pub async fn third_party_invite_provisioning_status(
         &self,
         request: &ThirdPartyInviteProvisioningStatusRequestBody,
-    ) -> Result<ThirdPartyInviteProvisioningStatusOutcome> {
-        let outcome: ThirdPartyInviteProvisioningStatusOutcome = self
+    ) -> Result<ThirdPartyInviteProvisioningStatusResponseBody> {
+        let outcome: ThirdPartyInviteProvisioningStatusResponseBody = self
             .post("/_arkret/open/third-party-invites/status", request)
             .await?;
         outcome.validate()?;

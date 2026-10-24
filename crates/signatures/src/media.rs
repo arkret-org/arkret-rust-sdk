@@ -7,7 +7,7 @@ use arkret_canonical::canonical::canonical_json_bytes;
 use arkret_models_collaboration::events_payloads::call::ParticipantBinding;
 pub use arkret_models_collaboration::objects::media::MediaBackendKind;
 use arkret_models_collaboration::objects::media::{
-    CallMediaTokenExchangeOutcome, CallMediaTokenExchangeRequestBody, MediaBackendToken,
+    CallMediaTokenExchangeRequestBody, CallMediaTokenExchangeResponseBody, MediaBackendToken,
 };
 use arkret_wire::{ActorId, CallId, DeviceId, Did, DidCoreId, RealmId};
 use chrono::{DateTime, Utc};
@@ -45,7 +45,7 @@ pub fn validate_token_ttl(now: DateTime<Utc>, expires_at: DateTime<Utc>) -> Resu
 ///
 /// The reqwest-backed transport (`arkret_http_client::Client::media_token_exchange`)
 /// POSTs this body to `/_arkret/self/rtc/token` and returns the raw
-/// [`CallMediaTokenExchangeOutcome`]. Callers MUST then pass the response through
+/// [`CallMediaTokenExchangeResponseBody`]. Callers MUST then pass the response through
 /// [`verify_call_media_token_outcome`], which anchors `participant_binding.issuer_kid`
 /// to the current
 /// `ak.realm.media_service.service_id` ([`MediaServiceAnchors`]), enforces the
@@ -163,7 +163,7 @@ impl MediaServiceAnchors {
     }
 }
 
-/// Outcome of verifying a [`CallMediaTokenExchangeOutcome`] against the request
+/// Outcome of verifying a [`CallMediaTokenExchangeResponseBody`] against the request
 /// and the realm media-service anchors.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CallMediaTokenVerification {
@@ -212,10 +212,10 @@ pub struct ParticipantBindingContext<'a> {
 ///
 /// This is `pub` so issuers (e.g. coland) can lock their construction against
 /// the SDK verifier byte-for-byte: the bytes returned here are exactly what
-/// `participant_binding.sig` covers, so a
+/// `participant_binding.signature` covers, so a
 /// cross-implementation test can assert the issuer's signing input equals this.
 impl<'a> ParticipantBindingContext<'a> {
-    pub fn from_outcome(outcome: &'a CallMediaTokenExchangeOutcome) -> Self {
+    pub fn from_outcome(outcome: &'a CallMediaTokenExchangeResponseBody) -> Self {
         Self {
             actor_id: &outcome.actor_id,
             call_id: &outcome.call_id,
@@ -304,7 +304,7 @@ impl VerifiedCallParticipant {
         if !crate::proof::verify_detached_ed25519_signature(
             public_key,
             &participant_binding_signing_input(&context)?,
-            &binding.sig,
+            &binding.signature,
         ) {
             return Err(Error::Protocol(
                 "participant_binding_invalid: complete participant tuple signature differs"
@@ -356,7 +356,7 @@ impl VerifiedCallParticipant {
         }
         Ok(
             arkret_models_collaboration::events_payloads::call::CallParticipantSigningKey {
-                public_key_b64u: arkret_canonical::base64url_encode(self.issuer_key),
+                public_key_base64url: arkret_canonical::base64url_encode(self.issuer_key),
             },
         )
     }
@@ -407,12 +407,12 @@ pub fn verify_call_roster_bindings(
                         .map_err(|e| Error::Protocol(e.to_string()))?,
                 };
                 let public = crate::PublicKeyMaterial::Ed25519Raw {
-                    bytes: base64url_decode(&key.public_key_b64u)?,
+                    bytes: base64url_decode(&key.public_key_base64url)?,
                 };
                 if !crate::proof::verify_detached_ed25519_signature(
                     &public,
                     &participant_binding_signing_input(&context)?,
-                    &binding.sig,
+                    &binding.signature,
                 ) {
                     return Err(Error::Protocol(
                         "Call participant original binding signature differs".into(),
@@ -473,13 +473,13 @@ fn verify_issuer_signature(
 ///
 /// Checks performed (all fail closed):
 /// - required fields present (`connect_url`, `backend_token`, `participant_id`,
-///   `participant_binding.sig`, `issuer_kid`);
+///   `participant_binding.signature`, `issuer_kid`);
 /// - `participant_binding.issuer_kid` resolves to an anchored `ak.realm.media_service.service_id`
 ///   otherwise `token_issuer_unauthorised`;
 /// - the binding's `(realm_id, call_id, focus_id, actor_id, device_id)` six-tuple matches the
 ///   request and `participant_id` matches the top-level one;
 /// - TTL ≤ 600s and not already expired (via [`validate_token_ttl`]);
-/// - `participant_binding.sig` verifies as Ed25519(ed25519) signatures over the normative
+/// - `participant_binding.signature` verifies as Ed25519(ed25519) signatures over the normative
 ///   `signing_input` ([`participant_binding_signing_input`]) under the issuer verifying keys in
 ///   `anchors`. A failed signature or missing key rejects with `token_issuer_unauthorised`. Because
 ///   the signature covers the nine authoritative fields, tampering with any of them fails
@@ -490,7 +490,7 @@ fn verify_issuer_signature(
 /// [`MediaServiceAnchors::insert_key`]; this helper performs no DID resolution.
 pub fn verify_call_media_token_outcome(
     request: &CallMediaTokenExchangeRequestBody,
-    outcome: &CallMediaTokenExchangeOutcome,
+    outcome: &CallMediaTokenExchangeResponseBody,
     anchors: &MediaServiceAnchors,
     now: DateTime<Utc>,
 ) -> Result<CallMediaTokenVerification> {
@@ -499,7 +499,7 @@ pub fn verify_call_media_token_outcome(
     if outcome.connect_url.trim().is_empty()
         || matches!(&outcome.backend_token, MediaBackendToken::Opaque(token) if token.trim().is_empty())
         || outcome.participant_id.trim().is_empty()
-        || binding.sig.trim().is_empty()
+        || binding.signature.trim().is_empty()
         || binding.issuer_kid.trim().is_empty()
     {
         return Err(Error::Protocol(
@@ -542,7 +542,7 @@ pub fn verify_call_media_token_outcome(
     verify_issuer_signature(
         anchors,
         &binding.issuer_kid,
-        &binding.sig,
+        &binding.signature,
         &signing_input,
         "participant_binding",
     )?;

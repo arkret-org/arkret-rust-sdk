@@ -12,7 +12,7 @@ fn fixture() -> (Value, PublicKeyMaterial) {
     let mut value = case["unsigned_projection"].clone();
     value["signature"] = case["signature"].clone();
     let key = PublicKeyMaterial::Ed25519Raw {
-        bytes: base64url_decode(case["public_key_b64u"].as_str().unwrap()).unwrap(),
+        bytes: base64url_decode(case["public_key_base64url"].as_str().unwrap()).unwrap(),
     };
     (value, key)
 }
@@ -20,15 +20,15 @@ fn fixture() -> (Value, PublicKeyMaterial) {
 #[test]
 fn private_current_source_is_required_and_matches_exact_row_cut() {
     let (value, _) = fixture();
-    let valid: RealmActorMaterialOutcome = serde_json::from_value(value.clone()).unwrap();
+    let valid: RealmActorMaterialResponseBody = serde_json::from_value(value.clone()).unwrap();
     valid.validate().unwrap();
     let mut missing = value.clone();
-    missing["result"]["entries"][0]
+    missing["material"]["entries"][0]
         .as_object_mut()
         .unwrap()
         .remove("source_ref");
-    assert!(serde_json::from_value::<RealmActorMaterialOutcome>(missing).is_err());
-    let stream = value["result"]["entries"][0]["source_ref"]["stream_ref"].clone();
+    assert!(serde_json::from_value::<RealmActorMaterialResponseBody>(missing).is_err());
+    let stream = value["material"]["entries"][0]["source_ref"]["stream_ref"].clone();
     for (field, replacement) in [
         ("commit_id", json!(RealmCommitId::from_digest([91; 32]))),
         ("stream_position", json!(1)),
@@ -38,8 +38,8 @@ fn private_current_source_is_required_and_matches_exact_row_cut() {
         ),
     ] {
         let mut changed = value.clone();
-        changed["result"]["entries"][0]["source_ref"][field] = replacement;
-        let changed: RealmActorMaterialOutcome = serde_json::from_value(changed).unwrap();
+        changed["material"]["entries"][0]["source_ref"][field] = replacement;
+        let changed: RealmActorMaterialResponseBody = serde_json::from_value(changed).unwrap();
         assert!(
             changed.validate().is_err(),
             "source mismatch accepted: {field}"
@@ -48,7 +48,7 @@ fn private_current_source_is_required_and_matches_exact_row_cut() {
     let mut later_head = value;
     later_head["control_stream_head"]["stream_position"] = json!(7);
     later_head["control_stream_head"]["commit_id"] = json!(RealmCommitId::from_digest([92; 32]));
-    let later: RealmActorMaterialOutcome = serde_json::from_value(later_head).unwrap();
+    let later: RealmActorMaterialResponseBody = serde_json::from_value(later_head).unwrap();
     later.validate().unwrap();
 }
 
@@ -56,7 +56,7 @@ fn private_current_source_is_required_and_matches_exact_row_cut() {
 fn event_identity_in_private_current_source_is_covered_by_material_signature() {
     let (value, key) = fixture();
     let verify = |value: Value| {
-        let material: RealmActorMaterialOutcome = serde_json::from_value(value).unwrap();
+        let material: RealmActorMaterialResponseBody = serde_json::from_value(value).unwrap();
         verify_detached_object_signature(
             &material.signature,
             &arkret_canonical::canonical::unsigned_value(&material, &["signature"]).unwrap(),
@@ -66,7 +66,7 @@ fn event_identity_in_private_current_source_is_covered_by_material_signature() {
     };
     verify(value.clone()).unwrap();
     let mut changed = value;
-    changed["result"]["entries"][0]["source_ref"]["event_id"] =
+    changed["material"]["entries"][0]["source_ref"]["event_id"] =
         json!(EventId::from_digest(DigestSuite::Sha256, [93; 32]));
     assert!(verify(changed).is_err());
 }

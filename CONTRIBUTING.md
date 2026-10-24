@@ -172,7 +172,7 @@ Request/response DTO suffixes are unified workspace-wide (no removed aliases):
 - Endpoint request bodies use `*RequestBody` (e.g. `SyncRequestBody`,
   `AccountRegisterRequestBody`). Do not introduce new `*ReqBody` names.
 - Endpoint success responses use `*Outcome` (e.g. `EventsQueryOutcome`,
-  `AccountRegisterOutcome`). Do not introduce new `*ResBody` or
+  `AccountRegisterResponseBody`). Do not introduce new `*ResBody` or
   `*Response` names.
 - Per-selector success/unavailable unions also use `*Outcome`; `*Result`
   is not a protocol wrapper suffix. Nested objects use their domain noun or

@@ -16,7 +16,7 @@ pub struct SdkConformanceClaim {
     pub sdk_name: String,
     pub sdk_version: String,
     pub sdk_artifact: SdkArtifactSubject,
-    pub spec_revision: String,
+    pub specification_revision: String,
     pub contract_digest: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
@@ -63,7 +63,7 @@ pub enum SdkConformanceProofAlgorithm {
 #[serde(deny_unknown_fields)]
 pub struct SdkClauseClaim {
     pub clause_id: String,
-    pub result: SdkClauseResult,
+    pub verdict: SdkClauseVerdict,
     pub evidence: Vec<SdkConformanceEvidence>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rationale: Option<String>,
@@ -71,7 +71,7 @@ pub struct SdkClauseClaim {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum SdkClauseResult {
+pub enum SdkClauseVerdict {
     Pass,
     Fail,
     NotApplicable,
@@ -326,8 +326,8 @@ impl SdkConformanceContract {
                 )));
             }
             if matches!(
-                clause_claim.result,
-                SdkClauseResult::Pass | SdkClauseResult::Fail
+                clause_claim.verdict,
+                SdkClauseVerdict::Pass | SdkClauseVerdict::Fail
             ) && clause
                 .required_evidence
                 .contains(&SdkEvidenceKind::VectorResult)
@@ -395,9 +395,9 @@ impl SdkConformanceClaim {
             ));
         }
         validate_nonzero_digest("sdk_artifact.digest", &self.sdk_artifact.digest)?;
-        if !is_nonzero_lower_hex(&self.spec_revision, 40) {
+        if !is_nonzero_lower_hex(&self.specification_revision, 40) {
             return Err(SdkConformanceClaimError::InvalidField(
-                "spec_revision".to_owned(),
+                "specification_revision".to_owned(),
             ));
         }
         validate_nonzero_digest("contract_digest", &self.contract_digest)?;
@@ -455,15 +455,15 @@ impl SdkConformanceClaim {
                     claim.clause_id
                 )));
             }
-            match claim.result {
-                SdkClauseResult::NotApplicable
+            match claim.verdict {
+                SdkClauseVerdict::NotApplicable
                     if claim.rationale.as_deref().is_none_or(str::is_empty) =>
                 {
                     return Err(SdkConformanceClaimError::MissingRationale(
                         claim.clause_id.clone(),
                     ));
                 }
-                SdkClauseResult::Pass | SdkClauseResult::Fail if claim.evidence.is_empty() => {
+                SdkClauseVerdict::Pass | SdkClauseVerdict::Fail if claim.evidence.is_empty() => {
                     return Err(SdkConformanceClaimError::MissingEvidence(
                         claim.clause_id.clone(),
                     ));
@@ -615,8 +615,8 @@ impl SdkConformanceClaim {
                 expected_artifact_digest,
             ),
             (
-                "spec_revision",
-                self.spec_revision.as_str(),
+                "specification_revision",
+                self.specification_revision.as_str(),
                 expected_spec_revision,
             ),
             (
@@ -767,7 +767,7 @@ mod tests {
                 uri: "urn:arkret:sdk:test".to_owned(),
                 digest: format!("sha256:{}", "2".repeat(64)),
             },
-            spec_revision: "1".repeat(40),
+            specification_revision: "1".repeat(40),
             contract_digest: format!("sha256:{}", "3".repeat(64)),
             issued_at: "2026-07-11T00:00:00.000Z".parse().unwrap(),
             issuer: SdkClaimIssuer {
@@ -779,7 +779,7 @@ mod tests {
             },
             clause_claims: vec![SdkClauseClaim {
                 clause_id: "AK-SDK-001".to_owned(),
-                result: SdkClauseResult::Pass,
+                verdict: SdkClauseVerdict::Pass,
                 evidence: vec![SdkConformanceEvidence {
                     kind: SdkEvidenceKind::VectorResult,
                     evidence_ref: "ci://run/1".to_owned(),
@@ -816,7 +816,7 @@ mod tests {
         let mut claim = valid_claim();
         claim.clause_claims.push(SdkClauseClaim {
             clause_id: "AK-SDK-015".to_owned(),
-            result: SdkClauseResult::Pass,
+            verdict: SdkClauseVerdict::Pass,
             evidence: vec![SdkConformanceEvidence {
                 kind: SdkEvidenceKind::BuildVariantInventory,
                 evidence_ref: "ci://run/1/build-variants".to_owned(),
@@ -960,7 +960,7 @@ mod tests {
             .validate_against(
                 ["AK-SDK-001"],
                 &claim.sdk_artifact.digest,
-                &claim.spec_revision,
+                &claim.specification_revision,
                 &claim.contract_digest,
                 |issuer, proof, bytes| {
                     proof.kid == issuer.verification_method
@@ -972,7 +972,7 @@ mod tests {
             claim.validate_against(
                 ["AK-SDK-001"],
                 &claim.sdk_artifact.digest,
-                &claim.spec_revision,
+                &claim.specification_revision,
                 &claim.contract_digest,
                 |_, _, _| false,
             ),
@@ -1003,7 +1003,7 @@ mod tests {
         let contract = SdkConformanceContract::from_value(contract_value, active).unwrap();
         assert_eq!(
             contract.digest(),
-            "sha256:2734014eddd328ba1a4d1714f9e70fdd6d13c811535f056e2298179c1f62576c"
+            "sha256:1c42dca0bbaeba786b7bb5f546b3e0f8a46d640263ae46162395d3374235d9ef"
         );
 
         let evidence = contract

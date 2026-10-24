@@ -345,14 +345,18 @@ pub struct CallSignalPlaintext {
     /// `(sender_device_id, scope_ref, payload_sequence)` triple
     /// (`sync/signal.md` §1.1).
     ///
-    /// It coexists with [`Self::seq`] and neither may be omitted: `seq` is the
+    /// It coexists with [`Self::sequence`] and neither may be omitted: `sequence` is the
     /// per-call anti-rollback sequence monotonic over
     /// `(realm_id, call_id, actor_id, device_id)`, while this one is monotonic
     /// per sender device and signed scope across every Signal the device sends.
     /// Substituting one for the other degrades the receiver dedupe triple.
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub payload_sequence: u64,
     pub call_id: CallId,
-    pub seq: u64,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
+    pub sequence: u64,
     #[serde(flatten)]
     pub signal: CallSignalData,
 }
@@ -360,9 +364,11 @@ pub struct CallSignalPlaintext {
 #[derive(Deserialize)]
 struct CallSignalPlaintextWire {
     kind: CallSignalPlaintextKind,
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     payload_sequence: u64,
     call_id: CallId,
-    seq: u64,
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
+    sequence: u64,
     #[serde(flatten)]
     signal: CallSignalData,
 }
@@ -381,7 +387,7 @@ impl<'de> Deserialize<'de> for CallSignalPlaintext {
             "payload_sequence",
             "call_id",
             "signal_kind",
-            "seq",
+            "sequence",
             "data",
         ];
         if object.len() != FIELDS.len()
@@ -397,10 +403,10 @@ impl<'de> Deserialize<'de> for CallSignalPlaintext {
             kind: CallSignalPlaintextKind::CallSignal,
             payload_sequence,
             call_id,
-            seq,
+            sequence,
             signal,
         } = wire;
-        Self::new(payload_sequence, call_id, seq, signal).map_err(serde::de::Error::custom)
+        Self::new(payload_sequence, call_id, sequence, signal).map_err(serde::de::Error::custom)
     }
 }
 
@@ -408,7 +414,7 @@ impl CallSignalPlaintext {
     pub fn new(
         payload_sequence: u64,
         call_id: CallId,
-        seq: u64,
+        sequence: u64,
         signal: CallSignalData,
     ) -> Result<Self> {
         signal.validate()?;
@@ -416,7 +422,7 @@ impl CallSignalPlaintext {
             kind: CallSignalPlaintextKind::CallSignal,
             payload_sequence,
             call_id,
-            seq,
+            sequence,
             signal,
         })
     }

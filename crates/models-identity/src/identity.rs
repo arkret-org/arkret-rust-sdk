@@ -64,12 +64,12 @@ pub enum IdentityMethodEvidence {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct IdentityResolveOutcome {
+pub struct IdentityResolveResponseBody {
     pub did_document: BTreeMap<String, Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub key_log_head: Option<Hash>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub seq: Option<u64>,
+    pub sequence: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub method_evidence: Option<IdentityMethodEvidence>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -139,7 +139,7 @@ mod identity_resolve_tests {
 pub struct IdentityDocumentView {
     pub did_document: BTreeMap<String, Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub seq: Option<u64>,
+    pub sequence: Option<u64>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[cfg_attr(
         feature = "openapi",
@@ -155,9 +155,9 @@ pub struct DidOperationSubmitRequestBody {
     pub did: Did,
     pub did_method: DidMethodName,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub seq: Option<u64>,
+    pub sequence: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub prev_event_digest: Option<Hash>,
+    pub previous_event_digest: Option<Hash>,
     pub operation: BTreeMap<String, Value>,
 }
 
@@ -189,13 +189,13 @@ pub enum DidOperationSubmitStatus {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct DidOperationSubmitOutcome {
+pub struct DidOperationSubmitResponseBody {
     pub status: DidOperationSubmitStatus,
     pub did: Did,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub accepted_at: chrono::DateTime<chrono::Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub seq: Option<u64>,
+    pub sequence: Option<u64>,
     pub operation_ref: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[cfg_attr(
@@ -205,7 +205,7 @@ pub struct DidOperationSubmitOutcome {
     pub receipts: Vec<IdentityReceipt>,
 }
 
-impl DidOperationSubmitOutcome {
+impl DidOperationSubmitResponseBody {
     /// Bind an authenticated registry acceptance to the frozen native request.
     pub fn validate_accepted_for_request(
         &self,
@@ -232,13 +232,15 @@ impl DidOperationSubmitOutcome {
             })?;
         let native_seq = version
             .split_once('-')
-            .and_then(|(seq, _)| seq.parse::<u64>().ok());
+            .and_then(|(sequence, _)| sequence.parse::<u64>().ok());
         if request.did_method != DidMethodName::Webvh
             || self.did != request.did
             || self.operation_ref != format!("{}?versionId={version}", request.did)
             || native_seq.is_none()
-            || self.seq != native_seq
-            || request.seq.is_some_and(|seq| Some(seq) != native_seq)
+            || self.sequence != native_seq
+            || request
+                .sequence
+                .is_some_and(|sequence| Some(sequence) != native_seq)
         {
             return Err(WireError::Protocol(
                 "registry acceptance differs from frozen native operation".to_owned(),
@@ -250,7 +252,7 @@ impl DidOperationSubmitOutcome {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct IdentityReceiptListOutcome {
+pub struct IdentityReceiptListResponseBody {
     #[serde(default)]
     #[cfg_attr(
         feature = "openapi",
@@ -263,7 +265,7 @@ pub struct IdentityReceiptListOutcome {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct IdentityLogListOutcome {
+pub struct IdentityLogListResponseBody {
     pub did: Did,
     pub method: DidMethodUri,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -288,8 +290,8 @@ mod did_operation_tests {
         DidOperationSubmitRequestBody {
             did: Did::new("did:webvh:z6mkfixture:alice.example").unwrap(),
             did_method: DidMethodName::Webvh,
-            seq: Some(0),
-            prev_event_digest: None,
+            sequence: Some(0),
+            previous_event_digest: None,
             operation: BTreeMap::from([
                 ("versionId".to_owned(), Value::String("1-zabc".to_owned())),
                 (
@@ -314,12 +316,12 @@ mod did_operation_tests {
     #[test]
     fn accepted_operation_rejects_substituted_native_version_and_sequence() {
         let mut request = native_request();
-        request.seq = Some(1);
-        let mut outcome = DidOperationSubmitOutcome {
+        request.sequence = Some(1);
+        let mut outcome = DidOperationSubmitResponseBody {
             status: DidOperationSubmitStatus::Accepted,
             did: request.did.clone(),
             accepted_at: chrono::Utc::now(),
-            seq: Some(1),
+            sequence: Some(1),
             operation_ref: format!("{}?versionId=1-zabc", request.did),
             receipts: Vec::new(),
         };
@@ -331,7 +333,7 @@ mod did_operation_tests {
         outcome.operation_ref = format!("{}?versionId=1-zother", request.did);
         assert!(outcome.validate_accepted_for_request(&request).is_err());
         outcome.operation_ref = format!("{}?versionId=1-zabc", request.did);
-        outcome.seq = Some(2);
+        outcome.sequence = Some(2);
         assert!(outcome.validate_accepted_for_request(&request).is_err());
     }
 

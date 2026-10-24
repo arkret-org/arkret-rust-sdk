@@ -2,16 +2,16 @@
 //! Generator: tools/generate-closed-models.py
 //!
 //! Input: schemas/presence-preference.schema.json
-//! sha256=7b0560eb885791be324ec489e424d414bc47e58268d45b184b4390462f113768
+//! sha256=bebb15edd614d8aebd8077333b232caa907f11f8ab4be12b1179dd0caaa5739d
 //!
 //! Input: schemas/time.schema.json
 //! sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
 //!
 //! Input: schemas/presence-visibility.schema.json
-//! sha256=01daf23476bbffa47f63a64a10042aa38acc62639544549dd825fe29c176bdfc
+//! sha256=da26ef46bdde72ca1bb3cafe972642d595d75cff14ca03331bd0b1c44dd85e67
 //!
 //! Bindings: tools/closed-model-bindings.json
-//! sha256=d200bd3e6d76abd1b6154781fb5e54f11fbbc834638cdc29554f83590127fdfa
+//! sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
 
 /// Counterpart: `presence-preference.schema.json#/properties/manual_state`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

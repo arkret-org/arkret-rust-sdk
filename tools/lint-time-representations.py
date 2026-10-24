@@ -12,14 +12,14 @@ ROOT = Path(__file__).resolve().parents[1]
 CRATES = ROOT / "crates"
 EXTERNAL_FORMATTER_FILES = {Path("crates/signatures/src/webvh/inception.rs")}
 EXTERNAL_DATETIME_FIELDS = {
-    (Path("crates/identity/src/resolvers/did_webvh.rs"), "version_time"),
-    (Path("crates/models-identity/src/service_identity.rs"), "version_time"),
-    (Path("crates/models-integration/src/applet/registration.rs"), "version_time"),
+    (Path("crates/identity/src/resolvers/did_webvh.rs"), "version_created_at"),
+    (Path("crates/models-identity/src/service_identity.rs"), "version_created_at"),
+    (Path("crates/models-integration/src/applet/registration.rs"), "version_created_at"),
     (
         Path("crates/models-integration/src/applet/generated/registration_contracts.rs"),
-        "version_time",
+        "version_created_at",
     ),
-    (Path("crates/signatures/src/webvh/inception.rs"), "version_time"),
+    (Path("crates/signatures/src/webvh/inception.rs"), "version_created_at"),
 }
 
 

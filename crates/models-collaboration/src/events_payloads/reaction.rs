@@ -1,6 +1,6 @@
 //! Reaction event payloads and the `message_reactions` typed current value.
 
-use crate::exact_current_results::CanonicalEventDot;
+use crate::exact_current_state::CanonicalEventDot;
 use crate::internal_prelude::*;
 
 #[derive(Deserialize)]

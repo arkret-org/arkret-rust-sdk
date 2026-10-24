@@ -347,7 +347,7 @@ mod tests {
         .unwrap();
         let contract = &fixture["controller_gate_basis_contract"];
         let raw_key =
-            arkret_canonical::base64url_decode(contract["public_key_b64u"].as_str().unwrap())
+            arkret_canonical::base64url_decode(contract["public_key_base64url"].as_str().unwrap())
                 .unwrap();
         let public_key = PublicKeyMaterial::Ed25519Raw { bytes: raw_key };
         let cases = contract["cases"].as_array().unwrap();
@@ -407,7 +407,7 @@ mod tests {
             .unwrap();
             match &gate.basis {
                 ControllerAccountGateBasis::AccountBindingDefault { .. } => {
-                    assert_eq!(record["status_seq"], 1);
+                    assert_eq!(record["status_sequence"], 1);
                     assert_eq!(record["status"], "active");
                     assert!(record.get("previous_account_status_record_id").is_none());
                 }
@@ -423,7 +423,7 @@ mod tests {
                         status_record_digest.as_str(),
                         arkret_canonical::canonical_sha256(record).unwrap()
                     );
-                    assert!(record["status_seq"].as_u64().unwrap() > 1);
+                    assert!(record["status_sequence"].as_u64().unwrap() > 1);
                     assert!(record.get("previous_account_status_record_id").is_some());
                     strict_statuses.insert(record["status"].as_str().unwrap().to_owned());
                 }

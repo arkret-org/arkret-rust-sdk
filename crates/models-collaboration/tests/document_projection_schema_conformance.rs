@@ -2,9 +2,7 @@
 
 use std::fs;
 
-use arkret_models_collaboration::objects::query_projection::{
-    DocumentMorphProjectionOutcome, StateRevision,
-};
+use arkret_models_collaboration::objects::query_projection::{DocumentMorphView, StateRevision};
 use arkret_schema_conformance::schema_registry_from_spec_artifacts;
 use serde_json::{Value, json};
 
@@ -39,26 +37,19 @@ fn projection() -> Value {
 #[test]
 fn document_projection_serializes_the_normative_required_wire_fields() {
     let value = projection();
-    assert!(schema_accepts("document_morph_projection_outcome", &value));
-    let parsed: DocumentMorphProjectionOutcome = serde_json::from_value(value.clone()).unwrap();
+    assert!(schema_accepts("document_morph_view", &value));
+    let parsed: DocumentMorphView = serde_json::from_value(value.clone()).unwrap();
     let serialized = serde_json::to_value(parsed).unwrap();
     assert_eq!(serialized, value);
-    assert!(schema_accepts(
-        "document_morph_projection_outcome",
-        &serialized
-    ));
+    assert!(schema_accepts("document_morph_view", &serialized));
 
     let mut without_checkpoint = value;
     without_checkpoint
         .as_object_mut()
         .unwrap()
         .remove("checkpoint");
-    assert!(schema_accepts(
-        "document_morph_projection_outcome",
-        &without_checkpoint
-    ));
-    let parsed: DocumentMorphProjectionOutcome =
-        serde_json::from_value(without_checkpoint.clone()).unwrap();
+    assert!(schema_accepts("document_morph_view", &without_checkpoint));
+    let parsed: DocumentMorphView = serde_json::from_value(without_checkpoint.clone()).unwrap();
     assert!(parsed.checkpoint.is_none());
     assert_eq!(serde_json::to_value(parsed).unwrap(), without_checkpoint);
 }
@@ -68,11 +59,8 @@ fn required_projection_arrays_are_not_invented_when_missing() {
     for field in ["document", "versions", "relations", "comments"] {
         let mut missing = projection();
         missing.as_object_mut().unwrap().remove(field);
-        assert!(!schema_accepts(
-            "document_morph_projection_outcome",
-            &missing
-        ));
-        assert!(serde_json::from_value::<DocumentMorphProjectionOutcome>(missing).is_err());
+        assert!(!schema_accepts("document_morph_view", &missing));
+        assert!(serde_json::from_value::<DocumentMorphView>(missing).is_err());
     }
 }
 
@@ -81,11 +69,8 @@ fn server_projection_rejects_unregistered_cursor_presence_fields() {
     for field in ["cursor_presence", "cursor_presence_entries"] {
         let mut unknown = projection();
         unknown[field] = json!([]);
-        assert!(!schema_accepts(
-            "document_morph_projection_outcome",
-            &unknown
-        ));
-        assert!(serde_json::from_value::<DocumentMorphProjectionOutcome>(unknown).is_err());
+        assert!(!schema_accepts("document_morph_view", &unknown));
+        assert!(serde_json::from_value::<DocumentMorphView>(unknown).is_err());
     }
 }
 

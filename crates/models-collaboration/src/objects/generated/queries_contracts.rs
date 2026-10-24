@@ -2,16 +2,16 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/view.schema.json
-// sha256=993f340506135586b4041795369e2de7423215ae005f0401013f21e523f944a7
+// sha256=51e8a31f953b8264d697a0d93cadeaece23bb59ff1ae3b0bc01471351d168d33
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=d200bd3e6d76abd1b6154781fb5e54f11fbbc834638cdc29554f83590127fdfa
+// sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
 
-/// Counterpart: `view.schema.json#/$defs/sort_spec`.
-/// Counterpart for `spec/v1/artifacts/schemas/view.schema.json#/$defs/sort_spec`.
+/// Counterpart: `view.schema.json#/$defs/sort_specification`.
+/// Counterpart for `spec/v1/artifacts/schemas/view.schema.json#/$defs/sort_specification`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct SortSpec {
+pub struct SortSpecification {
     pub field: String,
     pub direction: SortDirection,
     #[serde(skip_serializing_if = "Option::is_none")]

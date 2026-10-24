@@ -561,18 +561,18 @@ pub fn verify_registration_receipt_provider_proof(
     receipt.validate_provider_did(provider_did)?;
     let mut previous_version_time: Option<DateTime<Utc>> = None;
     for entry in &verified.entries {
-        if previous_version_time.is_some_and(|previous| entry.version_time <= previous) {
+        if previous_version_time.is_some_and(|previous| entry.version_created_at <= previous) {
             return Err(IdentityError::Protocol(
                 "provider did:webvh history versionTime is not strictly increasing".to_owned(),
             ));
         }
-        previous_version_time = Some(entry.version_time);
+        previous_version_time = Some(entry.version_created_at);
     }
     let effective = verified
         .entries
         .iter()
         .rev()
-        .find(|entry| entry.version_time <= receipt.issued_at)
+        .find(|entry| entry.version_created_at <= receipt.issued_at)
         .ok_or_else(|| {
             IdentityError::Protocol(
                 "provider did:webvh history has no version effective when the receipt was issued"
@@ -597,7 +597,7 @@ mod tests {
     use arkret_keystore::{KeyBytes, KeyStore, KeyStoreError};
     use arkret_models_identity::service_identity::{
         CanonicalServiceUrl, ServiceDidEndpoint, ServiceRegistrationEnsureRequestBody,
-        ServiceRegistrationKey, ServiceRegistrationOutcome, ServiceRegistrationReceipt,
+        ServiceRegistrationKey, ServiceRegistrationReceipt, ServiceRegistrationResponseBody,
         ServiceWebvhInceptionOperation,
     };
     use arkret_wire::{
@@ -666,7 +666,7 @@ mod tests {
                 provider_endpoint: &endpoint,
                 registration_key: &registration_key(),
                 also_known_as: &[],
-                version_time: "2026-07-15T00:00:00Z".parse().unwrap(),
+                version_created_at: "2026-07-15T00:00:00Z".parse().unwrap(),
                 did_key_fragment: None,
             },
         )
@@ -802,7 +802,7 @@ mod tests {
         )
         .unwrap();
         request.validate().unwrap();
-        let outcome = ServiceRegistrationOutcome {
+        let outcome = ServiceRegistrationResponseBody {
             did_document: operation.state.clone(),
             registration_receipt: receipt(&operation),
             created: true,
@@ -864,7 +864,7 @@ mod tests {
                 current_did: &prepared.did,
                 target_did: &target,
                 previous_entries: std::slice::from_ref(&prepared.log_entry),
-                version_time: "2026-07-15T00:00:02Z".parse().unwrap(),
+                version_created_at: "2026-07-15T00:00:02Z".parse().unwrap(),
                 current_update_seed: &prepared.next_update_key_seed,
                 next_update_public_key_multibase: &next_key,
                 state: &state,
@@ -1027,7 +1027,7 @@ mod tests {
                 )
                 .unwrap(),
                 also_known_as: &[],
-                version_time: "2026-07-15T00:00:00Z".parse().unwrap(),
+                version_created_at: "2026-07-15T00:00:00Z".parse().unwrap(),
                 did_key_fragment: Some(PROVIDER_ASSERTION_FRAGMENT),
             },
             assertion_seed,

@@ -205,7 +205,7 @@ fn external_quota_never_gets_a_synthetic_grant_reservation() {
     let mut quota = GrantConstraint::new(GrantConstraintKind::Quota, GrantConstraintEffect::Allow);
     quota.constraint_subkind = Some(GrantConstraintSubkind::Rate);
     quota.constraint_scope = Some(GrantConstraintScope::PerActor);
-    quota.max_operations = Some(3);
+    quota.max_operation_count = Some(3);
     quota.period = Some("PT1H".into());
     assert!(matches!(
         evaluate_constraint_ceiling(&op, &[quota]),

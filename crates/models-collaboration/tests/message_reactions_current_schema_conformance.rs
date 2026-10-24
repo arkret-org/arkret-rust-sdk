@@ -6,7 +6,7 @@ use std::fs;
 use arkret_canonical::DigestSuite;
 use arkret_models_collaboration::events_payloads::reaction::MessageReactionsCurrentValue;
 use arkret_schema_conformance::schema_registry_from_spec_artifacts;
-use arkret_wire::{CurrentSelector, EventId, TypedCurrentRow};
+use arkret_wire::{CurrentSelector, CurrentState, EventId};
 use serde_json::{Value, json};
 
 const REALM: &str = "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19";
@@ -18,36 +18,31 @@ fn schema_accepts(value: &Value) -> bool {
     let artifacts = arkret_schema_conformance::default_spec_artifacts_dir().unwrap();
     let mut registry = schema_registry_from_spec_artifacts(&artifacts).unwrap();
     let schema: Value = serde_json::from_slice(
-        &fs::read(
-            artifacts
-                .join("schemas")
-                .join("typed-current-result.schema.json"),
-        )
-        .unwrap(),
+        &fs::read(artifacts.join("schemas").join("current-state.schema.json")).unwrap(),
     )
     .unwrap();
     registry
         .register_reference_document(schema.clone())
         .unwrap();
-    let id = "test:message-reactions-current-result".to_owned();
+    let id = "test:message-reactions-current-state".to_owned();
     registry
-        .register_fragment(id.clone(), schema, "#/$defs/message_reactions_result")
+        .register_fragment(id.clone(), schema, "#/$defs/current_message_reactions")
         .unwrap();
     registry.validate_value(&id, value).is_ok()
 }
 
 fn sdk_accepts(value: &Value) -> bool {
-    serde_json::from_value::<TypedCurrentRow>(value.clone())
+    serde_json::from_value::<CurrentState>(value.clone())
         .ok()
         .and_then(|row| match row {
-            TypedCurrentRow::Value {
+            CurrentState::Value {
                 selector: CurrentSelector::MessageReactions { target_ref },
                 value,
                 ..
             } => serde_json::from_value::<MessageReactionsCurrentValue>(value)
                 .ok()
                 .filter(|set| set.validate_for_target(&target_ref).is_ok()),
-            TypedCurrentRow::Value { .. } => None,
+            CurrentState::Value { .. } => None,
         })
         .is_some()
 }
@@ -91,8 +86,8 @@ fn row() -> Value {
 fn message_reactions_row_round_trips_through_strong_types() {
     let value = row();
     assert!(row_accepted_by_both(&value));
-    let typed: TypedCurrentRow = serde_json::from_value(value.clone()).unwrap();
-    let TypedCurrentRow::Value {
+    let typed: CurrentState = serde_json::from_value(value.clone()).unwrap();
+    let CurrentState::Value {
         selector,
         value: set,
         ..

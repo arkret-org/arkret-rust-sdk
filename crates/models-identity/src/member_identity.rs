@@ -17,7 +17,7 @@
 //! * [`IdentityPayloadCarrier::carrier_sha256`] derives the exact `identity_payload` carrier digest
 //!   locally; it is not a payload field.
 //! * [`member_identity_effective_set_digest`] → `expected_state_digest` (writer-observed
-//!   effective-set guard over the exact signed payloads, `current-results.md` §2).
+//!   effective-set guard over the exact signed payloads, `current-state.md` §2).
 //! * [`member_display_state_digest`] → roster display cache key (includes effective events +
 //!   visible handle-claim digests).
 
@@ -211,11 +211,11 @@ pub struct MemberIdentityUpdateAssertion {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct MemberIdentityUpdatesCurrentValue {
+pub struct MemberIdentityUpdatesValue {
     pub assertions: Vec<MemberIdentityUpdateAssertion>,
 }
 
-impl MemberIdentityUpdatesCurrentValue {
+impl MemberIdentityUpdatesValue {
     /// Validate the closed family without verifying display proofs or folding
     /// replacement edges, neither of which may reject an accepted assertion.
     pub fn validate_for_tuple(
@@ -265,14 +265,14 @@ pub struct EffectiveIdentityEntry {
 
 /// Visible handle-claim summary folded into the roster
 /// [`member_display_state_digest`]. Mirrors the spec
-/// `{claim_digest, status, revocation_digest, fresh_until}` status-view summary.
+/// `{claim_digest, status, revocation_digest, cache_expires_at}` status-view summary.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct RosterHandleClaimDigestEntry {
     pub claim_digest: Hash,
     pub status: crate::HandleClaimStatus,
     pub revocation_digest: Option<Hash>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub fresh_until: DateTime<Utc>,
+    pub cache_expires_at: DateTime<Utc>,
 }
 
 /// MID-6 — effective-set helper.
@@ -327,7 +327,7 @@ where
 }
 
 /// `expected_state_digest` writer-observed effective-set guard
-/// (`current-results.md` §2, decision 0115).
+/// (`current-state.md` §2, decision 0115).
 ///
 /// `"sha256:" || lowercase_hex(SHA-256(RFC8785_JCS(v)))` with no domain
 /// prefix, where `v` is the array of the exact signed payload objects of every
@@ -348,14 +348,14 @@ pub fn member_identity_effective_set_digest(effective: &[(&EventId, &Value)]) ->
 ///
 /// SHA-256 over RFC 8785 JCS canonical JSON of
 /// `{realm_id, actor_id, effective_events:[{event_id, segment, payload_digest}],
-///   handle_claims:[{claim_digest, status, revocation_digest, fresh_until}]}`
+///   handle_claims:[{claim_digest, status, revocation_digest, cache_expires_at}]}`
 /// with `effective_events` sorted by `(segment, event_id)` and
 /// `handle_claims` sorted by `claim_digest`.
 ///
 /// Used for roster display cache invalidation. Folds the visible
 /// handle-claim digest set so handle reassignment (issuer signs a new
 /// claim / revokes an old one) changes the digest. A refreshed signed status
-/// view also changes `fresh_until`, so stale evidence cannot retain a roster
+/// view also changes `cache_expires_at`, so stale evidence cannot retain a roster
 /// display cache key.
 pub fn member_display_state_digest(
     realm_id: &RealmId,
@@ -572,8 +572,7 @@ mod tests {
         let raw = serde_json::json!({"realm_id":realm,"member_id":actor,"segment":"member_identity",
             "replaces":[],"identity_payload":{"member_identity":sample_identity("Unverified")}});
         let value = serde_json::json!({"assertions":[{"tag_id":format!("{}:0",fake_event_ref("raw-current")),"value":raw}]});
-        let parsed: MemberIdentityUpdatesCurrentValue =
-            serde_json::from_value(value.clone()).unwrap();
+        let parsed: MemberIdentityUpdatesValue = serde_json::from_value(value.clone()).unwrap();
         parsed
             .validate_for_tuple(&realm, &actor, MemberIdentitySegment::MemberIdentity)
             .unwrap();
@@ -594,7 +593,7 @@ mod tests {
         ));
         let raw = serde_json::json!({"realm_id":realm,"member_id":first,"segment":"member_identity","identity_payload":{"member_identity":sample_identity("Unverified")}});
         let assertion = serde_json::json!({"tag_id":format!("{}:0",fake_event_ref("selector-current")),"value":raw});
-        let parsed: MemberIdentityUpdatesCurrentValue =
+        let parsed: MemberIdentityUpdatesValue =
             serde_json::from_value(serde_json::json!({"assertions":[assertion]})).unwrap();
         parsed
             .validate_for_tuple(&realm, &first, MemberIdentitySegment::MemberIdentity)
@@ -604,7 +603,7 @@ mod tests {
                 .validate_for_tuple(&realm, &second, MemberIdentitySegment::MemberIdentity)
                 .is_err()
         );
-        let duplicate: MemberIdentityUpdatesCurrentValue =
+        let duplicate: MemberIdentityUpdatesValue =
             serde_json::from_value(serde_json::json!({"assertions":[assertion.clone(),assertion]}))
                 .unwrap();
         assert!(
@@ -615,7 +614,7 @@ mod tests {
         let mut alias = assertion;
         alias["value"]["actor_id"] = alias["value"]["member_id"].take();
         alias["value"].as_object_mut().unwrap().remove("member_id");
-        let invalid: MemberIdentityUpdatesCurrentValue =
+        let invalid: MemberIdentityUpdatesValue =
             serde_json::from_value(serde_json::json!({"assertions":[alias]})).unwrap();
         assert!(
             invalid

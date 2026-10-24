@@ -6,9 +6,10 @@
 use arkret_models_collaboration::agent_scope::AgentRequestedScopeDisclosure;
 use arkret_models_collaboration::session_grants::{
     AcceptedDeviceIssuePossessionProof, AcceptedDeviceRefreshPossessionProof,
-    HumanSessionGrantRefreshRequest, HumanSessionGrantRequest, SessionGrantAgentScopeRequest,
-    SessionGrantDpopBindingProof, SessionGrantRefreshRequestBody, SessionGrantRequestBody,
-    UnsignedAgentSessionGrantProof, UnsignedAgentSessionGrantRequest,
+    AgentSessionGrantProofInput, AgentSessionGrantSigningInput,
+    HumanSessionGrantRefreshRequestBody, HumanSessionGrantRequestBody,
+    RequestedAgentSessionGrantScope, SessionGrantDpopBindingProof, SessionGrantRefreshRequestBody,
+    SessionGrantRequestBody,
 };
 use arkret_wire::{DeviceId, DidCoreId, DidUrl, EventId, NonEmptyString, RequestId};
 use chrono::{DateTime, Utc};
@@ -20,7 +21,7 @@ pub fn human_session_grant_request(
     audience_id: DidCoreId,
     accepted_device_possession_proof: AcceptedDeviceIssuePossessionProof,
 ) -> crate::Result<SessionGrantRequestBody> {
-    let request = HumanSessionGrantRequest {
+    let request = HumanSessionGrantRequestBody {
         request_id,
         principal_id,
         device_id,
@@ -37,7 +38,7 @@ pub fn human_session_grant_refresh_request(
     device_id: DeviceId,
     accepted_device_possession_proof: AcceptedDeviceRefreshPossessionProof,
 ) -> crate::Result<SessionGrantRefreshRequestBody> {
-    let request = HumanSessionGrantRefreshRequest {
+    let request = HumanSessionGrantRefreshRequestBody {
         grant_jwt: grant_jwt.into(),
         audience_id,
         device_id,
@@ -52,7 +53,7 @@ pub fn agent_key_proof_session_grant_request(
     principal_id: DidCoreId,
     requested_scope: Vec<String>,
     agent_key_authorization_ref: EventId,
-    agent_scope_request: SessionGrantAgentScopeRequest,
+    agent_scope_request: RequestedAgentSessionGrantScope,
     requested_scope_disclosure: Option<AgentRequestedScopeDisclosure>,
     dpop_binding_proof: SessionGrantDpopBindingProof,
     verification_method: DidUrl,
@@ -62,14 +63,14 @@ pub fn agent_key_proof_session_grant_request(
     expires_at: DateTime<Utc>,
     signature: impl Into<String>,
 ) -> crate::Result<SessionGrantRequestBody> {
-    let request = UnsignedAgentSessionGrantRequest::new(
+    let request = AgentSessionGrantSigningInput::new(
         principal_id,
         requested_scope,
         agent_key_authorization_ref,
         agent_scope_request,
         requested_scope_disclosure,
         dpop_binding_proof,
-        UnsignedAgentSessionGrantProof {
+        AgentSessionGrantProofInput {
             challenge: challenge.into(),
             audience_id,
             issued_at,
@@ -92,7 +93,7 @@ mod tests {
             DidCoreId::new("ak:did_core:web:agent.example").unwrap(),
             Vec::new(),
             EventId::new("ak:event:Ae6YFfDokA1FLUx_l-MhAbSvTvoys2ZpRPmqFwrWjd9g").unwrap(),
-            SessionGrantAgentScopeRequest {
+            RequestedAgentSessionGrantScope {
                 realm_ids: Vec::new(),
                 strand_ids: Vec::new(),
                 track_names: Vec::new(),

@@ -2,8 +2,8 @@
   "version": 1,
   "mappings": [
     {
-      "rust_type": "crates/models-collaboration/src/generated/agent_operations_contracts.rs::AgentLifecycleOutcome",
-      "schema": "agent-operations.schema.json#/$defs/agent_lifecycle_state"
+      "rust_type": "crates/models-collaboration/src/generated/agent_operations_contracts.rs::AgentOperationStatusView",
+      "schema": "agent-operations.schema.json#/$defs/operation_status_view"
     },
     {
       "rust_type": "crates/identity/src/generated/binding_contracts.rs::LimitedTrust",
@@ -26,8 +26,8 @@
       "schema": "agent-operations.schema.json#/$defs/agent_projection"
     },
     {
-      "rust_type": "crates/models-collaboration/src/generated/agent_operations_contracts.rs::AgentList",
-      "schema": "agent-operations.schema.json#/$defs/agent_list"
+      "rust_type": "crates/models-collaboration/src/generated/agent_operations_contracts.rs::AgentPage",
+      "schema": "agent-operations.schema.json#/$defs/agent_page"
     },
     {
       "rust_type": "crates/models-collaboration/src/generated/agent_operations_contracts.rs::AgentView",
@@ -178,8 +178,8 @@
       "schema": "content-block-poll.schema.json#/$defs/poll_body"
     },
     {
-      "rust_type": "crates/models-collaboration/src/events_payloads/generated/poll_contracts.rs::PollResponseBody",
-      "schema": "content-block-poll.schema.json#/$defs/poll_response_body"
+      "rust_type": "crates/models-collaboration/src/events_payloads/generated/poll_contracts.rs::PollVote",
+      "schema": "content-block-poll.schema.json#/$defs/poll_vote"
     },
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/generated/poll_contracts.rs::PollBlock",
@@ -308,8 +308,8 @@
       "schema": "agent-operations.schema.json#/$defs/public_key"
     },
     {
-      "rust_type": "crates/models-collaboration/src/governance/generated/agent_participation_contracts.rs::AgentParticipationOutcome",
-      "schema": "agent-operations.schema.json#/$defs/agent_participation_outcome"
+      "rust_type": "crates/models-collaboration/src/governance/generated/agent_participation_contracts.rs::AgentParticipationResponseBody",
+      "schema": "agent-operations.schema.json#/$defs/agent_participation_response_body"
     },
     {
       "rust_type": "crates/models-collaboration/src/governance/grant_constraint.rs::GrantConstraint",
@@ -432,12 +432,12 @@
       "schema": "calendar-event.schema.json"
     },
     {
-      "rust_type": "crates/models-collaboration/src/objects/generated/queries_contracts.rs::SortSpec",
-      "schema": "view.schema.json#/$defs/sort_spec"
+      "rust_type": "crates/models-collaboration/src/objects/generated/queries_contracts.rs::SortSpecification",
+      "schema": "view.schema.json#/$defs/sort_specification"
     },
     {
       "rust_type": "crates/models-collaboration/src/objects/query_projection.rs::DocumentMorphProjection",
-      "schema": "view.schema.json#/$defs/document_morph_projection_outcome/properties/document",
+      "schema": "view.schema.json#/$defs/document_morph_view/properties/document",
       "comparison": "rust_fields_subset",
       "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
     },
@@ -510,8 +510,8 @@
       "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
     },
     {
-      "rust_type": "crates/models-discovery/src/service_description.rs::AuthMetadata",
-      "schema": "service-describe.schema.json#/properties/auth_metadata",
+      "rust_type": "crates/models-discovery/src/service_description.rs::AuthenticationMetadata",
+      "schema": "service-describe.schema.json#/properties/authentication_metadata",
       "comparison": "rust_fields_subset",
       "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
     },
@@ -522,14 +522,14 @@
       "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
     },
     {
-      "rust_type": "crates/models-discovery/src/service_description.rs::AuthMethod",
-      "schema": "service-describe.schema.json#/$defs/auth_method",
+      "rust_type": "crates/models-discovery/src/service_description.rs::AuthenticationMethod",
+      "schema": "service-describe.schema.json#/$defs/authentication_method",
       "comparison": "rust_fields_subset",
       "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
     },
     {
-      "rust_type": "crates/models-discovery/src/service_description.rs::AuthGrantExchange",
-      "schema": "service-describe.schema.json#/$defs/auth_grant_exchange",
+      "rust_type": "crates/models-discovery/src/service_description.rs::AccountHandoffExchange",
+      "schema": "service-describe.schema.json#/$defs/account_handoff_exchange",
       "comparison": "rust_fields_subset",
       "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
     },
@@ -560,8 +560,8 @@
       "schema": "identity-resolution.schema.json#/$defs/service_route_projection"
     },
     {
-      "rust_type": "crates/models-integration/src/applet/registration.rs::WebhookAuth",
-      "schema": "applet-package.schema.json#/$defs/webhook_auth",
+      "rust_type": "crates/models-integration/src/applet/registration.rs::WebhookSignaturePolicy",
+      "schema": "applet-package.schema.json#/$defs/webhook_signature_policy",
       "comparison": "rust_fields_subset",
       "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
     },
@@ -614,10 +614,6 @@
       "schema": "applet-install-plan.schema.json#/$defs/scope_grant"
     },
     {
-      "rust_type": "crates/models-integration/src/generated/artifacts_applet_contracts.rs::CapabilityConstraint",
-      "schema": "applet-install-plan.schema.json#/$defs/capability_constraint"
-    },
-    {
       "rust_type": "crates/models-integration/src/generated/artifacts_applet_contracts.rs::DeniedScope",
       "schema": "applet-install-plan.schema.json#/$defs/denied_scope"
     },
@@ -626,8 +622,8 @@
       "schema": "applet-install-plan.schema.json#/$defs/e2ee_effect"
     },
     {
-      "rust_type": "crates/models-integration/src/generated/artifacts_applet_contracts.rs::EventSubmission",
-      "schema": "applet-install-plan.schema.json#/$defs/event_submission"
+      "rust_type": "crates/models-integration/src/generated/artifacts_applet_contracts.rs::PlannedEvent",
+      "schema": "applet-install-plan.schema.json#/$defs/planned_event"
     },
     {
       "rust_type": "crates/models-integration/src/generated/artifacts_applet_contracts.rs::NamespaceConflict",
@@ -668,8 +664,8 @@
       "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
     },
     {
-      "rust_type": "crates/models-integration/src/generated/models_push_contracts.rs::PushNotifyDeviceOutcome",
-      "schema": "push-operations.schema.json#/$defs/push_notify_device_outcome"
+      "rust_type": "crates/models-integration/src/generated/models_push_contracts.rs::PushGatewaySubmissionOutcome",
+      "schema": "push-operations.schema.json#/$defs/push_gateway_submission_outcome"
     },
     {
       "rust_type": "crates/schema/src/generated/sdk_conformance_contracts.rs::SdkClaimIssuer",
@@ -710,16 +706,16 @@
       "schema": "recovery-policy.schema.json#/$defs/authority_stream_head"
     },
     {
-      "rust_type": "crates/models-crypto/src/generated/recovery_policy_contracts.rs::RecoveryPolicyActiveOutcome",
-      "schema": "recovery-policy.schema.json#/$defs/recovery_policy_active_outcome"
+      "rust_type": "crates/models-crypto/src/generated/recovery_policy_contracts.rs::RecoveryPolicyStatusView",
+      "schema": "recovery-policy.schema.json#/$defs/recovery_policy_status_view"
     },
     {
-      "rust_type": "crates/models-crypto/src/generated/recovery_policy_contracts.rs::RecoveryPolicyPublishOutcome",
-      "schema": "recovery-policy.schema.json#/$defs/recovery_policy_publish_outcome"
+      "rust_type": "crates/models-crypto/src/generated/recovery_policy_contracts.rs::RecoveryPolicyPublishResponseBody",
+      "schema": "recovery-policy.schema.json#/$defs/recovery_policy_publish_response_body"
     },
     {
-      "rust_type": "crates/models-crypto/src/generated/recovery_policy_contracts.rs::RecoveryPolicyAuthData",
-      "schema": "recovery-policy.schema.json#/properties/auth_data"
+      "rust_type": "crates/models-crypto/src/generated/recovery_policy_contracts.rs::RecoveryPolicySignatureProof",
+      "schema": "recovery-policy.schema.json#/properties/signature_proof"
     },
     {
       "rust_type": "crates/models-crypto/src/generated/recovery_session_contracts.rs::RecoverySession",
@@ -790,8 +786,8 @@
       "schema": "recovery-session.schema.json#/$defs/recovery_session_proof_submit_request_body"
     },
     {
-      "rust_type": "crates/models-crypto/src/generated/recovery_session_contracts.rs::RecoverySessionProofSubmitOutcome",
-      "schema": "recovery-session.schema.json#/$defs/recovery_session_proof_submit_outcome"
+      "rust_type": "crates/models-crypto/src/generated/recovery_session_contracts.rs::RecoverySessionProofSubmitResponseBody",
+      "schema": "recovery-session.schema.json#/$defs/recovery_session_proof_submit_response_body"
     },
     {
       "rust_type": "crates/models-crypto/src/generated/high_risk_authority_proof.rs::HighRiskRecoveryUnlockProofBody",
@@ -862,12 +858,12 @@
       "schema": "account-subscribe-frame.schema.json#/$defs/realm_detail_baseline"
     },
     {
-      "rust_type": "crates/models-collaboration/src/sync_frames/generated/current_results_contracts.rs::AccountCurrentCoverage",
-      "schema": "account-current-result.schema.json#/$defs/coverage"
+      "rust_type": "crates/models-collaboration/src/sync_frames/generated/current_state_contracts.rs::AccountCurrentCoverage",
+      "schema": "account-state-view.schema.json#/$defs/coverage"
     },
     {
-      "rust_type": "crates/models-collaboration/src/sync_frames/generated/current_results_contracts.rs::AccountCurrentView",
-      "schema": "account-current-result.schema.json#/$defs/current"
+      "rust_type": "crates/models-collaboration/src/sync_frames/generated/current_state_contracts.rs::AccountStateView",
+      "schema": "account-state-view.schema.json#/$defs/current"
     },
     {
       "rust_type": "crates/models-identity/src/generated/authenticated_signer_resolution_evidence_contracts.rs::AuthenticatedSignerResolutionEvidence",
@@ -890,8 +886,8 @@
       "schema": "agent-operations.schema.json#/$defs/agent_sidecar_view"
     },
     {
-      "rust_type": "crates/models-collaboration/src/generated/agent_operations_contracts.rs::AgentSidecarList",
-      "schema": "agent-operations.schema.json#/$defs/agent_sidecar_list"
+      "rust_type": "crates/models-collaboration/src/generated/agent_operations_contracts.rs::AgentSidecarPage",
+      "schema": "agent-operations.schema.json#/$defs/agent_sidecar_page"
     },
     {
       "rust_type": "crates/models-collaboration/src/governance/generated/realm_join_intake_contracts.rs::PeerRealmJoinBootstrapRequestBody",
@@ -902,32 +898,32 @@
       "schema": "service-operation-dtos.schema.json#/$defs/SessionGrantDeviceBinding"
     },
     {
-      "rust_type": "crates/models-collaboration/src/generated/session_grant_bodies_contracts.rs::RecoverySessionGrantRequest",
-      "schema": "service-operation-dtos.schema.json#/$defs/RecoverySessionGrantRequest"
+      "rust_type": "crates/models-collaboration/src/generated/session_grant_bodies_contracts.rs::RecoverySessionGrantRequestBody",
+      "schema": "service-operation-dtos.schema.json#/$defs/RecoverySessionGrantRequestBody"
     },
     {
-      "rust_type": "crates/models-collaboration/src/generated/session_grant_bodies_contracts.rs::AgentSessionGrantRefreshRequest",
-      "schema": "service-operation-dtos.schema.json#/$defs/AgentSessionGrantRefreshRequest"
+      "rust_type": "crates/models-collaboration/src/generated/session_grant_bodies_contracts.rs::AgentSessionGrantRefreshRequestBody",
+      "schema": "service-operation-dtos.schema.json#/$defs/AgentSessionGrantRefreshRequestBody"
     },
     {
       "rust_type": "crates/models-collaboration/src/generated/session_grant_bodies_contracts.rs::AgentSessionRefreshProof",
       "schema": "service-operation-dtos.schema.json#/$defs/AgentSessionRefreshProof"
     },
     {
-      "rust_type": "crates/models-collaboration/src/generated/session_grants_contracts.rs::AgentSessionGrantRequest",
-      "schema": "service-operation-dtos.schema.json#/$defs/AgentSessionGrantRequest"
+      "rust_type": "crates/models-collaboration/src/generated/session_grants_contracts.rs::AgentSessionGrantRequestBody",
+      "schema": "service-operation-dtos.schema.json#/$defs/AgentSessionGrantRequestBody"
     },
     {
-      "rust_type": "crates/models-collaboration/src/generated/session_grants_contracts.rs::HumanSessionGrantRequest",
-      "schema": "service-operation-dtos.schema.json#/$defs/HumanSessionGrantRequest"
+      "rust_type": "crates/models-collaboration/src/generated/session_grants_contracts.rs::HumanSessionGrantRequestBody",
+      "schema": "service-operation-dtos.schema.json#/$defs/HumanSessionGrantRequestBody"
     },
     {
-      "rust_type": "crates/models-collaboration/src/generated/session_grants_contracts.rs::HumanSessionGrantRefreshRequest",
-      "schema": "service-operation-dtos.schema.json#/$defs/HumanSessionGrantRefreshRequest"
+      "rust_type": "crates/models-collaboration/src/generated/session_grants_contracts.rs::HumanSessionGrantRefreshRequestBody",
+      "schema": "service-operation-dtos.schema.json#/$defs/HumanSessionGrantRefreshRequestBody"
     },
     {
       "rust_type": "crates/models-collaboration/src/generated/session_grants_contracts.rs::AgentSessionGrantProof",
-      "schema": "service-operation-dtos.schema.json#/$defs/AgentSessionGrantRequest/properties/proof"
+      "schema": "service-operation-dtos.schema.json#/$defs/AgentSessionGrantRequestBody/properties/proof"
     },
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/generated/sidecar_contracts.rs::SidecarContextAttachPayload",
@@ -938,8 +934,8 @@
       "schema": "event-payload.schema.json#/$defs/agent_sidecar_exchange_control_payload"
     },
     {
-      "rust_type": "crates/models-collaboration/src/generated/contact_operations_contracts.rs::ContactList",
-      "schema": "contact-operations.schema.json#/$defs/contact_list"
+      "rust_type": "crates/models-collaboration/src/generated/contact_operations_contracts.rs::ContactPage",
+      "schema": "contact-operations.schema.json#/$defs/contact_page"
     },
     {
       "rust_type": "crates/models-collaboration/src/contact_operations.rs::ContactListRow",
@@ -978,16 +974,16 @@
       "schema": "mimi-operations.schema.json#/$defs/mimi_submit_message_request_body"
     },
     {
-      "rust_type": "crates/models-collaboration/src/generated/mimi_operations_contracts.rs::MimiSubmitMessageOutcome",
-      "schema": "mimi-operations.schema.json#/$defs/mimi_submit_message_outcome"
+      "rust_type": "crates/models-collaboration/src/generated/mimi_operations_contracts.rs::MimiSubmitMessageResponseBody",
+      "schema": "mimi-operations.schema.json#/$defs/mimi_submit_message_response_body"
     },
     {
-      "rust_type": "crates/models-collaboration/src/generated/mimi_operations_contracts.rs::MimiIdentifierQueryOutcome",
-      "schema": "mimi-operations.schema.json#/$defs/mimi_identifier_query_outcome"
+      "rust_type": "crates/models-collaboration/src/generated/mimi_operations_contracts.rs::MimiIdentifierQueryResponseBody",
+      "schema": "mimi-operations.schema.json#/$defs/mimi_identifier_query_response_body"
     },
     {
-      "rust_type": "crates/models-collaboration/src/generated/mimi_operations_contracts.rs::MimiProxyDownloadOutcome",
-      "schema": "mimi-operations.schema.json#/$defs/mimi_proxy_download_outcome"
+      "rust_type": "crates/models-collaboration/src/generated/mimi_operations_contracts.rs::MimiProxyDownloadResponseBody",
+      "schema": "mimi-operations.schema.json#/$defs/mimi_proxy_download_response_body"
     },
     {
       "rust_type": "crates/models-collaboration/src/generated/mimi_operations_contracts.rs::MimiRoomUpdateRequestBody",
@@ -998,12 +994,12 @@
       "schema": "mimi-operations.schema.json#/$defs/mimi_notify_request_body"
     },
     {
-      "rust_type": "crates/models-collaboration/src/generated/mimi_operations_contracts.rs::MimiRequestConsentOutcome",
-      "schema": "mimi-operations.schema.json#/$defs/mimi_request_consent_outcome"
+      "rust_type": "crates/models-collaboration/src/generated/mimi_operations_contracts.rs::MimiRequestConsentResponseBody",
+      "schema": "mimi-operations.schema.json#/$defs/mimi_request_consent_response_body"
     },
     {
-      "rust_type": "crates/models-collaboration/src/generated/mimi_operations_contracts.rs::MimiUpdateConsentOutcome",
-      "schema": "mimi-operations.schema.json#/$defs/mimi_update_consent_outcome"
+      "rust_type": "crates/models-collaboration/src/generated/mimi_operations_contracts.rs::MimiUpdateConsentResponseBody",
+      "schema": "mimi-operations.schema.json#/$defs/mimi_update_consent_response_body"
     },
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/generated/direct_conversation_contracts.rs::DirectConversationBoundPayload",
@@ -1011,11 +1007,11 @@
     },
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/generated/direct_conversation_contracts.rs::DirectConversationBindingCurrentValue",
-      "schema": "typed-current-result.schema.json#/$defs/direct_conversation_binding_value"
+      "schema": "current-state.schema.json#/$defs/direct_conversation_binding_value"
     },
     {
       "rust_type": "crates/models-collaboration/src/generated/consent_operations_contracts.rs::ConsentValue",
-      "schema": "typed-current-result.schema.json#/$defs/consent_value"
+      "schema": "current-state.schema.json#/$defs/consent_value"
     },
     {
       "rust_type": "crates/models-collaboration/src/device_messages.rs::DeviceMessageEnvelope",
@@ -1028,8 +1024,8 @@
       "schema": "keys-operations.schema.json#/$defs/backup_active_series_state"
     },
     {
-      "rust_type": "crates/models-crypto/src/generated/key_backup_operations_contracts.rs::KeysBackupsList",
-      "schema": "keys-operations.schema.json#/$defs/keys_backups_list"
+      "rust_type": "crates/models-crypto/src/generated/key_backup_operations_contracts.rs::KeysBackupsPage",
+      "schema": "keys-operations.schema.json#/$defs/keys_backups_page"
     },
     {
       "rust_type": "crates/models-collaboration/src/sync_frames/generated/account_subscribe_contracts.rs::AccountFilter",
@@ -1053,23 +1049,23 @@
     },
     {
       "rust_type": "crates/models-identity/src/generated/claim_presentation_contracts.rs::AgentSelectorClaimValue",
-      "schema": "typed-current-result.schema.json#/$defs/agent_selector_claim_value"
+      "schema": "current-state.schema.json#/$defs/agent_selector_claim_value"
     },
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/generated/agent_contracts.rs::AgentProvisioningValue",
-      "schema": "typed-current-result.schema.json#/$defs/agent_provisioning_value"
+      "schema": "current-state.schema.json#/$defs/agent_provisioning_value"
     },
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/generated/agent_contracts.rs::AgentPcrGenesisDeclarationValue",
-      "schema": "typed-current-result.schema.json#/$defs/agent_pcr_genesis_declaration_value"
+      "schema": "current-state.schema.json#/$defs/agent_pcr_genesis_declaration_value"
     },
     {
       "rust_type": "crates/wire/src/generated/authority_commit_contracts.rs::RealmStreamRow",
       "schema": "realm-read-operations.schema.json#/$defs/realm_stream_row"
     },
     {
-      "rust_type": "crates/wire/src/generated/authority_commit_contracts.rs::RealmStreamList",
-      "schema": "realm-read-operations.schema.json#/$defs/realm_stream_list"
+      "rust_type": "crates/wire/src/generated/authority_commit_contracts.rs::RealmStreamPage",
+      "schema": "realm-read-operations.schema.json#/$defs/realm_stream_page"
     },
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/generated/registry_state_contracts.rs::ResourceDiscoveryStateValue",
@@ -1113,19 +1109,19 @@
     },
     {
       "rust_type": "crates/models-collaboration/src/governance/generated/membership_invite_contracts.rs::InviteDirectedInviteeValue",
-      "schema": "typed-current-result.schema.json#/$defs/invite_directed_invitee_value"
+      "schema": "current-state.schema.json#/$defs/invite_directed_invitee_value"
     },
     {
       "rust_type": "crates/models-collaboration/src/governance/generated/membership_invite_contracts.rs::InviteLiveTargetOccupant",
-      "schema": "typed-current-result.schema.json#/$defs/invite_live_target_value/oneOf/0"
+      "schema": "current-state.schema.json#/$defs/invite_live_target_value/oneOf/0"
     },
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/generated/redaction_contracts.rs::ObjectRedactionEntry",
-      "schema": "typed-current-result.schema.json#/$defs/object_redaction_entry"
+      "schema": "current-state.schema.json#/$defs/object_redaction_entry"
     },
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/generated/redaction_contracts.rs::ObjectRedactionCurrentValue",
-      "schema": "typed-current-result.schema.json#/$defs/object_redaction_value"
+      "schema": "current-state.schema.json#/$defs/object_redaction_value"
     },
     {
       "rust_type": "crates/models-collaboration/src/governance/generated/accountability_contracts.rs::AccountabilityProjection",
@@ -1149,27 +1145,27 @@
     },
     {
       "rust_type": "crates/models-collaboration/src/generated/agent_interaction_contracts.rs::AgentInteractionCurrentValue",
-      "schema": "typed-current-result.schema.json#/$defs/agent_interaction_value"
+      "schema": "current-state.schema.json#/$defs/agent_interaction_value"
     },
     {
       "rust_type": "crates/models-collaboration/src/generated/agent_interaction_contracts.rs::AgentInteractionExactCurrentSelector",
-      "schema": "typed-current-result.schema.json#/$defs/agent_interaction_result/properties/selector"
+      "schema": "current-state.schema.json#/$defs/current_agent_interaction/properties/selector"
     },
     {
-      "rust_type": "crates/models-collaboration/src/generated/agent_interaction_contracts.rs::AgentInteractionExactCurrentRow",
-      "schema": "typed-current-result.schema.json#/$defs/agent_interaction_result"
+      "rust_type": "crates/models-collaboration/src/generated/agent_interaction_contracts.rs::CurrentAgentInteraction",
+      "schema": "current-state.schema.json#/$defs/current_agent_interaction"
     },
     {
       "rust_type": "crates/models-collaboration/src/generated/agent_sidecar_contracts.rs::AgentSidecarExchangeControlAssertion",
-      "schema": "typed-current-result.schema.json#/$defs/agent_sidecar_exchange_controls_value/properties/assertions/items"
+      "schema": "current-state.schema.json#/$defs/agent_sidecar_exchange_controls_value/properties/assertions/items"
     },
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/generated/reaction_contracts.rs::ReactionAssertionEntry",
-      "schema": "typed-current-result.schema.json#/$defs/reaction_assertion_entry"
+      "schema": "current-state.schema.json#/$defs/reaction_assertion_entry"
     },
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/generated/reaction_contracts.rs::MessageReactionsCurrentValue",
-      "schema": "typed-current-result.schema.json#/$defs/message_reactions_value"
+      "schema": "current-state.schema.json#/$defs/message_reactions_value"
     },
     {
       "rust_type": "crates/models-integration/src/applet/generated/registration_contracts.rs::AppletDidMethodVersionEvidence",
@@ -1181,7 +1177,7 @@
     },
     {
       "rust_type": "crates/wire/src/generated/authority_commit_contracts.rs::RealmAuthorityRootValue",
-      "schema": "typed-current-result.schema.json#/$defs/realm_authority_root_value"
+      "schema": "current-state.schema.json#/$defs/realm_authority_root_value"
     },
     {
       "rust_type": "crates/wire/src/generated/authority_commit_contracts.rs::RealmCommit",
@@ -1192,8 +1188,8 @@
       "schema": "realm-authority-handoff.schema.json"
     },
     {
-      "rust_type": "crates/models-collaboration/src/generated/authority_commit_contracts.rs::AuthorityHandoffRequest",
-      "schema": "authority-commit-operations.schema.json#/$defs/handoff_request"
+      "rust_type": "crates/models-collaboration/src/generated/authority_commit_contracts.rs::AuthorityRealmAuthorityHandoffRequestBody",
+      "schema": "authority-commit-operations.schema.json#/$defs/realm_authority_handoff_request_body"
     },
     {
       "rust_type": "crates/models-collaboration/src/generated/authority_commit_contracts.rs::AccountDeviceHistoricalSignerFact",
@@ -1204,8 +1200,8 @@
       "schema": "authority-commit-operations.schema.json#/$defs/historical_producer_signer_fact_entry"
     },
     {
-      "rust_type": "crates/models-collaboration/src/generated/authority_commit_contracts.rs::PeerStreamScanOutcome",
-      "schema": "authority-commit-operations.schema.json#/$defs/peer_stream_scan_outcome"
+      "rust_type": "crates/models-collaboration/src/generated/authority_commit_contracts.rs::PeerStreamScanResponseBody",
+      "schema": "authority-commit-operations.schema.json#/$defs/peer_stream_scan_response_body"
     },
     {
       "rust_type": "crates/models-collaboration/src/generated/authority_commit_contracts.rs::CommittedEventSubmission",
@@ -1241,8 +1237,8 @@
       "schema": "directory-operations.schema.json#/$defs/directory_search_realms_request_body"
     },
     {
-      "rust_type": "crates/models-discovery/src/generated/directory.rs::DirectoryRealmSearchOutcome",
-      "schema": "directory-operations.schema.json#/$defs/directory_realm_search_outcome"
+      "rust_type": "crates/models-discovery/src/generated/directory.rs::DirectoryRealmSearchResponseBody",
+      "schema": "directory-operations.schema.json#/$defs/directory_realm_search_response_body"
     },
     {
       "rust_type": "crates/models-discovery/src/generated/directory.rs::DirectoryResolveRealmRequestBody",
@@ -1353,16 +1349,16 @@
       "schema": "call-invitation-operations.schema.json#/$defs/send_request_body"
     },
     {
-      "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::CallInvitationSendOutcome",
-      "schema": "call-invitation-operations.schema.json#/$defs/send_outcome"
+      "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::CallInvitationSendResponseBody",
+      "schema": "call-invitation-operations.schema.json#/$defs/send_response_body"
     },
     {
       "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::CallInvitationAdmissionRequestBody",
       "schema": "call-invitation-operations.schema.json#/$defs/admission_request_body"
     },
     {
-      "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::CallInvitationAdmissionOutcome",
-      "schema": "call-invitation-operations.schema.json#/$defs/admission_outcome"
+      "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::CallInvitationAdmissionDecision",
+      "schema": "call-invitation-operations.schema.json#/$defs/admission_decision"
     },
     {
       "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::CallInvitationDeliveryView",
@@ -1382,11 +1378,11 @@
     },
     {
       "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::ConsentCurrentSelector",
-      "schema": "typed-current-result.schema.json#/$defs/consent_result/properties/selector"
+      "schema": "current-state.schema.json#/$defs/current_consent/properties/selector"
     },
     {
-      "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::ConsentCurrentRow",
-      "schema": "typed-current-result.schema.json#/$defs/consent_result"
+      "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::CurrentConsent",
+      "schema": "current-state.schema.json#/$defs/current_consent"
     },
     {
       "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::ConsentCurrentReadProof",
@@ -1397,8 +1393,8 @@
       "schema": "consent-operations.schema.json#/$defs/consent_current_read_request_body"
     },
     {
-      "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::ConsentCurrentReadOutcome",
-      "schema": "consent-operations.schema.json#/$defs/consent_current_read_outcome"
+      "rust_type": "crates/models-collaboration/src/generated/call_invitation_contracts.rs::ConsentCurrentReadResponseBody",
+      "schema": "consent-operations.schema.json#/$defs/consent_current_read_response_body"
     },
     {
       "rust_type": "crates/models-collaboration/src/generated/authority_commit_contracts.rs::PcrPrivateHandoffManifest",
@@ -1454,79 +1450,79 @@
     },
     {
       "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateHolderQuarantineCell",
-      "schema": "consent-private-operations.schema.json#/$defs/effects_outcome/properties/body/properties/holder_quarantine/oneOf/0"
+      "schema": "consent-private-operations.schema.json#/$defs/effects_response_body/properties/body/properties/holder_quarantine/oneOf/0"
     },
     {
       "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateInviteDeliveryCell",
-      "schema": "consent-private-operations.schema.json#/$defs/effects_outcome/properties/body/properties/invite_delivery/oneOf/0"
+      "schema": "consent-private-operations.schema.json#/$defs/effects_response_body/properties/body/properties/invite_delivery/oneOf/0"
     },
     {
       "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateInviteReceivePolicyCell",
-      "schema": "consent-private-operations.schema.json#/$defs/effects_outcome/properties/body/properties/invite_receive_policy/oneOf/0"
+      "schema": "consent-private-operations.schema.json#/$defs/effects_response_body/properties/body/properties/invite_receive_policy/oneOf/0"
     },
     {
       "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateEffects",
-      "schema": "consent-private-operations.schema.json#/$defs/effects_outcome/properties/body"
+      "schema": "consent-private-operations.schema.json#/$defs/effects_response_body/properties/body"
     },
     {
-      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateListOutcome",
-      "schema": "consent-private-operations.schema.json#/$defs/list_outcome"
+      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateListResponseBody",
+      "schema": "consent-private-operations.schema.json#/$defs/list_response_body"
     },
     {
-      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateVersionOutcome",
-      "schema": "consent-private-operations.schema.json#/$defs/version_outcome"
+      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateVersionResponseBody",
+      "schema": "consent-private-operations.schema.json#/$defs/version_response_body"
     },
     {
-      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateEffectsOutcome",
-      "schema": "consent-private-operations.schema.json#/$defs/effects_outcome"
+      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateEffectsResponseBody",
+      "schema": "consent-private-operations.schema.json#/$defs/effects_response_body"
     },
     {
-      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateInvitePolicyOutcome",
-      "schema": "consent-private-operations.schema.json#/$defs/invite_policy_outcome"
+      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateInvitePolicyResponseBody",
+      "schema": "consent-private-operations.schema.json#/$defs/invite_policy_response_body"
     },
     {
-      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateInviteDeliveryOutcome",
-      "schema": "consent-private-operations.schema.json#/$defs/invite_delivery_outcome"
+      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateInviteDeliveryResponseBody",
+      "schema": "consent-private-operations.schema.json#/$defs/invite_delivery_response_body"
     },
     {
-      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateRequestOutcome",
-      "schema": "consent-private-operations.schema.json#/$defs/request_outcome"
+      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateRequestResponseBody",
+      "schema": "consent-private-operations.schema.json#/$defs/request_response_body"
     },
     {
-      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateProxyRequest",
-      "schema": "consent-private-operations.schema.json#/$defs/proxy_request"
+      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateProxyRequestBody",
+      "schema": "consent-private-operations.schema.json#/$defs/proxy_request_body"
     },
     {
-      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateProxyOutcome",
-      "schema": "consent-private-operations.schema.json#/$defs/proxy_outcome"
+      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateProxyResponseBody",
+      "schema": "consent-private-operations.schema.json#/$defs/proxy_response_body"
     },
     {
-      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateEffectsPublishRequest",
-      "schema": "consent-private-operations.schema.json#/$defs/effects_publish_request"
+      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateEffectsPublishRequestBody",
+      "schema": "consent-private-operations.schema.json#/$defs/effects_publish_request_body"
     },
     {
-      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateEffectsPublishOutcome",
-      "schema": "consent-private-operations.schema.json#/$defs/effects_publish_outcome"
+      "rust_type": "crates/models-collaboration/src/generated/consent_private_contracts.rs::ConsentPrivateEffectsPublishResponseBody",
+      "schema": "consent-private-operations.schema.json#/$defs/effects_publish_response_body"
     },
     {
       "rust_type": "crates/models-identity/src/service_binding_results.rs::ServiceSigningKey",
-      "schema": "media-service-binding-result.schema.json#/$defs/service_signing_key"
+      "schema": "media-service-binding-operations.schema.json#/$defs/service_signing_key"
     },
     {
       "rust_type": "crates/models-identity/src/service_binding_results.rs::MediaServiceBindingRequestBody",
-      "schema": "media-service-binding-result.schema.json#/$defs/media_service_binding_request_body"
+      "schema": "media-service-binding-operations.schema.json#/$defs/media_service_binding_request_body"
     },
     {
-      "rust_type": "crates/models-identity/src/service_binding_results.rs::MediaServiceBindingOutcome",
-      "schema": "media-service-binding-result.schema.json#/$defs/media_service_binding_outcome"
+      "rust_type": "crates/models-identity/src/service_binding_results.rs::MediaServiceBindingResponseBody",
+      "schema": "media-service-binding-operations.schema.json#/$defs/media_service_binding_response_body"
     },
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/generated/call_contracts.rs::CallRosterCurrentValue",
-      "schema": "typed-current-result.schema.json#/$defs/call_roster_value"
+      "schema": "current-state.schema.json#/$defs/call_roster_value"
     },
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/generated/call_contracts.rs::CallModerationCurrentValue",
-      "schema": "typed-current-result.schema.json#/$defs/call_moderation_value"
+      "schema": "current-state.schema.json#/$defs/call_moderation_value"
     },
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/generated/device_identity_contracts.rs::AppletManagedDeviceScope",
@@ -1534,27 +1530,27 @@
     },
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/generated/call_contracts.rs::CallRosterSource",
-      "schema": "typed-current-result.schema.json#/$defs/call_roster_source"
+      "schema": "current-state.schema.json#/$defs/call_roster_source"
     },
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/generated/call_contracts.rs::CallParticipantSigningKey",
-      "schema": "typed-current-result.schema.json#/$defs/call_participant_signing_key"
+      "schema": "current-state.schema.json#/$defs/call_participant_signing_key"
     },
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/generated/call_contracts.rs::CallRosterEntry",
-      "schema": "typed-current-result.schema.json#/$defs/call_roster_entry"
+      "schema": "current-state.schema.json#/$defs/call_roster_entry"
     },
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/generated/call_contracts.rs::CallModerationSource",
-      "schema": "typed-current-result.schema.json#/$defs/call_moderation_source"
+      "schema": "current-state.schema.json#/$defs/call_moderation_source"
     },
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/generated/call_contracts.rs::CallModerationEntry",
-      "schema": "typed-current-result.schema.json#/$defs/call_moderation_entry"
+      "schema": "current-state.schema.json#/$defs/call_moderation_entry"
     },
     {
-      "rust_type": "crates/models-collaboration/src/events_payloads/generated/read_receipt_contracts.rs::ScopeReadReceiptPolicyCurrent",
-      "schema": "typed-current-result.schema.json#/$defs/scope_read_receipt_policy_result"
+      "rust_type": "crates/models-collaboration/src/events_payloads/generated/read_receipt_contracts.rs::CurrentScopeReadReceiptPolicy",
+      "schema": "current-state.schema.json#/$defs/current_scope_read_receipt_policy"
     },
     {
       "rust_type": "crates/models-collaboration/src/generated/authority_commit_contracts.rs::RealmDeviceHistoricalSignerFact",
@@ -1570,23 +1566,23 @@
     },
     {
       "rust_type": "crates/models-integration/src/applet/generated/realm_actor_contracts.rs::RealmActorControlValue",
-      "schema": "typed-current-result.schema.json#/$defs/realm_actor_control_value"
+      "schema": "current-state.schema.json#/$defs/realm_actor_control_value"
     },
     {
       "rust_type": "crates/models-integration/src/applet/generated/realm_actor_contracts.rs::RealmActorManagerValue",
-      "schema": "typed-current-result.schema.json#/$defs/realm_actor_manager_value"
+      "schema": "current-state.schema.json#/$defs/realm_actor_manager_value"
     },
     {
       "rust_type": "crates/models-integration/src/applet/generated/realm_actor_contracts.rs::RealmActorRecoveryValue",
-      "schema": "typed-current-result.schema.json#/$defs/realm_actor_recovery_value"
+      "schema": "current-state.schema.json#/$defs/realm_actor_recovery_value"
     },
     {
       "rust_type": "crates/models-integration/src/applet/generated/realm_actor_contracts.rs::RealmActorDeviceGenerationValue",
-      "schema": "typed-current-result.schema.json#/$defs/realm_actor_device_generation_value"
+      "schema": "current-state.schema.json#/$defs/realm_actor_device_generation_value"
     },
     {
       "rust_type": "crates/models-integration/src/applet/generated/realm_actor_contracts.rs::RealmActorDeviceAuthorizationValue",
-      "schema": "typed-current-result.schema.json#/$defs/realm_actor_device_authorization_value"
+      "schema": "current-state.schema.json#/$defs/realm_actor_device_authorization_value"
     },
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/generated/consent_contracts.rs::ConsentReplacePayload",
@@ -1686,16 +1682,48 @@
     },
     {
       "rust_type": "crates/models-collaboration/src/generated/applet_installation_authority_contracts.rs::AppletAuthorityMaterialRequestBody",
-      "schema": "applet-authority-material.schema.json#/$defs/request"
+      "schema": "applet-authority-material.schema.json#/$defs/applet_authority_material_request_body"
     },
     {
-      "rust_type": "crates/models-collaboration/src/generated/applet_installation_authority_contracts.rs::AppletAuthorityMaterialOutcome",
-      "schema": "applet-authority-material.schema.json#/$defs/outcome"
+      "rust_type": "crates/models-collaboration/src/generated/applet_installation_authority_contracts.rs::AppletAuthorityMaterialResponseBody",
+      "schema": "applet-authority-material.schema.json#/$defs/response_body"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/sync_frames/account_subscribe.rs::AccountSubscribeParameters",
+      "schema": "account-subscribe-frame.schema.json#/$defs/account_subscribe_parameters"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/sync_frames/websocket.rs::WebSocketAccountOpenParameters",
+      "schema": "websocket-frame.schema.json#/$defs/account_open_parameters"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/sync_frames/websocket.rs::WebSocketConnectionDrainPayload",
+      "schema": "websocket-frame.schema.json#/$defs/connection_drain_payload"
+    },
+    {
+      "rust_type": "crates/wire/src/signal.rs::SignalEncryptedPayload",
+      "schema": "signal-envelope.schema.json#/properties/encrypted_payload"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/security_transaction.rs::RecoveryWelcomeRealmSummary",
+      "schema": "recovery-receipt.schema.json#/properties/welcome_realm_summaries/items"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/sync_frames/account_sync.rs::WindowStartE2eeEpoch",
+      "schema": "account-subscribe-frame.schema.json#/$defs/realm_stream_window/properties/e2ee_epoch/oneOf/1"
+    },
+    {
+      "rust_type": "crates/wire/src/authority_commit.rs::MlsGroupValue",
+      "schema": "current-state.schema.json#/$defs/mls_group_value"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/mls_payloads.rs::MlsGovernanceBindingPayload",
+      "schema": "event-payload.schema.json#/$defs/mls_governance_binding"
     }
   ],
   "exemptions": [
     {
-      "rust_type": "crates/models-crypto/src/recovery_policy.rs::RecoveryPolicyPublishRequest",
+      "rust_type": "crates/models-crypto/src/recovery_policy.rs::RecoveryPolicyPublishRequestBody",
       "reason": "struct-level serde conversion/transparent representation is not an object field set"
     },
     {

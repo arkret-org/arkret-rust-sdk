@@ -2,10 +2,10 @@
 
 use anyhow::Result;
 use arkret_identity::{
-    DidResolver as _, DidWebvhDocumentOutcome, DidWebvhLogOutcome, DidWebvhResolver,
+    DidResolver as _, DidWebvhDocumentHttpResponse, DidWebvhLogHttpResponse, DidWebvhResolver,
 };
 use arkret_models_identity::{
-    AuthenticatedServiceResolution, DidMethodUri, IdentityLogListOutcome,
+    AuthenticatedServiceResolution, DidMethodUri, IdentityLogListResponseBody,
 };
 use arkret_wire::{Did, DidCoreId, DidUrl, ProtocolSignature};
 use chrono::{DateTime, Utc};
@@ -14,7 +14,7 @@ use rand_core::SeedableRng as _;
 
 pub struct ServiceIdentityFixture {
     pub resolution: AuthenticatedServiceResolution,
-    pub history: IdentityLogListOutcome,
+    pub history: IdentityLogListResponseBody,
     pub signing_key: SigningKey,
     pub service_id: DidCoreId,
     pub verification_method: DidUrl,
@@ -37,7 +37,7 @@ impl ServiceIdentityFixture {
                 principal_endpoint: endpoint,
                 local_id: "service",
                 also_known_as: &[],
-                version_time: inception_at,
+                version_created_at: inception_at,
                 did_key_fragment: Some(fragment),
             },
             &signing_seed,
@@ -47,7 +47,7 @@ impl ServiceIdentityFixture {
         let mut resolver = DidWebvhResolver::new();
         resolver.insert_from_https_response(
             &did,
-            DidWebvhDocumentOutcome {
+            DidWebvhDocumentHttpResponse {
                 url: DidWebvhResolver::document_url(&did)?,
                 content_type: "application/json".into(),
                 body: serde_json::to_vec(&prepared.log_entry["state"])?,
@@ -55,7 +55,7 @@ impl ServiceIdentityFixture {
         )?;
         resolver.ingest_log(
             &did,
-            DidWebvhLogOutcome {
+            DidWebvhLogHttpResponse {
                 url: DidWebvhResolver::log_url(&did)?,
                 content_type: "application/jsonl".into(),
                 body: serde_json::to_vec(&prepared.log_entry)?,
@@ -71,7 +71,7 @@ impl ServiceIdentityFixture {
         )?;
         Ok(Self {
             resolution,
-            history: IdentityLogListOutcome {
+            history: IdentityLogListResponseBody {
                 did,
                 method: DidMethodUri::Webvh,
                 native_history: Some(true),

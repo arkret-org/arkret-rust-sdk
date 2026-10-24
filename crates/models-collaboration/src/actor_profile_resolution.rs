@@ -17,7 +17,7 @@
 
 use arkret_models_identity::actor_profile::ActorProfile;
 use arkret_models_identity::actor_profile_operations::{
-    ActorProfileResolveOutcome, ResolvedActorProfile,
+    ActorProfileResolveResponseBody, ResolvedActorProfile,
 };
 use arkret_wire::{ActorId, ActorProfileId, EventKind, Result, WireError};
 
@@ -109,10 +109,10 @@ pub fn validate_resolved_actor_profile(row: &ResolvedActorProfile) -> Result<Act
 /// degrade a single actor — a conformance assertion about a service, say. A
 /// display surface wants the opposite: keep the rows that hold and mark the one
 /// that does not as unavailable, so it calls
-/// [`ActorProfileResolveOutcome::validate_covers`] plus
+/// [`ActorProfileResolveResponseBody::validate_covers`] plus
 /// [`validate_resolved_actor_profile`] per row instead.
 pub fn validate_actor_profile_resolve_outcome(
-    outcome: &ActorProfileResolveOutcome,
+    outcome: &ActorProfileResolveResponseBody,
     requested: &[ActorId],
 ) -> Result<()> {
     outcome.validate_covers(requested)?;

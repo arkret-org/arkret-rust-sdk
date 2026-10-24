@@ -3,8 +3,8 @@
 use arkret_identity::VerifiedSubmission;
 use arkret_models_collaboration::governance::circle::{
     CircleCreateRequestBody, CircleList, CircleMemberDeleteRequestBody, CircleMemberRequestBody,
-    CircleMembershipOutcome, CircleReadView, CircleScopeRotateOutcome,
-    CircleScopeRotateRequestBody, CircleView,
+    CircleMembershipResponseBody, CircleReadView, CircleScopeRotateRequestBody,
+    CircleScopeRotateResponseBody, CircleView,
 };
 use arkret_wire::ActorId;
 use reqwest::Method;
@@ -36,7 +36,7 @@ impl Client {
         &self,
         circle_id: &str,
         request: &VerifiedSubmission<CircleMemberRequestBody>,
-    ) -> Result<CircleMembershipOutcome> {
+    ) -> Result<CircleMembershipResponseBody> {
         reject_path_segment(circle_id)?;
         self.post(
             &format!("/_arkret/self/circles/{circle_id}/members"),
@@ -50,7 +50,7 @@ impl Client {
         circle_id: &str,
         actor_id: &ActorId,
         request: &VerifiedSubmission<CircleMemberDeleteRequestBody>,
-    ) -> Result<CircleMembershipOutcome> {
+    ) -> Result<CircleMembershipResponseBody> {
         reject_path_segment(circle_id)?;
         let actor_id = circle_member_actor_path_segment(actor_id);
         let path = format!("/_arkret/self/circles/{circle_id}/members/{actor_id}");
@@ -63,7 +63,7 @@ impl Client {
         circle_id: &str,
         idempotency_key: &str,
         request: &VerifiedSubmission<CircleScopeRotateRequestBody>,
-    ) -> Result<CircleScopeRotateOutcome> {
+    ) -> Result<CircleScopeRotateResponseBody> {
         reject_path_segment(circle_id)?;
         let path = format!("/_arkret/self/circles/{circle_id}/scope-rotate");
         let options = ClientRequestOptions::new()

@@ -1,7 +1,7 @@
 //! Host-local endpoint evidence retained with the immutable creator pin.
 
 use arkret_models_identity::signer_key_operations::{
-    CurrentSignerKeyQuerySender, ResolvedSignerKey, SignerKeyQueryOutcome, SignerKeyQuerySelector,
+    CurrentSignerKeyQuerySender, ResolvedSignerKey, SignerKeyQuerySelector, SignerKeyResolution,
 };
 
 use super::*;
@@ -13,18 +13,18 @@ use super::*;
 #[serde(deny_unknown_fields)]
 pub struct MlsCreatorBootstrapAgentAuthority {
     #[serde(deserialize_with = "deserialize_current_agent")]
-    outcome: SignerKeyQueryOutcome,
+    outcome: SignerKeyResolution,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     verified_at: chrono::DateTime<chrono::Utc>,
 }
 
 fn deserialize_current_agent<'de, D: serde::Deserializer<'de>>(
     deserializer: D,
-) -> std::result::Result<SignerKeyQueryOutcome, D::Error> {
-    let value = SignerKeyQueryOutcome::deserialize(deserializer)?;
+) -> std::result::Result<SignerKeyResolution, D::Error> {
+    let value = SignerKeyResolution::deserialize(deserializer)?;
     if !matches!(
         &value,
-        SignerKeyQueryOutcome::CurrentResolved {
+        SignerKeyResolution::CurrentResolved {
             selector: SignerKeyQuerySelector::CurrentAdmission {
                 sender: CurrentSignerKeyQuerySender::Agent { .. }
             },
@@ -41,7 +41,7 @@ fn deserialize_current_agent<'de, D: serde::Deserializer<'de>>(
 impl MlsCreatorBootstrapAgentAuthority {
     pub fn from_current_signer_query(
         intent: &MlsCreatorBootstrapIntent,
-        outcome: SignerKeyQueryOutcome,
+        outcome: SignerKeyResolution,
         verified_at: chrono::DateTime<chrono::Utc>,
     ) -> Result<Self> {
         let value = Self {
@@ -55,7 +55,7 @@ impl MlsCreatorBootstrapAgentAuthority {
     pub fn validate_binding(&self, intent: &MlsCreatorBootstrapIntent) -> Result<()> {
         intent.validate()?;
         self.outcome.validate(intent.effective_scope().realm_id())?;
-        let SignerKeyQueryOutcome::CurrentResolved {
+        let SignerKeyResolution::CurrentResolved {
             selector:
                 SignerKeyQuerySelector::CurrentAdmission {
                     sender:
@@ -91,7 +91,7 @@ impl MlsCreatorBootstrapAgentAuthority {
 
     pub fn key(&self) -> &ResolvedSignerKey {
         match &self.outcome {
-            SignerKeyQueryOutcome::CurrentResolved { key, .. } => key,
+            SignerKeyResolution::CurrentResolved { key, .. } => key,
             _ => unreachable!("validated Agent authority always retains a current resolved key"),
         }
     }

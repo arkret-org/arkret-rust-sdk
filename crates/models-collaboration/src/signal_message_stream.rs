@@ -76,13 +76,17 @@ pub enum MessageStreamAbortKind {
 #[serde(deny_unknown_fields)]
 pub struct MessageStreamKeyframe {
     pub kind: MessageStreamPayloadKind,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub payload_sequence: u64,
     pub strand_id: StrandId,
     pub track_name: MessageStreamTrackName,
     pub message_id: MessageId,
     pub attempt: u32,
     pub stream_id: MessageStreamId,
-    pub seq: u64,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
+    pub sequence: u64,
     pub frame_kind: MessageStreamKeyframeKind,
     pub format: MessageStreamFormat,
     pub text: String,
@@ -97,7 +101,7 @@ impl MessageStreamKeyframe {
         message_id: MessageId,
         attempt: u32,
         stream_id: MessageStreamId,
-        seq: u64,
+        sequence: u64,
         format: MessageStreamFormat,
         text: impl Into<String>,
         truncated: bool,
@@ -110,7 +114,7 @@ impl MessageStreamKeyframe {
             message_id,
             attempt,
             stream_id,
-            seq,
+            sequence,
             frame_kind: MessageStreamKeyframeKind::Keyframe,
             format,
             text: text.into(),
@@ -130,15 +134,21 @@ impl MessageStreamKeyframe {
 #[serde(deny_unknown_fields)]
 pub struct MessageStreamDelta {
     pub kind: MessageStreamPayloadKind,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub payload_sequence: u64,
     pub strand_id: StrandId,
     pub track_name: MessageStreamTrackName,
     pub message_id: MessageId,
     pub attempt: u32,
     pub stream_id: MessageStreamId,
-    pub seq: u64,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
+    pub sequence: u64,
     pub frame_kind: MessageStreamDeltaKind,
-    pub base_seq: u64,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
+    pub base_sequence: u64,
     pub text_append: String,
 }
 
@@ -150,8 +160,8 @@ impl MessageStreamDelta {
         message_id: MessageId,
         attempt: u32,
         stream_id: MessageStreamId,
-        seq: u64,
-        base_seq: u64,
+        sequence: u64,
+        base_sequence: u64,
         text_append: impl Into<String>,
     ) -> Result<Self> {
         let frame = Self {
@@ -162,9 +172,9 @@ impl MessageStreamDelta {
             message_id,
             attempt,
             stream_id,
-            seq,
+            sequence,
             frame_kind: MessageStreamDeltaKind::Delta,
-            base_seq,
+            base_sequence,
             text_append: text_append.into(),
         };
         frame.validate()?;
@@ -172,9 +182,9 @@ impl MessageStreamDelta {
     }
 
     pub fn validate(&self) -> Result<()> {
-        if self.seq == 0 {
+        if self.sequence == 0 {
             return Err(WireError::Protocol(
-                "message stream delta seq must be greater than zero".to_owned(),
+                "message stream delta sequence must be greater than zero".to_owned(),
             ));
         }
         validate_preview_text(&self.text_append, false)
@@ -186,13 +196,17 @@ impl MessageStreamDelta {
 #[serde(deny_unknown_fields)]
 pub struct MessageStreamAbort {
     pub kind: MessageStreamPayloadKind,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub payload_sequence: u64,
     pub strand_id: StrandId,
     pub track_name: MessageStreamTrackName,
     pub message_id: MessageId,
     pub attempt: u32,
     pub stream_id: MessageStreamId,
-    pub seq: u64,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
+    pub sequence: u64,
     pub frame_kind: MessageStreamAbortKind,
     pub reason_code: MessageStreamAbortReason,
 }
@@ -205,7 +219,7 @@ impl MessageStreamAbort {
         message_id: MessageId,
         attempt: u32,
         stream_id: MessageStreamId,
-        seq: u64,
+        sequence: u64,
         reason_code: MessageStreamAbortReason,
     ) -> Result<Self> {
         let frame = Self {
@@ -216,7 +230,7 @@ impl MessageStreamAbort {
             message_id,
             attempt,
             stream_id,
-            seq,
+            sequence,
             frame_kind: MessageStreamAbortKind::Abort,
             reason_code,
         };
@@ -225,9 +239,9 @@ impl MessageStreamAbort {
     }
 
     pub fn validate(&self) -> Result<()> {
-        if self.seq == 0 {
+        if self.sequence == 0 {
             return Err(WireError::Protocol(
-                "message stream abort seq must be greater than zero".to_owned(),
+                "message stream abort sequence must be greater than zero".to_owned(),
             ));
         }
         Ok(())
@@ -314,11 +328,11 @@ impl MessageStreamFrame {
         }
     }
 
-    pub fn seq(&self) -> u64 {
+    pub fn sequence(&self) -> u64 {
         match self {
-            Self::Keyframe(frame) => frame.seq,
-            Self::Delta(frame) => frame.seq,
-            Self::Abort(frame) => frame.seq,
+            Self::Keyframe(frame) => frame.sequence,
+            Self::Delta(frame) => frame.sequence,
+            Self::Abort(frame) => frame.sequence,
         }
     }
 }
@@ -337,7 +351,7 @@ pub struct MessageStreamProducer {
     format: MessageStreamFormat,
     preview: String,
     emitted_bytes: usize,
-    seq: u64,
+    sequence: u64,
     started_at_ms: u64,
     last_keyframe_at_ms: u64,
     last_keyframe_bytes: usize,
@@ -381,7 +395,7 @@ impl MessageStreamProducer {
                 format,
                 preview: String::new(),
                 emitted_bytes: 0,
-                seq: 0,
+                sequence: 0,
                 started_at_ms: now_ms,
                 last_keyframe_at_ms: now_ms,
                 last_keyframe_bytes: 0,
@@ -456,7 +470,7 @@ impl MessageStreamProducer {
         if !self.reserve_frame(now_ms) {
             return Ok(None);
         }
-        self.seq = self.seq.saturating_add(1);
+        self.sequence = self.sequence.saturating_add(1);
         self.finished = true;
         Ok(Some(MessageStreamFrame::Abort(MessageStreamAbort::new(
             payload_sequence,
@@ -464,7 +478,7 @@ impl MessageStreamProducer {
             self.message_id.clone(),
             self.attempt,
             self.stream_id.clone(),
-            self.seq,
+            self.sequence,
             reason,
         )?)))
     }
@@ -495,7 +509,7 @@ impl MessageStreamProducer {
             return Ok(None);
         }
 
-        self.seq = self.seq.saturating_add(1);
+        self.sequence = self.sequence.saturating_add(1);
         if keyframe_due {
             self.emitted_bytes = self.preview.len();
             self.last_keyframe_bytes = self.preview.len();
@@ -507,7 +521,7 @@ impl MessageStreamProducer {
                     self.message_id.clone(),
                     self.attempt,
                     self.stream_id.clone(),
-                    self.seq,
+                    self.sequence,
                     self.format,
                     self.preview.clone(),
                     self.truncated,
@@ -515,7 +529,7 @@ impl MessageStreamProducer {
             )));
         }
 
-        let base_seq = self.seq.saturating_sub(1);
+        let base_sequence = self.sequence.saturating_sub(1);
         let text_append = self.preview[self.emitted_bytes..].to_owned();
         self.emitted_bytes = self.preview.len();
         Ok(Some(MessageStreamFrame::Delta(MessageStreamDelta::new(
@@ -524,8 +538,8 @@ impl MessageStreamProducer {
             self.message_id.clone(),
             self.attempt,
             self.stream_id.clone(),
-            self.seq,
-            base_seq,
+            self.sequence,
+            base_sequence,
             text_append,
         )?)))
     }

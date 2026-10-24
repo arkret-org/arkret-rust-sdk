@@ -14,9 +14,10 @@
 //! Move.
 
 use arkret_models_collaboration::governance::realm_join_intake::{
-    PeerRealmJoinBootstrapOutcome, PeerRealmJoinBootstrapRequestBody, PeerRealmJoinPreviewOutcome,
-    PeerRealmJoinPreviewRequestBody, SelfRealmJoinPrepareOutcome, SelfRealmJoinPrepareRequestBody,
-    SelfRealmJoinPreviewOutcome, SelfRealmJoinPreviewRequestBody,
+    PeerRealmJoinBootstrapRequestBody, PeerRealmJoinBootstrapResponseBody,
+    PeerRealmJoinPreviewRequestBody, PeerRealmJoinPreviewResponseBody,
+    SelfRealmJoinPrepareRequestBody, SelfRealmJoinPrepareResponseBody,
+    SelfRealmJoinPreviewRequestBody, SelfRealmJoinPreviewResponseBody,
 };
 
 use crate::{Client, Result};
@@ -31,9 +32,9 @@ impl Client {
     pub async fn self_realm_join_preview(
         &self,
         request: &SelfRealmJoinPreviewRequestBody,
-    ) -> Result<SelfRealmJoinPreviewOutcome> {
+    ) -> Result<SelfRealmJoinPreviewResponseBody> {
         request.validate()?;
-        let outcome: SelfRealmJoinPreviewOutcome = self
+        let outcome: SelfRealmJoinPreviewResponseBody = self
             .post("/_arkret/self/realm-joins/preview", request)
             .await?;
         outcome.validate_for_request(request)?;
@@ -46,9 +47,9 @@ impl Client {
     pub async fn self_realm_join_prepare(
         &self,
         request: &SelfRealmJoinPrepareRequestBody,
-    ) -> Result<SelfRealmJoinPrepareOutcome> {
+    ) -> Result<SelfRealmJoinPrepareResponseBody> {
         request.validate()?;
-        let outcome: SelfRealmJoinPrepareOutcome = self
+        let outcome: SelfRealmJoinPrepareResponseBody = self
             .post_protocol_replay_safe("/_arkret/self/realm-joins/prepare", request)
             .await?;
         outcome.validate_for_request(request)?;
@@ -62,9 +63,9 @@ impl Client {
     pub async fn peer_realm_join_preview(
         &self,
         request: &PeerRealmJoinPreviewRequestBody,
-    ) -> Result<PeerRealmJoinPreviewOutcome> {
+    ) -> Result<PeerRealmJoinPreviewResponseBody> {
         request.validate()?;
-        let outcome: PeerRealmJoinPreviewOutcome = self
+        let outcome: PeerRealmJoinPreviewResponseBody = self
             .post("/_arkret/peer/realm-joins/preview", request)
             .await?;
         outcome.validate_for_request(request)?;
@@ -77,8 +78,8 @@ impl Client {
     pub async fn peer_realm_join_bootstrap(
         &self,
         request: &PeerRealmJoinBootstrapRequestBody,
-    ) -> Result<PeerRealmJoinBootstrapOutcome> {
-        let outcome: PeerRealmJoinBootstrapOutcome = self
+    ) -> Result<PeerRealmJoinBootstrapResponseBody> {
+        let outcome: PeerRealmJoinBootstrapResponseBody = self
             .post("/_arkret/peer/realm-joins/bootstrap", request)
             .await?;
         Ok(outcome)

@@ -1,6 +1,5 @@
 use arkret_models_crypto::{
-    KeyPackagesUploadRequestBody, KeyPackagesUploadUnsignedRequest,
-    keypackages_upload_signing_input,
+    KeyPackagesUploadFields, KeyPackagesUploadRequestBody, keypackages_upload_signing_input,
 };
 use ed25519_dalek::{Signature, Signer as _, SigningKey, Verifier as _};
 use serde_json::{Value, json};
@@ -18,7 +17,7 @@ fn signed_device() -> Value {
     body["endpoint_signature"] = json!({
         "kid": fixture["test_key"]["kid"],
         "signature_algorithm": "Ed25519",
-        "sig": fixture["cases"][0]["signature"],
+        "signature": fixture["cases"][0]["signature"],
     });
     body
 }
@@ -26,7 +25,7 @@ fn signed_device() -> Value {
 #[test]
 fn upload_matches_spec_jcs_bytes_and_signature_kat() {
     let fixture = fixture();
-    let unsigned: KeyPackagesUploadUnsignedRequest =
+    let unsigned: KeyPackagesUploadFields =
         serde_json::from_value(fixture["cases"][0]["unsigned_request"].clone()).unwrap();
     let input = keypackages_upload_signing_input(&unsigned).unwrap();
     assert_eq!(
@@ -79,7 +78,7 @@ fn upload_accepts_only_closed_human_and_agent_branches() {
                     .unwrap()
                     .remove("endpoint_signature");
                 assert!(
-                    serde_json::from_value::<KeyPackagesUploadUnsignedRequest>(invalid).is_err(),
+                    serde_json::from_value::<KeyPackagesUploadFields>(invalid).is_err(),
                     "{field}"
                 );
             }
@@ -133,7 +132,7 @@ fn every_present_optional_and_entry_order_is_covered_by_the_batch_signature() {
     second["keypackage_id"] = json!("ak:mls:kp:01964137-0000-7000-8000-00000000000e");
     second["last_resort"] = json!(true);
     full["keypackages"].as_array_mut().unwrap().push(second);
-    let original: KeyPackagesUploadUnsignedRequest = serde_json::from_value(full.clone()).unwrap();
+    let original: KeyPackagesUploadFields = serde_json::from_value(full.clone()).unwrap();
     let input = keypackages_upload_signing_input(&original).unwrap();
     let key = SigningKey::from_bytes(&[93; 32]);
     let signature: Signature = key.sign(&input);
@@ -160,7 +159,7 @@ fn every_present_optional_and_entry_order_is_covered_by_the_batch_signature() {
     station["actor_id"]["account_id"]["station_id"] = json!("ak:did_core:web:another.example");
     mutations.push(station);
     for mutation in mutations {
-        let parsed: KeyPackagesUploadUnsignedRequest = serde_json::from_value(mutation).unwrap();
+        let parsed: KeyPackagesUploadFields = serde_json::from_value(mutation).unwrap();
         assert!(
             key.verifying_key()
                 .verify(
@@ -180,7 +179,7 @@ fn every_present_optional_and_entry_order_is_covered_by_the_batch_signature() {
 
 #[test]
 fn invalid_constructed_unsigned_request_cannot_be_signed() {
-    let mut unsigned: KeyPackagesUploadUnsignedRequest =
+    let mut unsigned: KeyPackagesUploadFields =
         serde_json::from_value(fixture()["cases"][0]["unsigned_request"].clone()).unwrap();
     unsigned.device_id = None;
     assert!(keypackages_upload_signing_input(&unsigned).is_err());

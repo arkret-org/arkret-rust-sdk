@@ -13,12 +13,12 @@ fn description() -> ServiceDescribe {
             extension_profile_required: (),
         }],
     );
-    value.auth_metadata.account_authority = Some(AccountAuthority {
+    value.authentication_metadata.account_authority = Some(AccountAuthority {
         origin: WebOrigin::new("https://auth.example").unwrap(),
         gate_account_base_url: "https://auth.example/_arkret/gate/account".into(),
         extra: Default::default(),
     });
-    value.auth_metadata.methods = vec![AuthMethod {
+    value.authentication_metadata.methods = vec![AuthenticationMethod {
         method: AuthMethodKind::Oidc,
         issuer_uri: Some("https://idp.example".into()),
         provider_uri: None,
@@ -27,7 +27,7 @@ fn description() -> ServiceDescribe {
         ),
         client_id: Some("client".into()),
         scopes: vec!["openid".into(), "profile".into()],
-        grant_exchange: AuthGrantExchange {
+        grant_exchange: AccountHandoffExchange {
             kind: AuthGrantExchangeKind::AccountHandoff,
             extra: Default::default(),
         },
@@ -66,11 +66,11 @@ fn preconfigured_identity_and_trust_domain_cannot_be_overwritten() {
 fn unchanged_station_does_not_authorize_changed_issuer_or_authority() {
     let pin = binding(&description()).unwrap();
     let mut changed = description();
-    changed.auth_metadata.methods[0].issuer_uri = Some("https://attacker.example".into());
+    changed.authentication_metadata.methods[0].issuer_uri = Some("https://attacker.example".into());
     assert!(pin.require_same(&binding(&changed).unwrap()).is_err());
     changed = description();
     changed
-        .auth_metadata
+        .authentication_metadata
         .account_authority
         .as_mut()
         .unwrap()
@@ -82,13 +82,13 @@ fn unchanged_station_does_not_authorize_changed_issuer_or_authority() {
 fn method_order_extensions_and_resolution_version_are_not_identity_changes() {
     let pin = binding(&description()).unwrap();
     let mut changed = description();
-    changed.auth_metadata.methods[0].scopes.reverse();
+    changed.authentication_metadata.methods[0].scopes.reverse();
     changed
-        .auth_metadata
+        .authentication_metadata
         .methods
-        .push(changed.auth_metadata.methods[0].clone());
-    changed.auth_metadata.methods.reverse();
-    changed.auth_metadata.extra =
+        .push(changed.authentication_metadata.methods[0].clone());
+    changed.authentication_metadata.methods.reverse();
+    changed.authentication_metadata.extra =
         arkret_wire::XExtensionMap::new([("x_note".to_owned(), serde_json::json!("new"))].into())
             .unwrap();
     changed.service_resolution.version_id = "2".into();
@@ -104,7 +104,7 @@ fn mismatched_route_and_authority_origin_are_rejected() {
     assert!(binding(&changed).is_err());
     changed = description();
     changed
-        .auth_metadata
+        .authentication_metadata
         .account_authority
         .as_mut()
         .unwrap()
@@ -116,14 +116,14 @@ fn mismatched_route_and_authority_origin_are_rejected() {
 fn missing_authority_never_falls_back_to_origin() {
     let mut changed = description();
     changed
-        .auth_metadata
+        .authentication_metadata
         .account_authority
         .as_mut()
         .unwrap()
         .gate_account_base_url
         .clear();
     assert!(binding(&changed).is_err());
-    changed.auth_metadata.account_authority = None;
+    changed.authentication_metadata.account_authority = None;
     assert!(binding(&changed).is_err());
 }
 

@@ -1,7 +1,7 @@
 //! Strand lifecycle and ordering event payloads.
 
 use crate::internal_prelude::*;
-use crate::strand_watch_operations::StrandWatchCurrentValue;
+use crate::strand_watch_operations::StrandWatchValue;
 
 // `strand_move_payload` uses `models::operation_payloads::StrandMovePayload`.
 
@@ -224,11 +224,11 @@ where
 
 fn deserialize_watch_preimage<'de, D>(
     deserializer: D,
-) -> std::result::Result<Option<StrandWatchCurrentValue>, D::Error>
+) -> std::result::Result<Option<StrandWatchValue>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
-    StrandWatchCurrentValue::deserialize(deserializer).map(Some)
+    StrandWatchValue::deserialize(deserializer).map(Some)
 }
 
 impl StrandWatchSetPayload {
@@ -263,7 +263,7 @@ impl StrandWatchSetPayload {
 
     /// Compare the complete written value, including an explicitly cleared cell.
     /// Omission remains reserved for a Station-confirmed never-written cell.
-    pub fn with_expected_value(mut self, expected: StrandWatchCurrentValue) -> Self {
+    pub fn with_expected_value(mut self, expected: StrandWatchValue) -> Self {
         self.expected_value = Some(expected);
         self
     }

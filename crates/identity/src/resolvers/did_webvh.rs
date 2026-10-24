@@ -36,7 +36,7 @@ pub struct DidWebvhLogEntry {
     #[serde(rename = "versionId")]
     pub version_id: String,
     #[serde(rename = "versionTime")]
-    pub version_time: DateTime<Utc>,
+    pub version_created_at: DateTime<Utc>,
     pub parameters: Value,
     pub state: Value,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -44,9 +44,9 @@ pub struct DidWebvhLogEntry {
 }
 
 /// Bytes returned from fetching `did.json` over HTTPS, mirroring
-/// [`DidWebDocumentOutcome`].
+/// [`DidWebDocumentHttpResponse`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DidWebvhDocumentOutcome {
+pub struct DidWebvhDocumentHttpResponse {
     pub url: String,
     pub content_type: String,
     pub body: Vec<u8>,
@@ -54,7 +54,7 @@ pub struct DidWebvhDocumentOutcome {
 
 /// Bytes returned from fetching `did.jsonl` over HTTPS.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DidWebvhLogOutcome {
+pub struct DidWebvhLogHttpResponse {
     pub url: String,
     pub content_type: String,
     pub body: Vec<u8>,
@@ -160,7 +160,7 @@ impl DidWebvhResolver {
     pub fn insert_from_https_response(
         &mut self,
         did: &Did,
-        response: DidWebvhDocumentOutcome,
+        response: DidWebvhDocumentHttpResponse,
     ) -> Result<DidDocument> {
         if self.conflicted.contains(did) {
             return Err(IdentityError::Protocol(
@@ -204,7 +204,7 @@ impl DidWebvhResolver {
     pub fn ingest_log(
         &mut self,
         did: &Did,
-        response: DidWebvhLogOutcome,
+        response: DidWebvhLogHttpResponse,
     ) -> Result<Vec<DidWebvhLogEntry>> {
         if self.conflicted.contains(did) {
             return Err(IdentityError::Protocol(
@@ -1057,7 +1057,7 @@ pub fn did_webvh_entry_hash(raw: &Value, previous_anchor: &str) -> Result<String
 }
 
 /// Verify the `versionId`'s entry-hash component. `version_id` is
-/// `<seq>-<hash>`; `prev_anchor` is the predecessor `versionId` (or the
+/// `<sequence>-<hash>`; `prev_anchor` is the predecessor `versionId` (or the
 /// SCID for the first entry). The hash MUST equal the multihash of the
 /// entry canonicalized with `versionId = prev_anchor` and `proof` removed.
 fn verify_webvh_entry_hash(version_id: &str, prev_anchor: &str, raw: &Value) -> Result<()> {

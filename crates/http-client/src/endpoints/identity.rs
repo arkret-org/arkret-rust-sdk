@@ -1,21 +1,22 @@
 //! Server-describe, identity, and directory endpoint methods on [`Client`].
 
 use arkret_models_discovery::{
-    DirectoryRealmResolutionOutcome, DirectoryRealmSearchOutcome, DirectoryResolveRealmRequestBody,
-    DirectorySearchRealmsRequestBody, ServiceDescribe, ServiceRequirements,
+    DirectoryRealmSearchResponseBody, DirectoryResolveRealmRequestBody,
+    DirectorySearchRealmsRequestBody, PublicRealmDirectoryEntry, ServiceDescribe,
+    ServiceRequirements,
 };
 use arkret_models_identity::actor_profile_operations::{
-    ActorProfileResolveOutcome, ActorProfileResolveRequest,
+    ActorProfileResolveRequestBody, ActorProfileResolveResponseBody,
 };
 use arkret_models_identity::service_identity::{
     SERVICE_REGISTRATION_ENSURE_PATH, SERVICE_REGISTRATION_GET_PATH,
-    ServiceRegistrationEnsureRequestBody, ServiceRegistrationKey, ServiceRegistrationOutcome,
+    ServiceRegistrationEnsureRequestBody, ServiceRegistrationKey, ServiceRegistrationResponseBody,
 };
 use arkret_models_identity::{
-    AuthenticatedServiceResolution, DidOperationSubmitOutcome, DidOperationSubmitRequestBody,
-    IdentityDocumentView, IdentityLogListOutcome, IdentityReceiptListOutcome,
-    IdentityResolveOutcome, IdentityResolveRequestBody, PrincipalResolutionAuditEvidence,
-    PrincipalResolutionAuditRequest, PublicPrincipalResolution,
+    AuthenticatedServiceResolution, DidOperationSubmitRequestBody, DidOperationSubmitResponseBody,
+    IdentityDocumentView, IdentityLogListResponseBody, IdentityReceiptListResponseBody,
+    IdentityResolveRequestBody, IdentityResolveResponseBody, PrincipalResolutionAuditEvidence,
+    PrincipalResolutionAuditRequestBody, PublicPrincipalResolution,
 };
 use arkret_wire::{DidCoreId, ServiceKind};
 use reqwest::Method;
@@ -27,9 +28,9 @@ impl Client {
     pub async fn current_principal(
         &self,
         request: &arkret_models_identity::CurrentPrincipalRequestBody,
-    ) -> Result<arkret_models_identity::CurrentPrincipalOutcome> {
+    ) -> Result<arkret_models_identity::CurrentPrincipalResponseBody> {
         request.validate()?;
-        let outcome: arkret_models_identity::CurrentPrincipalOutcome = self
+        let outcome: arkret_models_identity::CurrentPrincipalResponseBody = self
             .post("/_arkret/self/account/current-principal", request)
             .await?;
         outcome.validate_for_request(request)?;
@@ -47,9 +48,9 @@ impl Client {
         &self,
         request: &arkret_models_identity::MediaServiceBindingRequestBody,
         accepted_service_id: &DidCoreId,
-    ) -> Result<arkret_models_identity::MediaServiceBindingOutcome> {
+    ) -> Result<arkret_models_identity::MediaServiceBindingResponseBody> {
         request.validate()?;
-        let outcome: arkret_models_identity::MediaServiceBindingOutcome = self
+        let outcome: arkret_models_identity::MediaServiceBindingResponseBody = self
             .post("/_arkret/self/media-service-bindings/query", request)
             .await?;
         outcome.validate_for_request(request, accepted_service_id)?;
@@ -62,7 +63,7 @@ impl Client {
     /// an implicit current PCR when more than one lineage exists.
     pub async fn principal_resolution_audit(
         &self,
-        request: &PrincipalResolutionAuditRequest,
+        request: &PrincipalResolutionAuditRequestBody,
     ) -> Result<PrincipalResolutionAuditEvidence> {
         request.validate()?;
         let evidence: PrincipalResolutionAuditEvidence = self
@@ -92,10 +93,10 @@ impl Client {
     /// an accepted authority commit reference.
     pub async fn actor_profile_resolve(
         &self,
-        request: &ActorProfileResolveRequest,
-    ) -> Result<ActorProfileResolveOutcome> {
+        request: &ActorProfileResolveRequestBody,
+    ) -> Result<ActorProfileResolveResponseBody> {
         request.validate()?;
-        let outcome: ActorProfileResolveOutcome = self
+        let outcome: ActorProfileResolveResponseBody = self
             .post("/_arkret/self/actor-profiles/query", request)
             .await?;
         outcome.validate_covers(&request.actor_ids)?;
@@ -184,7 +185,7 @@ impl Client {
     pub async fn identity_resolve(
         &self,
         request: &IdentityResolveRequestBody,
-    ) -> Result<IdentityResolveOutcome> {
+    ) -> Result<IdentityResolveResponseBody> {
         self.post("/_arkret/root/identity/resolve", request).await
     }
 
@@ -207,7 +208,7 @@ impl Client {
         did: &str,
         cursor: Option<&str>,
         limit: Option<u32>,
-    ) -> Result<IdentityLogListOutcome> {
+    ) -> Result<IdentityLogListResponseBody> {
         let mut builder = self
             .request(Method::GET, "/_arkret/root/identity/log")?
             .query(&[("did", did)]);
@@ -223,9 +224,9 @@ impl Client {
     pub async fn identity_submit_did_operation(
         &self,
         request: &DidOperationSubmitRequestBody,
-    ) -> Result<DidOperationSubmitOutcome> {
+    ) -> Result<DidOperationSubmitResponseBody> {
         request.validate()?;
-        let outcome: DidOperationSubmitOutcome = self
+        let outcome: DidOperationSubmitResponseBody = self
             .post("/_arkret/root/identity/submit-did-operation", request)
             .await?;
         outcome.validate_for_request(request)?;
@@ -238,9 +239,9 @@ impl Client {
     pub async fn service_registration_ensure(
         &self,
         request: &ServiceRegistrationEnsureRequestBody,
-    ) -> Result<ServiceRegistrationOutcome> {
+    ) -> Result<ServiceRegistrationResponseBody> {
         request.validate()?;
-        let outcome: ServiceRegistrationOutcome =
+        let outcome: ServiceRegistrationResponseBody =
             self.post(SERVICE_REGISTRATION_ENSURE_PATH, request).await?;
         outcome.validate_ensure_response(request)?;
         Ok(outcome)
@@ -251,14 +252,14 @@ impl Client {
     pub async fn service_registration_get(
         &self,
         key: &ServiceRegistrationKey,
-    ) -> Result<ServiceRegistrationOutcome> {
+    ) -> Result<ServiceRegistrationResponseBody> {
         let builder = self
             .request(Method::GET, SERVICE_REGISTRATION_GET_PATH)?
             .query(&[
                 ("service_kind", key.service_kind().as_str()),
                 ("public_base_url", key.public_base_url().as_str()),
             ]);
-        let outcome: ServiceRegistrationOutcome = self.send_json(builder).await?;
+        let outcome: ServiceRegistrationResponseBody = self.send_json(builder).await?;
         outcome.validate_for(key)?;
         if outcome.created {
             return Err(Error::Protocol(
@@ -272,11 +273,11 @@ impl Client {
         &self,
         did: &str,
         head: &str,
-    ) -> Result<IdentityReceiptListOutcome> {
+    ) -> Result<IdentityReceiptListResponseBody> {
         let builder = self
             .request(Method::GET, "/_arkret/root/identity/receipts")?
             .query(&[("did", did), ("head", head)]);
-        let outcome: IdentityReceiptListOutcome = self.send_json(builder).await?;
+        let outcome: IdentityReceiptListResponseBody = self.send_json(builder).await?;
         for receipt in &outcome.receipts {
             receipt.validate_proof_binding()?;
         }
@@ -296,7 +297,7 @@ impl Client {
     pub async fn directory_search_realms(
         &self,
         request: &DirectorySearchRealmsRequestBody,
-    ) -> Result<DirectoryRealmSearchOutcome> {
+    ) -> Result<DirectoryRealmSearchResponseBody> {
         let builder = self.public_request(Method::POST, "/_arkret/find/directory/search-realms")?;
         self.send_json(self.canonical_json_body(builder, request)?)
             .await
@@ -305,7 +306,7 @@ impl Client {
     pub async fn directory_resolve_realm(
         &self,
         request: &DirectoryResolveRealmRequestBody,
-    ) -> Result<DirectoryRealmResolutionOutcome> {
+    ) -> Result<PublicRealmDirectoryEntry> {
         let builder = self.public_request(Method::POST, "/_arkret/find/directory/resolve-realm")?;
         self.send_json(self.canonical_json_body(builder, request)?)
             .await

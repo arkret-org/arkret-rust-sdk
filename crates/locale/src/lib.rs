@@ -136,8 +136,8 @@ impl UiLocale {
 /// rank) rather than an error: a client sending a broken weight still stated a
 /// language preference, and dropping it would silently fall through to a
 /// language the user did not ask for.
-fn parse_quality<'a>(params: impl Iterator<Item = &'a str>) -> u16 {
-    for param in params {
+fn parse_quality<'a>(parameters: impl Iterator<Item = &'a str>) -> u16 {
+    for param in parameters {
         let param = param.trim();
         let Some(raw) = param
             .strip_prefix("q=")

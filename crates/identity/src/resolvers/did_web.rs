@@ -12,7 +12,7 @@ pub struct DidWebResolver {
 
 /// Host-fetched `did:web` document response validated by the SDK.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DidWebDocumentOutcome {
+pub struct DidWebDocumentHttpResponse {
     pub url: String,
     pub content_type: String,
     pub body: Vec<u8>,
@@ -46,7 +46,7 @@ impl DidWebResolver {
     pub fn insert_from_https_response(
         &mut self,
         did: &Did,
-        response: DidWebDocumentOutcome,
+        response: DidWebDocumentHttpResponse,
     ) -> Result<DidDocument> {
         let expected_url = Self::document_url(did)?;
         if response.url != expected_url {

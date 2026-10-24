@@ -80,7 +80,7 @@ impl ConsentPrivateCommand {
     }
 }
 
-impl ConsentPrivateCommandOutcome {
+impl ConsentPrivateCommandResponseBody {
     pub fn kind(&self) -> &'static str {
         match self {
             Self::List(_) => "list",
@@ -93,7 +93,7 @@ impl ConsentPrivateCommandOutcome {
     }
 }
 
-impl ConsentPrivateProxyRequest {
+impl ConsentPrivateProxyRequestBody {
     /// Shape and authenticated Source binding only. The receiver must still
     /// verify the holder's accepted inception, tenure, active device and root
     /// in the same private accepting transaction as its operation.
@@ -120,12 +120,12 @@ impl ConsentPrivateProxyRequest {
     }
 }
 
-impl ConsentPrivateProxyOutcome {
+impl ConsentPrivateProxyResponseBody {
     /// Transport authentication and the independent current authority anchor
     /// are required in addition to these exact request/response bindings.
     pub fn validate_for_request(
         &self,
-        request: &ConsentPrivateProxyRequest,
+        request: &ConsentPrivateProxyRequestBody,
         at: DateTime<Utc>,
     ) -> Result<()> {
         if self.request_digest != request.digest()?
@@ -135,7 +135,7 @@ impl ConsentPrivateProxyOutcome {
                 != (arkret_wire::CommitStreamRef::Realm {
                     realm_id: request.realm_id.clone(),
                 })
-            || self.outcome.kind() != request.command.kind()
+            || self.response_body.kind() != request.command.kind()
             || self.evaluated_at > at
             || self.expires_at <= at
             || self.expires_at <= self.evaluated_at
@@ -158,12 +158,12 @@ mod tests {
 
     use super::*;
 
-    fn request() -> ConsentPrivateProxyRequest {
+    fn request() -> ConsentPrivateProxyRequestBody {
         let holder = AccountId::new(
             DidCoreId::new("ak:did_core:web:holder.example").unwrap(),
             DidCoreId::new("ak:did_core:web:hosting.example").unwrap(),
         );
-        ConsentPrivateProxyRequest {
+        ConsentPrivateProxyRequestBody {
             holder_account_id: holder.clone(),
             realm_id: RealmId::from_event_id(&arkret_wire::EventId::from_digest(
                 arkret_canonical::DigestSuite::Sha256,
@@ -210,14 +210,14 @@ mod tests {
         assert!(wrong.validate_at(source, at).is_err());
         let mut value = serde_json::to_value(&request).unwrap();
         value["command"]["kind"] = serde_json::json!("account_data_write");
-        assert!(serde_json::from_value::<ConsentPrivateProxyRequest>(value).is_err());
+        assert!(serde_json::from_value::<ConsentPrivateProxyRequestBody>(value).is_err());
     }
 
     #[test]
     fn private_proxy_outcome_cannot_rebind_a_request_or_extend_its_window() {
         let request = request();
         let at = "2026-10-15T00:00:00.000Z".parse().unwrap();
-        let outcome = ConsentPrivateProxyOutcome {
+        let outcome = ConsentPrivateProxyResponseBody {
             request_digest: request.digest().unwrap(),
             realm_id: request.realm_id.clone(),
             governance_generation: 2,
@@ -230,10 +230,12 @@ mod tests {
             },
             evaluated_at: at,
             expires_at: request.expires_at,
-            outcome: ConsentPrivateCommandOutcome::List(ConsentPrivateListOutcome {
-                kind: ConsentPrivateListOutcomeKind::List,
-                body: crate::consent_operations::ConsentList { consents: vec![] },
-            }),
+            response_body: ConsentPrivateCommandResponseBody::List(
+                ConsentPrivateListResponseBody {
+                    kind: ConsentPrivateListOutcomeKind::List,
+                    body: crate::consent_operations::ConsentList { consents: vec![] },
+                },
+            ),
         };
         outcome.validate_for_request(&request, at).unwrap();
         let mut changed = request.clone();
@@ -316,7 +318,7 @@ impl ConsentPrivateEffects {
         Ok(())
     }
 }
-impl ConsentPrivateEffectsPublishRequest {
+impl ConsentPrivateEffectsPublishRequestBody {
     pub fn digest(&self) -> Result<String> {
         arkret_canonical::canonical_sha256(self).map_err(|e| invalid(&e.to_string()))
     }
@@ -355,10 +357,10 @@ impl ConsentPrivateEffectsPublishRequest {
         self.effects.validate_holder(&self.holder_account_id)
     }
 }
-impl ConsentPrivateEffectsPublishOutcome {
+impl ConsentPrivateEffectsPublishResponseBody {
     pub fn validate_for_request(
         &self,
-        request: &ConsentPrivateEffectsPublishRequest,
+        request: &ConsentPrivateEffectsPublishRequestBody,
     ) -> Result<()> {
         if self.request_digest != request.digest()? {
             return Err(invalid(
@@ -372,7 +374,7 @@ impl ConsentPrivateEffectsPublishOutcome {
 #[cfg(test)]
 mod publication_tests {
     use super::*;
-    fn publication() -> ConsentPrivateEffectsPublishRequest {
+    fn publication() -> ConsentPrivateEffectsPublishRequestBody {
         let holder = arkret_wire::AccountId::new(
             "ak:did_core:web:holder.example".parse().unwrap(),
             "ak:did_core:web:hosting.example".parse().unwrap(),
@@ -382,7 +384,7 @@ mod publication_tests {
             [21; 32],
         ));
         let at = "2026-10-15T00:00:00.000Z".parse().unwrap();
-        ConsentPrivateEffectsPublishRequest {
+        ConsentPrivateEffectsPublishRequestBody {
             holder_account_id: holder,
             realm_id: realm.clone(),
             governance_generation: 2,
@@ -405,7 +407,7 @@ mod publication_tests {
     fn effect_publication_requires_current_authority_exact_hosting_and_complete_cells() {
         let request = publication();
         let governor: DidCoreId = "ak:did_core:web:governor.example".parse().unwrap();
-        let validate = |request: &ConsentPrivateEffectsPublishRequest| {
+        let validate = |request: &ConsentPrivateEffectsPublishRequestBody| {
             request.validate_for_authority(
                 &governor,
                 &request.holder_account_id.station_id,
@@ -482,11 +484,11 @@ mod publication_tests {
             .as_object_mut()
             .unwrap()
             .remove("holder_quarantine");
-        assert!(serde_json::from_value::<ConsentPrivateEffectsPublishRequest>(value).is_err());
+        assert!(serde_json::from_value::<ConsentPrivateEffectsPublishRequestBody>(value).is_err());
         let mut value = serde_json::to_value(&request).unwrap();
         value["effects"]["unregistered_key"] = serde_json::json!({});
-        assert!(serde_json::from_value::<ConsentPrivateEffectsPublishRequest>(value).is_err());
-        let ack = ConsentPrivateEffectsPublishOutcome {
+        assert!(serde_json::from_value::<ConsentPrivateEffectsPublishRequestBody>(value).is_err());
+        let ack = ConsentPrivateEffectsPublishResponseBody {
             request_digest: request.digest().unwrap(),
             status: ConsentPrivateEffectsPublishStatus::Applied,
         };

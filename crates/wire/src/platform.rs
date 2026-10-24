@@ -10,7 +10,7 @@ use crate::{Result, WireError};
 
 /// Browser HTTP request body shape for WASM transports.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct WasmHttpRequestBody {
+pub struct WasmHttpRequest {
     pub method: String,
     pub url: String,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -18,7 +18,7 @@ pub struct WasmHttpRequestBody {
     pub body: Vec<u8>,
 }
 
-impl WasmHttpRequestBody {
+impl WasmHttpRequest {
     pub fn validate(&self) -> Result<()> {
         if self.method.trim().is_empty() {
             return Err(WireError::Protocol(
@@ -36,7 +36,7 @@ impl WasmHttpRequestBody {
 
 /// Browser HTTP response body shape returned by WASM transports.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct WasmHttpResponseBody {
+pub struct WasmHttpResponse {
     pub status: u16,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub headers: BTreeMap<String, String>,

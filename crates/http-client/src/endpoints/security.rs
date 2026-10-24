@@ -2,10 +2,11 @@
 
 use arkret_identity::VerifiedSubmission;
 use arkret_models_crypto::{
-    SecurityTransaction, SecurityTransactionContinueRequest, SecurityTransactionCreateRequest,
+    SecurityTransaction, SecurityTransactionContinueRequestBody,
+    SecurityTransactionCreateRequestBody,
 };
 use arkret_wire::{
-    IssueRecoveryCompletionGrantOutcome, IssueRecoveryCompletionGrantRequest, TransactionId,
+    IssueRecoveryCompletionGrantResponseBody, RecoveryCompletionGrantRequestBody, TransactionId,
 };
 
 use crate::{Client, Error, Result, reject_path_segment};
@@ -13,7 +14,7 @@ use crate::{Client, Error, Result, reject_path_segment};
 impl Client {
     pub async fn create_security_transaction(
         &self,
-        request: &VerifiedSubmission<SecurityTransactionCreateRequest>,
+        request: &VerifiedSubmission<SecurityTransactionCreateRequestBody>,
     ) -> Result<SecurityTransaction> {
         let outcome: SecurityTransaction = self
             .post("/_arkret/self/security-transactions", request)
@@ -55,7 +56,7 @@ impl Client {
     pub async fn continue_security_transaction(
         &self,
         transaction_id: &TransactionId,
-        request: &SecurityTransactionContinueRequest,
+        request: &SecurityTransactionContinueRequestBody,
     ) -> Result<SecurityTransaction> {
         reject_path_segment(transaction_id.as_str())?;
         let path = format!(
@@ -74,9 +75,9 @@ impl Client {
 
     pub async fn issue_recovery_completion_grant(
         &self,
-        request: &IssueRecoveryCompletionGrantRequest,
-    ) -> Result<IssueRecoveryCompletionGrantOutcome> {
-        let outcome: IssueRecoveryCompletionGrantOutcome = self
+        request: &RecoveryCompletionGrantRequestBody,
+    ) -> Result<IssueRecoveryCompletionGrantResponseBody> {
+        let outcome: IssueRecoveryCompletionGrantResponseBody = self
             .post(
                 "/_arkret/gate/account/recovery-session-grants/issue",
                 request,

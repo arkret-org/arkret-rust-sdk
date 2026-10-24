@@ -2,10 +2,10 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/actor-profile-operations.schema.json
-// sha256=6539611fb17fb638d9f0d32115ced737ded18dd929394583a796f44bc5bf6b80
+// sha256=ea5683d043e1d8daa86a2c6e710e642ad219efbac44e79fbca16367a987f2da6
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=d200bd3e6d76abd1b6154781fb5e54f11fbbc834638cdc29554f83590127fdfa
+// sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
 
 /// Counterpart: `actor-profile-operations.schema.json#/$defs/account_status_projection`.
 /// `actor-profile-operations.schema.json#/$defs/account_status_projection`.
@@ -16,6 +16,6 @@ pub struct AccountStatusProjection {
     pub account_id: AccountId,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
     pub status: ActorStatus,
-    pub status_seq: u64,
+    pub status_sequence: u64,
     pub account_status_record_id: AccountStatusRecordId,
 }

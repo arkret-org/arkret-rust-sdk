@@ -25,7 +25,9 @@ fn historical_identity_link_matches_independent_signed_transcript() {
     );
     link.validate_minimal().unwrap();
     let public = arkret_canonical::base64url_decode(
-        link.response_signing_public_key_b64u.as_str().as_bytes(),
+        link.response_signing_public_key_base64url
+            .as_str()
+            .as_bytes(),
     )
     .unwrap();
     let signature = arkret_canonical::base64url_decode(link.proof.signature.as_bytes()).unwrap();

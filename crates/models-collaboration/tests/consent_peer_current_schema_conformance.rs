@@ -1,9 +1,7 @@
 //! Formal full-set Consent and immutable Direct confirmation shape vectors.
 use std::fs;
 
-use arkret_models_collaboration::call_invitation::{
-    ConsentCurrentReadRequestBody, ConsentCurrentRow,
-};
+use arkret_models_collaboration::call_invitation::{ConsentCurrentReadRequestBody, CurrentConsent};
 use arkret_models_collaboration::consent_operations::ConsentRequestRequestBody;
 use arkret_models_collaboration::events_payloads::consent::ConsentReplacePayload;
 use arkret_models_collaboration::events_payloads::direct_conversation::{
@@ -31,8 +29,8 @@ fn sdk_models_follow_the_formal_protocol_simplification_shape_vectors() {
                     .map_err(|e| e.to_string())
                     .and_then(|p| p.validate().map_err(|e| e.to_string()))
             }
-            "schemas/typed-current-result.schema.json#/$defs/consent_result" => {
-                serde_json::from_value::<ConsentCurrentRow>(instance)
+            "schemas/current-state.schema.json#/$defs/current_consent" => {
+                serde_json::from_value::<CurrentConsent>(instance)
                     .map_err(|e| e.to_string())
                     .and_then(|p| p.value.validate().map_err(|e| e.to_string()))
             }
@@ -46,7 +44,7 @@ fn sdk_models_follow_the_formal_protocol_simplification_shape_vectors() {
                     .map(|_| ())
                     .map_err(|e| e.to_string())
             }
-            "schemas/typed-current-result.schema.json#/$defs/direct_conversation_binding_value" => {
+            "schemas/current-state.schema.json#/$defs/direct_conversation_binding_value" => {
                 serde_json::from_value::<DirectConversationBindingCurrentValue>(instance)
                     .map(|_| ())
                     .map_err(|e| e.to_string())
@@ -97,7 +95,7 @@ fn replacement_preserves_explicit_empty_and_rejects_noncanonical_scope_order() {
 
 #[test]
 fn consent_state_branches_reject_extra_members_and_explicit_nulls() {
-    use arkret_models_collaboration::call_invitation::ConsentCurrentState;
+    use arkret_models_collaboration::call_invitation::ConsentCurrentReadState;
     use arkret_models_collaboration::events_payloads::consent::ConsentExpectedCurrent;
     for value in [
         serde_json::json!({"state":"never_written","revision":{"commit_id":arkret_wire::RealmCommitId::from_digest([7;32]),"stream_position":1}}),
@@ -113,7 +111,7 @@ fn consent_state_branches_reject_extra_members_and_explicit_nulls() {
         serde_json::json!({"state":"never_written","extra":true}),
         serde_json::json!({"state":"present"}),
     ] {
-        assert!(serde_json::from_value::<ConsentCurrentState>(value).is_err());
+        assert!(serde_json::from_value::<ConsentCurrentReadState>(value).is_err());
     }
     assert!(
         serde_json::from_value::<ConsentExpectedCurrent>(
@@ -122,7 +120,9 @@ fn consent_state_branches_reject_extra_members_and_explicit_nulls() {
         .is_ok()
     );
     assert!(
-        serde_json::from_value::<ConsentCurrentState>(serde_json::json!({"state":"never_written"}))
-            .is_ok()
+        serde_json::from_value::<ConsentCurrentReadState>(
+            serde_json::json!({"state":"never_written"})
+        )
+        .is_ok()
     );
 }

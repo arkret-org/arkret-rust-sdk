@@ -5,8 +5,9 @@ use std::path::PathBuf;
 
 use arkret_models_collaboration::authority_commit::{
     CommittedEventSubmission, DirectConversationFoundingDependencyMissingProblem,
-    PeerAuthorityForwardEventRequest, PeerAuthorityForwardMlsRequest, PeerAuthoritySubmitOutcome,
-    PeerAuthoritySubmitRequest, SelfAuthoritySubmitRequest,
+    PeerAuthorityForwardEventRequestBody, PeerAuthorityForwardMlsRequestBody,
+    PeerAuthoritySubmitRequestBody, PeerAuthoritySubmitResponseBody,
+    SelfAuthoritySubmitRequestBody,
 };
 use arkret_models_crypto::{
     DeviceAuthorizationWindow, DeviceStatus, ForwardDeviceProjectionAttestation,
@@ -98,14 +99,14 @@ fn event_submission_sidecar_and_both_endpoint_unions_reuse_one_shape() {
         "#/$defs/EventAdmissionSubmission",
         submission.clone(),
     );
-    assert_schema_and_serde::<SelfAuthoritySubmitRequest>(
+    assert_schema_and_serde::<SelfAuthoritySubmitRequestBody>(
         "authority-commit-operations.schema.json",
-        "#/$defs/self_submit_request",
+        "#/$defs/self_submit_request_body",
         submission.clone(),
     );
-    assert_schema_and_serde::<PeerAuthoritySubmitRequest>(
+    assert_schema_and_serde::<PeerAuthoritySubmitRequestBody>(
         "authority-commit-operations.schema.json",
-        "#/$defs/peer_submit_request",
+        "#/$defs/peer_submit_request_body",
         json!({"branch": "authority_forward", "event_submission": submission}),
     );
 
@@ -144,21 +145,21 @@ fn peer_registered_unit_rejection_has_no_open_or_cross_branch_form() {
             ]}
         }
     });
-    assert_schema_and_serde::<PeerAuthoritySubmitOutcome>(
+    assert_schema_and_serde::<PeerAuthoritySubmitResponseBody>(
         "authority-commit-operations.schema.json",
-        "#/$defs/peer_submit_outcome",
+        "#/$defs/peer_submit_response_body",
         value.clone(),
     );
 
     let mut mixed = value;
     mixed["outcome"]["commit"] = json!({});
-    assert!(serde_json::from_value::<PeerAuthoritySubmitOutcome>(mixed).is_err());
+    assert!(serde_json::from_value::<PeerAuthoritySubmitResponseBody>(mixed).is_err());
 
     let cross_branch = json!({
         "branch": "committed_replication",
         "unit": {"unit_kind": "direct_conversation_founding"}
     });
-    assert!(serde_json::from_value::<PeerAuthoritySubmitRequest>(cross_branch).is_err());
+    assert!(serde_json::from_value::<PeerAuthoritySubmitRequestBody>(cross_branch).is_err());
 }
 
 #[test]
@@ -169,7 +170,7 @@ fn empty_approval_sidecar_and_unknown_union_members_fail_closed() {
     assert!(parsed.validate().is_err());
 
     let unknown = json!({"branch": "future_branch", "event_submission": {}});
-    assert!(serde_json::from_value::<PeerAuthoritySubmitRequest>(unknown).is_err());
+    assert!(serde_json::from_value::<PeerAuthoritySubmitRequestBody>(unknown).is_err());
 }
 
 const PEER_SCHEMA: &str = "authority-commit-operations.schema.json";
@@ -183,7 +184,7 @@ fn source_commit_for(submission: &Value) -> Value {
         "stream_position": 0,
         "previous_commit_ref": null,
         "event_ref": event["event_id"],
-        "governance_generation": 0,
+        "governance_generation": "0",
         "authority_ref": event["event_id"],
         "committed_at": "2026-09-20T00:00:00.000Z",
         "signature": {
@@ -192,7 +193,7 @@ fn source_commit_for(submission: &Value) -> Value {
             "verification_method": "did:web:station.example#authority",
             "signed_digest": format!("sha256:{}", "4".repeat(64)),
             "created_at": "2026-09-20T00:00:00.000Z",
-            "sig": "A".repeat(86)
+            "signature": "A".repeat(86)
         }
     })
 }
@@ -244,7 +245,7 @@ fn committed_replication_keeps_event_and_commit_but_omits_private_approval() {
             ..
         })
     ));
-    let peer: PeerAuthoritySubmitRequest = serde_json::from_value(json!({
+    let peer: PeerAuthoritySubmitRequestBody = serde_json::from_value(json!({
         "branch": "committed_replication",
         "replications": [leaked]
     }))
@@ -320,27 +321,27 @@ fn assert_rejected_by_schema_and_dto<T: DeserializeOwned>(fragment: &str, value:
 #[test]
 fn committed_replication_carries_only_source_submission_and_commit() {
     let request = replication_request(2);
-    assert_schema_and_serde::<PeerAuthoritySubmitRequest>(
+    assert_schema_and_serde::<PeerAuthoritySubmitRequestBody>(
         PEER_SCHEMA,
-        "#/$defs/peer_submit_request",
+        "#/$defs/peer_submit_request_body",
         request.clone(),
     );
-    let parsed: PeerAuthoritySubmitRequest = serde_json::from_value(request.clone()).unwrap();
+    let parsed: PeerAuthoritySubmitRequestBody = serde_json::from_value(request.clone()).unwrap();
     parsed.validate().unwrap();
     assert!(matches!(
         parsed,
-        PeerAuthoritySubmitRequest::CommittedReplication(_)
+        PeerAuthoritySubmitRequestBody::CommittedReplication(_)
     ));
 
     let mut wrong_event_ref = request.clone();
     wrong_event_ref["replications"][0]["source_commit"]["event_ref"] =
         json!("ak:event:AdP2S6y0Ms7yp9-GNvXZ3sVfvTEo8mtnV3G_RfApIOn0");
-    serde_json::from_value::<PeerAuthoritySubmitRequest>(wrong_event_ref)
+    serde_json::from_value::<PeerAuthoritySubmitRequestBody>(wrong_event_ref)
         .unwrap()
         .validate()
         .unwrap_err();
 
-    let fragment = "#/$defs/peer_submit_request";
+    let fragment = "#/$defs/peer_submit_request_body";
     // Retired 09-20 request shape: processing mode + submissions[] of
     // {committed_event:{event_submission,source_commit}, recipient_witnesses}.
     let item = replication_item();
@@ -357,37 +358,40 @@ fn committed_replication_carries_only_source_submission_and_commit() {
             }]
         }]
     });
-    assert_rejected_by_schema_and_dto::<PeerAuthoritySubmitRequest>(fragment, &retired);
+    assert_rejected_by_schema_and_dto::<PeerAuthoritySubmitRequestBody>(fragment, &retired);
 
     let mut stray_processing = request.clone();
     stray_processing["processing"] = json!("per_item");
-    assert_rejected_by_schema_and_dto::<PeerAuthoritySubmitRequest>(fragment, &stray_processing);
+    assert_rejected_by_schema_and_dto::<PeerAuthoritySubmitRequestBody>(
+        fragment,
+        &stray_processing,
+    );
 
     let mut stray_witness = request.clone();
     stray_witness["replications"][0]["recipient_witnesses"] = json!([]);
-    assert_rejected_by_schema_and_dto::<PeerAuthoritySubmitRequest>(fragment, &stray_witness);
+    assert_rejected_by_schema_and_dto::<PeerAuthoritySubmitRequestBody>(fragment, &stray_witness);
 
     let wrapped = json!({
         "branch": "committed_replication",
         "replications": [{"committed_event": replication_item()}]
     });
-    assert_rejected_by_schema_and_dto::<PeerAuthoritySubmitRequest>(fragment, &wrapped);
+    assert_rejected_by_schema_and_dto::<PeerAuthoritySubmitRequestBody>(fragment, &wrapped);
 
     let mut missing_commit = request.clone();
     missing_commit["replications"][0]
         .as_object_mut()
         .unwrap()
         .remove("source_commit");
-    assert_rejected_by_schema_and_dto::<PeerAuthoritySubmitRequest>(fragment, &missing_commit);
+    assert_rejected_by_schema_and_dto::<PeerAuthoritySubmitRequestBody>(fragment, &missing_commit);
 
     let mut cross_branch = request;
     cross_branch["event_submission"] = approved_event_submission();
-    assert_rejected_by_schema_and_dto::<PeerAuthoritySubmitRequest>(fragment, &cross_branch);
+    assert_rejected_by_schema_and_dto::<PeerAuthoritySubmitRequestBody>(fragment, &cross_branch);
 
     for count in [0, 101] {
         let value = replication_request(count);
         assert!(schema_rejects(PEER_SCHEMA, fragment, &value));
-        serde_json::from_value::<PeerAuthoritySubmitRequest>(value)
+        serde_json::from_value::<PeerAuthoritySubmitRequestBody>(value)
             .unwrap()
             .validate()
             .unwrap_err();
@@ -404,18 +408,20 @@ fn committed_replication_outcomes_are_same_order_rows_without_echo() {
             {"status": "rejected", "reason_code": "dependency_missing"}
         ]
     });
-    assert_schema_and_serde::<PeerAuthoritySubmitOutcome>(
+    assert_schema_and_serde::<PeerAuthoritySubmitResponseBody>(
         PEER_SCHEMA,
-        "#/$defs/peer_submit_outcome",
+        "#/$defs/peer_submit_response_body",
         outcome.clone(),
     );
-    let parsed: PeerAuthoritySubmitOutcome = serde_json::from_value(outcome).unwrap();
-    let three: PeerAuthoritySubmitRequest = serde_json::from_value(replication_request(3)).unwrap();
+    let parsed: PeerAuthoritySubmitResponseBody = serde_json::from_value(outcome).unwrap();
+    let three: PeerAuthoritySubmitRequestBody =
+        serde_json::from_value(replication_request(3)).unwrap();
     parsed.validate_for_request(&three).unwrap();
-    let two: PeerAuthoritySubmitRequest = serde_json::from_value(replication_request(2)).unwrap();
+    let two: PeerAuthoritySubmitRequestBody =
+        serde_json::from_value(replication_request(2)).unwrap();
     parsed.validate_for_request(&two).unwrap_err();
 
-    let fragment = "#/$defs/peer_submit_outcome";
+    let fragment = "#/$defs/peer_submit_response_body";
     let committed_ref = json!({
         "event_id": "ak:event:ASo6zC5lXw3GKOieKXlXJYfKoQKng4sYXtvdUAaE9WRB",
         "commit_id": "ak:realm_commit:ARNRmzDi2r78zveOLmoHOb6AephFMwVuGE1fwXmCoeo4"
@@ -424,7 +430,7 @@ fn committed_replication_outcomes_are_same_order_rows_without_echo() {
         "branch": "committed_replication",
         "results": [{"status": "stored", "index": 0, "committed_ref": committed_ref}]
     });
-    assert_rejected_by_schema_and_dto::<PeerAuthoritySubmitOutcome>(fragment, &retired);
+    assert_rejected_by_schema_and_dto::<PeerAuthoritySubmitResponseBody>(fragment, &retired);
     for row in [
         json!({"status": "stored", "index": 0}),
         json!({"status": "duplicate", "committed_ref": committed_ref}),
@@ -434,11 +440,11 @@ fn committed_replication_outcomes_are_same_order_rows_without_echo() {
         json!({"status": "accepted"}),
     ] {
         let value = json!({"branch": "committed_replication", "replication_outcomes": [row]});
-        assert_rejected_by_schema_and_dto::<PeerAuthoritySubmitOutcome>(fragment, &value);
+        assert_rejected_by_schema_and_dto::<PeerAuthoritySubmitResponseBody>(fragment, &value);
     }
     let empty = json!({"branch": "committed_replication", "replication_outcomes": []});
     assert!(schema_rejects(PEER_SCHEMA, fragment, &empty));
-    serde_json::from_value::<PeerAuthoritySubmitOutcome>(empty)
+    serde_json::from_value::<PeerAuthoritySubmitResponseBody>(empty)
         .unwrap()
         .validate()
         .unwrap_err();
@@ -583,7 +589,7 @@ fn assert_member_order(text: &str, members: &[&str]) {
 }
 
 fn presence_violation(value: Value) -> bool {
-    serde_json::from_value::<PeerAuthoritySubmitRequest>(value)
+    serde_json::from_value::<PeerAuthoritySubmitRequestBody>(value)
         .unwrap()
         .validate()
         .unwrap_err()
@@ -599,15 +605,15 @@ fn human_device_producer_requires_producer_device_evidence() {
     assert!(presence_violation(forward(&human, None)));
 
     let carried = forward(&human, Some(&evidence));
-    validate_fragment(PEER_SCHEMA, "#/$defs/peer_submit_request", &carried);
-    let parsed: PeerAuthoritySubmitRequest = serde_json::from_value(carried.clone()).unwrap();
+    validate_fragment(PEER_SCHEMA, "#/$defs/peer_submit_request_body", &carried);
+    let parsed: PeerAuthoritySubmitRequestBody = serde_json::from_value(carried.clone()).unwrap();
     parsed.validate().unwrap();
     assert_eq!(serde_json::to_value(&parsed).unwrap(), carried);
     assert_member_order(
         &serde_json::to_string(&parsed).unwrap(),
         &["branch", "event_submission", "producer_device_evidence"],
     );
-    let PeerAuthoritySubmitRequest::AuthorityForwardEvent(request) = parsed else {
+    let PeerAuthoritySubmitRequestBody::AuthorityForwardEvent(request) = parsed else {
         panic!("authority_forward Event branch expected");
     };
     let producer = request.account_device_producer().unwrap().unwrap();
@@ -619,12 +625,12 @@ fn human_device_producer_requires_producer_device_evidence() {
 
     let submission: EventAdmissionSubmission = serde_json::from_value(human).unwrap();
     assert_eq!(
-        PeerAuthorityForwardEventRequest::new(submission.clone(), None, None)
+        PeerAuthorityForwardEventRequestBody::new(submission.clone(), None, None)
             .unwrap_err()
             .error_code(),
         Some(ErrorCode::SchemaViolation)
     );
-    PeerAuthorityForwardEventRequest::new(submission, None, Some(producer_device_evidence()))
+    PeerAuthorityForwardEventRequestBody::new(submission, None, Some(producer_device_evidence()))
         .unwrap();
 }
 
@@ -640,7 +646,7 @@ fn non_device_producer_forbids_producer_device_evidence() {
     let mut delegated = submission_signed_with(DEVICE_FRAGMENT);
     delegated["event"]["executed_by"] =
         json!({"kind": "service", "service_id": "ak:did_core:web:station.example"});
-    serde_json::from_value::<PeerAuthoritySubmitRequest>(forward(&delegated, None))
+    serde_json::from_value::<PeerAuthoritySubmitRequestBody>(forward(&delegated, None))
         .unwrap()
         .validate()
         .unwrap();
@@ -652,7 +658,7 @@ fn non_device_producer_forbids_producer_device_evidence() {
     executed["event"]["actor_id"] =
         json!({"kind": "service", "service_id": "ak:did_core:web:station.example"});
     assert!(presence_violation(forward(&executed, None)));
-    serde_json::from_value::<PeerAuthoritySubmitRequest>(forward(&executed, Some(&evidence)))
+    serde_json::from_value::<PeerAuthoritySubmitRequestBody>(forward(&executed, Some(&evidence)))
         .unwrap()
         .validate()
         .unwrap();
@@ -677,10 +683,11 @@ fn mls_forward_presence_follows_the_commit_event_producer() {
         .unwrap()
     };
     let human = submission_for(submission_signed_with(DEVICE_FRAGMENT));
-    let error: WireError = PeerAuthorityForwardMlsRequest::new(human.clone(), None).unwrap_err();
+    let error: WireError =
+        PeerAuthorityForwardMlsRequestBody::new(human.clone(), None).unwrap_err();
     assert_eq!(error.error_code(), Some(ErrorCode::SchemaViolation));
-    let request = PeerAuthorityForwardMlsRequest::new(human, Some(evidence.clone())).unwrap();
-    PeerAuthoritySubmitRequest::AuthorityForwardMls(request.clone())
+    let request = PeerAuthorityForwardMlsRequestBody::new(human, Some(evidence.clone())).unwrap();
+    PeerAuthoritySubmitRequestBody::AuthorityForwardMls(request.clone())
         .validate()
         .unwrap();
     assert_member_order(
@@ -690,13 +697,13 @@ fn mls_forward_presence_follows_the_commit_event_producer() {
 
     let account_key = submission_for(approved_event_submission());
     assert_eq!(
-        PeerAuthorityForwardMlsRequest::new(account_key.clone(), None)
+        PeerAuthorityForwardMlsRequestBody::new(account_key.clone(), None)
             .unwrap_err()
             .error_code(),
         Some(ErrorCode::SchemaViolation)
     );
     assert_eq!(
-        PeerAuthorityForwardMlsRequest::new(account_key, Some(evidence))
+        PeerAuthorityForwardMlsRequestBody::new(account_key, Some(evidence))
             .unwrap_err()
             .error_code(),
         Some(ErrorCode::SchemaViolation)
@@ -706,17 +713,17 @@ fn mls_forward_presence_follows_the_commit_event_producer() {
 #[test]
 fn producer_device_evidence_exists_only_on_authority_forward() {
     let evidence = serde_json::to_value(producer_device_evidence()).unwrap();
-    let fragment = "#/$defs/peer_submit_request";
+    let fragment = "#/$defs/peer_submit_request_body";
     let mut replication = replication_request(1);
     replication["producer_device_evidence"] = evidence.clone();
-    assert_rejected_by_schema_and_dto::<PeerAuthoritySubmitRequest>(fragment, &replication);
+    assert_rejected_by_schema_and_dto::<PeerAuthoritySubmitRequestBody>(fragment, &replication);
 
     let unit = json!({
         "branch": "registered_atomic_unit",
         "unit": {"unit_kind": "direct_conversation_founding"},
         "producer_device_evidence": evidence
     });
-    assert_rejected_by_schema_and_dto::<PeerAuthoritySubmitRequest>(fragment, &unit);
+    assert_rejected_by_schema_and_dto::<PeerAuthoritySubmitRequestBody>(fragment, &unit);
 }
 
 fn welcome_delivery() -> Value {
@@ -741,7 +748,7 @@ fn replicated_welcomes_are_refused_for_a_non_commit_event() {
     request["replications"][0]["welcomes"] = json!([welcome_delivery()]);
     assert!(schema_rejects(
         PEER_SCHEMA,
-        "#/$defs/peer_submit_request",
+        "#/$defs/peer_submit_request_body",
         &request
     ));
     assert!(presence_violation(request));
@@ -750,7 +757,7 @@ fn replicated_welcomes_are_refused_for_a_non_commit_event() {
     empty["replications"][0]["welcomes"] = json!([]);
     assert!(schema_rejects(
         PEER_SCHEMA,
-        "#/$defs/peer_submit_request",
+        "#/$defs/peer_submit_request_body",
         &empty
     ));
     assert!(presence_violation(empty));
@@ -760,10 +767,10 @@ fn replicated_welcomes_are_refused_for_a_non_commit_event() {
 fn genesis_material_is_refused_for_a_non_genesis_event() {
     let mut value = forward(&approved_event_submission(), None);
     value["mls_genesis_material"] =
-        json!({"group_info_bytes_b64": "AAEAAQ", "ratchet_tree_bytes_b64": "AQIDBA"});
+        json!({"group_info_base64url": "AAEAAQ", "ratchet_tree_base64url": "AQIDBA"});
     assert!(schema_rejects(
         PEER_SCHEMA,
-        "#/$defs/peer_submit_request",
+        "#/$defs/peer_submit_request_body",
         &value
     ));
     assert!(presence_violation(value));
@@ -785,8 +792,8 @@ fn genesis_material_is_canonical_bounded_base64url() {
     );
     for bad in ["", "AAEAAQ==", "AAE+AQ"] {
         let candidate = MlsGenesisMaterial {
-            group_info_bytes_b64: bad.to_owned(),
-            ratchet_tree_bytes_b64: "AQIDBA".to_owned(),
+            group_info_base64url: bad.to_owned(),
+            ratchet_tree_base64url: "AQIDBA".to_owned(),
         };
         assert_eq!(
             candidate.validate().unwrap_err().error_code(),
@@ -806,7 +813,7 @@ fn genesis_material_members_bound_the_pair_to_the_group_state_material_response(
         &vec![0; MLS_GENESIS_MATERIAL_MAX_BLOB_BYTES],
         &vec![0; MLS_GENESIS_MATERIAL_MAX_BLOB_BYTES],
     );
-    assert_eq!(largest.group_info_bytes_b64.len(), 5_592_406);
+    assert_eq!(largest.group_info_base64url.len(), 5_592_406);
     let (group_info, ratchet_tree) = largest.decode().unwrap();
     assert_eq!(group_info.len() + ratchet_tree.len(), 8_388_608);
     for (over_group_info, over_tree) in [(true, false), (false, true)] {
@@ -815,8 +822,8 @@ fn genesis_material_members_bound_the_pair_to_the_group_state_material_response(
             arkret_wire::base64url::base64url_encode(vec![0; bytes])
         };
         let candidate = MlsGenesisMaterial {
-            group_info_bytes_b64: one_more(over_group_info),
-            ratchet_tree_bytes_b64: one_more(over_tree),
+            group_info_base64url: one_more(over_group_info),
+            ratchet_tree_base64url: one_more(over_tree),
         };
         assert_eq!(
             candidate.validate().unwrap_err().error_code(),
@@ -838,10 +845,10 @@ fn audit_fixture() -> Value {
 #[test]
 fn registered_audit_carriers_roundtrip_the_actual_spec_schema() {
     use arkret_models_collaboration::authority_commit::{
-        AuditPairedEventUnitSubmission, PeerAuthorityForwardAtomicRequest,
+        AuditPairedEventUnitSubmission, PeerAuthorityForwardAtomicRequestBody,
     };
     use arkret_models_collaboration::strand_watch_operations::{
-        WatchAuditReadOutcome, WatchAuditReadRequest,
+        WatchAuditReadRequestBody, WatchAuditReadResponseBody,
     };
     for case in audit_fixture()["schema_validation_cases"]
         .as_array()
@@ -862,14 +869,16 @@ fn registered_audit_carriers_roundtrip_the_actual_spec_schema() {
             refid if refid.ends_with("/audit_paired_event_unit_submission") => {
                 assert_schema_and_serde::<AuditPairedEventUnitSubmission>(file, &fragment, value)
             }
-            refid if refid.ends_with("/peer_submit_request") => {
-                assert_schema_and_serde::<PeerAuthorityForwardAtomicRequest>(file, &fragment, value)
+            refid if refid.ends_with("/peer_submit_request_body") => {
+                assert_schema_and_serde::<PeerAuthorityForwardAtomicRequestBody>(
+                    file, &fragment, value,
+                )
             }
-            refid if refid.ends_with("/watch_audit_read_request") => {
-                assert_schema_and_serde::<WatchAuditReadRequest>(file, &fragment, value)
+            refid if refid.ends_with("/watch_audit_read_request_body") => {
+                assert_schema_and_serde::<WatchAuditReadRequestBody>(file, &fragment, value)
             }
-            refid if refid.ends_with("/watch_audit_read_outcome") => {
-                assert_schema_and_serde::<WatchAuditReadOutcome>(file, &fragment, value)
+            refid if refid.ends_with("/watch_audit_read_response_body") => {
+                assert_schema_and_serde::<WatchAuditReadResponseBody>(file, &fragment, value)
             }
             _ => panic!("unhandled positive audit schema vector {reference}"),
         }
@@ -913,7 +922,7 @@ fn audit_pair_validates_direction_target_and_producer_for_real_event_digests() {
 #[test]
 fn audited_read_derives_selector_only_from_the_signed_intent() {
     use arkret_models_collaboration::strand_watch_operations::{
-        PeerWatchAuditReadRequest, WatchAuditReadRequest,
+        PeerWatchAuditReadRequestBody, WatchAuditReadRequestBody,
     };
     let fixture = audit_fixture();
     let case = fixture["schema_validation_cases"]
@@ -922,7 +931,8 @@ fn audited_read_derives_selector_only_from_the_signed_intent() {
         .iter()
         .find(|case| case["name"] == "closed_audited_read")
         .unwrap();
-    let request: WatchAuditReadRequest = serde_json::from_value(case["instance"].clone()).unwrap();
+    let request: WatchAuditReadRequestBody =
+        serde_json::from_value(case["instance"].clone()).unwrap();
     request.validate().unwrap();
     let selector = request.selector().unwrap();
     assert_eq!(selector.realm_id, request.audit_submission.event.realm_id);
@@ -930,7 +940,7 @@ fn audited_read_derives_selector_only_from_the_signed_intent() {
         selector.watcher_actor_id,
         request.audit_submission.event.actor_id
     );
-    let peer = PeerWatchAuditReadRequest {
+    let peer = PeerWatchAuditReadRequestBody {
         audit_submission: request.audit_submission.clone(),
         producer_device_evidence: None,
         producer_agent_evidence: None,
@@ -938,13 +948,13 @@ fn audited_read_derives_selector_only_from_the_signed_intent() {
     assert!(peer.validate_carrier_shape().is_err());
     let mut unsigned = case["instance"].clone();
     unsigned["watcher_actor_id"] = json!(request.audit_submission.event.actor_id);
-    assert!(serde_json::from_value::<WatchAuditReadRequest>(unsigned).is_err());
+    assert!(serde_json::from_value::<WatchAuditReadRequestBody>(unsigned).is_err());
 }
 
 #[test]
 fn atomic_forward_slot_bindings_share_one_origin_cut_and_whole_body_digest() {
     use arkret_models_collaboration::authority_commit::{
-        PeerAuthorityForwardAtomicRequest, authority_forward_body_digest,
+        PeerAuthorityForwardAtomicRequestBody, authority_forward_body_digest,
     };
     let fixture = audit_fixture();
     let case = fixture["schema_validation_cases"]
@@ -954,11 +964,11 @@ fn atomic_forward_slot_bindings_share_one_origin_cut_and_whole_body_digest() {
         .find(|case| {
             case["schema_ref"]
                 .as_str()
-                .is_some_and(|reference| reference.ends_with("/peer_submit_request"))
+                .is_some_and(|reference| reference.ends_with("/peer_submit_request_body"))
                 && case["expect_valid"] == true
         })
         .unwrap();
-    let mut request: PeerAuthorityForwardAtomicRequest =
+    let mut request: PeerAuthorityForwardAtomicRequestBody =
         serde_json::from_value(case["instance"].clone()).unwrap();
     let digest = authority_forward_body_digest(&request).unwrap();
     for (slot, evidence) in request
@@ -1020,8 +1030,8 @@ fn retired_managed_forward_source_is_rejected() {
     forbidden["producer_managed_provenance"] = json!({});
     assert!(schema_rejects(
         "authority-commit-operations.schema.json",
-        "#/$defs/peer_submit_request",
+        "#/$defs/peer_submit_request_body",
         &forbidden
     ));
-    assert!(serde_json::from_value::<PeerAuthoritySubmitRequest>(forbidden).is_err());
+    assert!(serde_json::from_value::<PeerAuthoritySubmitRequestBody>(forbidden).is_err());
 }

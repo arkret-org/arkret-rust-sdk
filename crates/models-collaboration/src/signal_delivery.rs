@@ -436,7 +436,7 @@ mod tests {
             key: StationSigningKey {
                 actor: envelope.sender_actor_id.clone(),
                 verification_method: envelope.proof.verification_method.clone(),
-                public_key_b64u: Base64UrlString::new("A".repeat(43)).unwrap(),
+                public_key_base64url: Base64UrlString::new("A".repeat(43)).unwrap(),
                 authorization_ref: EventId::from_digest(canonical::DigestSuite::Sha256, [0x42; 32]),
             },
         };

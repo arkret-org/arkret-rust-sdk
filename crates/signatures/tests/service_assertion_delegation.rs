@@ -25,7 +25,7 @@ fn delegated_assertion_key_is_bound_by_the_station_inception_proof() {
         provider_endpoint: &endpoint,
         registration_key: &registration,
         also_known_as: &[],
-        version_time: chrono::Utc::now(),
+        version_created_at: chrono::Utc::now(),
         did_key_fragment: Some("notary-key"),
     };
     let delegated_key = arkret_canonical::ed25519_pubkey_to_did_key_multibase(
@@ -113,7 +113,7 @@ fn a_delegated_assertion_key_can_be_added_after_inception() {
             provider_endpoint: &endpoint,
             registration_key: &registration,
             also_known_as: &[],
-            version_time: inception_time,
+            version_created_at: inception_time,
             did_key_fragment: Some("notary-key"),
         },
         &[7; 32],
@@ -161,7 +161,7 @@ fn a_delegated_assertion_key_can_be_added_after_inception() {
         // sign the successor.
         current_update_seed: &inception.next_update_key_seed,
         next_update_public_key_multibase: &third_update_key,
-        version_time: inception_time + chrono::Duration::seconds(1),
+        version_created_at: inception_time + chrono::Duration::seconds(1),
     })
     .unwrap();
 
@@ -220,7 +220,7 @@ fn service_rotation_refuses_a_broken_pre_rotation_chain() {
             provider_endpoint: &endpoint,
             registration_key: &registration,
             also_known_as: &[],
-            version_time: inception_time,
+            version_created_at: inception_time,
             did_key_fragment: Some("notary-key"),
         },
         &[11; 32],
@@ -239,7 +239,7 @@ fn service_rotation_refuses_a_broken_pre_rotation_chain() {
         state: &state,
         current_update_seed: &[13; 32],
         next_update_public_key_multibase: &fresh_key,
-        version_time: inception_time + chrono::Duration::seconds(1),
+        version_created_at: inception_time + chrono::Duration::seconds(1),
     })
     .err()
     .expect("an unannounced update key must not produce an entry");
@@ -262,7 +262,7 @@ fn service_rotation_refuses_a_broken_pre_rotation_chain() {
         state: &state,
         current_update_seed: &inception.next_update_key_seed,
         next_update_public_key_multibase: &inception_update_key,
-        version_time: inception_time + chrono::Duration::seconds(1),
+        version_created_at: inception_time + chrono::Duration::seconds(1),
     })
     .err()
     .expect("a spent update key must not be re-announced");
@@ -280,14 +280,14 @@ fn service_rotation_requires_a_strictly_later_version_time() {
         CanonicalServiceUrl::canonicalize(endpoint.as_str()).unwrap(),
     )
     .unwrap();
-    let version_time = chrono::Utc::now();
+    let version_created_at = chrono::Utc::now();
     let inception = prepare_service_registration_inception_with_assertion_keys(
         &mut ChaCha20Rng::from_seed([15; 32]),
         &ServiceRegistrationInceptionInput {
             provider_endpoint: &endpoint,
             registration_key: &registration,
             also_known_as: &[],
-            version_time,
+            version_created_at,
             did_key_fragment: Some("notary-key"),
         },
         &[16; 32],
@@ -304,7 +304,7 @@ fn service_rotation_requires_a_strictly_later_version_time() {
         state: &inception.log_entry["state"],
         current_update_seed: &inception.next_update_key_seed,
         next_update_public_key_multibase: &next_key,
-        version_time,
+        version_created_at,
     })
     .err()
     .expect("equal versionTime must be rejected");

@@ -3,23 +3,23 @@
 use arkret_canonical::base64url::base64_standard_encode;
 use arkret_identity::VerifiedSubmission;
 use arkret_models_collaboration::device_messages::{
-    DeviceMessagesAckOutcome, DeviceMessagesAckRequestBody, DeviceMessagesGetOutcome,
-    DeviceMessagesSendOutcome, DeviceMessagesSendRequestBody,
+    DeviceMessagesAcknowledgementRequestBody, DeviceMessagesAcknowledgementResponseBody,
+    DeviceMessagesGetResponseBody, DeviceMessagesSendRequestBody, DeviceMessagesSendResponseBody,
 };
 use arkret_models_collaboration::objects::blob::{
-    BlobPresignOutcome, BlobPresignRequestBody, BlobStorageEncryption, BlobUploadMetadata,
-    BlobUploadOutcome,
+    BlobPresignRequestBody, BlobPresignResponseBody, BlobStorageEncryption, BlobUploadMetadata,
+    BlobUploadResponseBody,
 };
 use arkret_models_crypto::{
-    KeyPackagesClaimOutcome, KeyPackagesClaimQueryRequestBody, KeyPackagesClaimRequestBody,
-    KeyPackagesConsumeOutcome, KeyPackagesConsumeRequestBody, KeyPackagesRevokeOutcome,
-    KeyPackagesRevokeRequestBody, KeyPackagesUploadOutcome, KeyPackagesUploadRequestBody,
-    KeysClaimOutcome, KeysClaimRequestBody, KeysQueryOutcome, KeysQueryRequestBody,
-    KeysUploadOutcome, KeysUploadRequestBody,
+    KeyPackagesClaimQueryRequestBody, KeyPackagesClaimRequestBody, KeyPackagesClaimResponseBody,
+    KeyPackagesConsumeRequestBody, KeyPackagesConsumeResponseBody, KeyPackagesRevokeRequestBody,
+    KeyPackagesRevokeResponseBody, KeyPackagesUploadRequestBody, KeyPackagesUploadResponseBody,
+    KeysClaimRequestBody, KeysClaimResponseBody, KeysQueryRequestBody, KeysQueryResponseBody,
+    KeysUploadRequestBody, KeysUploadResponseBody,
 };
 use arkret_models_discovery::{ServiceDescribe, TransportBinding};
 use arkret_models_identity::account::{
-    AccountDataDeleteOutcome, AccountDataDeleteRequestBody, AccountDataList,
+    AccountDataDeleteRequestBody, AccountDataDeleteResponseBody, AccountDataList,
     AccountDataReplaceRequestBody, AccountDataRow,
 };
 use arkret_wire::BlobRef;
@@ -159,7 +159,10 @@ impl Client {
         self.apply_auth(builder, &method_for_auth, &url)
     }
 
-    pub async fn blob_presign(&self, body: &BlobPresignRequestBody) -> Result<BlobPresignOutcome> {
+    pub async fn blob_presign(
+        &self,
+        body: &BlobPresignRequestBody,
+    ) -> Result<BlobPresignResponseBody> {
         self.post("/_arkret/self/blob/presign", body).await
     }
 
@@ -167,7 +170,7 @@ impl Client {
         &self,
         metadata: &BlobUploadMetadata,
         bytes: Vec<u8>,
-    ) -> Result<BlobUploadOutcome> {
+    ) -> Result<BlobUploadResponseBody> {
         // RFC 9421 signs the exact multipart bytes, including its boundary.
         // Reqwest's streaming Form body cannot expose those bytes to the signer.
         if metadata.size_bytes != bytes.len() as u64 {
@@ -237,7 +240,7 @@ impl Client {
         &self,
         metadata: &BlobUploadMetadata,
         stream: S,
-    ) -> Result<BlobUploadOutcome>
+    ) -> Result<BlobUploadResponseBody>
     where
         S: futures_util::Stream<Item = std::result::Result<Vec<u8>, std::io::Error>>
             + Send
@@ -255,7 +258,7 @@ impl Client {
         &self,
         metadata: &BlobUploadMetadata,
         content: reqwest::multipart::Part,
-    ) -> Result<BlobUploadOutcome> {
+    ) -> Result<BlobUploadResponseBody> {
         let media_type = metadata
             .media_type
             .as_deref()
@@ -379,7 +382,7 @@ impl Client {
         base_url: Url,
         payload: &[u8],
         options: &BlobResumableUploadOptions,
-    ) -> Result<BlobUploadOutcome> {
+    ) -> Result<BlobUploadResponseBody> {
         if options.chunk_bytes == 0 {
             return Err(Error::Protocol(
                 "resumable upload chunk_bytes must be greater than zero".to_owned(),
@@ -416,7 +419,7 @@ impl Client {
             upload_metadata.push(',');
         }
         upload_metadata.push_str(&format!("encryption {}", b64_metadata_value(&encryption)));
-        let mut create_request = self
+        let mut security_transaction_create_request_body = self
             .tus_request(Method::POST, base_url.clone())?
             .header(
                 crate::HEADER_OPERATION,
@@ -424,8 +427,11 @@ impl Client {
             )
             .header("tus-resumable", TUS_VERSION)
             .header("upload-length", payload.len().to_string());
-        create_request = create_request.header("upload-metadata", upload_metadata);
-        let create = self.execute(create_request).await?;
+        security_transaction_create_request_body =
+            security_transaction_create_request_body.header("upload-metadata", upload_metadata);
+        let create = self
+            .execute(security_transaction_create_request_body)
+            .await?;
         if create.status() != reqwest::StatusCode::CREATED {
             return Err(Error::Protocol(format!(
                 "resumable upload create failed with status {}",
@@ -535,25 +541,34 @@ impl Client {
             .ok_or_else(|| Error::Protocol("resume probe returned no Upload-Offset".to_owned()))
     }
 
-    pub async fn keys_upload(&self, request: &KeysUploadRequestBody) -> Result<KeysUploadOutcome> {
+    pub async fn keys_upload(
+        &self,
+        request: &KeysUploadRequestBody,
+    ) -> Result<KeysUploadResponseBody> {
         self.post("/_arkret/self/keys/upload", request).await
     }
 
-    pub async fn keys_query(&self, request: &KeysQueryRequestBody) -> Result<KeysQueryOutcome> {
+    pub async fn keys_query(
+        &self,
+        request: &KeysQueryRequestBody,
+    ) -> Result<KeysQueryResponseBody> {
         request.validate()?;
-        let outcome: KeysQueryOutcome = self.post("/_arkret/self/keys/query", request).await?;
+        let outcome: KeysQueryResponseBody = self.post("/_arkret/self/keys/query", request).await?;
         outcome.validate()?;
         Ok(outcome)
     }
 
-    pub async fn keys_claim(&self, request: &KeysClaimRequestBody) -> Result<KeysClaimOutcome> {
+    pub async fn keys_claim(
+        &self,
+        request: &KeysClaimRequestBody,
+    ) -> Result<KeysClaimResponseBody> {
         self.post("/_arkret/self/keys/claim", request).await
     }
 
     pub async fn keypackages_upload(
         &self,
         request: &KeyPackagesUploadRequestBody,
-    ) -> Result<KeyPackagesUploadOutcome> {
+    ) -> Result<KeyPackagesUploadResponseBody> {
         self.post("/_arkret/self/keys/keypackages/upload", request)
             .await
     }
@@ -561,7 +576,7 @@ impl Client {
     pub async fn keypackages_claim(
         &self,
         request: &KeyPackagesClaimRequestBody,
-    ) -> Result<KeyPackagesClaimOutcome> {
+    ) -> Result<KeyPackagesClaimResponseBody> {
         self.post_with_options(
             "/_arkret/self/keys/keypackages/claim",
             request,
@@ -573,7 +588,7 @@ impl Client {
     pub async fn keypackages_consume(
         &self,
         request: &KeyPackagesConsumeRequestBody,
-    ) -> Result<KeyPackagesConsumeOutcome> {
+    ) -> Result<KeyPackagesConsumeResponseBody> {
         self.post("/_arkret/self/keys/keypackages/consume", request)
             .await
     }
@@ -581,7 +596,7 @@ impl Client {
     pub async fn keypackages_revoke(
         &self,
         request: &KeyPackagesRevokeRequestBody,
-    ) -> Result<KeyPackagesRevokeOutcome> {
+    ) -> Result<KeyPackagesRevokeResponseBody> {
         self.post("/_arkret/self/keys/keypackages/revoke", request)
             .await
     }
@@ -591,7 +606,7 @@ impl Client {
     pub async fn keypackages_claim_query(
         &self,
         request: &KeyPackagesClaimQueryRequestBody,
-    ) -> Result<KeyPackagesClaimOutcome> {
+    ) -> Result<KeyPackagesClaimResponseBody> {
         self.post("/_arkret/self/keys/keypackages/claims/query", request)
             .await
     }
@@ -639,7 +654,7 @@ impl Client {
         &self,
         account_data_key: &str,
         request: &VerifiedSubmission<AccountDataDeleteRequestBody>,
-    ) -> Result<AccountDataDeleteOutcome> {
+    ) -> Result<AccountDataDeleteResponseBody> {
         reject_path_segment(account_data_key)?;
         let path = format!("/_arkret/self/account_data/{account_data_key}");
         let builder = self.canonical_json_body(self.request(Method::DELETE, &path)?, request)?;
@@ -650,7 +665,7 @@ impl Client {
         &self,
         idempotency_key: &str,
         request: &DeviceMessagesSendRequestBody,
-    ) -> Result<DeviceMessagesSendOutcome> {
+    ) -> Result<DeviceMessagesSendResponseBody> {
         let options = ClientRequestOptions::new().idempotency_key(idempotency_key);
         self.post_with_options("/_arkret/self/device_messages", request, &options)
             .await
@@ -660,7 +675,7 @@ impl Client {
         &self,
         after: Option<&str>,
         limit: Option<u32>,
-    ) -> Result<DeviceMessagesGetOutcome> {
+    ) -> Result<DeviceMessagesGetResponseBody> {
         let mut builder = self.request(Method::GET, "/_arkret/self/device_messages")?;
         if let Some(after) = after {
             builder = builder.query(&[("after", after)]);
@@ -673,8 +688,8 @@ impl Client {
 
     pub async fn ack_device_messages(
         &self,
-        request: &DeviceMessagesAckRequestBody,
-    ) -> Result<DeviceMessagesAckOutcome> {
+        request: &DeviceMessagesAcknowledgementRequestBody,
+    ) -> Result<DeviceMessagesAcknowledgementResponseBody> {
         self.post("/_arkret/self/device_messages/ack", request)
             .await
     }
@@ -770,7 +785,7 @@ mod tests {
                 "tus_extensions": ["creation"]
             }],
             "supported_features": [RESUMABLE_UPLOAD_FEATURE],
-            "auth_metadata": {"methods": []},
+            "authentication_metadata": {"methods": []},
             "limits": {},
             "plaintext_visibility": {"data_classes": [], "max_visibility": "none"},
             "verified_profiles": [],

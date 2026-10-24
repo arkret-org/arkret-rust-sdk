@@ -1,15 +1,15 @@
 // @generated; do not edit by hand.
 // Generator: tools/generate-closed-models.py
 //
-// Input: schemas/account-current-result.schema.json
-// sha256=0ed02242d247bdb8e3a64be04b72444de792d027f76d8d34fef0be0911e87641
+// Input: schemas/account-state-view.schema.json
+// sha256=25b316c622b40dd0719802a94561c9993e77b0e91a476e58ad282851f8547b26
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=d200bd3e6d76abd1b6154781fb5e54f11fbbc834638cdc29554f83590127fdfa
+// sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
 
-/// Counterpart: `account-current-result.schema.json#/$defs/current`.
+/// Counterpart: `account-state-view.schema.json#/$defs/current`.
 /// The Account Station's view of one Realm's authority-committed current state.
-/// Spec: `account-current-result.schema.json`.
+/// Spec: `account-state-view.schema.json`.
 ///
 /// `governance_generation` names which governance generation materialized these
 /// entries, and `stream_heads` is the per-stream position each entry was
@@ -21,17 +21,18 @@
 /// caller writes back against the `revision` of the exact entry it read â€” never
 /// against a whole-Realm token.
 /// Field declaration order is byte-for-byte the `properties` order of
-/// `account-current-result.schema.json#/$defs/current`.
+/// `account-state-view.schema.json#/$defs/current`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AccountCurrentView {
+pub struct AccountStateView {
     pub realm_id: RealmId,
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub governance_generation: u64,
     pub stream_heads: Vec<CommitStreamHead>,
-    pub entries: Vec<TypedCurrentRow>,
+    pub entries: Vec<CurrentState>,
 }
 
-/// Counterpart: `account-current-result.schema.json#/$defs/coverage`.
+/// Counterpart: `account-state-view.schema.json#/$defs/coverage`.
 /// How much of one Realm a current-state read actually covered.
 ///
 /// Every Realm, Circle and Sidecar keeps its own commit stream, so coverage is

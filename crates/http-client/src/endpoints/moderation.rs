@@ -2,7 +2,7 @@
 
 use arkret_identity::VerifiedSubmission;
 use arkret_models_collaboration::governance::moderation::{
-    ModerationReportOutcome, ModerationReportRequestBody,
+    ModerationReportRequestBody, ModerationReportResponseBody,
 };
 
 use crate::{Client, Result};
@@ -11,10 +11,10 @@ impl Client {
     pub async fn moderation_report(
         &self,
         request: &VerifiedSubmission<ModerationReportRequestBody>,
-    ) -> Result<ModerationReportOutcome> {
+    ) -> Result<ModerationReportResponseBody> {
         request.validate()?;
         let expected_report_id = request.report_id()?;
-        let outcome: ModerationReportOutcome = self
+        let outcome: ModerationReportResponseBody = self
             .post("/_arkret/self/moderation/report", request)
             .await?;
         if outcome.report_id != expected_report_id {

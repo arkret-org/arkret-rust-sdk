@@ -602,7 +602,7 @@ pub enum PolicyEffect {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum AuthzDecision {
+pub enum AuthorizationDecision {
     Allow,
     SoftDeny,
     HardDeny,
@@ -611,7 +611,7 @@ pub enum AuthzDecision {
 }
 
 /// Checkpoint freshness classification for revocation-sensitive authz decisions.
-/// Spec `AuthzCheckOutcome.freshness_state` enum.
+/// Spec `AuthorizationCheckResponseBody.freshness_state` enum.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -623,7 +623,7 @@ pub enum FreshnessState {
 
 /// Coarse status of the current governance Station and committed-stream source
 /// used to diagnose stale or unknown revocation freshness. Spec
-/// `AuthzCheckOutcome.authority_status` enum.
+/// `AuthorizationCheckResponseBody.authority_status` enum.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -635,8 +635,8 @@ pub enum AuthorityStatus {
 }
 
 /// The Invite process-state axis, which is also the closed value of the
-/// `invite_lifecycle` typed current result
-/// (`typed-current-result.schema.json#/$defs/invite_lifecycle_value`).
+/// `invite_lifecycle` current state
+/// (`current-state.schema.json#/$defs/invite_lifecycle_value`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum InviteState {

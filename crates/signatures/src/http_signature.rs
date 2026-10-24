@@ -597,7 +597,7 @@ pub fn parse_signature_input(header: &str) -> Result<SignatureInput, SignatureEr
                 algorithm = Some(raw_value.trim_matches('"').to_ascii_lowercase());
             }
             _ => {
-                // ignore unknown params; preserved in params_value
+                // ignore unknown parameters; preserved in params_value
             }
         }
     }
@@ -1394,7 +1394,7 @@ mod tests {
             Err(SignatureError::EmptyCoveredComponents)
         );
         assert_eq!(
-            format_signature_header("sig1", "bad:sig"),
+            format_signature_header("sig1", "bad:signature"),
             Err(SignatureError::MalformedSignatureHeader("sig1".to_owned()))
         );
     }

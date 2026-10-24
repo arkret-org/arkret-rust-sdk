@@ -27,6 +27,7 @@ pub struct Realm {
     pub security_class: Option<SecurityClass>,
     pub trust_domain: TrustDomainId,
     pub governance_station_id: DidCoreId,
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub governance_generation: u64,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub owning_organization_ids: Vec<DidCoreId>,

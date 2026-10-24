@@ -25,6 +25,8 @@ pub struct MlsGroupStateMaterialRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_commit_event_ref: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Option<String>)))]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_uint64_decimal")]
     pub target_epoch: Option<u64>,
     pub group_info_ref: BlobRef,
     pub ratchet_tree_ref: BlobRef,
@@ -94,6 +96,8 @@ pub struct MlsMemberGroupStateMaterialReadRequestBody {
     pub group_state_event_id: EventId,
     pub caller_actor_id: ActorId,
     pub target_commit_event_ref: EventId,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub target_epoch: u64,
     pub group_info_ref: BlobRef,
     pub ratchet_tree_ref: BlobRef,
@@ -126,16 +130,16 @@ impl MlsMemberGroupStateMaterialReadRequestBody {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct MlsGroupStateMaterialOutcome {
+pub struct MlsGroupStateMaterialResponseBody {
     pub realm_id: RealmId,
     pub effective_scope: ScopeRef,
     pub mls_group_id: MlsGroupId,
     pub epoch: crate::events_payloads::mls::MlsGenesisEpoch,
     pub group_state_event_id: EventId,
     pub group_info_ref: BlobRef,
-    pub group_info_bytes_b64: Base64UrlString,
+    pub group_info_base64url: Base64UrlString,
     pub ratchet_tree_ref: BlobRef,
-    pub ratchet_tree_bytes_b64: Base64UrlString,
+    pub ratchet_tree_base64url: Base64UrlString,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -144,7 +148,7 @@ pub struct ValidatedMlsGroupStateMaterial {
     pub ratchet_tree_bytes: Vec<u8>,
 }
 
-impl MlsGroupStateMaterialOutcome {
+impl MlsGroupStateMaterialResponseBody {
     /// Validate the exact request/response selector binding and both raw-byte
     /// content addresses before an RFC 9420 parser sees either byte string.
     pub fn validate_for_request(
@@ -169,12 +173,12 @@ impl MlsGroupStateMaterialOutcome {
         let ratchet_tree_digest = material_digest_from_ref(&self.ratchet_tree_ref)?;
         let group_info_bytes = decode_and_validate_bytes(
             "group_info",
-            &self.group_info_bytes_b64,
+            &self.group_info_base64url,
             &group_info_digest,
         )?;
         let ratchet_tree_bytes = decode_and_validate_bytes(
             "ratchet_tree",
-            &self.ratchet_tree_bytes_b64,
+            &self.ratchet_tree_base64url,
             &ratchet_tree_digest,
         )?;
         let total = group_info_bytes
@@ -243,7 +247,7 @@ mod tests {
                 "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19"
             },
             "mls_group_id": "QjKOSorlqs3IquY7OikTUTy_Z0mMiL0X2mK4jAOT4R4",
-            "epoch": 0,
+            "epoch": "0",
             "group_state_event_id": "ak:event:ARELvWOpF6BRhrks3DlbQy-9XIE6aAQQumDQp7fA4Ape",
             "caller_actor_id": {
                 "kind": "account",
@@ -253,7 +257,7 @@ mod tests {
                 }
             },
             "target_commit_event_ref": "ak:event:ARELvWOpF6BRhrks3DlbQy-9XIE6aAQQumDQp7fA4Ape",
-            "target_epoch": 0,
+            "target_epoch": "0",
             "group_info_ref": "ak:blob:sha256:1111111111111111111111111111111111111111111111111111111111111111",
             "ratchet_tree_ref": "ak:blob:sha256:2222222222222222222222222222222222222222222222222222222222222222"
         })

@@ -195,7 +195,7 @@ fn native_snapshot_rejects_sibling_heads_floors_and_current_rows() {
             verification_method: arkret_wire::DidUrl::new("did:web:station.example#key").unwrap(),
             signed_digest: arkret_wire::Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
             created_at: Utc::now(),
-            sig: arkret_wire::Base64UrlString::new("AA").unwrap(),
+            signature: arkret_wire::Base64UrlString::new("AA").unwrap(),
         },
     };
     own.check_snapshot_scope(&realm, &snapshot).unwrap();
@@ -206,7 +206,7 @@ fn native_snapshot_rejects_sibling_heads_floors_and_current_rows() {
     assert!(own.check_snapshot_scope(&realm, &snapshot).is_err());
     snapshot.retention_and_history_floor.stream_floors[0].stream_ref =
         snapshot.visible_stream_heads[0].stream_ref.clone();
-    snapshot.current_state_entries.push(TypedCurrentRow::Value {
+    snapshot.current_state_entries.push(CurrentState::Value {
         selector: arkret_wire::CurrentSelector::RealmProfile,
         source_stream_ref: sibling,
         revision: arkret_wire::CurrentRevision {
@@ -217,7 +217,7 @@ fn native_snapshot_rejects_sibling_heads_floors_and_current_rows() {
     });
     assert!(own.check_snapshot_scope(&realm, &snapshot).is_err());
     snapshot.current_state_entries.clear();
-    snapshot.current_state_entries.push(TypedCurrentRow::Value {
+    snapshot.current_state_entries.push(CurrentState::Value {
         selector: arkret_wire::CurrentSelector::Circle {
             circle_id: arkret_wire::CircleId::from_event_id(&EventId::from_digest(
                 arkret_canonical::DigestSuite::Sha256,

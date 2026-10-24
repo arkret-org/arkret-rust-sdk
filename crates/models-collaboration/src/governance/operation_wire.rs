@@ -346,7 +346,7 @@ impl PolicyRule {
                             .is_some_and(|operations| unique_nonempty(operations))
                         && self.servers.is_none()
                         && self.conditions.is_none()
-                        && self.params.is_none()
+                        && self.parameters.is_none()
                         && self.schema_ref.is_none()
                         && self.profile_ref.is_none()
                 }
@@ -360,7 +360,7 @@ impl PolicyRule {
                         && self.agent_operations.is_none()
                         && self.servers.is_none()
                         && self.conditions.is_none()
-                        && self.params.is_none()
+                        && self.parameters.is_none()
                         && self.schema_ref.is_none()
                         && self.profile_ref.is_none()
                 }
@@ -368,7 +368,7 @@ impl PolicyRule {
                 PolicyRuleKind::Resource => self.resources.is_some(),
                 PolicyRuleKind::Server => self.servers.is_some(),
                 PolicyRuleKind::Extension => {
-                    self.params.is_some()
+                    self.parameters.is_some()
                         && (self.schema_ref.is_some() || self.profile_ref.is_some())
                 }
                 _ => true,
@@ -548,7 +548,7 @@ impl<'de> Deserialize<'de> for PolicySetValue {
 // Counterpart for
 // `event-payload.schema.json#/$defs/policy_set_state_payload`.
 //
-// `policy_id` is the stable subject of the Policy typed current result, so
+// `policy_id` is the stable subject of the Policy current state, so
 // repeated `ak.policy.set` Events under the same `policy_id` converge on one
 // document rather than accumulating versions. There is no cell head, basis or
 // version member on the wire. Agent and Applet governance policies carry a required
@@ -639,7 +639,7 @@ mod policy_set_state_tests {
                 "supersedes_id": null,
                 "trust_domain": "ak:trust_domain:station.example",
                 "issued_at": "2026-09-16T00:00:00.000Z",
-                "auth_data": {
+                "signature_proof": {
                     "verification_method": "did:web:station.example#key-1",
                     "signature_algorithm": "Ed25519",
                     "signature": "c2lnbmF0dXJl"

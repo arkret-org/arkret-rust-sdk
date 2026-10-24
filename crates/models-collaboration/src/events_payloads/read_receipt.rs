@@ -26,7 +26,7 @@ impl ReadReceiptPolicyPayload {
     }
 }
 
-impl ScopeReadReceiptPolicyCurrent {
+impl CurrentScopeReadReceiptPolicy {
     /// Enforce the selector/source binding after current proof verification.
     pub fn validate(&self) -> Result<()> {
         let CurrentSelector::ScopeReadReceiptPolicy { scope_ref } = &self.selector else {
@@ -61,7 +61,7 @@ mod tests {
             "revision":{"commit_id":"ak:realm_commit:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5","stream_position":1},
             "value":{"visibility":"private"}
         });
-        let current: ScopeReadReceiptPolicyCurrent = serde_json::from_value(wire.clone()).unwrap();
+        let current: CurrentScopeReadReceiptPolicy = serde_json::from_value(wire.clone()).unwrap();
         current.validate().unwrap();
         assert_eq!(serde_json::to_value(&current).unwrap(), wire);
         assert_eq!(
@@ -74,11 +74,11 @@ mod tests {
         );
         let mut wrong_stream = wire.clone();
         wrong_stream["source_stream_ref"] = json!({"kind":"realm","realm_id":realm});
-        let current: ScopeReadReceiptPolicyCurrent = serde_json::from_value(wrong_stream).unwrap();
+        let current: CurrentScopeReadReceiptPolicy = serde_json::from_value(wrong_stream).unwrap();
         assert!(current.validate().is_err());
         let mut empty = wire;
         empty["value"] = json!({});
-        let current: ScopeReadReceiptPolicyCurrent = serde_json::from_value(empty).unwrap();
+        let current: CurrentScopeReadReceiptPolicy = serde_json::from_value(empty).unwrap();
         assert!(current.validate().is_err());
     }
 

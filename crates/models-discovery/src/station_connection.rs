@@ -4,7 +4,7 @@ use arkret_wire::{DidCoreId, ServiceKind, TrustDomainId, WireError};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::{AuthMetadata, ServiceDescribe, TransportBinding};
+use crate::{AuthenticationMetadata, ServiceDescribe, TransportBinding};
 
 /// Durable identity and authentication binding selected by a client/operator.
 /// Dynamic features, method history and signing-key rotations are not pins.
@@ -14,7 +14,7 @@ pub struct StationConnectionBinding {
     pub service_id: DidCoreId,
     pub base_url: String,
     pub trust_domain: TrustDomainId,
-    pub auth_metadata: AuthMetadata,
+    pub authentication_metadata: AuthenticationMetadata,
 }
 
 impl StationConnectionBinding {
@@ -46,8 +46,8 @@ impl StationConnectionBinding {
                 "Station describe does not confirm the selected base",
             ));
         }
-        let mut auth_metadata = description.auth_metadata.clone();
-        let authority = auth_metadata
+        let mut authentication_metadata = description.authentication_metadata.clone();
+        let authority = authentication_metadata
             .account_authority
             .as_mut()
             .ok_or_else(|| invalid("Station account authority is missing"))?;
@@ -60,10 +60,10 @@ impl StationConnectionBinding {
             ));
         }
         authority.extra = Default::default();
-        auth_metadata.extra = Default::default();
+        authentication_metadata.extra = Default::default();
         // Method/scopes order and inert extensions do not change authority.
-        let mut methods = Vec::with_capacity(auth_metadata.methods.len());
-        for mut method in auth_metadata.methods {
+        let mut methods = Vec::with_capacity(authentication_metadata.methods.len());
+        for mut method in authentication_metadata.methods {
             method.extra = Default::default();
             method.grant_exchange.extra = Default::default();
             method.scopes.sort();
@@ -89,14 +89,14 @@ impl StationConnectionBinding {
         }
         methods.sort_by(|left, right| left.0.cmp(&right.0));
         methods.dedup_by(|left, right| left.0 == right.0);
-        auth_metadata.methods = methods.into_iter().map(|(_, method)| method).collect();
-        auth_metadata.did_binding_methods.sort();
-        auth_metadata.did_binding_methods.dedup();
+        authentication_metadata.methods = methods.into_iter().map(|(_, method)| method).collect();
+        authentication_metadata.did_binding_methods.sort();
+        authentication_metadata.did_binding_methods.dedup();
         Ok(Self {
             service_id: description.service_id.clone(),
             base_url: base.to_owned(),
             trust_domain: description.trust_domain.clone(),
-            auth_metadata,
+            authentication_metadata,
         })
     }
 

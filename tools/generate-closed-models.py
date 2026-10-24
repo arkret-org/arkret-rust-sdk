@@ -32,11 +32,22 @@ def rust_name(wire: str) -> str:
 
 
 class Generator:
+    def decimal_kind(self, node: dict, pointer: str) -> str | None:
+        target = normalize(node.get("$ref", ""), pointer)
+        for kind in ("uint64_decimal", "nonnegative_int64_decimal"):
+            if target == "decimal-integers.schema.json#/$defs/" + kind:
+                return kind
+        return None
+
     def __init__(self, schemas: Path, bindings: dict):
         if bindings["version"] != 1:
             raise ValueError("unsupported bindings version")
         self.schemas = schemas
         self.bindings = bindings
+        for family in bindings['families']:
+            names = [row['name'] for row in family['types']]
+            if len(names) != len(set(names)):
+                raise ValueError(f"duplicate Rust type name in {family['output']}")
         self.names = {
             row["schema"]: row["name"]
             for family in bindings["families"] for row in family["types"]
@@ -131,6 +142,25 @@ class Generator:
             binding = rust["members"][wire]
             attributes = list(binding["attributes"])
             typ = binding["type"]
+            emitted = binding['name'].removeprefix('r#')
+            for attribute in attributes:
+                rename = re.search(r'\brename\s*=\s*"([^"]+)"',attribute)
+                if rename:
+                    emitted = rename.group(1)
+            if emitted != wire:
+                raise ValueError(f"Rust field emits a different wire member: {pointer}/{wire}: {emitted}")
+            decimal = self.decimal_kind(shape, pointer)
+            if decimal:
+                scalar = "u64"
+                optional = wire not in required
+                if optional and decimal != "uint64_decimal":
+                    raise ValueError(f"optional signed decimal needs an explicit adapter: {pointer}/{wire}")
+                typ = f"Option<{scalar}>" if optional else scalar
+                helper = "optional_" + decimal if optional else decimal
+                attributes = [attr for attr in attributes if "deserialize_with" not in attr and "serialize_with" not in attr and not re.search(r'\bwith\s*=',attr)]
+                attributes.append(f'#[serde(with = "{HELPERS}::{helper}")]')
+                if any("ToSchema" in attribute for attribute in rust["attributes"]):
+                    attributes.append('#[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]')
             for qualified, local in self.local_aliases.items():
                 typ = re.sub(r"(?<![\w:])" + re.escape(qualified) + r"(?![\w:])", local, typ)
             if wire in required:
@@ -162,6 +192,10 @@ class Generator:
             if target == TIMESTAMP:
                 self.node(target)
                 return "chrono::DateTime<chrono::Utc>", True
+            decimal = self.decimal_kind(node, pointer)
+            if decimal:
+                self.node(target)
+                return "u64", False
             if target in self.names:
                 return self.names[target], False
             raise ValueError(f"unbound schema reference: {target}")
@@ -187,6 +221,8 @@ class Generator:
     def declaration(self, row: dict) -> str:
         pointer, name = row["schema"], row["name"]
         node = self.node(pointer)
+        if name.endswith("Outcome") and node.get("x-arkret-name-role") not in {"terminal_outcome", "attempt_outcome"}:
+            raise ValueError(f"Outcome requires a canonical settled processing role: {pointer}: {name}")
         if "rust" in row:
             return self.representation(row, node)
         if any(key in node for key in ("anyOf", "allOf", "not", "if", "patternProperties", "dependentRequired", "dependentSchemas")):
@@ -280,6 +316,9 @@ class Generator:
                     raise ValueError(f"unsupported Rust field name: {field}")
                 here = pointer + ("/properties/" if "#" in pointer else "#/properties/") + field
                 rust_type, timestamp = self.rust_type(shape, here)
+                decimal = self.decimal_kind(shape, here)
+                if decimal and field not in required:
+                    raise ValueError(f"optional decimal needs a reviewed representation: {here}")
                 if field not in required:
                     lines.append('    #[serde(default, skip_serializing_if = "Option::is_none",')
                     helper = "deserialize_non_null_optional_timestamp" if timestamp else "deserialize_non_null_optional"
@@ -289,6 +328,10 @@ class Generator:
                     rust_type = f"Option<{rust_type}>"
                 elif timestamp:
                     lines.append(f'    #[serde(with = "{HELPERS}::canonical_timestamp")]')
+                elif decimal:
+                    lines.append(f'    #[serde(with = "{HELPERS}::{decimal}")]')
+                    if row.get("openapi", True):
+                        lines.append('#[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]')
                 lines.append(f"    pub {field}: {rust_type},")
         return "\n".join(lines + ["}", ""])
 
@@ -314,8 +357,8 @@ class Generator:
                 event = next(row for row in registry["event_kind_registry"]["event_kinds"]
                              if row["event_kind"] == "ak.call.state")
                 for kind in ("call_roster", "call_moderation"):
-                    indices = [i for i, row in enumerate(event["result_writes"])
-                               if row["result_family"] == kind]
+                    indices = [i for i, row in enumerate(event["state_writes"])
+                               if row["state_family"] == kind]
                     if len(indices) != 1:
                         raise ValueError(f"Call axis lacks one canonical write index: {kind}")
                     contents += f"\npub const {kind.upper()}_WRITE_INDEX: usize = {indices[0]};\n"

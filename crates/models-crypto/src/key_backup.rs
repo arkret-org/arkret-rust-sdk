@@ -113,11 +113,11 @@ pub struct KeyBackup {
     pub ciphertext_digest: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub plaintext_commitment: Option<Hash>,
-    pub auth_data: KeyBackupAuthData,
+    pub signature_proof: KeyBackupSignatureProof,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub retention: Option<KeyBackupRetention>,
     pub series_id: BackupSeriesId,
-    pub series_seq: u64,
+    pub series_sequence: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub supersedes_id: Option<BackupId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -140,7 +140,7 @@ impl KeyBackup {
         if !self.backup_version.starts_with("kb_") || self.backup_version.len() < 4 {
             return protocol("key backup backup_version must use the kb_ profile");
         }
-        match self.series_seq {
+        match self.series_sequence {
             0 if self.supersedes_id.is_some() || self.supersedes_digest.is_some() => {
                 return protocol("key backup genesis must not carry supersession fields");
             }
@@ -171,11 +171,11 @@ impl KeyBackup {
         if self
             .device_id
             .as_ref()
-            .is_some_and(|id| id != &self.auth_data.device_id)
+            .is_some_and(|id| id != &self.signature_proof.device_id)
         {
             return protocol("key backup signer device does not match device_id");
         }
-        if self.auth_data.signature_algorithm == KeyBackupSignatureAlgorithm::Es256 {
+        if self.signature_proof.signature_algorithm == KeyBackupSignatureAlgorithm::Es256 {
             return protocol("ES256 is not an active key backup signature algorithm");
         }
         if self
@@ -199,9 +199,9 @@ impl KeyBackup {
         self.validate()?;
         let mut value = serde_json::to_value(self)?;
         value
-            .get_mut("auth_data")
+            .get_mut("signature_proof")
             .and_then(Value::as_object_mut)
-            .ok_or_else(|| WireError::Protocol("missing key backup auth_data".to_owned()))?
+            .ok_or_else(|| WireError::Protocol("missing key backup signature_proof".to_owned()))?
             .remove("signature");
         Ok(arkret_canonical::canonical_json_bytes(&value)?)
     }
@@ -374,7 +374,7 @@ pub enum KeyBackupKdfDigestAlgorithm {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct KeyBackupKdfParams {
+pub struct KeyBackupKdfParameters {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
@@ -410,15 +410,15 @@ mod kdf_parameter_tests {
     #[test]
     fn argon2_parameters_preserve_absent_digest_in_the_signed_value() {
         let value = serde_json::json!({"memory_kib": 65536, "iterations": 3, "parallelism": 1});
-        let params: KeyBackupKdfParams = serde_json::from_value(value.clone()).unwrap();
-        assert_eq!(serde_json::to_value(params).unwrap(), value);
+        let parameters: KeyBackupKdfParameters = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(serde_json::to_value(parameters).unwrap(), value);
     }
 
     #[test]
     fn pbkdf2_parameters_do_not_emit_argon2_null_members() {
         let value = serde_json::json!({"iterations": 600000, "digest_algorithm": "sha256"});
-        let params: KeyBackupKdfParams = serde_json::from_value(value.clone()).unwrap();
-        assert_eq!(serde_json::to_value(params).unwrap(), value);
+        let parameters: KeyBackupKdfParameters = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(serde_json::to_value(parameters).unwrap(), value);
     }
 
     #[test]
@@ -432,7 +432,7 @@ mod kdf_parameter_tests {
             let mut value = serde_json::json!({});
             value[member] = Value::Null;
             assert!(
-                serde_json::from_value::<KeyBackupKdfParams>(value).is_err(),
+                serde_json::from_value::<KeyBackupKdfParameters>(value).is_err(),
                 "{member}"
             );
         }
@@ -445,7 +445,7 @@ pub struct KeyBackupKdf {
     pub name: KeyBackupKdfName,
     pub salt: Base64UrlString,
     #[serde(default)]
-    pub params: KeyBackupKdfParams,
+    pub parameters: KeyBackupKdfParameters,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub degraded_profile_reason: Option<String>,
     #[serde(default, flatten)]
@@ -461,21 +461,21 @@ impl KeyBackupKdf {
         }
         match self.name {
             KeyBackupKdfName::Argon2id
-                if self.params.memory_kib.is_none_or(|v| v < 65_536)
-                    || self.params.iterations.is_none_or(|v| v < 3)
-                    || self.params.parallelism.is_none_or(|v| v < 1) =>
+                if self.parameters.memory_kib.is_none_or(|v| v < 65_536)
+                    || self.parameters.iterations.is_none_or(|v| v < 3)
+                    || self.parameters.parallelism.is_none_or(|v| v < 1) =>
             {
                 Err("argon2id parameters are below the v1 floor".to_owned())
             }
             KeyBackupKdfName::Argon2id
-                if self.params.digest_algorithm.is_some()
+                if self.parameters.digest_algorithm.is_some()
                     || self.degraded_profile_reason.is_some() =>
             {
                 Err("argon2id has PBKDF2-only fields".to_owned())
             }
             KeyBackupKdfName::Pbkdf2
-                if self.params.iterations.is_none_or(|v| v < 600_000)
-                    || self.params.digest_algorithm.is_none()
+                if self.parameters.iterations.is_none_or(|v| v < 600_000)
+                    || self.parameters.digest_algorithm.is_none()
                     || self
                         .degraded_profile_reason
                         .as_deref()
@@ -484,7 +484,8 @@ impl KeyBackupKdf {
                 Err("pbkdf2 requires the degraded profile floor and reason".to_owned())
             }
             KeyBackupKdfName::Pbkdf2
-                if self.params.memory_kib.is_some() || self.params.parallelism.is_some() =>
+                if self.parameters.memory_kib.is_some()
+                    || self.parameters.parallelism.is_some() =>
             {
                 Err("pbkdf2 has Argon2id-only parameters".to_owned())
             }
@@ -573,7 +574,7 @@ impl SecretStorageContentIndex {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct KeyBackupAuthData {
+pub struct KeyBackupSignatureProof {
     pub device_id: DeviceId,
     pub verification_method: DidUrl,
     pub signature_algorithm: KeyBackupSignatureAlgorithm,
@@ -596,7 +597,7 @@ pub enum KeyBackupSignatureAlgorithm {
 pub struct KeyBackupRetention {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub delete_after: Option<DateTime<Utc>>,
+    pub deletion_eligible_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub legal_hold: Option<bool>,
     #[serde(default, flatten)]

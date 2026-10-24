@@ -226,7 +226,7 @@ mod tests {
             forbidden_wire_violation(
                 "schema_instance",
                 "key-backup.schema.json",
-                &json!({"encryption": {"kdf": {"params": {"hash": "SHA256"}}}})
+                &json!({"encryption": {"kdf": {"parameters": {"hash": "SHA256"}}}})
             )
             .is_some()
         );

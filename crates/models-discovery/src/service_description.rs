@@ -95,7 +95,7 @@ pub enum TransportBinding {
     Websocket {
         base_url: String,
         max_frame_bytes: u32,
-        max_channels: u32,
+        max_channel_count: u32,
     },
 }
 
@@ -116,11 +116,15 @@ impl TransportBinding {
         }
     }
 
-    pub fn websocket(base_url: impl Into<String>, max_frame_bytes: u32, max_channels: u32) -> Self {
+    pub fn websocket(
+        base_url: impl Into<String>,
+        max_frame_bytes: u32,
+        max_channel_count: u32,
+    ) -> Self {
         Self::Websocket {
             base_url: base_url.into(),
             max_frame_bytes,
-            max_channels,
+            max_channel_count,
         }
     }
 
@@ -275,7 +279,7 @@ pub struct ServiceDescribe {
     /// schedules. Required whenever a Calendar profile is claimed.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub calendar_tzdb_versions: Vec<String>,
-    pub auth_metadata: AuthMetadata,
+    pub authentication_metadata: AuthenticationMetadata,
     pub limits: ServerLimits,
     /// Plaintext visibility advertisement. Receivers MUST
     /// treat a missing value as `untrusted` (fail-closed for the
@@ -397,7 +401,7 @@ impl ServiceDescribe {
             transport_bindings,
             supported_features: Vec::new(),
             calendar_tzdb_versions: Vec::new(),
-            auth_metadata: AuthMetadata::minimal(),
+            authentication_metadata: AuthenticationMetadata::minimal(),
             limits: ServerLimits::default(),
             plaintext_visibility: PlaintextVisibility::none(),
             receive_policy_constraints: None,
@@ -846,24 +850,24 @@ mod tests {
 
     #[test]
     fn auth_grant_exchange_is_the_closed_account_handoff_shape() {
-        let exchange: AuthGrantExchange =
+        let exchange: AccountHandoffExchange =
             serde_json::from_value(json!({"kind": "account_handoff"})).unwrap();
         assert_eq!(exchange.kind, AuthGrantExchangeKind::AccountHandoff);
         assert!(exchange.extra.is_empty());
         assert!(
-            serde_json::from_value::<AuthGrantExchange>(
+            serde_json::from_value::<AccountHandoffExchange>(
                 json!({"kind": "account_handoff", "x_vendor": true})
             )
             .is_ok()
         );
         assert!(
-            serde_json::from_value::<AuthGrantExchange>(
+            serde_json::from_value::<AccountHandoffExchange>(
                 json!({"kind": "account_handoff", "mode": "vendor"})
             )
             .is_err()
         );
         assert!(
-            serde_json::from_value::<AuthGrantExchange>(
+            serde_json::from_value::<AccountHandoffExchange>(
                 json!({"proof_kind": "oidc_code_exchange"})
             )
             .is_err()
@@ -891,7 +895,7 @@ mod tests {
             "did_binding_methods": ["session_dpop", "did_http_signature"],
             "x_auth_note": {"display": true}
         });
-        let metadata: AuthMetadata = serde_json::from_value(value.clone()).unwrap();
+        let metadata: AuthenticationMetadata = serde_json::from_value(value.clone()).unwrap();
         assert_eq!(
             metadata.did_binding_methods,
             vec![
@@ -903,23 +907,27 @@ mod tests {
 
         for invalid in ["password", "session_grant", "did:webvh"] {
             assert!(
-                serde_json::from_value::<AuthMetadata>(json!({
+                serde_json::from_value::<AuthenticationMetadata>(json!({
                     "did_binding_methods": [invalid]
                 }))
                 .is_err()
             );
         }
         assert!(
-            serde_json::from_value::<AuthMetadata>(json!({
+            serde_json::from_value::<AuthenticationMetadata>(json!({
                 "did_binding_methods": ["session_dpop", "session_dpop"]
             }))
             .is_err()
         );
 
-        assert!(serde_json::from_value::<AuthMetadata>(json!({"mode": "vendor"})).is_err());
-        assert!(serde_json::from_value::<AuthMetadata>(json!({"read": "vendor"})).is_err());
         assert!(
-            serde_json::from_value::<AuthMethod>(json!({
+            serde_json::from_value::<AuthenticationMetadata>(json!({"mode": "vendor"})).is_err()
+        );
+        assert!(
+            serde_json::from_value::<AuthenticationMetadata>(json!({"read": "vendor"})).is_err()
+        );
+        assert!(
+            serde_json::from_value::<AuthenticationMethod>(json!({
                 "method": "passkey",
                 "grant_exchange": {"kind": "account_handoff"},
                 "mode": "vendor"
@@ -959,7 +967,7 @@ mod tests {
             }],
             supported_features: vec![],
             calendar_tzdb_versions: vec![],
-            auth_metadata: AuthMetadata::minimal(),
+            authentication_metadata: AuthenticationMetadata::minimal(),
             limits: ServerLimits::default(),
             plaintext_visibility: PlaintextVisibility::none(),
             receive_policy_constraints: None,
@@ -1052,7 +1060,7 @@ mod tests {
     }
 }
 
-/// Closed `auth_metadata.did_binding_methods[]` vocabulary.
+/// Closed `authentication_metadata.did_binding_methods[]` vocabulary.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -1077,18 +1085,18 @@ where
     Ok(methods)
 }
 
-/// Strongly-typed `auth_metadata` block of the service-describe response.
-/// Mirrors `service-describe.schema.json#/properties/auth_metadata`. Every
+/// Strongly-typed `authentication_metadata` block of the service-describe response.
+/// Mirrors `service-describe.schema.json#/properties/authentication_metadata`. Every
 /// declared field is optional or defaulted so a conforming service that sends
 /// only what the schema declares still deserializes; the `extra` flatten
 /// round-trips only the closed `x_*` extension namespace.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct AuthMetadata {
+pub struct AuthenticationMetadata {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub account_authority: Option<AccountAuthority>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub methods: Vec<AuthMethod>,
+    pub methods: Vec<AuthenticationMethod>,
     #[serde(
         default,
         skip_serializing_if = "Vec::is_empty",
@@ -1101,7 +1109,7 @@ pub struct AuthMetadata {
     pub extra: XExtensionMap,
 }
 
-impl AuthMetadata {
+impl AuthenticationMetadata {
     /// Convenience constructor for tests / mocks: leaves every field
     /// empty / `None`.
     pub fn minimal() -> Self {
@@ -1128,12 +1136,12 @@ pub struct AccountAuthority {
     pub extra: XExtensionMap,
 }
 
-/// Mirrors `service-describe.schema.json#/$defs/auth_method`. Describes a
+/// Mirrors `service-describe.schema.json#/$defs/authentication_method`. Describes a
 /// single proof provider, its discovery metadata and the proof kind accepted
 /// by the Account Authority.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct AuthMethod {
+pub struct AuthenticationMethod {
     pub method: AuthMethodKind,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub issuer_uri: Option<String>,
@@ -1145,15 +1153,15 @@ pub struct AuthMethod {
     pub client_id: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub scopes: Vec<String>,
-    pub grant_exchange: AuthGrantExchange,
+    pub grant_exchange: AccountHandoffExchange,
     /// Closed `x_*` metadata extensions. These values are protocol-inert.
     #[serde(default, flatten)]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub extra: XExtensionMap,
 }
 
-/// `method` discriminant for [`AuthMethod`]. Mirrors the closed enum in
-/// `service-describe.schema.json#/$defs/auth_method/properties/method`.
+/// `method` discriminant for [`AuthenticationMethod`]. Mirrors the closed enum in
+/// `service-describe.schema.json#/$defs/authentication_method/properties/method`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -1165,12 +1173,12 @@ pub enum AuthMethodKind {
     Gnap,
 }
 
-/// Mirrors `service-describe.schema.json#/$defs/auth_grant_exchange`. The
+/// Mirrors `service-describe.schema.json#/$defs/account_handoff_exchange`. The
 /// OIDC discovery describes the only authorization-code consumer: account
 /// handoff. SessionGrant issue is a later, separately authenticated operation.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct AuthGrantExchange {
+pub struct AccountHandoffExchange {
     pub kind: AuthGrantExchangeKind,
     /// Closed `x_*` metadata extensions. These values are protocol-inert.
     #[serde(default, flatten)]
@@ -1291,7 +1299,7 @@ pub struct VerifiedProfileEntry {
     pub verifier_id: DidCoreId,
     pub signature: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub timestamp: DateTime<Utc>,
+    pub verified_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub expires_at: Option<DateTime<Utc>>,
@@ -1435,15 +1443,15 @@ impl RateLimitPolicy {
     }
 
     /// Convenience: a single service-wide windowed limit of
-    /// `max_requests` per 60s.
-    pub fn windowed_per_minute(max_requests: u32) -> Self {
+    /// `max_request_count` per 60s.
+    pub fn windowed_per_minute(max_request_count: u32) -> Self {
         Self {
             policy_version: Some("1".to_owned()),
             entries: vec![RateLimitEntry {
                 endpoint: Some("*".to_owned()),
                 rate_limit_scope: Some(RateLimitScope::Single("service".to_owned())),
                 window_seconds: Some(60),
-                max_requests: Some(max_requests),
+                max_request_count: Some(max_request_count),
                 ..RateLimitEntry::default()
             }],
             ..Self::default()
@@ -1466,13 +1474,13 @@ pub struct RateLimitEntry {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub window_seconds: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub max_requests: Option<u32>,
+    pub max_request_count: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub burst: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_bytes: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub max_events_per_batch: Option<u32>,
+    pub max_event_count_per_batch: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_body_bytes: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 
 use arkret_http_client::{Auth, Client, DpopAuth, HttpMessageSigner, RetryConfig};
 use arkret_models_discovery::{
-    DirectoryRealmSearchOutcome, DirectoryResolveRealmRequestBody, DirectoryResourceKind,
+    DirectoryRealmSearchResponseBody, DirectoryResolveRealmRequestBody, DirectoryResourceKind,
     DirectorySearchRealmsRequestBody, PublicRealmDirectoryEntry, PublicRealmMetadata,
     ServiceDescribe, TransportBinding,
 };
@@ -225,7 +225,7 @@ async fn directory_queries_use_public_operations_without_changing_typed_bodies()
                         cursor: Some("Page-A+/=".to_owned()),
                     };
                     selector.validate().unwrap();
-                    let response = DirectoryRealmSearchOutcome {
+                    let response = DirectoryRealmSearchResponseBody {
                         realms: vec![entry.clone()],
                         has_more: false,
                         next_cursor: None,

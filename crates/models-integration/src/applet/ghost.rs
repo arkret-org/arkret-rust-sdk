@@ -29,7 +29,7 @@ pub struct GhostPreviewRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct GhostPreviewOutcome {
+pub struct GhostPreviewResponseBody {
     pub authoring_request: AppletManagedActorAuthoringRequest,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub existing_managed_actor: Option<ExistingManagedActor>,
@@ -118,7 +118,7 @@ mod tests {
                 "external_ref".into(),
                 serde_json::json!({"protocol":"slack","instance_id":"tenant","external_id":"user"}),
             ),
-            ("bio".into(), serde_json::json!("Display bio")),
+            ("biography".into(), serde_json::json!("Display biography")),
             (
                 "applet_interaction".into(),
                 serde_json::json!({"mode":"private","effective_scope":{"kind":"realm","realm_id":"ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19"}}),

@@ -1087,7 +1087,7 @@ fn assert_agent_runtime_repair(same_signing_key: bool) {
     assert_eq!(leaves.len(), 2);
     assert!(leaves.iter().any(|leaf| leaf.endpoint == new.endpoint));
     assert!(!leaves.iter().any(|leaf| leaf.endpoint == old.endpoint));
-    assert!(!replacement.welcome.ciphertext_b64.as_str().is_empty());
+    assert!(!replacement.welcome.ciphertext_base64url.as_str().is_empty());
 }
 
 #[test]
@@ -1349,7 +1349,7 @@ fn application_message_pair() -> (ArkretMlsGroup, ArkretMlsGroup) {
     let added = creator
         .add_member_with_governance_binding(&claimed_keypackage(&member), &binding)
         .unwrap();
-    let bytes = decode(added.welcome.ciphertext_b64.as_str()).unwrap();
+    let bytes = decode(added.welcome.ciphertext_base64url.as_str()).unwrap();
     let message = MlsMessageIn::tls_deserialize_exact(bytes.as_slice()).unwrap();
     let MlsMessageBodyIn::Welcome(welcome) = message.extract() else {
         panic!("expected actual RFC Welcome");

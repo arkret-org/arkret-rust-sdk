@@ -9,7 +9,7 @@ use crate::{Error, Result};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum JsonWebKeyUse {
-    #[serde(rename = "sig")]
+    #[serde(rename = "signature")]
     Signature,
     #[serde(rename = "enc")]
     Encryption,

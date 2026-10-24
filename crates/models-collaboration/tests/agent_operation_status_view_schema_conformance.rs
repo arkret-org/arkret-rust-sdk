@@ -2,7 +2,7 @@
 
 use std::fs;
 
-use arkret_models_collaboration::agent_operations::AgentLifecycleOutcome;
+use arkret_models_collaboration::agent_operations::AgentOperationStatusView;
 use arkret_schema_conformance::schema_registry_from_spec_artifacts;
 use serde_json::{Value, json};
 
@@ -18,13 +18,13 @@ fn schema_accepts(value: &Value) -> bool {
         .unwrap();
     registry
         .register_fragment(
-            "test:agent-lifecycle-outcome".to_owned(),
+            "test:agent-operation-status-view".to_owned(),
             schema,
-            "#/$defs/agent_lifecycle_state".to_owned(),
+            "#/$defs/operation_status_view".to_owned(),
         )
         .unwrap();
     registry
-        .validate_value("test:agent-lifecycle-outcome", value)
+        .validate_value("test:agent-operation-status-view", value)
         .is_ok()
 }
 
@@ -33,7 +33,7 @@ fn all_lifecycle_statuses_roundtrip_against_the_closed_schema() {
     for status in ["active", "paused", "deactivated"] {
         let value = json!({"status": status});
         assert!(schema_accepts(&value), "schema rejected {status}");
-        let outcome: AgentLifecycleOutcome = serde_json::from_value(value.clone()).unwrap();
+        let outcome: AgentOperationStatusView = serde_json::from_value(value.clone()).unwrap();
         assert_eq!(serde_json::to_value(outcome).unwrap(), value);
     }
 }
@@ -53,7 +53,7 @@ fn lifecycle_ref_is_not_an_operation_response_field() {
         }
     });
     assert!(!schema_accepts(&value));
-    assert!(serde_json::from_value::<AgentLifecycleOutcome>(value).is_err());
+    assert!(serde_json::from_value::<AgentOperationStatusView>(value).is_err());
 }
 
 #[test]
@@ -65,6 +65,6 @@ fn missing_status_and_unknown_lifecycle_words_fail_closed() {
         json!({"status": "ready"}),
     ] {
         assert!(!schema_accepts(&value), "schema accepted {value}");
-        assert!(serde_json::from_value::<AgentLifecycleOutcome>(value.clone()).is_err());
+        assert!(serde_json::from_value::<AgentOperationStatusView>(value.clone()).is_err());
     }
 }

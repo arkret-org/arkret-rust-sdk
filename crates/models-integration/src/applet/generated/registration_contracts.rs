@@ -2,19 +2,19 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/applet-registration-epoch-transcript.schema.json
-// sha256=061d034779b8595fa85268b0f5b0e0c959ee855e82289d5ce37e2ad44452d48e
+// sha256=a0103ec29a9c5dbfe919b3cd8a72b37bda027e3af1438cc57d05052fba4ce94d
 //
 // Input: schemas/account-operations.schema.json
-// sha256=5b7dba680c2083d0bebc26ad32e7d37293d150cece8f2298a40bf382e7f31405
+// sha256=78c6503698cd43571f2b25543013f9036927ef9bfd005e71377ad3006f4a64d4
 //
 // Input: schemas/time.schema.json
 // sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
 //
 // Input: schemas/applet-registration-epoch-evidence.schema.json
-// sha256=e37fbee7e8449347f9fd34508bf93e3ea709db3cd9e31e01ece79b0c0f0f09ae
+// sha256=4b3f70151b981ebc878afc584d5ad3d0e8a07d87c180747fcd4f35eff3bd67e6
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=d200bd3e6d76abd1b6154781fb5e54f11fbbc834638cdc29554f83590127fdfa
+// sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
 
 /// Counterpart: `applet-registration-epoch-transcript.schema.json#/$defs/did_method_version`.
 /// Method-specific version evidence captured with an Applet registration
@@ -22,7 +22,7 @@
 ///
 /// Only the versioned `did:webvh` and `did:key` adapters are accepted: a
 /// `did:key` carries its synthetic immutable `version_id`, and a `did:webvh`
-/// carries `version_id`, `version_time`, or both. `unversioned_refetch` is
+/// carries `version_id`, `version_created_at`, or both. `unversioned_refetch` is
 /// always `false`, because a `did:web` current snapshot cannot support
 /// historical producer verification. Deserialization enforces the same
 /// closed shape.
@@ -41,7 +41,7 @@ pub struct AppletDidMethodVersionEvidence {
         default,
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
-    pub version_time: Option<DateTime<Utc>>,
+    pub version_created_at: Option<DateTime<Utc>>,
     pub unversioned_refetch: bool,
 }
 

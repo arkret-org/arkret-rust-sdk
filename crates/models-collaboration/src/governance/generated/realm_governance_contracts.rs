@@ -2,16 +2,16 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/realm-link-operations.schema.json
-// sha256=2c066645c7a7c626e0866ce351e253f000fe20467718fc55a271c5f0fa6843a5
+// sha256=07a012f048f5d754c834c53fbec8ae2c193d42bc883b43ae2cef5d0f956d3e09
 //
 // Input: schemas/event-payload.schema.json
-// sha256=6c0740fab50fcb796331bad41ee632e0602de445969cee69c4962e45dab65b27
+// sha256=74e26ef25ba5846ba74149c301a7ff5c7f1afc507f2cfd207cfe0edc060507bf
 //
 // Input: schemas/realm-organization-operations.schema.json
-// sha256=c714db164aed7113dec60b8459e03a84a610fbeab2d5feaa57a2f2d50c27578f
+// sha256=9c47e06c9a60ef687501295978cf62b0c8d920284806b7eca25b59602b0ffb47
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=d200bd3e6d76abd1b6154781fb5e54f11fbbc834638cdc29554f83590127fdfa
+// sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
 
 /// Counterpart: `realm-link-operations.schema.json#/$defs/realm_link_list`.
 /// `realm-link-operations.schema.json#/$defs/realm_link_list`.

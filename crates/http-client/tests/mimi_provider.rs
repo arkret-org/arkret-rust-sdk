@@ -58,7 +58,7 @@ fn key_material_request_at(
         "service_binding":{"source_id":core("source"),"destination_id":core("destination")},
         "requester_authorization":{"kind":"device","verification_method":method,"requester_device_id":device,
             "device_authorize_event_id":EventId::from_digest(arkret_canonical::DigestSuite::Sha256,[2;32]),
-            "signed_at":arkret_canonical::format_timestamp_canonical(at),"signature":{"kid":method,"sig":"AA"}}
+            "signed_at":arkret_canonical::format_timestamp_canonical(at),"signature":{"kid":method,"signature":"AA"}}
     })).unwrap();
     let input = arkret_models_crypto::keypackage_claim_authorization_signing_bytes(
         &request.unsigned_request(),
@@ -68,7 +68,7 @@ fn key_material_request_at(
     .unwrap();
     let signature = SigningKey::from_bytes(&[4; 32]).sign(&input);
     let mut value = serde_json::to_value(&request).unwrap();
-    value["requester_authorization"]["signature"]["sig"] =
+    value["requester_authorization"]["signature"]["signature"] =
         json!(arkret_canonical::base64url_encode(signature.to_bytes()));
     request = serde_json::from_value(value).unwrap();
     request.validate_shape().unwrap();
@@ -455,7 +455,7 @@ async fn own_station_directory_requires_https_before_any_authentication() {
             base_url: client.base_url().to_string(),
             trust_domain: arkret_wire::TrustDomainId::new("ak:trust_domain:destination.example")
                 .unwrap(),
-            auth_metadata: arkret_models_discovery::AuthMetadata::minimal(),
+            authentication_metadata: arkret_models_discovery::AuthenticationMetadata::minimal(),
         };
         let result = client
             .mimi_provider_directory_from_own_station(

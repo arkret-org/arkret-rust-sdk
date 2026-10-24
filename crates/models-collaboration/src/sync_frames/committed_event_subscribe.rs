@@ -7,7 +7,7 @@
 //! Every positional frame names its own `realm_id` and carries a cursor scoped
 //! to that subscription. There is no Realm-global position: a client resuming a
 //! subscription passes back the cursor it last saw, and per-stream continuity
-//! is re-established through [`arkret_wire::StreamScanRequest`], which is
+//! is re-established through [`arkret_wire::StreamScanRequestBody`], which is
 //! addressed by [`arkret_wire::CommitStreamRef`] and `stream_position`.
 
 use arkret_wire::{CommitStreamRef, CommittedEventView, RealmId, Result, WireError};

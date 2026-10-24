@@ -8,9 +8,9 @@ use arkret_models_integration::{
     AppletEndpointEntry, AppletEndpointMethod, AppletInstallAuthoringRequestBasis,
     AppletInstallPlan, AppletInstallPreviewRequestBody, AppletManagedActorAuthoringRequest,
     AppletManagedActorPurpose, AppletNamespaceDomain, AppletNamespaceEntry, AppletPackage,
-    AppletPingOutcome, AppletRegistrationEpochEvidence, AppletRegistrationEpochTranscript,
-    AppletRegistrationPayload, AppletTransactionOutcome, AppletWireNamespaces, DetachedProof,
-    E2eeEffect, HttpMessageSignatureAlgorithm, WebhookAuth, WidgetEffect,
+    AppletPingResponseBody, AppletRegistrationEpochEvidence, AppletRegistrationEpochTranscript,
+    AppletRegistrationPayload, AppletTransactionResponseBody, AppletWireNamespaces, DetachedProof,
+    E2eeEffect, HttpMessageSignatureAlgorithm, WebhookSignaturePolicy, WidgetEffect,
 };
 use arkret_schema::ProtocolSchemaRegistry;
 use arkret_wire::{
@@ -154,7 +154,7 @@ fn sample_wire_registration() -> AppletRegistrationPayload {
         created_at: canonical_now(),
         domain: None,
         audience: None,
-        jws: "header..sig".to_owned(),
+        jws: "header..signature".to_owned(),
         extra: Default::default(),
     });
     package.to_registration(&evidence, None).unwrap()
@@ -211,11 +211,11 @@ fn package_with_required_fields() -> AppletPackage {
     package.endpoint_policy.endpoints.push(AppletEndpointEntry {
         method: AppletEndpointMethod::Post,
         path: "/_arkret/edge/applet/transactions".to_owned(),
-        auth: Some(AppletEndpointAuth::WebhookSignature),
+        authentication_kind: Some(AppletEndpointAuth::WebhookSignature),
         description: None,
         extra: Default::default(),
     });
-    package.webhook_auth = WebhookAuth::http_message_signature(
+    package.webhook_signature_policy = WebhookSignaturePolicy::http_message_signature(
         DidUrl::new(format!("{}#key-1", did("slackbridge"))).unwrap(),
         vec![HttpMessageSignatureAlgorithm::Ed25519],
     );
@@ -224,7 +224,7 @@ fn package_with_required_fields() -> AppletPackage {
 
 fn stamp_and_sign_test_package(package: &mut AppletPackage) {
     package.stamp_package_digest().unwrap();
-    let verification_method = package.webhook_auth.key_ref.clone();
+    let verification_method = package.webhook_signature_policy.key_ref.clone();
     let signer = StubSigner {
         did: did("slackbridge"),
         verification_method: verification_method.clone(),
@@ -291,13 +291,13 @@ fn applet_package_derives_registration_and_rejects_stale_epoch() {
         created_at: Utc::now(),
         domain: None,
         audience: None,
-        jws: "header..sig".to_owned(),
+        jws: "header..signature".to_owned(),
         extra: Default::default(),
     });
     package.validate().unwrap();
     package.validate_with_epoch_evidence(&evidence).unwrap();
     let mut carried_payload = package.clone();
-    carried_payload.proof.as_mut().unwrap().jws = "header.payload.sig".to_owned();
+    carried_payload.proof.as_mut().unwrap().jws = "header.payload.signature".to_owned();
     assert!(carried_payload.validate().is_err());
 
     let registration = package.to_registration(&evidence, None).unwrap();
@@ -376,10 +376,10 @@ fn closed_applet_edge_outcomes_reject_unknown_members() {
         "protocol_version": "1",
         "unknown": true
     });
-    assert!(serde_json::from_value::<AppletPingOutcome>(ping).is_err());
+    assert!(serde_json::from_value::<AppletPingResponseBody>(ping).is_err());
 
     let transaction = json!({"ok": true, "rejected": [], "unknown": true});
-    assert!(serde_json::from_value::<AppletTransactionOutcome>(transaction).is_err());
+    assert!(serde_json::from_value::<AppletTransactionResponseBody>(transaction).is_err());
 }
 
 #[test]
@@ -389,17 +389,17 @@ fn applet_ping_consumes_protocol_version_bootstrap() {
         "service_id": service("slackbridge"),
         "protocol_version": "1.0"
     });
-    serde_json::from_value::<AppletPingOutcome>(base.clone()).unwrap();
+    serde_json::from_value::<AppletPingResponseBody>(base.clone()).unwrap();
 
     let mut unsupported = base.clone();
     unsupported["protocol_version"] = json!("2.0");
-    let error = serde_json::from_value::<AppletPingOutcome>(unsupported).unwrap_err();
+    let error = serde_json::from_value::<AppletPingResponseBody>(unsupported).unwrap_err();
     assert!(error.to_string().contains("unsupported_protocol_version"));
 
     for malformed in [json!("1.0.0"), json!(1), json!(null)] {
         let mut value = base.clone();
         value["protocol_version"] = malformed;
-        let error = serde_json::from_value::<AppletPingOutcome>(value).unwrap_err();
+        let error = serde_json::from_value::<AppletPingResponseBody>(value).unwrap_err();
         if error.to_string().contains("1.0.0") {
             assert!(error.to_string().contains("schema_violation"));
         }
@@ -426,7 +426,7 @@ fn epoch_method_version_rules_follow_the_active_v1_adapters() {
         json!({"method": "did:web", "unversioned_refetch": true}),
         json!({"method": "did:webvh", "unversioned_refetch": true}),
         json!({"method": "did:webvh", "version_id": "1-Qm", "unversioned_refetch": true}),
-        json!({"method": "did:key", "version_time": "2026-01-01T00:00:00Z", "unversioned_refetch": false}),
+        json!({"method": "did:key", "version_created_at": "2026-01-01T00:00:00Z", "unversioned_refetch": false}),
     ] {
         assert!(
             serde_json::from_value::<AppletDidMethodVersionEvidence>(invalid.clone()).is_err(),
@@ -435,7 +435,7 @@ fn epoch_method_version_rules_follow_the_active_v1_adapters() {
     }
     serde_json::from_value::<AppletDidMethodVersionEvidence>(json!({
         "method": "did:webvh",
-        "version_time": "2026-01-01T00:00:00Z",
+        "version_created_at": "2026-01-01T00:00:00Z",
         "unversioned_refetch": false
     }))
     .unwrap();
@@ -454,7 +454,7 @@ fn epoch_method_version_rules_follow_the_active_v1_adapters() {
 fn registration_epoch_evidence_rejects_rotation_swap_and_empty_key_set() {
     let mut package = package_with_required_fields();
     let did = did("slackbridge");
-    let key_ref = package.webhook_auth.key_ref.to_string();
+    let key_ref = package.webhook_signature_policy.key_ref.to_string();
     let old_document = DidDocument::new(
         did.clone(),
         key_ref.clone(),
@@ -530,7 +530,7 @@ fn registration_epoch_evidence_rejects_deactivated_and_swapped_did() {
     let package = package_with_required_fields();
     let mut document = DidDocument::new(
         did("slackbridge"),
-        package.webhook_auth.key_ref.to_string(),
+        package.webhook_signature_policy.key_ref.to_string(),
         r#"{"crv":"Ed25519","kty":"OKP","x":"active"}"#,
     );
     let method_version = AppletDidMethodVersionEvidence::versioned(
@@ -633,8 +633,7 @@ fn install_plan_digest_excludes_itself_and_scope_round_trips() {
         requested_scopes: vec!["ak.message.create".to_owned()],
         approved_scopes: vec![],
         denied_scopes: vec![],
-        event_submissions: vec![],
-        capability_constraints: vec![],
+        planned_events: vec![],
         namespace_conflicts: vec![],
         e2ee_effect: E2eeEffect {
             mls_join_required: false,
@@ -705,7 +704,7 @@ fn committed_applet_refs_preserve_independent_circle_and_sidecar_streams() {
         "sidecar"
     );
 
-    let outcome = AppletTransactionOutcome::Accepted {
+    let outcome = AppletTransactionResponseBody::Accepted {
         committed_event_refs: vec![circle_ref],
         rejections: Vec::new(),
         retry_after_ms: None,
@@ -721,23 +720,24 @@ fn committed_applet_refs_preserve_independent_circle_and_sidecar_streams() {
 fn transaction_outcome_requires_commit_refs_only_for_successful_branches() {
     for status in ["accepted", "partial"] {
         assert!(
-            serde_json::from_value::<AppletTransactionOutcome>(json!({"status": status})).is_err()
+            serde_json::from_value::<AppletTransactionResponseBody>(json!({"status": status}))
+                .is_err()
         );
-        let outcome: AppletTransactionOutcome =
+        let outcome: AppletTransactionResponseBody =
             serde_json::from_value(json!({"status": status, "committed_event_refs": []})).unwrap();
         assert_eq!(
             serde_json::to_value(outcome).unwrap(),
             json!({"status": status, "committed_event_refs": []})
         );
     }
-    let rejected: AppletTransactionOutcome =
+    let rejected: AppletTransactionResponseBody =
         serde_json::from_value(json!({"status": "rejected", "retry_after_ms": 1000})).unwrap();
     assert_eq!(
         serde_json::to_value(rejected).unwrap(),
         json!({"status": "rejected", "retry_after_ms": 1000})
     );
     assert!(
-        serde_json::from_value::<AppletTransactionOutcome>(
+        serde_json::from_value::<AppletTransactionResponseBody>(
             json!({"status": "rejected", "committed_event_refs": []})
         )
         .is_err()
@@ -799,7 +799,7 @@ fn sample_authoring_request() -> AppletManagedActorAuthoringRequest {
                     "realm_id": realm(),
                     "authority_event_ref":
                         EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [0x11; 32]),
-                    "authority_generation": 1
+                    "authority_generation": "1"
                 }]
             }}),
         )

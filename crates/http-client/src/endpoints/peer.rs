@@ -1,6 +1,6 @@
 //! Typed service-authenticated peer query endpoints.
 
-use arkret_models_crypto::keys::{PeerKeysQueryOutcome, PeerKeysQueryRequestBody};
+use arkret_models_crypto::keys::{PeerKeysQueryRequestBody, PeerKeysQueryResponseBody};
 use arkret_wire::PATH_PEER_KEYS_QUERY;
 
 use crate::{Client, Result};
@@ -16,10 +16,10 @@ impl Client {
     pub async fn peer_keys_query(
         &self,
         request: &PeerKeysQueryRequestBody,
-    ) -> Result<PeerKeysQueryOutcome> {
+    ) -> Result<PeerKeysQueryResponseBody> {
         request.validate()?;
         request.destination_station_id()?;
-        let outcome: PeerKeysQueryOutcome = self.post(PATH_PEER_KEYS_QUERY, request).await?;
+        let outcome: PeerKeysQueryResponseBody = self.post(PATH_PEER_KEYS_QUERY, request).await?;
         outcome.validate_for_request(request)?;
         Ok(outcome)
     }
@@ -32,13 +32,13 @@ impl Client {
         &self,
         request: &arkret_models_collaboration::strand_watch_operations::StrandWatchCurrentRequestBody,
         expected_governance_generation: u64,
-    ) -> Result<arkret_models_collaboration::strand_watch_operations::StrandWatchCurrentOutcome>
+    ) -> Result<arkret_models_collaboration::strand_watch_operations::StrandWatchCurrentResponseBody>
     {
         use arkret_models_collaboration::strand_watch_operations::{
-            PEER_STRAND_WATCH_CURRENT_PATH, StrandWatchCurrentOutcome,
+            PEER_STRAND_WATCH_CURRENT_PATH, StrandWatchCurrentResponseBody,
         };
         request.validate()?;
-        let outcome: StrandWatchCurrentOutcome =
+        let outcome: StrandWatchCurrentResponseBody =
             self.post(PEER_STRAND_WATCH_CURRENT_PATH, request).await?;
         outcome
             .validate_for_generation(request, expected_governance_generation)
@@ -52,15 +52,16 @@ impl Client {
     pub async fn peer_strand_watch_audit_read(
         &self,
         request: &arkret_identity::VerifiedSubmission<
-            arkret_models_collaboration::strand_watch_operations::PeerWatchAuditReadRequest,
+            arkret_models_collaboration::strand_watch_operations::PeerWatchAuditReadRequestBody,
         >,
         expected_governance_generation: u64,
-    ) -> Result<arkret_models_collaboration::strand_watch_operations::WatchAuditReadOutcome> {
+    ) -> Result<arkret_models_collaboration::strand_watch_operations::WatchAuditReadResponseBody>
+    {
         use arkret_models_collaboration::strand_watch_operations::{
-            PEER_STRAND_WATCH_AUDIT_PATH, WatchAuditReadOutcome,
+            PEER_STRAND_WATCH_AUDIT_PATH, WatchAuditReadResponseBody,
         };
         request.validate()?;
-        let outcome: WatchAuditReadOutcome =
+        let outcome: WatchAuditReadResponseBody =
             self.post(PEER_STRAND_WATCH_AUDIT_PATH, request).await?;
         outcome.validate_for_request(&request.logical_request(), expected_governance_generation)?;
         Ok(outcome)

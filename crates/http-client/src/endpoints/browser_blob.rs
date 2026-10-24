@@ -1,6 +1,6 @@
 //! Browser multipart consumes a Blob without copying its full body into Rust.
 //! Authentication is built by the same Client request path as byte uploads.
-use arkret_models_collaboration::objects::blob::{BlobUploadMetadata, BlobUploadOutcome};
+use arkret_models_collaboration::objects::blob::{BlobUploadMetadata, BlobUploadResponseBody};
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
@@ -32,7 +32,7 @@ impl Client {
         &self,
         metadata: &BlobUploadMetadata,
         blob: &web_sys::Blob,
-    ) -> Result<BlobUploadOutcome> {
+    ) -> Result<BlobUploadResponseBody> {
         if blob.size() as u64 != metadata.size_bytes {
             return Err(Error::Protocol(
                 "Blob body size differs from upload metadata".into(),

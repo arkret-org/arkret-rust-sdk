@@ -1,9 +1,9 @@
 //! Encrypted key-backup endpoint methods.
 
 use arkret_models_crypto::{
-    KeyBackup, KeyBackupsListQuery, KeysBackupsDeleteChallenge, KeysBackupsDeleteOutcome,
-    KeysBackupsDeleteRequestBody, KeysBackupsIssueDeleteChallengeRequestBody,
-    KeysBackupsIssueUnlockChallengeRequestBody, KeysBackupsList, KeysBackupsReplaceOutcome,
+    KeyBackup, KeyBackupsListQuery, KeysBackupsDeleteChallenge, KeysBackupsDeleteRequestBody,
+    KeysBackupsDeleteResponseBody, KeysBackupsIssueDeleteChallengeRequestBody,
+    KeysBackupsIssueUnlockChallengeRequestBody, KeysBackupsPage, KeysBackupsReplaceResponseBody,
     KeysBackupsUnlockChallenge, KeysBackupsUnlockRequestBody,
 };
 use arkret_wire::BackupId;
@@ -14,8 +14,8 @@ impl Client {
     pub async fn publish_recovery_policy(
         &self,
         request: &arkret_identity::VerifiedSubmission<arkret_wire::EventAdmissionSubmission>,
-    ) -> Result<arkret_models_crypto::RecoveryPolicyPublishOutcome> {
-        arkret_models_crypto::RecoveryPolicyPublishRequest::new(request.wire().clone())?;
+    ) -> Result<arkret_models_crypto::RecoveryPolicyPublishResponseBody> {
+        arkret_models_crypto::RecoveryPolicyPublishRequestBody::new(request.wire().clone())?;
         self.post("/_arkret/root/identity/recovery-policy", request)
             .await
     }
@@ -32,7 +32,7 @@ impl Client {
         &self,
         session_id: &str,
         request: &arkret_models_crypto::RecoverySessionProofSubmitRequestBody,
-    ) -> Result<arkret_models_crypto::RecoverySessionProofSubmitOutcome> {
+    ) -> Result<arkret_models_crypto::RecoverySessionProofSubmitResponseBody> {
         reject_path_segment(session_id)?;
         request.proof.validate_shape()?;
         self.post(
@@ -47,7 +47,7 @@ impl Client {
         backup_id: &BackupId,
         record: &KeyBackup,
         idempotency_key: &str,
-    ) -> Result<KeysBackupsReplaceOutcome> {
+    ) -> Result<KeysBackupsReplaceResponseBody> {
         reject_path_segment(backup_id.as_str())?;
         record.validate()?;
         if &record.backup_id != backup_id {
@@ -93,7 +93,7 @@ impl Client {
         .await
     }
 
-    pub async fn list_key_backups(&self, query: &KeyBackupsListQuery) -> Result<KeysBackupsList> {
+    pub async fn list_key_backups(&self, query: &KeyBackupsListQuery) -> Result<KeysBackupsPage> {
         let builder = self
             .request(reqwest::Method::GET, "/_arkret/self/keys/backups")?
             .query(query);
@@ -120,7 +120,7 @@ impl Client {
         &self,
         backup_id: &BackupId,
         request: &KeysBackupsDeleteRequestBody,
-    ) -> Result<KeysBackupsDeleteOutcome> {
+    ) -> Result<KeysBackupsDeleteResponseBody> {
         reject_path_segment(backup_id.as_str())?;
         self.delete_with_body(
             &format!("/_arkret/self/keys/backups/{}", backup_id.as_str()),

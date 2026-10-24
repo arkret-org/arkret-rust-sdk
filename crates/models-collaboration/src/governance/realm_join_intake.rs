@@ -100,6 +100,7 @@ pub struct RealmPublicPreview {
     pub realm_id: RealmId,
     pub join_rule: JoinRule,
     pub history_access: HistoryAccess,
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub governance_generation: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
@@ -159,13 +160,13 @@ impl SelfRealmJoinPreviewRequestBody {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct SelfRealmJoinPreviewOutcome {
+pub struct SelfRealmJoinPreviewResponseBody {
     pub request_id: RequestId,
     pub authority_bundle: RealmAuthorityBundle,
     pub preview: RealmPublicPreview,
 }
 
-impl SelfRealmJoinPreviewOutcome {
+impl SelfRealmJoinPreviewResponseBody {
     pub fn validate_for_request(&self, request: &SelfRealmJoinPreviewRequestBody) -> Result<()> {
         request.validate()?;
         validate_preview_binding(
@@ -196,12 +197,12 @@ impl PeerRealmJoinPreviewRequestBody {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PeerRealmJoinPreviewOutcome {
+pub struct PeerRealmJoinPreviewResponseBody {
     pub request_id: RequestId,
     pub preview: RealmPublicPreview,
 }
 
-impl PeerRealmJoinPreviewOutcome {
+impl PeerRealmJoinPreviewResponseBody {
     /// The caller Station already verified the answering governance Station
     /// with its own nonce-bound authority bundle, so this outcome carries no
     /// bundle; it only has to echo the request and describe the requested Realm.
@@ -243,13 +244,13 @@ impl SelfRealmJoinPrepareRequestBody {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct SelfRealmJoinPrepareOutcome {
+pub struct SelfRealmJoinPrepareResponseBody {
     pub request_id: RequestId,
     pub authority_bundle: RealmAuthorityBundle,
     pub realm_stream_head: CommitStreamHead,
 }
 
-impl SelfRealmJoinPrepareOutcome {
+impl SelfRealmJoinPrepareResponseBody {
     pub fn validate_for_request(&self, request: &SelfRealmJoinPrepareRequestBody) -> Result<()> {
         request.validate()?;
         self.authority_bundle.validate_shape()?;
@@ -282,8 +283,8 @@ impl SelfRealmJoinPrepareOutcome {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 // Field declaration order is byte-for-byte the `properties` order of
-// `realm-join-intake.schema.json#/$defs/peer_bootstrap_outcome`.
-pub struct PeerRealmJoinBootstrapOutcome {
+// `realm-join-intake.schema.json#/$defs/peer_bootstrap_response_body`.
+pub struct PeerRealmJoinBootstrapResponseBody {
     pub request_id: RequestId,
     pub authority_bundle: RealmAuthorityBundle,
     pub snapshot: RealmStateSnapshot,

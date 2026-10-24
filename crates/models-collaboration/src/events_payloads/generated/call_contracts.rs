@@ -2,19 +2,19 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/call-recording-artifact.schema.json
-// sha256=d8f6f18b12611c37cf56573ef2cffe8d817a978f0df348bfc1d9a003ad576d92
+// sha256=cb62b6ebc010c0a6b7362f6ec3c71b47d1df97d0c3b5252009bd350627cafa7b
 //
 // Input: schemas/event-payload.schema.json
-// sha256=6c0740fab50fcb796331bad41ee632e0602de445969cee69c4962e45dab65b27
+// sha256=74e26ef25ba5846ba74149c301a7ff5c7f1afc507f2cfd207cfe0edc060507bf
 //
-// Input: schemas/typed-current-result.schema.json
-// sha256=af1796a65736414a650ecb791939112f02920d691fd8ee4b9e46397ad70aadbd
+// Input: schemas/current-state.schema.json
+// sha256=feba0ff19e227c276a3792aaed506b6534bf9ff8ce6c2e91a0ab36c04777785f
 //
 // Input: schemas/../registry/contract-registry.json
-// sha256=6552ac03bae32d141a4cfe33845c2a4855b57bb1aacd2947927e87868418cfa5
+// sha256=e79e94261c890e82a59726272e1d22118c7d3ba48720b3b9e810971299b09c0f
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=d200bd3e6d76abd1b6154781fb5e54f11fbbc834638cdc29554f83590127fdfa
+// sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
 
 /// Counterpart: `call-recording-artifact.schema.json`.
 /// Counterpart for `spec/v1/artifacts/schemas/call-recording-artifact.schema.json`.
@@ -87,10 +87,10 @@ pub struct ParticipantBinding {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub issuer_kid: DidUrl,
-    pub sig: String,
+    pub signature: String,
 }
 
-/// Counterpart: `typed-current-result.schema.json#/$defs/call_roster_source`.
+/// Counterpart: `current-state.schema.json#/$defs/call_roster_source`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CallRosterSource {
@@ -99,14 +99,14 @@ pub struct CallRosterSource {
     pub value: CallRosterDelta,
 }
 
-/// Counterpart: `typed-current-result.schema.json#/$defs/call_participant_signing_key`.
+/// Counterpart: `current-state.schema.json#/$defs/call_participant_signing_key`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CallParticipantSigningKey {
-    pub public_key_b64u: String,
+    pub public_key_base64url: String,
 }
 
-/// Counterpart: `typed-current-result.schema.json#/$defs/call_roster_entry`.
+/// Counterpart: `current-state.schema.json#/$defs/call_roster_entry`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CallRosterEntry {
@@ -118,7 +118,7 @@ pub struct CallRosterEntry {
     pub participant_signing_key: Option<CallParticipantSigningKey>,
 }
 
-/// Counterpart: `typed-current-result.schema.json#/$defs/call_roster_value`.
+/// Counterpart: `current-state.schema.json#/$defs/call_roster_value`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CallRosterCurrentValue {
@@ -126,7 +126,7 @@ pub struct CallRosterCurrentValue {
     pub last_source: CallRosterSource,
 }
 
-/// Counterpart: `typed-current-result.schema.json#/$defs/call_moderation_source`.
+/// Counterpart: `current-state.schema.json#/$defs/call_moderation_source`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CallModerationSource {
@@ -135,7 +135,7 @@ pub struct CallModerationSource {
     pub value: CallModerationDelta,
 }
 
-/// Counterpart: `typed-current-result.schema.json#/$defs/call_moderation_entry`.
+/// Counterpart: `current-state.schema.json#/$defs/call_moderation_entry`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CallModerationEntry {
@@ -144,7 +144,7 @@ pub struct CallModerationEntry {
     pub value: CallModerationDelta,
 }
 
-/// Counterpart: `typed-current-result.schema.json#/$defs/call_moderation_value`.
+/// Counterpart: `current-state.schema.json#/$defs/call_moderation_value`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CallModerationCurrentValue {

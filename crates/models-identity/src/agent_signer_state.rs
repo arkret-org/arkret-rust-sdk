@@ -12,23 +12,44 @@ pub const SELF_SIGNER_REQUEST_MAX_BYTES: usize = 64 * 1024;
 pub const SELF_SIGNER_RESULT_MAX_BYTES: usize = 64 * 1024;
 pub const SELF_SIGNER_OUTCOME_MAX_BYTES: usize = 512 * 1024;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum AgentCurrentStatus {
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AgentLifecycleState {
+    #[default]
     Active,
     Paused,
     Deactivated,
+}
+
+impl AgentLifecycleState {
+    /// The `agent_status` wire token, spelled exactly once here.
+    pub fn as_wire_str(self) -> &'static str {
+        match self {
+            Self::Active => "active",
+            Self::Paused => "paused",
+            Self::Deactivated => "deactivated",
+        }
+    }
+
+    pub fn from_wire_str(value: &str) -> Option<Self> {
+        match value {
+            "active" => Some(Self::Active),
+            "paused" => Some(Self::Paused),
+            "deactivated" => Some(Self::Deactivated),
+            _ => None,
+        }
+    }
 }
 
 /// Key material returned only to the authenticated self caller.
 ///
 /// There is exactly one Station signing-key shape in the SDK and it is the one
 /// `arkret-wire` owns. `signer-key-operations.schema.json#/$defs/station_signing_key`
-/// is closed over `actor`, `verification_method`, `public_key_b64u` and an
+/// is closed over `actor`, `verification_method`, `public_key_base64url` and an
 /// `authorization_ref` that is a bare `event_id`; the revision an answer was
 /// projected at belongs to the answer, not to the key, and is carried by
-/// [`AgentSignerCurrentState::revision`].
+/// [`AgentSignerStateView::revision`].
 pub use arkret_wire::StationSigningKey;
 
 /// Closed current Agent state. Paused/deactivated rows remain auditable but
@@ -36,8 +57,8 @@ pub use arkret_wire::StationSigningKey;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AgentSignerCurrentState {
-    pub status: AgentCurrentStatus,
+pub struct AgentSignerStateView {
+    pub status: AgentLifecycleState,
     pub signing_key: StationSigningKey,
     /// Revision of the projected current state this answer was read at. It
     /// bounds every committed reference the answer carries.
@@ -47,7 +68,7 @@ pub struct AgentSignerCurrentState {
     pub status_ref: Option<CommittedEventRef>,
 }
 
-impl AgentSignerCurrentState {
+impl AgentSignerStateView {
     pub fn validate(&self) -> Result<()> {
         self.signing_key.validate()?;
         if let Some(status_ref) = &self.status_ref
@@ -60,7 +81,7 @@ impl AgentSignerCurrentState {
                 "Agent status Event is not covered by the answered current revision",
             ));
         }
-        if self.status != AgentCurrentStatus::Active && self.status_ref.is_none() {
+        if self.status != AgentLifecycleState::Active && self.status_ref.is_none() {
             return Err(self_signer_error(
                 ErrorCode::SchemaViolation,
                 "a non-active Agent state requires its committed status Event",
@@ -71,7 +92,7 @@ impl AgentSignerCurrentState {
 
     pub fn active_key(&self) -> Result<&StationSigningKey> {
         self.validate()?;
-        if self.status != AgentCurrentStatus::Active {
+        if self.status != AgentLifecycleState::Active {
             return Err(self_signer_error(
                 ErrorCode::StateMismatch,
                 "Agent is not active at the returned current revision",
@@ -154,7 +175,7 @@ mod tests {
         StationSigningKey {
             actor: actor(),
             verification_method: DidUrl::new("did:web:agent.example#agent-key").unwrap(),
-            public_key_b64u: Base64UrlString::new(arkret_wire::base64url::base64url_encode(
+            public_key_base64url: Base64UrlString::new(arkret_wire::base64url::base64url_encode(
                 [7_u8; 32],
             ))
             .unwrap(),
@@ -213,7 +234,7 @@ mod tests {
             vec![
                 "actor",
                 "authorization_ref",
-                "public_key_b64u",
+                "public_key_base64url",
                 "verification_method"
             ]
         );
@@ -221,8 +242,8 @@ mod tests {
 
     #[test]
     fn an_active_state_needs_no_status_event() {
-        let state = AgentSignerCurrentState {
-            status: AgentCurrentStatus::Active,
+        let state = AgentSignerStateView {
+            status: AgentLifecycleState::Active,
             signing_key: signing_key(),
             revision: revision(9, 0xfe),
             status_ref: None,
@@ -233,8 +254,8 @@ mod tests {
 
     #[test]
     fn a_paused_state_without_its_status_event_is_refused() {
-        let state = AgentSignerCurrentState {
-            status: AgentCurrentStatus::Paused,
+        let state = AgentSignerStateView {
+            status: AgentLifecycleState::Paused,
             signing_key: signing_key(),
             revision: revision(9, 0xfe),
             status_ref: None,
@@ -244,8 +265,8 @@ mod tests {
 
     #[test]
     fn a_paused_state_is_auditable_but_yields_no_current_key() {
-        let state = AgentSignerCurrentState {
-            status: AgentCurrentStatus::Paused,
+        let state = AgentSignerStateView {
+            status: AgentLifecycleState::Paused,
             signing_key: signing_key(),
             revision: revision(9, 0xfe),
             status_ref: Some(status_ref(4, 0x11)),
@@ -256,8 +277,8 @@ mod tests {
 
     #[test]
     fn a_status_event_past_the_answered_revision_is_refused() {
-        let state = AgentSignerCurrentState {
-            status: AgentCurrentStatus::Deactivated,
+        let state = AgentSignerStateView {
+            status: AgentLifecycleState::Deactivated,
             signing_key: signing_key(),
             revision: revision(9, 0xfe),
             status_ref: Some(status_ref(11, 0x11)),
@@ -270,8 +291,8 @@ mod tests {
     /// claims the answered commit at another position is incoherent.
     #[test]
     fn one_commit_at_two_stream_positions_is_refused() {
-        let state = AgentSignerCurrentState {
-            status: AgentCurrentStatus::Deactivated,
+        let state = AgentSignerStateView {
+            status: AgentLifecycleState::Deactivated,
             signing_key: signing_key(),
             revision: revision(9, 0x11),
             status_ref: Some(status_ref(4, 0x11)),

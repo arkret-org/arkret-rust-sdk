@@ -5,26 +5,26 @@
 
 use std::sync::Arc;
 
-use arkret_models_collaboration::device_messages::DeviceMessagesGetOutcome;
-use arkret_models_collaboration::exact_current_results::{
-    ExactCurrentResultsReadOutcome, ExactCurrentResultsReadRequestBody,
+use arkret_models_collaboration::device_messages::DeviceMessagesGetResponseBody;
+use arkret_models_collaboration::exact_current_state::{
+    ExactCurrentStateReadRequestBody, ExactCurrentStateReadResponseBody,
 };
 use arkret_models_collaboration::mls_group_state_material::{
-    MlsGroupStateMaterialOutcome, MlsMemberGroupStateMaterialReadRequestBody,
+    MlsGroupStateMaterialResponseBody, MlsMemberGroupStateMaterialReadRequestBody,
 };
 use arkret_models_collaboration::mls_roster_authority::{
-    MlsMemberRosterAuthorityReadRequestBody, MlsSelfRosterAuthorityReadOutcome,
+    MlsMemberRosterAuthorityReadRequestBody, MlsSelfRosterAuthorityReadResponseBody,
 };
-use arkret_models_crypto::{KeyPackagesClaimOutcome, KeyPackagesClaimQueryRequestBody};
+use arkret_models_crypto::{KeyPackagesClaimQueryRequestBody, KeyPackagesClaimResponseBody};
 use arkret_models_discovery::{ServiceDescribe, TransportBinding};
 use arkret_models_identity::signer_key_operations::{
-    SignerKeysQueryOutcome, SignerKeysQueryRequestBody,
+    SignerKeyQueryResponseBody, SignerKeysQueryRequestBody,
 };
 use arkret_models_integration::AppletManagedDeviceMetadata;
 use arkret_wire::{
-    ActorId, AppletId, CommitStreamRef, CommittedEventView, DeviceId, EventId, RealmId,
-    RealmSnapshotId, RealmStateSnapshot, ScopeRef, StreamScanOutcome, StreamScanRequest,
-    TypedCurrentRow,
+    ActorId, AppletId, CommitStreamRef, CommittedEventView, CurrentState, DeviceId, EventId,
+    RealmId, RealmSnapshotId, RealmStateSnapshot, ScopeRef, StreamScanRequestBody,
+    StreamScanResponseBody,
 };
 use chrono::{DateTime, Utc};
 
@@ -48,7 +48,7 @@ pub fn validate_device_snapshot_scope(
         || snapshot.current_state_entries.iter().any(|row| match row {
             // Circle object data cannot piggyback on its Realm authorization
             // stream; that Realm source is outside a Circle-only cut as well.
-            TypedCurrentRow::Value {
+            CurrentState::Value {
                 source_stream_ref,
                 selector,
                 ..
@@ -340,8 +340,8 @@ impl OwnStationDeviceClient {
 
     pub async fn scan_commit_stream(
         &self,
-        request: &StreamScanRequest,
-    ) -> Result<BoundOwnStationDeviceResponse<StreamScanRequest, StreamScanOutcome>> {
+        request: &StreamScanRequestBody,
+    ) -> Result<BoundOwnStationDeviceResponse<StreamScanRequestBody, StreamScanResponseBody>> {
         self.check_context()?;
         let expected = CommitStreamRef::from_scope(&self.context.effective_scope, None)?;
         if request.stream_ref != expected || &request.realm_id != expected.realm_id() {
@@ -354,14 +354,14 @@ impl OwnStationDeviceClient {
         self.bind(request.clone(), value)
     }
 
-    pub async fn exact_current_result(
+    pub async fn exact_current_state(
         &self,
-        request: &ExactCurrentResultsReadRequestBody,
+        request: &ExactCurrentStateReadRequestBody,
         generation: u64,
     ) -> Result<
         BoundOwnStationDeviceResponse<
-            (ExactCurrentResultsReadRequestBody, u64),
-            ExactCurrentResultsReadOutcome,
+            (ExactCurrentStateReadRequestBody, u64),
+            ExactCurrentStateReadResponseBody,
         >,
     > {
         self.check_context()?;
@@ -369,17 +369,14 @@ impl OwnStationDeviceClient {
         if self.context.effective_scope.realm_id_opt() != Some(&request.realm_id) {
             return Err(protocol("native current request belongs to another Realm"));
         }
-        let value = self
-            .client
-            .exact_current_result(request, generation)
-            .await?;
+        let value = self.client.exact_current_state(request, generation).await?;
         value.validate_for_request(request, generation)?;
         let stream = match &value {
-            ExactCurrentResultsReadOutcome::Present {
+            ExactCurrentStateReadResponseBody::Present {
                 effective_stream_head,
                 ..
             }
-            | ExactCurrentResultsReadOutcome::NeverWritten {
+            | ExactCurrentStateReadResponseBody::NeverWritten {
                 effective_stream_head,
                 ..
             } => &effective_stream_head.stream_ref,
@@ -448,7 +445,7 @@ impl OwnStationDeviceClient {
     pub async fn signer_keys_query(
         &self,
         request: &SignerKeysQueryRequestBody,
-    ) -> Result<BoundOwnStationDeviceResponse<SignerKeysQueryRequestBody, SignerKeysQueryOutcome>>
+    ) -> Result<BoundOwnStationDeviceResponse<SignerKeysQueryRequestBody, SignerKeyQueryResponseBody>>
     {
         self.check_context()?;
         if request.recipient_actor_id.as_ref() != Some(&self.context.actor_id)
@@ -467,7 +464,10 @@ impl OwnStationDeviceClient {
         &self,
         request: &KeyPackagesClaimQueryRequestBody,
     ) -> Result<
-        BoundOwnStationDeviceResponse<KeyPackagesClaimQueryRequestBody, KeyPackagesClaimOutcome>,
+        BoundOwnStationDeviceResponse<
+            KeyPackagesClaimQueryRequestBody,
+            KeyPackagesClaimResponseBody,
+        >,
     > {
         self.check_context()?;
         let value = self.client.keypackages_claim_query(request).await?;
@@ -488,7 +488,7 @@ impl OwnStationDeviceClient {
     ) -> Result<
         BoundOwnStationDeviceResponse<
             MlsMemberGroupStateMaterialReadRequestBody,
-            MlsGroupStateMaterialOutcome,
+            MlsGroupStateMaterialResponseBody,
         >,
     > {
         self.check_context()?;
@@ -510,7 +510,7 @@ impl OwnStationDeviceClient {
     ) -> Result<
         BoundOwnStationDeviceResponse<
             MlsMemberRosterAuthorityReadRequestBody,
-            MlsSelfRosterAuthorityReadOutcome,
+            MlsSelfRosterAuthorityReadResponseBody,
         >,
     > {
         self.check_context()?;
@@ -531,7 +531,7 @@ impl OwnStationDeviceClient {
         after: Option<&str>,
         limit: Option<u32>,
     ) -> Result<
-        BoundOwnStationDeviceResponse<(Option<String>, Option<u32>), DeviceMessagesGetOutcome>,
+        BoundOwnStationDeviceResponse<(Option<String>, Option<u32>), DeviceMessagesGetResponseBody>,
     > {
         self.check_context()?;
         let value = self.client.receive_device_messages(after, limit).await?;

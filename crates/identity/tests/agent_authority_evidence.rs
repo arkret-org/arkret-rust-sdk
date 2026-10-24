@@ -49,7 +49,7 @@ fn station(seed: u8, host: &str) -> Station {
             provider_endpoint: &"https://identity.example/".parse().unwrap(),
             registration_key: &registration,
             also_known_as: &[],
-            version_time: registered_at,
+            version_created_at: registered_at,
             did_key_fragment: None,
         },
     )
@@ -151,8 +151,8 @@ use arkret_models_identity::agent_authority_evidence::*;
 use arkret_models_identity::agent_signer_evidence::*;
 use arkret_models_identity::{AuthenticatedSignerKind, AuthenticatedSignerResolutionEvidence};
 use arkret_wire::{
-    CurrentRevision, CurrentSelector, DetachedSignatureContext, RealmCommit, RealmCommitId,
-    TypedCurrentRow,
+    CurrentRevision, CurrentSelector, CurrentState, DetachedSignatureContext, RealmCommit,
+    RealmCommitId,
 };
 
 fn sign(event: Event, method: &str, seed: [u8; 32]) -> Event {
@@ -184,10 +184,10 @@ fn commit(
         "stream_ref": {"kind":"realm", "realm_id":event.realm_id},
         "stream_position":previous.map_or(0,|p|p.stream_position+1),
         "previous_commit_ref":previous.map(|p|&p.commit_id), "event_ref":event.event_id,
-        "governance_generation":0,"authority_ref":genesis.event_id,"committed_at":at,
+        "governance_generation":"0","authority_ref":genesis.event_id,"committed_at":at,
         "signature":{"context":"ak.realm_commit_signature.v1","signature_algorithm":"Ed25519",
           "verification_method":station.method,"signed_digest":format!("sha256:{}","0".repeat(64)),
-          "created_at":at,"sig":"AA"}
+          "created_at":at,"signature":"AA"}
     }))
     .unwrap();
     let mut body = serde_json::to_value(&commit).unwrap();
@@ -220,7 +220,7 @@ fn fixture() -> (Station, Event, AgentProducerEvidence) {
             principal_endpoint: &"https://agent.example/".parse().unwrap(),
             local_id: "portable-agent",
             controller_principal_id: &controller.principal_id,
-            version_time: at,
+            version_created_at: at,
             root_seed: &[89; 32],
             next_root_public_key_multibase: &next,
         },
@@ -300,7 +300,7 @@ fn fixture() -> (Station, Event, AgentProducerEvidence) {
         expires_at: None,
     };
     let current = |commit: &RealmCommit, selector: CurrentSelector, value: serde_json::Value| {
-        TypedCurrentRow::Value {
+        CurrentState::Value {
             selector,
             source_stream_ref: commit.stream_ref.clone(),
             revision: CurrentRevision {
@@ -333,7 +333,7 @@ fn fixture() -> (Station, Event, AgentProducerEvidence) {
         key_state_witness: AgentKeyStateWitness {
             commit_id: last.commit_id.clone(),
             commit: last.clone(),
-            result: current(
+            current_state: current(
                 &last,
                 CurrentSelector::AgentKey {
                     agent_id: agent.principal_id.clone(),
@@ -345,7 +345,7 @@ fn fixture() -> (Station, Event, AgentProducerEvidence) {
         agent_lifecycle_witness: AgentLifecycleWitness {
             commit_id: first.commit_id.clone(),
             commit: first.clone(),
-            result: current(
+            current_state: current(
                 &first,
                 CurrentSelector::AgentStatus {
                     agent_id: agent.principal_id.clone(),

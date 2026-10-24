@@ -2,7 +2,7 @@ use arkret_test_kit::service_identity::ServiceIdentityFixture;
 
 #[test]
 fn media_ice_binds_the_exact_request_and_rejects_tampering() {
-    use arkret_models_collaboration::objects::media::MediaIceConfigRequestBody;
+    use arkret_models_collaboration::objects::media::MediaIceConfigurationRequestBody;
     let at = "2026-10-14T00:00:00.000Z".parse().unwrap();
     let authority = ServiceIdentityFixture::webvh(
         &"https://media-fixture.example/".parse().unwrap(),
@@ -13,7 +13,7 @@ fn media_ice_binds_the_exact_request_and_rejects_tampering() {
         at,
     )
     .unwrap();
-    let request: MediaIceConfigRequestBody = serde_json::from_value(serde_json::json!({
+    let request: MediaIceConfigurationRequestBody = serde_json::from_value(serde_json::json!({
         "realm_id":"ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs",
         "call_id":"ak:call:AVxshP1cCAeTx94DZvt3ODhEjNR9Da4hbdzLBzwPU-T1",
         "actor_id":{"kind":"account","account_id":{"principal_id":"ak:did_core:web:alice.example","station_id":authority.service_id}},
@@ -30,9 +30,10 @@ fn media_ice_binds_the_exact_request_and_rejects_tampering() {
         authority.signing_key.verifying_key(),
     )])
     .unwrap();
-    let verify = |value: &arkret_models_collaboration::objects::media::MediaIceConfigOutcome| {
-        arkret_signatures::media::verify_ice_config_outcome(value, &anchors)
-    };
+    let verify =
+        |value: &arkret_models_collaboration::objects::media::MediaIceConfigurationResponseBody| {
+            arkret_signatures::media::verify_ice_config_outcome(value, &anchors)
+        };
     verify(&outcome).unwrap();
     assert_eq!(outcome.actor_id, request.actor_id);
     assert_eq!(outcome.realm_id, request.realm_id);
@@ -67,7 +68,9 @@ fn media_ice_binds_the_exact_request_and_rejects_tampering() {
             }
             "timestamp" => changed.issued_at += chrono::Duration::seconds(1),
             "credential" => changed.ice_servers[1].credential = Some("changed".into()),
-            "signature" => changed.signature.sig = arkret_canonical::base64url_encode([0; 64]),
+            "signature" => {
+                changed.signature.signature = arkret_canonical::base64url_encode([0; 64])
+            }
             _ => unreachable!(),
         }
         assert!(verify(&changed).is_err(), "{field} mutation was accepted");

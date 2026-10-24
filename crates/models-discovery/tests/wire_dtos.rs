@@ -1,5 +1,5 @@
 use arkret_models_discovery::{
-    DirectoryRealmSearchOutcome, DirectorySearchRealmsRequestBody, InteropSurfaceEntry,
+    DirectoryRealmSearchResponseBody, DirectorySearchRealmsRequestBody, InteropSurfaceEntry,
     InteropSurfaceKind, ServiceDescribe,
 };
 use arkret_wire::{Did, ServiceKind, TrustDomainId};
@@ -52,7 +52,7 @@ fn public_realm_search_models_are_closed() {
         }))
         .is_err()
     );
-    let outcome: DirectoryRealmSearchOutcome =
+    let outcome: DirectoryRealmSearchResponseBody =
         serde_json::from_value(json!({"realms": [], "has_more": false})).unwrap();
     outcome.validate().unwrap();
 }

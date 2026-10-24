@@ -78,9 +78,9 @@ pub struct ReceiveDisclosureMax {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct NewSourceQuotaOverride {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub new_sources_per_window: Option<u64>,
+    pub source_count_per_window: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub new_sources_per_retention: Option<u64>,
+    pub source_count_per_retention: Option<u64>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -90,23 +90,23 @@ pub struct NewSourceQuotaConstraints {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub window_seconds: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub default_new_sources_per_window: Option<u64>,
+    pub default_source_count_per_window: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub max_new_sources_per_window: Option<u64>,
+    pub max_source_count_per_window: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub retention_seconds: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub default_new_sources_per_retention: Option<u64>,
+    pub default_source_count_per_retention: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub max_new_sources_per_retention: Option<u64>,
+    pub max_source_count_per_retention: Option<u64>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct EffectiveNewSourceQuota {
     pub window_seconds: u64,
-    pub new_sources_per_window: u64,
+    pub source_count_per_window: u64,
     pub retention_seconds: u64,
-    pub new_sources_per_retention: u64,
+    pub source_count_per_retention: u64,
 }
 
 impl NewSourceQuotaConstraints {
@@ -123,19 +123,19 @@ impl NewSourceQuotaConstraints {
     ) -> Result<EffectiveNewSourceQuota> {
         let window_seconds = self.window_seconds.unwrap_or(Self::DEFAULT_WINDOW_SECONDS);
         let default_per_window = self
-            .default_new_sources_per_window
+            .default_source_count_per_window
             .unwrap_or(Self::DEFAULT_NEW_SOURCES_PER_WINDOW);
         let max_per_window = self
-            .max_new_sources_per_window
+            .max_source_count_per_window
             .unwrap_or(Self::MAX_NEW_SOURCES_PER_WINDOW);
         let retention_seconds = self
             .retention_seconds
             .unwrap_or(Self::DEFAULT_RETENTION_SECONDS);
         let default_per_retention = self
-            .default_new_sources_per_retention
+            .default_source_count_per_retention
             .unwrap_or(Self::DEFAULT_NEW_SOURCES_PER_RETENTION);
         let max_per_retention = self
-            .max_new_sources_per_retention
+            .max_source_count_per_retention
             .unwrap_or(Self::MAX_NEW_SOURCES_PER_RETENTION);
 
         if window_seconds == 0
@@ -155,13 +155,13 @@ impl NewSourceQuotaConstraints {
 
         Ok(EffectiveNewSourceQuota {
             window_seconds,
-            new_sources_per_window: subject
-                .and_then(|value| value.new_sources_per_window)
+            source_count_per_window: subject
+                .and_then(|value| value.source_count_per_window)
                 .unwrap_or(default_per_window)
                 .min(max_per_window),
             retention_seconds,
-            new_sources_per_retention: subject
-                .and_then(|value| value.new_sources_per_retention)
+            source_count_per_retention: subject
+                .and_then(|value| value.source_count_per_retention)
                 .unwrap_or(default_per_retention)
                 .min(max_per_retention),
         })
@@ -212,24 +212,24 @@ mod tests {
         let constraints = NewSourceQuotaConstraints::default();
         let defaults = constraints.effective(None).unwrap();
         assert_eq!(defaults.window_seconds, 86_400);
-        assert_eq!(defaults.new_sources_per_window, 3);
+        assert_eq!(defaults.source_count_per_window, 3);
         assert_eq!(defaults.retention_seconds, 2_592_000);
-        assert_eq!(defaults.new_sources_per_retention, 30);
+        assert_eq!(defaults.source_count_per_retention, 30);
 
         let subject = NewSourceQuotaOverride {
-            new_sources_per_window: Some(999),
-            new_sources_per_retention: Some(0),
+            source_count_per_window: Some(999),
+            source_count_per_retention: Some(0),
         };
         let effective = constraints.effective(Some(&subject)).unwrap();
-        assert_eq!(effective.new_sources_per_window, 10);
-        assert_eq!(effective.new_sources_per_retention, 0);
+        assert_eq!(effective.source_count_per_window, 10);
+        assert_eq!(effective.source_count_per_retention, 0);
     }
 
     #[test]
     fn new_source_quota_rejects_invalid_deployment_invariants() {
         let constraints = NewSourceQuotaConstraints {
-            default_new_sources_per_window: Some(4),
-            max_new_sources_per_window: Some(3),
+            default_source_count_per_window: Some(4),
+            max_source_count_per_window: Some(3),
             ..NewSourceQuotaConstraints::default()
         };
         assert!(constraints.effective(None).is_err());

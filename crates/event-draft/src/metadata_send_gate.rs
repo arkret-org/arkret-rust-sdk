@@ -314,7 +314,7 @@ mod tests {
             for malformed in [
                 Value::Null,
                 json!({}),
-                json!({"version": "1.0", "content_type": "application/json", "ciphertext": "AA", "encryption_context": {"epoch": 7, "group_state_ref": "invalid"}}),
+                json!({"version": "1.0", "content_type": "application/json", "ciphertext": "AA", "encryption_context": {"epoch": "7", "group_state_ref": "invalid"}}),
             ] {
                 payload["object"]["encrypted_metadata"] = malformed;
                 assert_rejected(kind.clone(), payload.clone());

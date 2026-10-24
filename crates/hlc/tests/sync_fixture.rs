@@ -240,7 +240,7 @@ fn a_durable_checkpoint_never_outruns_the_installed_projection() {
                 .iter()
                 .position(|step| step["action"].as_str() == Some(action))
         };
-        let install = position_of("install_typed_current_result");
+        let install = position_of("install_current_state");
         let advance = position_of("advance_durable_cursor");
 
         if let Some(install) = install {

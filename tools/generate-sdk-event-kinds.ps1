@@ -44,17 +44,17 @@ function Get-EffectMetadata {
     param($Row)
     $kind = [string]$Row.event_kind
     $persistent = $Row.wire_scope -in @('durable_event', 'actor_private_event')
-    $owner = $Row.result_effect_ownership
+    $owner = $Row.effect_ownership
     if ($Row.reducer_input -isnot [bool]) { throw "$kind reducer_input must be a boolean" }
     if (!$persistent) {
-        if ($null -ne $owner -or @($Row.result_writes).Count -gt 0) { throw "$kind has orphaned persistent effect metadata" }
+        if ($null -ne $owner -or @($Row.state_writes).Count -gt 0) { throw "$kind has orphaned persistent effect metadata" }
         return $null
     }
-    if ($null -eq $owner -or $owner -isnot [PSCustomObject]) { throw "$kind is missing closed result_effect_ownership" }
-    if ($null -ne $Row.result_writes -and $Row.result_writes -isnot [Array]) { throw "$kind result_writes must be an array" }
-    $writes = @($Row.result_writes | Where-Object { $null -ne $_ })
+    if ($null -eq $owner -or $owner -isnot [PSCustomObject]) { throw "$kind is missing closed effect_ownership" }
+    if ($null -ne $Row.state_writes -and $Row.state_writes -isnot [Array]) { throw "$kind state_writes must be an array" }
+    $writes = @($Row.state_writes | Where-Object { $null -ne $_ })
     $keys = switch ([string]$owner.kind) {
-        'typed_result_writer' { @('kind') }
+        'typed_state_writer' { @('kind') }
         'durable_fact_no_current_projection' { @('kind', 'defined_in') }
         'private_service_effect' { @('kind', 'service_contract_id') }
         'authority_commit_effect' { @('kind', 'service_contract_id') }
@@ -66,10 +66,10 @@ function Get-EffectMetadata {
     foreach ($key in $keys) {
         if ($owner.$key -isnot [string] -or [string]::IsNullOrWhiteSpace($owner.$key)) { throw "$kind ownership.$key must be a nonempty string" }
     }
-    if ($owner.kind -eq 'typed_result_writer') {
-        if ($Row.wire_scope -ne 'durable_event' -or !$Row.reducer_input -or $writes.Count -eq 0) { throw "$kind typed result owner requires durable reducer input and nonempty result_writes" }
+    if ($owner.kind -eq 'typed_state_writer') {
+        if ($Row.wire_scope -ne 'durable_event' -or !$Row.reducer_input -or $writes.Count -eq 0) { throw "$kind typed result owner requires durable reducer input and nonempty state_writes" }
     } elseif ($writes.Count -ne 0) {
-        throw "$kind $($owner.kind) must not declare typed result_writes"
+        throw "$kind $($owner.kind) must not declare typed state_writes"
     }
     if ($owner.kind -eq 'private_service_effect' -and $Row.reducer_input) { throw "$kind private service effect cannot be a shared reducer input" }
     if ($owner.kind -eq 'authority_commit_effect' -and ($Row.wire_scope -ne 'durable_event' -or !$Row.reducer_input)) { throw "$kind authority effect requires a durable reducer input" }
@@ -87,14 +87,14 @@ function Get-EffectMetadata {
         if ($service.contract_kind -eq 'actor_private_effect_owner' -and ($Row.wire_scope -ne 'actor_private_event' -or $service.wire_scope -ne 'actor_private_event')) { throw "$kind actor-private owner cannot own shared scope" }
     }
     $families = @($writes | ForEach-Object {
-        if ($_ -isnot [PSCustomObject] -or [string]::IsNullOrWhiteSpace($_.result_family)) { throw "$kind result write has no registered family" }
-        $family = [string]$_.result_family
-        if (@($artifact.current_result_registry.result_kinds | Where-Object result_kind -eq $family).Count -ne 1) { throw "$kind writes unknown result family $family" }
+        if ($_ -isnot [PSCustomObject] -or [string]::IsNullOrWhiteSpace($_.state_family)) { throw "$kind result write has no registered family" }
+        $family = [string]$_.state_family
+        if (@($artifact.current_state_registry.state_kinds | Where-Object state_kind -eq $family).Count -ne 1) { throw "$kind writes unknown result family $family" }
         $family
     })
     [PSCustomObject]@{
         Ownership = ConvertTo-Variant -Value $owner.kind
-        ResultFamilies = '&[' + (($families | ForEach-Object { $_ | ConvertTo-Json -Compress }) -join ', ') + ']'
+        StateFamilies = '&[' + (($families | ForEach-Object { $_ | ConvertTo-Json -Compress }) -join ', ') + ']'
         ServiceContractId = ConvertTo-OptionString $owner.service_contract_id
         DefinedIn = ConvertTo-OptionString $owner.defined_in
         OwnerReport = ConvertTo-OptionString $owner.owner_report
@@ -175,14 +175,14 @@ Add-Line
 Add-Line '/// Non-wire classification of the registered effect owner.'
 Add-Line '#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]'
 Add-Line 'pub enum EventEffectOwnership {'
-foreach ($owner in @('TypedResultWriter', 'DurableFactNoCurrentProjection', 'PrivateServiceEffect', 'AuthorityCommitEffect', 'OwnedGap')) { Add-Line "    $owner," }
+foreach ($owner in @('TypedStateWriter', 'DurableFactNoCurrentProjection', 'PrivateServiceEffect', 'AuthorityCommitEffect', 'OwnedGap')) { Add-Line "    $owner," }
 Add-Line '}'
 Add-Line
 Add-Line '/// Local implementation metadata; these fields are never serialized into an Event.'
 Add-Line '#[derive(Clone, Copy, Debug, PartialEq, Eq)]'
 Add-Line 'pub struct EventEffectDescriptor {'
 Add-Line '    pub ownership: EventEffectOwnership,'
-Add-Line "    pub result_families: &'static [&'static str],"
+Add-Line "    pub state_families: &'static [&'static str],"
 Add-Line "    pub service_contract_id: Option<&'static str>,"
 Add-Line "    pub defined_in: Option<&'static str>,"
 Add-Line "    pub owner_report: Option<&'static str>,"
@@ -342,7 +342,7 @@ foreach ($entry in $entries) {
     } else {
         Add-Line '        effect: Some(EventEffectDescriptor {'
         Add-Line "            ownership: EventEffectOwnership::$($entry.Effect.Ownership),"
-        Add-Line "            result_families: $($entry.Effect.ResultFamilies),"
+        Add-Line "            state_families: $($entry.Effect.StateFamilies),"
         Add-Line "            service_contract_id: $($entry.Effect.ServiceContractId),"
         Add-Line "            defined_in: $($entry.Effect.DefinedIn),"
         Add-Line "            owner_report: $($entry.Effect.OwnerReport),"
@@ -375,28 +375,28 @@ Add-Line '    }'
             let effect = kind.effect_descriptor().expect("persistent kind needs an owner");
             assert_eq!(kind.effect_ownership(), Some(effect.ownership));
             match effect.ownership {
-                EventEffectOwnership::TypedResultWriter => {
+                EventEffectOwnership::TypedStateWriter => {
                     assert_eq!(descriptor.wire_scope, EventWireScope::DurableEvent);
                     assert!(descriptor.reducer_input);
-                    assert!(!effect.result_families.is_empty());
+                    assert!(!effect.state_families.is_empty());
                 }
                 EventEffectOwnership::PrivateServiceEffect => {
                     assert!(!descriptor.reducer_input);
-                    assert!(effect.result_families.is_empty());
+                    assert!(effect.state_families.is_empty());
                     assert!(effect.service_contract_id.is_some());
                 }
                 EventEffectOwnership::AuthorityCommitEffect => {
                     assert_eq!(descriptor.wire_scope, EventWireScope::DurableEvent);
                     assert!(descriptor.reducer_input);
-                    assert!(effect.result_families.is_empty());
+                    assert!(effect.state_families.is_empty());
                     assert!(effect.service_contract_id.is_some());
                 }
                 EventEffectOwnership::DurableFactNoCurrentProjection => {
-                    assert!(effect.result_families.is_empty());
+                    assert!(effect.state_families.is_empty());
                     assert!(effect.defined_in.is_some());
                 }
                 EventEffectOwnership::OwnedGap => {
-                    assert!(effect.result_families.is_empty());
+                    assert!(effect.state_families.is_empty());
                     assert!(effect.owner_report.is_some());
                     assert!(effect.closure_condition.is_some());
                 }

@@ -3,7 +3,7 @@
 //!
 //! The whole `passphrase_kdf` envelope lives here on purpose. `key-management.md`
 //! §7.2 fixes one AAD construction that sealer and opener MUST both run, and one
-//! signing transcript (`RFC8785_JCS(envelope minus auth_data.signature)`). Both
+//! signing transcript (`RFC8785_JCS(envelope minus signature_proof.signature)`). Both
 //! are byte-exact agreements between producer and verifier, so they are built
 //! once by the SDK rather than re-derived by every host: a host that assembled
 //! its own envelope would be re-implementing those byte rules and would drift
@@ -16,9 +16,9 @@ use arkret_canonical::canonical::{
 };
 use arkret_models_crypto::artifacts_keys::{KeyBackupPlaintext, SecretStorageSecret};
 use arkret_models_crypto::key_backup::{
-    BackupKind, KeyBackup, KeyBackupAead, KeyBackupAeadName, KeyBackupAuthData,
-    KeyBackupDomainSeparation, KeyBackupEncryption, KeyBackupKdf, KeyBackupKdfName,
-    KeyBackupKdfParams, KeyBackupRecipientMethod, KeyBackupSignatureAlgorithm,
+    BackupKind, KeyBackup, KeyBackupAead, KeyBackupAeadName, KeyBackupDomainSeparation,
+    KeyBackupEncryption, KeyBackupKdf, KeyBackupKdfName, KeyBackupKdfParameters,
+    KeyBackupRecipientMethod, KeyBackupSignatureAlgorithm, KeyBackupSignatureProof,
     KeyBackupSourceCommitRef, SecretStorageContentIndex, SecretStorageItemKind,
 };
 use arkret_wire::{
@@ -87,7 +87,7 @@ impl std::fmt::Debug for VaultKek {
 pub struct VaultCiphertext {
     pub ciphertext: Vec<u8>,
     pub nonce: [u8; VAULT_NONCE_LEN],
-    pub ciphertext_b64: String,
+    pub ciphertext_base64url: String,
     pub nonce_b64: String,
     pub nonce_salt_b64: String,
     pub salt_b64: String,
@@ -106,9 +106,9 @@ pub fn derive_vault_kek_with_salt(
 ) -> Result<VaultKek> {
     std::str::from_utf8(passphrase)
         .map_err(|_| KeyBackupError::InvalidInput("passphrase must be UTF-8".to_owned()))?;
-    let params = Params::new(VAULT_ARGON2_M_KIB, VAULT_ARGON2_T, VAULT_ARGON2_P, None)
-        .map_err(|error| KeyBackupError::Kdf(format!("argon2 params: {error}")))?;
-    let argon = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
+    let parameters = Params::new(VAULT_ARGON2_M_KIB, VAULT_ARGON2_T, VAULT_ARGON2_P, None)
+        .map_err(|error| KeyBackupError::Kdf(format!("argon2 parameters: {error}")))?;
+    let argon = Argon2::new(Algorithm::Argon2id, Version::V0x13, parameters);
     let mut key = [0u8; VAULT_KDF_OUTPUT_LEN];
     argon
         .hash_password_into(passphrase, salt, &mut key)
@@ -135,16 +135,16 @@ pub fn derive_vault_kek_from_kdf(passphrase: &[u8], kdf: &KeyBackupKdf) -> Resul
         .map_err(|_| KeyBackupError::Encoding(format!("salt must be {VAULT_SALT_LEN} bytes")))?;
     match kdf.name {
         KeyBackupKdfName::Argon2id => {
-            let m = u32::try_from(kdf.params.memory_kib.unwrap())
+            let m = u32::try_from(kdf.parameters.memory_kib.unwrap())
                 .map_err(|_| KeyBackupError::Kdf("argon2 memory_kib overflows u32".to_owned()))?;
-            let t = u32::try_from(kdf.params.iterations.unwrap())
+            let t = u32::try_from(kdf.parameters.iterations.unwrap())
                 .map_err(|_| KeyBackupError::Kdf("argon2 iterations overflows u32".to_owned()))?;
-            let p = u32::try_from(kdf.params.parallelism.unwrap())
+            let p = u32::try_from(kdf.parameters.parallelism.unwrap())
                 .map_err(|_| KeyBackupError::Kdf("argon2 parallelism overflows u32".to_owned()))?;
-            let params = Params::new(m, t, p, Some(VAULT_KDF_OUTPUT_LEN))
-                .map_err(|error| KeyBackupError::Kdf(format!("argon2 params: {error}")))?;
+            let parameters = Params::new(m, t, p, Some(VAULT_KDF_OUTPUT_LEN))
+                .map_err(|error| KeyBackupError::Kdf(format!("argon2 parameters: {error}")))?;
             let mut key = [0u8; VAULT_KDF_OUTPUT_LEN];
-            Argon2::new(Algorithm::Argon2id, Version::V0x13, params)
+            Argon2::new(Algorithm::Argon2id, Version::V0x13, parameters)
                 .hash_password_into(passphrase, &salt, &mut key)
                 .map_err(|error| KeyBackupError::Kdf(format!("argon2 hash: {error}")))?;
             Ok(VaultKek {
@@ -159,7 +159,7 @@ pub fn derive_vault_kek_from_kdf(passphrase: &[u8], kdf: &KeyBackupKdf) -> Resul
             })
         }
         KeyBackupKdfName::Pbkdf2 => {
-            let iterations = u32::try_from(kdf.params.iterations.unwrap())
+            let iterations = u32::try_from(kdf.parameters.iterations.unwrap())
                 .map_err(|_| KeyBackupError::Kdf("pbkdf2 iterations overflows u32".to_owned()))?;
             let mut key = [0u8; VAULT_KDF_OUTPUT_LEN];
             macro_rules! pbkdf2_hmac {
@@ -182,7 +182,7 @@ pub fn derive_vault_kek_from_kdf(passphrase: &[u8], kdf: &KeyBackupKdf) -> Resul
                     key.copy_from_slice(&block[..VAULT_KDF_OUTPUT_LEN]);
                 }};
             }
-            match kdf.params.digest_algorithm.unwrap() {
+            match kdf.parameters.digest_algorithm.unwrap() {
                 arkret_models_crypto::key_backup::KeyBackupKdfDigestAlgorithm::Sha256 => {
                     pbkdf2_hmac!(Sha256)
                 }
@@ -200,7 +200,7 @@ pub fn derive_vault_kek_from_kdf(passphrase: &[u8], kdf: &KeyBackupKdf) -> Resul
                 t: iterations,
                 p: 0,
                 kdf_name: KeyBackupKdfName::Pbkdf2,
-                digest_algorithm: kdf.params.digest_algorithm,
+                digest_algorithm: kdf.parameters.digest_algorithm,
                 degraded_profile_reason: kdf.degraded_profile_reason.clone(),
             })
         }
@@ -364,7 +364,7 @@ pub fn encrypt_vault_with_nonce_salt(
         .map_err(|error| KeyBackupError::Aead(format!("vault encrypt: {error}")))?;
     aead_key.zeroize();
     Ok(VaultCiphertext {
-        ciphertext_b64: base64url_encode(&ciphertext),
+        ciphertext_base64url: base64url_encode(&ciphertext),
         nonce_b64: base64url_encode(nonce_bytes),
         nonce_salt_b64,
         salt_b64: base64url_encode(kek.salt),
@@ -380,14 +380,20 @@ pub fn decrypt_vault(
     salt_b64: &str,
     nonce_b64: &str,
     nonce_salt_b64: &str,
-    ciphertext_b64: &str,
+    ciphertext_base64url: &str,
 ) -> Result<Zeroizing<Vec<u8>>> {
     let salt: [u8; VAULT_SALT_LEN] = base64url_decode(salt_b64.trim_end_matches('='))
         .map_err(|error| KeyBackupError::Encoding(format!("salt base64: {error}")))?
         .try_into()
         .map_err(|_| KeyBackupError::Encoding(format!("salt must be {VAULT_SALT_LEN} bytes")))?;
     let kek = derive_vault_kek_with_salt(passphrase, &salt)?;
-    decrypt_vault_with_root(&kek.key, binding, nonce_b64, nonce_salt_b64, ciphertext_b64)
+    decrypt_vault_with_root(
+        &kek.key,
+        binding,
+        nonce_b64,
+        nonce_salt_b64,
+        ciphertext_base64url,
+    )
 }
 
 pub fn decrypt_vault_with_kdf(
@@ -396,10 +402,16 @@ pub fn decrypt_vault_with_kdf(
     binding: &VaultBinding,
     nonce_b64: &str,
     nonce_salt_b64: &str,
-    ciphertext_b64: &str,
+    ciphertext_base64url: &str,
 ) -> Result<Zeroizing<Vec<u8>>> {
     let kek = derive_vault_kek_from_kdf(passphrase, kdf)?;
-    decrypt_vault_with_root(&kek.key, binding, nonce_b64, nonce_salt_b64, ciphertext_b64)
+    decrypt_vault_with_root(
+        &kek.key,
+        binding,
+        nonce_b64,
+        nonce_salt_b64,
+        ciphertext_base64url,
+    )
 }
 
 fn decrypt_vault_with_root(
@@ -407,13 +419,13 @@ fn decrypt_vault_with_root(
     binding: &VaultBinding,
     nonce_b64: &str,
     nonce_salt_b64: &str,
-    ciphertext_b64: &str,
+    ciphertext_base64url: &str,
 ) -> Result<Zeroizing<Vec<u8>>> {
     let nonce: [u8; VAULT_NONCE_LEN] = base64url_decode(nonce_b64.trim_end_matches('='))
         .map_err(|error| KeyBackupError::Encoding(format!("nonce base64: {error}")))?
         .try_into()
         .map_err(|_| KeyBackupError::Encoding(format!("nonce must be {VAULT_NONCE_LEN} bytes")))?;
-    let ciphertext = base64url_decode(ciphertext_b64.trim_end_matches('='))
+    let ciphertext = base64url_decode(ciphertext_base64url.trim_end_matches('='))
         .map_err(|error| KeyBackupError::Encoding(format!("ciphertext base64: {error}")))?;
     if binding.derive_nonce(root, nonce_salt_b64)? != nonce {
         return Err(KeyBackupError::Aead(
@@ -498,11 +510,11 @@ pub struct KeyBackupAuthBinding {
 }
 
 /// Raw detached signer over the §7.2 envelope transcript
-/// (`RFC8785_JCS(envelope minus auth_data.signature)`). The caller owns key
+/// (`RFC8785_JCS(envelope minus signature_proof.signature)`). The caller owns key
 /// custody; this module owns the bytes that get signed.
 pub type KeyBackupSignFn<'a> = &'a dyn Fn(&[u8]) -> Result<Vec<u8>>;
 
-/// Occupies `auth_data.signature` while the envelope's own signing transcript
+/// Occupies `signature_proof.signature` while the envelope's own signing transcript
 /// is computed. §7.2 removes that member from the transcript, so this value can
 /// never reach the signed bytes, and it is replaced by the producer signature
 /// before any envelope leaves this module.
@@ -724,7 +736,7 @@ pub fn build_key_backup_envelope_with_extensions(
 /// Build and sign the next envelope of an existing series.
 ///
 /// The successor inherits actor, class, subdomain, extension map and series
-/// from `predecessor`, increments `series_seq`, and binds the predecessor by
+/// from `predecessor`, increments `series_sequence`, and binds the predecessor by
 /// both `backup_id` and the digest of the predecessor's own §7.2 signing
 /// transcript — so a successor cannot be re-pointed at a different prior
 /// envelope without breaking the chain.
@@ -753,10 +765,9 @@ pub fn build_key_backup_successor_envelope(
             "successor source_commit_ref.device_generation_ref must be positive".to_owned(),
         ));
     }
-    let series_seq = predecessor
-        .series_seq
-        .checked_add(1)
-        .ok_or_else(|| KeyBackupError::InvalidInput("successor series_seq overflow".to_owned()))?;
+    let series_sequence = predecessor.series_sequence.checked_add(1).ok_or_else(|| {
+        KeyBackupError::InvalidInput("successor series_sequence overflow".to_owned())
+    })?;
     let supersedes_digest = key_backup_supersedes_digest(predecessor)?;
     build_key_backup_envelope_in_series(
         backup_id,
@@ -771,7 +782,7 @@ pub fn build_key_backup_successor_envelope(
         auth,
         sign,
         predecessor.series_id.clone(),
-        series_seq,
+        series_sequence,
         Some(predecessor.backup_id.clone()),
         Some(supersedes_digest),
         source_commit_ref,
@@ -804,7 +815,7 @@ fn build_key_backup_envelope_in_series(
     auth: &KeyBackupAuthBinding,
     sign: KeyBackupSignFn<'_>,
     series_id: BackupSeriesId,
-    series_seq: u64,
+    series_sequence: u64,
     supersedes_id: Option<BackupId>,
     supersedes_digest: Option<Hash>,
     source_commit_ref: Option<KeyBackupSourceCommitRef>,
@@ -885,7 +896,7 @@ fn build_key_backup_envelope_in_series(
         kdf: Some(KeyBackupKdf {
             name: kek.kdf_name,
             salt: base64url_field(&ciphertext.salt_b64)?,
-            params: KeyBackupKdfParams {
+            parameters: KeyBackupKdfParameters {
                 memory_kib: (kek.kdf_name == KeyBackupKdfName::Argon2id)
                     .then_some(u64::from(kek.m_kib)),
                 iterations: Some(u64::from(kek.t)),
@@ -922,12 +933,12 @@ fn build_key_backup_envelope_in_series(
         encryption,
         domain_separation,
         contents,
-        ciphertext: base64url_field(&ciphertext.ciphertext_b64)?,
+        ciphertext: base64url_field(&ciphertext.ciphertext_base64url)?,
         ciphertext_digest: Hash::new(ciphertext.digest_sha256).map_err(|error| {
             KeyBackupError::Canonical(format!("key backup ciphertext digest: {error}"))
         })?,
         plaintext_commitment: None,
-        auth_data: KeyBackupAuthData {
+        signature_proof: KeyBackupSignatureProof {
             device_id: auth.device_id.clone(),
             verification_method: auth.verification_method.clone(),
             signature_algorithm: auth.signature_algorithm,
@@ -936,7 +947,7 @@ fn build_key_backup_envelope_in_series(
         },
         retention: None,
         series_id,
-        series_seq,
+        series_sequence,
         supersedes_id,
         supersedes_digest,
         source_commit_ref,
@@ -953,7 +964,7 @@ fn build_key_backup_envelope_in_series(
             "key backup producer signature must not be empty".to_owned(),
         ));
     }
-    envelope.auth_data.signature = base64url_field(&base64url_encode(&signature))?;
+    envelope.signature_proof.signature = base64url_field(&base64url_encode(&signature))?;
     envelope
         .validate()
         .map_err(|error| KeyBackupError::InvalidInput(error.to_string()))?;
@@ -997,7 +1008,7 @@ mod tests {
             &encrypted.salt_b64,
             &encrypted.nonce_b64,
             &encrypted.nonce_salt_b64,
-            &encrypted.ciphertext_b64,
+            &encrypted.ciphertext_base64url,
         )
         .unwrap();
         assert_eq!(&*opened, b"secret");
@@ -1011,7 +1022,7 @@ mod tests {
                 &encrypted.salt_b64,
                 &encrypted.nonce_b64,
                 &encrypted.nonce_salt_b64,
-                &encrypted.ciphertext_b64,
+                &encrypted.ciphertext_base64url,
             )
             .is_err()
         );
@@ -1064,14 +1075,14 @@ mod tests {
             SecretStorageSecret {
                 item_kind: SecretStorageItemKind::PrivateAccountState,
                 secret_id: "account.state".to_owned(),
-                secret_b64u: Base64UrlString::new("c2VjcmV0LW9uZQ".to_owned()).unwrap(),
+                secret_base64url: Base64UrlString::new("c2VjcmV0LW9uZQ".to_owned()).unwrap(),
                 secret_generation: Some(3),
                 extra: XExtensionMap::default(),
             },
             SecretStorageSecret {
                 item_kind: SecretStorageItemKind::MlsAccountSecret,
                 secret_id: "mls.account".to_owned(),
-                secret_b64u: Base64UrlString::new("c2VjcmV0LXR3bw".to_owned()).unwrap(),
+                secret_base64url: Base64UrlString::new("c2VjcmV0LXR3bw".to_owned()).unwrap(),
                 secret_generation: None,
                 extra: XExtensionMap::default(),
             },
@@ -1112,7 +1123,7 @@ mod tests {
         let seen = std::cell::RefCell::new(Vec::new());
         let envelope = genesis(&kek, &seen);
 
-        assert_eq!(envelope.series_seq, 0);
+        assert_eq!(envelope.series_sequence, 0);
         assert!(envelope.supersedes_id.is_none() && envelope.supersedes_digest.is_none());
         assert_eq!(envelope.contents.len(), 2);
 
@@ -1131,7 +1142,7 @@ mod tests {
         let kdf = KeyBackupKdf {
             name: KeyBackupKdfName::Pbkdf2,
             salt: Base64UrlString::new("AAECAwQFBgcICQoLDA0ODw").unwrap(),
-            params: KeyBackupKdfParams {
+            parameters: KeyBackupKdfParameters {
                 memory_kib: None,
                 iterations: Some(600_000),
                 parallelism: None,
@@ -1148,7 +1159,13 @@ mod tests {
         let envelope = genesis(&kek, &seen);
         assert!(decrypt_key_backup_envelope(PASSPHRASE, &envelope).is_ok());
         let mut changed = envelope.clone();
-        changed.encryption.kdf.as_mut().unwrap().params.iterations = Some(600_001);
+        changed
+            .encryption
+            .kdf
+            .as_mut()
+            .unwrap()
+            .parameters
+            .iterations = Some(600_001);
         assert!(decrypt_key_backup_envelope(PASSPHRASE, &changed).is_err());
         let mut changed = envelope;
         changed.encryption.key_commitment =
@@ -1241,10 +1258,10 @@ mod tests {
         let signed = seen.into_inner();
         assert_eq!(signed.len(), 1, "exactly one transcript is signed");
         // Installing the real signature must not move the transcript: §7.2
-        // removes `auth_data.signature` from the signed bytes.
+        // removes `signature_proof.signature` from the signed bytes.
         assert_eq!(signed[0], envelope.signing_payload_bytes().unwrap());
         assert_ne!(
-            envelope.auth_data.signature.as_str(),
+            envelope.signature_proof.signature.as_str(),
             UNSIGNED_SIGNATURE_PLACEHOLDER,
             "the placeholder must never survive into a returned envelope"
         );
@@ -1303,7 +1320,7 @@ mod tests {
         let envelope = genesis(&kek, &seen);
 
         let mut tampered = envelope;
-        tampered.auth_data.device_id = "ak:device:01964137-0000-7000-8000-0000000000d2"
+        tampered.signature_proof.device_id = "ak:device:01964137-0000-7000-8000-0000000000d2"
             .parse()
             .unwrap();
         assert!(decrypt_key_backup_envelope(PASSPHRASE, &tampered).is_err());
@@ -1401,7 +1418,7 @@ mod tests {
         .unwrap();
 
         assert_eq!(successor.series_id, predecessor.series_id);
-        assert_eq!(successor.series_seq, predecessor.series_seq + 1);
+        assert_eq!(successor.series_sequence, predecessor.series_sequence + 1);
         assert_eq!(
             successor.supersedes_id.as_ref(),
             Some(&predecessor.backup_id)
@@ -1435,7 +1452,10 @@ mod tests {
         )
         .unwrap();
         assert!(without_source.source_commit_ref.is_none());
-        assert_eq!(without_source.series_seq, predecessor.series_seq + 1);
+        assert_eq!(
+            without_source.series_sequence,
+            predecessor.series_sequence + 1
+        );
         assert_eq!(
             without_source.supersedes_id.as_ref(),
             Some(&predecessor.backup_id)

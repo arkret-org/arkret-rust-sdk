@@ -1,8 +1,8 @@
 //! View event payloads.
 
 use crate::internal_prelude::*;
-use crate::objects::queries::{CollectionConfig, CollectionGroupingMode};
-use crate::objects::view::{DashboardConfig, QueryValue};
+use crate::objects::queries::{CollectionConfiguration, CollectionGroupingMode};
+use crate::objects::view::{DashboardConfiguration, QueryValue};
 
 fn schema_violation<T>(message: impl Into<String>) -> Result<T> {
     Err(WireError::Protocol(format!(
@@ -29,7 +29,7 @@ pub struct ViewDefinition {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub layout: Option<BTreeMap<String, Value>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub collection: Option<CollectionConfig>,
+    pub collection: Option<CollectionConfiguration>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub timeline: Option<BTreeMap<String, Value>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -37,7 +37,7 @@ pub struct ViewDefinition {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub document: Option<BTreeMap<String, Value>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub dashboard: Option<DashboardConfig>,
+    pub dashboard: Option<DashboardConfiguration>,
     #[serde(default, flatten, skip_serializing_if = "XExtensionMap::is_empty")]
     pub extensions: XExtensionMap,
 }
@@ -159,7 +159,7 @@ impl<'de> Deserialize<'de> for ViewUpdatePayload {
     }
 }
 
-fn validate_collection_config(collection: &CollectionConfig) -> Result<()> {
+fn validate_collection_config(collection: &CollectionConfiguration) -> Result<()> {
     collection.validate_extensions()?;
     if collection.item_object_kinds.is_empty() && collection.item_facets.is_empty() {
         return schema_violation("View collection requires item_object_kinds or item_facets");

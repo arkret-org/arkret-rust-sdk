@@ -272,7 +272,7 @@ pub enum KeyBackupUnlockAuthority {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct KeyBackupUnlockProofAuthData {
+pub struct KeyBackupUnlockSignatureProof {
     pub verification_method: DidUrl,
     pub signature_algorithm: KeyBackupSignatureAlgorithm,
     pub signature: Base64UrlString,
@@ -297,7 +297,7 @@ pub struct KeyBackupUnlockProof {
     pub issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
-    pub auth_data: KeyBackupUnlockProofAuthData,
+    pub signature_proof: KeyBackupUnlockSignatureProof,
 }
 
 #[derive(Deserialize)]
@@ -318,7 +318,7 @@ struct KeyBackupUnlockProofFields {
     issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     expires_at: DateTime<Utc>,
-    auth_data: KeyBackupUnlockProofAuthData,
+    signature_proof: KeyBackupUnlockSignatureProof,
 }
 
 impl<'de> Deserialize<'de> for KeyBackupUnlockProof {
@@ -346,7 +346,7 @@ impl<'de> Deserialize<'de> for KeyBackupUnlockProof {
             "audience",
             "issued_at",
             "expires_at",
-            "auth_data",
+            "signature_proof",
         ];
         if let Some(key) = object.keys().find(|key| !FIELDS.contains(&key.as_str())) {
             return Err(D::Error::custom(format!(
@@ -384,7 +384,7 @@ impl<'de> Deserialize<'de> for KeyBackupUnlockProof {
             audience: fields.audience,
             issued_at: fields.issued_at,
             expires_at: fields.expires_at,
-            auth_data: fields.auth_data,
+            signature_proof: fields.signature_proof,
         };
         proof.validate().map_err(D::Error::custom)?;
         Ok(proof)
@@ -399,7 +399,7 @@ impl KeyBackupUnlockProof {
             || self.challenge.as_str().len() != 43
             || self.expires_at <= self.issued_at
             || self.service_id != self.account_id.station_id
-            || self.auth_data.signature_algorithm == KeyBackupSignatureAlgorithm::Es256
+            || self.signature_proof.signature_algorithm == KeyBackupSignatureAlgorithm::Es256
         {
             return Err(arkret_wire::WireError::Protocol(
                 "invalid exact backup unlock binding".to_owned(),
@@ -424,9 +424,11 @@ impl KeyBackupUnlockProof {
         self.validate()?;
         let mut unsigned = serde_json::to_value(self)?;
         unsigned
-            .get_mut("auth_data")
+            .get_mut("signature_proof")
             .and_then(serde_json::Value::as_object_mut)
-            .ok_or_else(|| arkret_wire::WireError::Protocol("missing unlock auth_data".to_owned()))?
+            .ok_or_else(|| {
+                arkret_wire::WireError::Protocol("missing unlock signature_proof".to_owned())
+            })?
             .remove("signature");
         arkret_canonical::canonical_json_bytes(&unsigned).map_err(Into::into)
     }
@@ -450,7 +452,7 @@ pub enum KeyBackupPutStatus {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct KeysBackupsReplaceOutcome {
+pub struct KeysBackupsReplaceResponseBody {
     pub status: KeyBackupPutStatus,
     pub backup_id: BackupId,
     pub ciphertext_digest: Hash,
@@ -549,7 +551,7 @@ pub struct KeysBackupsDeleteRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct KeysBackupsDeleteOutcome {
+pub struct KeysBackupsDeleteResponseBody {
     pub deleted: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub backup_id: Option<BackupId>,
@@ -581,7 +583,7 @@ mod unlock_proof_wire_tests {
             "audience": "https://station.example",
             "issued_at": "2026-09-23T00:00:00.000Z",
             "expires_at": "2026-09-23T00:05:00.000Z",
-            "auth_data": {
+            "signature_proof": {
                 "verification_method": "did:web:alice.example#key-1",
                 "signature_algorithm": "Ed25519",
                 "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"

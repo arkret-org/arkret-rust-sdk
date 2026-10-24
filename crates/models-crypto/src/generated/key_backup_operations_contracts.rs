@@ -2,25 +2,25 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/keys-operations.schema.json
-// sha256=7b2ab2fcc54cc4793219390b42ce66dfe5795261539ded2dd6ecdf5c5c1ea9b0
+// sha256=6a6d75cafdfdf31a3799e91801801469d6895a108d853e2b022b7a17480337e0
 //
-// Input: schemas/authz-operations.schema.json
-// sha256=a77316365476c8c617f70a84a5bf3f6ee0be723b84b2f4713072cf1ed02e6832
+// Input: schemas/authorization-operations.schema.json
+// sha256=b367d60aeb13aa9e524c5201cc1857d8ac9defd5c78293f696a4f4c0a5d4450b
 //
 // Input: schemas/account-operations.schema.json
-// sha256=5b7dba680c2083d0bebc26ad32e7d37293d150cece8f2298a40bf382e7f31405
+// sha256=78c6503698cd43571f2b25543013f9036927ef9bfd005e71377ad3006f4a64d4
 //
 // Input: schemas/common-ids.schema.json
-// sha256=14226f0ac83e4d06639ad791cc0e52e0eb1c3b128cd4c8c12308a99b795141e4
+// sha256=0cc25a02fe0d9a94f6e41f2cf8f64e492ba36362f1e69a699cf1e684924837ee
 //
 // Input: schemas/agent-operations.schema.json
-// sha256=0d2950977b4b8d7c76137b107fd4dbf11401b0b1e5b480ba6ce34d31b82ad5aa
+// sha256=15fedd4b4e4462c678d93ac6521a5dfd0372854cd62cd76ec5e777fd88857ae5
 //
 // Input: schemas/time.schema.json
 // sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=d200bd3e6d76abd1b6154781fb5e54f11fbbc834638cdc29554f83590127fdfa
+// sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
 
 /// Counterpart: `keys-operations.schema.json#/$defs/backup_active_series_state`.
 /// `keys-operations.schema.json#/$defs/backup_active_series_state`.
@@ -38,12 +38,12 @@ pub struct BackupActiveSeriesState {
     pub secret_storage: BackupActiveSeriesPointer,
 }
 
-/// Counterpart: `keys-operations.schema.json#/$defs/keys_backups_list`.
-/// `keys-operations.schema.json#/$defs/keys_backups_list`.
+/// Counterpart: `keys-operations.schema.json#/$defs/keys_backups_page`.
+/// `keys-operations.schema.json#/$defs/keys_backups_page`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct KeysBackupsList {
+pub struct KeysBackupsPage {
     pub backups: Vec<KeyBackupSummary>,
     pub active_series: BackupActiveSeriesState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -92,7 +92,7 @@ pub struct KeyBackupSummary {
     pub backup_kind: BackupKind,
     pub backup_version: NonEmptyString,
     pub series_id: BackupSeriesId,
-    pub series_seq: u64,
+    pub series_sequence: u64,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",

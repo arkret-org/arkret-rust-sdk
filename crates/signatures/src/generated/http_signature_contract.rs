@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-23.3;
-//! sha256=6552ac03bae32d141a4cfe33845c2a4855b57bb1aacd2947927e87868418cfa5
+//! Input: registry/contract-registry.json; version=2026-10-24.2;
+//! sha256=e79e94261c890e82a59726272e1d22118c7d3ba48720b3b9e810971299b09c0f
 //! Entries: http_signature_scenarios=9, freshness_profile=ak.http_signature.freshness.v1
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -287,7 +287,7 @@ pub const HTTP_SIGNATURE_SCENARIOS: &[HttpSignatureScenarioDescriptor] = &[
             "ak.self.mls.read.group_state_material.v1",
             "ak.self.mls.read.roster_authority.v1",
             "ak.self.signer_keys.read.resolve.v1",
-            "ak.self.current_results.read.exact.v1",
+            "ak.self.current_state.read.exact.v1",
             "ak.self.committed_event.resource.get.v1",
             "ak.self.committed_event.read.scan.v1",
             "ak.self.committed_event.stream.subscribe.v1",

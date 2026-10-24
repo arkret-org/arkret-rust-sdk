@@ -6,7 +6,7 @@
 use arkret_wire::{Result, WireError};
 
 pub use crate::generated::directory::{
-    DirectoryRealmSearchOutcome, DirectoryResolveRealmRequestBody,
+    DirectoryRealmSearchResponseBody, DirectoryResolveRealmRequestBody,
     DirectorySearchRealmsRequestBody, PublicRealmDirectoryEntry, PublicRealmMetadata,
 };
 
@@ -71,7 +71,7 @@ impl DirectorySearchRealmsRequestBody {
     }
 }
 
-impl DirectoryRealmSearchOutcome {
+impl DirectoryRealmSearchResponseBody {
     pub fn validate(&self) -> Result<()> {
         if self.realms.len() > 100
             || self
@@ -86,5 +86,3 @@ impl DirectoryRealmSearchOutcome {
             .try_for_each(PublicRealmDirectoryEntry::validate)
     }
 }
-
-pub type DirectoryRealmResolutionOutcome = PublicRealmDirectoryEntry;

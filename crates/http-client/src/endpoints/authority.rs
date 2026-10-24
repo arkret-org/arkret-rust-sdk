@@ -2,12 +2,13 @@
 
 use arkret_identity::VerifiedSubmission;
 use arkret_models_collaboration::authority_commit::{
-    AuthorityHandoffRequest, PeerAuthoritySubmitOutcome, PeerAuthoritySubmitRequest,
-    PeerStreamScanOutcome, SelfAuthoritySubmitOutcome, SelfAuthoritySubmitRequest,
+    AuthorityRealmAuthorityHandoffRequestBody, PeerAuthoritySubmitRequestBody,
+    PeerAuthoritySubmitResponseBody, PeerStreamScanResponseBody, SelfAuthoritySubmitRequestBody,
+    SelfAuthoritySubmitResponseBody,
 };
 use arkret_wire::{
-    AuthorityBundleRequest, RealmAuthorityBundle, RealmAuthorityHandoff, RealmId, RealmStreamList,
-    StreamScanOutcome, StreamScanRequest,
+    RealmAuthorityBundle, RealmAuthorityBundleRequestBody, RealmAuthorityHandoff, RealmId,
+    RealmStreamPage, StreamScanRequestBody, StreamScanResponseBody,
 };
 use reqwest::Method;
 
@@ -20,7 +21,7 @@ impl Client {
         realm_id: &RealmId,
         cursor: Option<&str>,
         limit: u16,
-    ) -> Result<RealmStreamList> {
+    ) -> Result<RealmStreamPage> {
         if !(1..=500).contains(&limit) {
             return Err(Error::Protocol(
                 "stream discovery limit must be 1..=500".to_owned(),
@@ -36,7 +37,7 @@ impl Client {
                 &format!("/_arkret/self/realms/{realm_id}/streams"),
             )?
             .query(&query);
-        let page: RealmStreamList = self.send_json(request).await?;
+        let page: RealmStreamPage = self.send_json(request).await?;
         page.validate()?;
         if page.realm_id != *realm_id || page.streams.len() > usize::from(limit) {
             return Err(Error::Protocol(
@@ -50,11 +51,11 @@ impl Client {
     /// to the current Realm governance Station.
     pub async fn submit_to_realm_authority(
         &self,
-        request: &VerifiedSubmission<SelfAuthoritySubmitRequest>,
+        request: &VerifiedSubmission<SelfAuthoritySubmitRequestBody>,
         options: &ClientRequestOptions,
-    ) -> Result<SelfAuthoritySubmitOutcome> {
+    ) -> Result<SelfAuthoritySubmitResponseBody> {
         request.validate()?;
-        let outcome: SelfAuthoritySubmitOutcome = self
+        let outcome: SelfAuthoritySubmitResponseBody = self
             .post_with_options("/_arkret/self/events", request, options)
             .await?;
         outcome.validate_for_request(request)?;
@@ -64,11 +65,11 @@ impl Client {
     /// Submit one explicitly discriminated peer Event ingress branch.
     pub async fn submit_to_peer_authority(
         &self,
-        request: &VerifiedSubmission<PeerAuthoritySubmitRequest>,
+        request: &VerifiedSubmission<PeerAuthoritySubmitRequestBody>,
         options: &ClientRequestOptions,
-    ) -> Result<PeerAuthoritySubmitOutcome> {
+    ) -> Result<PeerAuthoritySubmitResponseBody> {
         request.validate()?;
-        let outcome: PeerAuthoritySubmitOutcome = self
+        let outcome: PeerAuthoritySubmitResponseBody = self
             .post_with_options("/_arkret/peer/events", request, options)
             .await?;
         outcome.validate_for_request(request)?;
@@ -78,10 +79,11 @@ impl Client {
     /// Read one authorized independent Realm, Circle, or Sidecar stream.
     pub async fn scan_commit_stream(
         &self,
-        request: &StreamScanRequest,
-    ) -> Result<StreamScanOutcome> {
+        request: &StreamScanRequestBody,
+    ) -> Result<StreamScanResponseBody> {
         request.validate()?;
-        let outcome: StreamScanOutcome = self.post("/_arkret/self/streams/scan", request).await?;
+        let outcome: StreamScanResponseBody =
+            self.post("/_arkret/self/streams/scan", request).await?;
         outcome.validate_for_request(request)?;
         Ok(outcome)
     }
@@ -90,11 +92,11 @@ impl Client {
     /// original.
     pub async fn scan_peer_commit_stream(
         &self,
-        request: &StreamScanRequest,
+        request: &StreamScanRequestBody,
         options: &ClientRequestOptions,
-    ) -> Result<PeerStreamScanOutcome> {
+    ) -> Result<PeerStreamScanResponseBody> {
         request.validate()?;
-        let outcome: PeerStreamScanOutcome = self
+        let outcome: PeerStreamScanResponseBody = self
             .post_with_options("/_arkret/peer/streams/scan", request, options)
             .await?;
         outcome.validate_for_request(request)?;
@@ -104,7 +106,7 @@ impl Client {
     /// Resolve the nonce-bound genesis-to-current authority chain.
     pub async fn realm_authority_bundle(
         &self,
-        request: &AuthorityBundleRequest,
+        request: &RealmAuthorityBundleRequestBody,
     ) -> Result<RealmAuthorityBundle> {
         request.validate()?;
         let builder = self.canonical_json_body(
@@ -120,7 +122,7 @@ impl Client {
     /// head manifest and the signed typed snapshot.
     pub async fn install_realm_authority_handoff(
         &self,
-        request: &AuthorityHandoffRequest,
+        request: &AuthorityRealmAuthorityHandoffRequestBody,
         options: &ClientRequestOptions,
     ) -> Result<RealmAuthorityHandoff> {
         request.validate_new_handoff()?;
@@ -151,7 +153,7 @@ mod tests {
             .unwrap();
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
-        let body = serde_json::to_string(&RealmStreamList {
+        let body = serde_json::to_string(&RealmStreamPage {
             realm_id: realm_id.clone(),
             streams: vec![],
             next_cursor: None,
@@ -222,7 +224,7 @@ mod tests {
         let remote = own
             .with_base_url(url::Url::parse(&format!("http://{address}/")).unwrap())
             .unwrap();
-        let request = AuthorityBundleRequest {
+        let request = RealmAuthorityBundleRequestBody {
             realm_id: RealmId::new("ak:realm:AfF-hFqRoMbajXkPapH-xaq0xwK-UKt2ph2zTs9JZRAO")
                 .unwrap(),
             nonce: arkret_wire::Base64UrlString::new("BBBBBBBBBBBBBBBBBBBBBB").unwrap(),

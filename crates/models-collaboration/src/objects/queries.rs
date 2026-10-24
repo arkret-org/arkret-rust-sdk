@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::objects::relation::RelationEndpoint;
-use crate::objects::view::DashboardConfig;
+use crate::objects::view::DashboardConfiguration;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FieldFilter {
@@ -81,7 +81,7 @@ pub struct ViewQuery {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub context: Option<QueryContext>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub order_by: Vec<SortSpec>,
+    pub order_by: Vec<SortSpecification>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub projection: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -120,17 +120,17 @@ pub struct View {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub layout: Option<BTreeMap<String, Value>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub collection: Option<CollectionConfig>,
+    pub collection: Option<CollectionConfiguration>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timeline: Option<BTreeMap<String, Value>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub graph: Option<GraphViewConfig>,
+    pub graph: Option<GraphViewConfiguration>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub document: Option<BTreeMap<String, Value>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub dashboard: Option<DashboardConfig>,
+    pub dashboard: Option<DashboardConfiguration>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub sort: Vec<SortSpec>,
+    pub sort: Vec<SortSpecification>,
     pub created_by: ActorId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
@@ -262,7 +262,7 @@ impl View {
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub struct CollectionConfig {
+pub struct CollectionConfiguration {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub item_object_kinds: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -270,7 +270,7 @@ pub struct CollectionConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub item_render: Option<CollectionItemRender>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub item_order_by: Vec<SortSpec>,
+    pub item_order_by: Vec<SortSpecification>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub display_fields: Vec<BTreeMap<String, Value>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -286,7 +286,7 @@ pub struct CollectionConfig {
     pub extra: BTreeMap<String, Value>,
 }
 
-impl CollectionConfig {
+impl CollectionConfiguration {
     pub(crate) fn validate_extensions(&self) -> Result<()> {
         validate_collection_extensions(&self.extra)?;
         if let Some(grouping) = &self.grouping {
@@ -382,7 +382,7 @@ pub struct CollectionGrouping {
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub struct GraphViewConfig {
+pub struct GraphViewConfiguration {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub node_object_kinds: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

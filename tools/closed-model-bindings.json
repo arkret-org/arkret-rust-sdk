@@ -15,33 +15,33 @@
     "call-invitation-operations.schema.json#/$defs/invitation_proof": "crate::call_invitation::CallInvitationProof",
     "call-invitation-operations.schema.json#/$defs/admission_proof": "crate::call_invitation::CallInvitationAdmissionProof",
     "call-invitation-operations.schema.json#/$defs/voluntary_join_proof": "crate::call_invitation::CallVoluntaryJoinProof",
-    "call-invitation-operations.schema.json#/$defs/send_outcome/properties/status": "crate::call_invitation::CallInvitationSendStatus",
+    "call-invitation-operations.schema.json#/$defs/send_response_body/properties/status": "crate::call_invitation::CallInvitationSendStatus",
     "call-invitation-operations.schema.json#/$defs/admission_request_body/properties/admission_phase": "crate::call_invitation::CallInvitationAdmissionPhase",
     "call-invitation-operations.schema.json#/$defs/invitation_join_context/properties/kind": "crate::call_invitation::CallInvitationJoinKind",
     "call-invitation-operations.schema.json#/$defs/voluntary_join_context/properties/kind": "crate::call_invitation::CallVoluntaryJoinKind",
     "call-invitation-operations.schema.json#/$defs/refresh_join_context/properties/kind": "crate::call_invitation::CallRefreshJoinKind",
     "call-invitation-operations.schema.json#/$defs/invitation_envelope": "crate::call_invitation::CallInvitationEnvelope",
     "call-invitation-operations.schema.json#/$defs/send_request_body": "crate::call_invitation::CallInvitationSendRequestBody",
-    "call-invitation-operations.schema.json#/$defs/send_outcome": "crate::call_invitation::CallInvitationSendOutcome",
+    "call-invitation-operations.schema.json#/$defs/send_response_body": "crate::call_invitation::CallInvitationSendResponseBody",
     "call-invitation-operations.schema.json#/$defs/admission_request_body": "crate::call_invitation::CallInvitationAdmissionRequestBody",
-    "call-invitation-operations.schema.json#/$defs/admission_outcome": "crate::call_invitation::CallInvitationAdmissionOutcome",
+    "call-invitation-operations.schema.json#/$defs/admission_decision": "crate::call_invitation::CallInvitationAdmissionDecision",
     "call-invitation-operations.schema.json#/$defs/delivery_view": "crate::call_invitation::CallInvitationDeliveryView",
     "call-invitation-operations.schema.json#/$defs/invitation_join_context": "crate::call_invitation::CallInvitationJoinContext",
     "call-invitation-operations.schema.json#/$defs/voluntary_join_context": "crate::call_invitation::CallVoluntaryJoinContext",
     "call-invitation-operations.schema.json#/$defs/refresh_join_context": "crate::call_invitation::CallRefreshJoinContext",
     "call-invitation-operations.schema.json#/$defs/join_context": "crate::call_invitation::CallMediaJoinContext",
-    "typed-current-result.schema.json#/$defs/consent_result/properties/selector/properties/kind": "crate::call_invitation::ConsentCurrentSelectorKind",
-    "typed-current-result.schema.json#/$defs/consent_result/properties/selector": "crate::call_invitation::ConsentCurrentSelector",
-    "typed-current-result.schema.json#/$defs/consent_result": "crate::call_invitation::ConsentCurrentRow",
+    "current-state.schema.json#/$defs/current_consent/properties/selector/properties/kind": "crate::call_invitation::ConsentCurrentSelectorKind",
+    "current-state.schema.json#/$defs/current_consent/properties/selector": "crate::call_invitation::ConsentCurrentSelector",
+    "current-state.schema.json#/$defs/current_consent": "crate::call_invitation::CurrentConsent",
     "consent-operations.schema.json#/$defs/consent_current_read_proof": "crate::call_invitation::ConsentCurrentReadProof",
     "consent-operations.schema.json#/$defs/consent_current_read_request_body": "crate::call_invitation::ConsentCurrentReadRequestBody",
-    "consent-operations.schema.json#/$defs/consent_current_read_outcome": "crate::call_invitation::ConsentCurrentReadOutcome",
+    "consent-operations.schema.json#/$defs/consent_current_read_response_body": "crate::call_invitation::ConsentCurrentReadResponseBody",
     "common-ids.schema.json#/$defs/did_url": "arkret_wire::DidUrl",
     "consent-private-operations.schema.json#/$defs/holder_session_context/properties/kind": "crate::consent_private::ConsentPrivateHolderSessionContextKind",
     "consent-private-operations.schema.json#/$defs/holder_session_context": "crate::consent_private::ConsentPrivateHolderSessionContext",
     "consent-private-operations.schema.json#/$defs/station_context/properties/kind": "crate::consent_private::ConsentPrivateStationContextKind",
     "consent-private-operations.schema.json#/$defs/station_context": "crate::consent_private::ConsentPrivateStationContext",
-    "consent-private-operations.schema.json#/$defs/proxy_request/properties/context": "crate::consent_private::ConsentPrivateContext",
+    "consent-private-operations.schema.json#/$defs/proxy_request_body/properties/context": "crate::consent_private::ConsentPrivateContext",
     "consent-private-operations.schema.json#/$defs/list_command/properties/body": "crate::consent_private::ConsentPrivateEmptyBody",
     "consent-private-operations.schema.json#/$defs/list_command/properties/kind": "crate::consent_private::ConsentPrivateListCommandKind",
     "consent-private-operations.schema.json#/$defs/list_command": "crate::consent_private::ConsentPrivateListCommand",
@@ -59,25 +59,25 @@
     "consent-private-operations.schema.json#/$defs/request_command/properties/kind": "crate::consent_private::ConsentPrivateRequestCommandKind",
     "consent-private-operations.schema.json#/$defs/request_command": "crate::consent_private::ConsentPrivateRequestCommand",
     "consent-private-operations.schema.json#/$defs/command": "crate::consent_private::ConsentPrivateCommand",
-    "consent-private-operations.schema.json#/$defs/effects_outcome/properties/body/properties/holder_quarantine/oneOf/0": "crate::consent_private::ConsentPrivateHolderQuarantineCell",
-    "consent-private-operations.schema.json#/$defs/effects_outcome/properties/body/properties/invite_delivery/oneOf/0": "crate::consent_private::ConsentPrivateInviteDeliveryCell",
-    "consent-private-operations.schema.json#/$defs/effects_outcome/properties/body/properties/invite_receive_policy/oneOf/0": "crate::consent_private::ConsentPrivateInviteReceivePolicyCell",
-    "consent-private-operations.schema.json#/$defs/effects_outcome/properties/body": "crate::consent_private::ConsentPrivateEffects",
-    "consent-private-operations.schema.json#/$defs/list_outcome/properties/kind": "crate::consent_private::ConsentPrivateListOutcomeKind",
-    "consent-private-operations.schema.json#/$defs/list_outcome": "crate::consent_private::ConsentPrivateListOutcome",
-    "consent-private-operations.schema.json#/$defs/version_outcome/properties/kind": "crate::consent_private::ConsentPrivateVersionOutcomeKind",
-    "consent-private-operations.schema.json#/$defs/version_outcome": "crate::consent_private::ConsentPrivateVersionOutcome",
-    "consent-private-operations.schema.json#/$defs/effects_outcome/properties/kind": "crate::consent_private::ConsentPrivateEffectsOutcomeKind",
-    "consent-private-operations.schema.json#/$defs/effects_outcome": "crate::consent_private::ConsentPrivateEffectsOutcome",
-    "consent-private-operations.schema.json#/$defs/invite_policy_outcome/properties/kind": "crate::consent_private::ConsentPrivateInvitePolicyOutcomeKind",
-    "consent-private-operations.schema.json#/$defs/invite_policy_outcome": "crate::consent_private::ConsentPrivateInvitePolicyOutcome",
-    "consent-private-operations.schema.json#/$defs/invite_delivery_outcome/properties/kind": "crate::consent_private::ConsentPrivateInviteDeliveryOutcomeKind",
-    "consent-private-operations.schema.json#/$defs/invite_delivery_outcome": "crate::consent_private::ConsentPrivateInviteDeliveryOutcome",
-    "consent-private-operations.schema.json#/$defs/request_outcome/properties/kind": "crate::consent_private::ConsentPrivateRequestOutcomeKind",
-    "consent-private-operations.schema.json#/$defs/request_outcome": "crate::consent_private::ConsentPrivateRequestOutcome",
-    "consent-private-operations.schema.json#/$defs/command_outcome": "crate::consent_private::ConsentPrivateCommandOutcome",
-    "consent-private-operations.schema.json#/$defs/proxy_request": "crate::consent_private::ConsentPrivateProxyRequest",
-    "consent-private-operations.schema.json#/$defs/proxy_outcome": "crate::consent_private::ConsentPrivateProxyOutcome",
+    "consent-private-operations.schema.json#/$defs/effects_response_body/properties/body/properties/holder_quarantine/oneOf/0": "crate::consent_private::ConsentPrivateHolderQuarantineCell",
+    "consent-private-operations.schema.json#/$defs/effects_response_body/properties/body/properties/invite_delivery/oneOf/0": "crate::consent_private::ConsentPrivateInviteDeliveryCell",
+    "consent-private-operations.schema.json#/$defs/effects_response_body/properties/body/properties/invite_receive_policy/oneOf/0": "crate::consent_private::ConsentPrivateInviteReceivePolicyCell",
+    "consent-private-operations.schema.json#/$defs/effects_response_body/properties/body": "crate::consent_private::ConsentPrivateEffects",
+    "consent-private-operations.schema.json#/$defs/list_response_body/properties/kind": "crate::consent_private::ConsentPrivateListOutcomeKind",
+    "consent-private-operations.schema.json#/$defs/list_response_body": "crate::consent_private::ConsentPrivateListResponseBody",
+    "consent-private-operations.schema.json#/$defs/version_response_body/properties/kind": "crate::consent_private::ConsentPrivateVersionOutcomeKind",
+    "consent-private-operations.schema.json#/$defs/version_response_body": "crate::consent_private::ConsentPrivateVersionResponseBody",
+    "consent-private-operations.schema.json#/$defs/effects_response_body/properties/kind": "crate::consent_private::ConsentPrivateEffectsOutcomeKind",
+    "consent-private-operations.schema.json#/$defs/effects_response_body": "crate::consent_private::ConsentPrivateEffectsResponseBody",
+    "consent-private-operations.schema.json#/$defs/invite_policy_response_body/properties/kind": "crate::consent_private::ConsentPrivateInvitePolicyOutcomeKind",
+    "consent-private-operations.schema.json#/$defs/invite_policy_response_body": "crate::consent_private::ConsentPrivateInvitePolicyResponseBody",
+    "consent-private-operations.schema.json#/$defs/invite_delivery_response_body/properties/kind": "crate::consent_private::ConsentPrivateInviteDeliveryOutcomeKind",
+    "consent-private-operations.schema.json#/$defs/invite_delivery_response_body": "crate::consent_private::ConsentPrivateInviteDeliveryResponseBody",
+    "consent-private-operations.schema.json#/$defs/request_response_body/properties/kind": "crate::consent_private::ConsentPrivateRequestOutcomeKind",
+    "consent-private-operations.schema.json#/$defs/request_response_body": "crate::consent_private::ConsentPrivateRequestResponseBody",
+    "consent-private-operations.schema.json#/$defs/command_response_body": "crate::consent_private::ConsentPrivateCommandResponseBody",
+    "consent-private-operations.schema.json#/$defs/proxy_request_body": "crate::consent_private::ConsentPrivateProxyRequestBody",
+    "consent-private-operations.schema.json#/$defs/proxy_response_body": "crate::consent_private::ConsentPrivateProxyResponseBody",
     "realm-actor.schema.json#/$defs/ghost_external_tuple": "crate::RealmActorGhostExternalTuple",
     "realm-actor.schema.json#/$defs/control_scope": "crate::RealmActorControlScope",
     "realm-actor.schema.json#/$defs/create_payload": "crate::RealmActorCreatePayload",
@@ -109,8 +109,9 @@
     "event-payload.schema.json#/$defs/consent_permission": "crate::events_payloads::consent::ConsentPermission",
     "event-payload.schema.json#/$defs/consent_expected_current": "crate::events_payloads::consent::ConsentExpectedCurrent",
     "event-payload.schema.json#/$defs/consent_replace_payload": "crate::events_payloads::consent::ConsentReplacePayload",
-    "consent-operations.schema.json#/$defs/consent_current_read_outcome/properties/current": "crate::call_invitation::ConsentCurrentState",
-    "typed-current-result.schema.json#/$defs/revision": "arkret_wire::CurrentRevision"
+    "consent-operations.schema.json#/$defs/consent_current_read_response_body/properties/current": "crate::call_invitation::ConsentCurrentReadState",
+    "current-state.schema.json#/$defs/revision": "arkret_wire::CurrentRevision",
+    "agent-operations.schema.json#/$defs/operation_status_view": "arkret_models_collaboration::agent_operations::AgentOperationStatusView"
   },
   "families": [
     {
@@ -130,8 +131,8 @@
           "default": true
         },
         {
-          "name": "DirectoryRealmSearchOutcome",
-          "schema": "directory-operations.schema.json#/$defs/directory_realm_search_outcome"
+          "name": "DirectoryRealmSearchResponseBody",
+          "schema": "directory-operations.schema.json#/$defs/directory_realm_search_response_body"
         },
         {
           "name": "DirectoryResolveRealmRequestBody",
@@ -205,7 +206,7 @@
               "/// Per-pin limited-trust record",
               "/// (`did-binding-contracts.schema.json#/$defs/limited_trust`).",
               "///",
-              "/// \u00c2\u00a75.5 replaced the old single \"reason\" with one state per pin, because the two",
+              "/// Â§5.5 replaced the old single \"reason\" with one state per pin, because the two",
               "/// pins fail independently and for different reasons: a `did:webvh` binding that",
               "/// lost only `version_id` because the resolver did not surface it is a resolver",
               "/// defect, while a `did:key` binding that has no history at all is a terminal",
@@ -243,14 +244,14 @@
               "/// One registered freshness profile row",
               "/// (`did-binding-contracts.schema.json#/$defs/freshness_profile`).",
               "///",
-              "/// \u00c2\u00a75.4 makes every DID authority call site reference exactly one profile id",
-              "/// through its operation / action registration \u00e2\u20ac\u201d natural-language tier guessing",
+              "/// Â§5.4 makes every DID authority call site reference exactly one profile id",
+              "/// through its operation / action registration â€” natural-language tier guessing",
               "/// (\"directory-ish, so any cache will do\") is forbidden, and an unknown id is",
               "/// treated as `high`, never as \"anything cached is fine\".",
               "///",
-              "/// `fresh_for_seconds` is the **single** freshness threshold: `refresh_after =",
+              "/// `fresh_for_seconds` is the **single** freshness threshold: `refresh_at =",
               "/// verified_at + fresh_for_seconds` and an authority call's `max_age` is the",
-              "/// same value. Two separately maintained constants are exactly the drift \u00c2\u00a75.4",
+              "/// same value. Two separately maintained constants are exactly the drift Â§5.4",
               "/// forbids, so [`Self::requirement`] is the only way to obtain a",
               "/// [`FreshnessRequirement`] from a profile.",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
@@ -320,7 +321,7 @@
               "///",
               "/// A witness revocation, an organization merge or a falsified consistency proof",
               "/// arrives as a *coordinate* (witness DID, organization, log head), never as a",
-              "/// digest \u00e2\u20ac\u201d digests are one-way, so `evidence_digest` cannot answer \"which",
+              "/// digest â€” digests are one-way, so `evidence_digest` cannot answer \"which",
               "/// bindings depend on witness X\". This record can, and a store that declares",
               "/// evidence-bearing methods MUST index it at least by witness DID.",
               "#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]",
@@ -362,7 +363,7 @@
             "attributes": [
               "/// Signed identity receipt from a DID registry",
               "/// (`ak.schema.identity_receipt.v1`, `identity-receipt.schema.json`).",
-              "/// The registry / witness endorsement of a key-log head travels here \u00e2\u20ac\u201d",
+              "/// The registry / witness endorsement of a key-log head travels here â€”",
               "/// never inside the key-log entry's `proofs[]`.",
               "#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
@@ -386,8 +387,8 @@
                 "type": "Did",
                 "attributes": []
               },
-              "seq": {
-                "name": "seq",
+              "sequence": {
+                "name": "sequence",
                 "visibility": "pub",
                 "type": "u64",
                 "attributes": []
@@ -527,13 +528,13 @@
           }
         },
         {
-          "name": "AgentList",
-          "schema": "agent-operations.schema.json#/$defs/agent_list",
+          "name": "AgentPage",
+          "schema": "agent-operations.schema.json#/$defs/agent_page",
           "rust": {
-            "signature": "pub struct AgentList",
+            "signature": "pub struct AgentPage",
             "attributes": [
               "/// Field declaration order is byte-for-byte the properties order of",
-              "/// `agent-operations.schema.json#/$defs/agent_list`.",
+              "/// `agent-operations.schema.json#/$defs/agent_page`.",
               "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
               "#[derive(Clone, Debug, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
@@ -876,10 +877,10 @@
           }
         },
         {
-          "name": "AgentSidecarList",
-          "schema": "agent-operations.schema.json#/$defs/agent_sidecar_list",
+          "name": "AgentSidecarPage",
+          "schema": "agent-operations.schema.json#/$defs/agent_sidecar_page",
           "rust": {
-            "signature": "pub struct AgentSidecarList",
+            "signature": "pub struct AgentSidecarPage",
             "attributes": [
               "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
               "#[derive(Clone, Debug, Serialize, Deserialize)]",
@@ -899,28 +900,6 @@
                 "attributes": [
                   "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
                 ]
-              }
-            }
-          }
-        },
-        {
-          "name": "AgentLifecycleOutcome",
-          "schema": "agent-operations.schema.json#/$defs/agent_lifecycle_state",
-          "rust": {
-            "signature": "pub struct AgentLifecycleOutcome",
-            "attributes": [
-              "/// Closed lifecycle operation response:",
-              "/// `agent-operations.schema.json#/$defs/agent_lifecycle_state`.",
-              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
-              "#[derive(Clone, Debug, Serialize, Deserialize)]",
-              "#[serde(deny_unknown_fields)]"
-            ],
-            "members": {
-              "status": {
-                "name": "status",
-                "visibility": "pub",
-                "type": "AgentLifecycleState",
-                "attributes": []
               }
             }
           }
@@ -951,6 +930,28 @@
                 "name": "authenticated_signer_evidence",
                 "visibility": "pub",
                 "type": "AuthenticatedSignerResolutionEvidence",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "AgentOperationStatusView",
+          "schema": "agent-operations.schema.json#/$defs/operation_status_view",
+          "rust": {
+            "signature": "pub struct AgentOperationStatusView",
+            "attributes": [
+              "/// Closed lifecycle operation response:",
+              "/// `agent-operations.schema.json#/$defs/operation_status_view`.",
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "status": {
+                "name": "status",
+                "visibility": "pub",
+                "type": "AgentLifecycleState",
                 "attributes": []
               }
             }
@@ -1696,12 +1697,12 @@
         },
         {
           "name": "AgentProvisioningValue",
-          "schema": "typed-current-result.schema.json#/$defs/agent_provisioning_value",
+          "schema": "current-state.schema.json#/$defs/agent_provisioning_value",
           "rust": {
             "signature": "pub struct AgentProvisioningValue",
             "attributes": [
-              "/// Value of the `agent_provisioning` typed current result",
-              "/// (`typed-current-result.schema.json#/$defs/agent_provisioning_value`): the",
+              "/// Value of the `agent_provisioning` current state",
+              "/// (`current-state.schema.json#/$defs/agent_provisioning_value`): the",
               "/// create-locked members a reader holding only the Agent DID needs.",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
@@ -1736,12 +1737,12 @@
         },
         {
           "name": "AgentPcrGenesisDeclarationValue",
-          "schema": "typed-current-result.schema.json#/$defs/agent_pcr_genesis_declaration_value",
+          "schema": "current-state.schema.json#/$defs/agent_pcr_genesis_declaration_value",
           "rust": {
             "signature": "pub struct AgentPcrGenesisDeclarationValue",
             "attributes": [
-              "/// Value of the `agent_pcr_genesis_declaration` typed current result",
-              "/// (`typed-current-result.schema.json#/$defs/agent_pcr_genesis_declaration_value`):",
+              "/// Value of the `agent_pcr_genesis_declaration` current state",
+              "/// (`current-state.schema.json#/$defs/agent_pcr_genesis_declaration_value`):",
               "/// the index from a forward-declared Agent PCR id to its Agent.",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
@@ -2862,8 +2863,8 @@
                 "type": "PollDisclosureKind",
                 "attributes": []
               },
-              "max_selections": {
-                "name": "max_selections",
+              "max_selection_count": {
+                "name": "max_selection_count",
                 "visibility": "pub",
                 "type": "u64",
                 "attributes": []
@@ -2886,13 +2887,13 @@
           }
         },
         {
-          "name": "PollResponseBody",
-          "schema": "content-block-poll.schema.json#/$defs/poll_response_body",
+          "name": "PollVote",
+          "schema": "content-block-poll.schema.json#/$defs/poll_vote",
           "rust": {
-            "signature": "pub struct PollResponseBody",
+            "signature": "pub struct PollVote",
             "attributes": [
               "/// Counterpart for",
-              "/// `spec/v1/artifacts/schemas/content-block-poll.schema.json#/$defs/poll_response_body`.",
+              "/// `spec/v1/artifacts/schemas/content-block-poll.schema.json#/$defs/poll_vote`.",
               "#[derive(Clone, Debug, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
             ],
@@ -3019,7 +3020,7 @@
               "poll_response": {
                 "name": "poll_response",
                 "visibility": "pub",
-                "type": "PollResponseBody",
+                "type": "PollVote",
                 "attributes": []
               }
             }
@@ -3110,10 +3111,10 @@
           }
         },
         {
-          "name": "ScopeReadReceiptPolicyCurrent",
-          "schema": "typed-current-result.schema.json#/$defs/scope_read_receipt_policy_result",
+          "name": "CurrentScopeReadReceiptPolicy",
+          "schema": "current-state.schema.json#/$defs/current_scope_read_receipt_policy",
           "rust": {
-            "signature": "pub struct ScopeReadReceiptPolicyCurrent",
+            "signature": "pub struct CurrentScopeReadReceiptPolicy",
             "attributes": [
               "/// Verified current value of exactly one Realm/Circle scope. Call validate before consumption.",
               "#[derive(Clone, Debug, Serialize, Deserialize)]",
@@ -3312,7 +3313,7 @@
               "/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_organization_payload`.",
               "///",
               "/// Organization-side endorsement or revocation for a Realm relationship. The",
-              "/// reducer cell subject is `(organization_id, relationship)` \u00e2\u20ac\u201d `statement_id`",
+              "/// reducer cell subject is `(organization_id, relationship)` â€” `statement_id`",
               "/// is audit identity, not the cell subject. Field order mirrors the spec schema",
               "/// `properties` ordering.",
               "#[derive(Clone, Debug, Serialize, Deserialize)]",
@@ -3532,7 +3533,7 @@
               "/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/cross_object_redaction_payload`.",
               "///",
               "/// `ak.redaction` is the cross-object redaction kind. Per",
-              "/// `models/common-fields.md` \u00c2\u00a75.1 (Message exemption) its target set excludes",
+              "/// `models/common-fields.md` Â§5.1 (Message exemption) its target set excludes",
               "/// Message: `message_id` is not a member and `target_ref` cannot spell",
               "/// `ak:message:`, because Message reaches `state=redacted` only through the",
               "/// object-scoped `ak.message.redact`. This type is the single place that",
@@ -3574,7 +3575,7 @@
         },
         {
           "name": "ObjectRedactionEntry",
-          "schema": "typed-current-result.schema.json#/$defs/object_redaction_entry",
+          "schema": "current-state.schema.json#/$defs/object_redaction_entry",
           "rust": {
             "signature": "pub struct ObjectRedactionEntry",
             "attributes": [
@@ -3601,12 +3602,12 @@
         },
         {
           "name": "ObjectRedactionCurrentValue",
-          "schema": "typed-current-result.schema.json#/$defs/object_redaction_value",
+          "schema": "current-state.schema.json#/$defs/object_redaction_value",
           "rust": {
             "signature": "pub struct ObjectRedactionCurrentValue",
             "attributes": [
-              "/// Closed value of the `object_redaction` typed current result",
-              "/// (`typed-current-result.schema.json#/$defs/object_redaction_value`): the",
+              "/// Closed value of the `object_redaction` current state",
+              "/// (`current-state.schema.json#/$defs/object_redaction_value`): the",
               "/// canonically sorted dot set of committed redactions of one subject. Both",
               "/// writers only add a dot, and the object's own `state` and `redaction_ref`",
               "/// are never mirrored here.",
@@ -4053,7 +4054,7 @@
               "/// (`event-payload.schema.json#/$defs/strand_move_payload`).",
               "///",
               "/// Moves a Strand between List Spaces. The destination is single-sourced by",
-              "/// `target_space_id` \u00e2\u20ac\u201d writers MUST NOT put `list_space_id` directly on the",
+              "/// `target_space_id` â€” writers MUST NOT put `list_space_id` directly on the",
               "/// payload (`additionalProperties:false` enforces this; the reducer compiles",
               "/// `target_space_id` into the position cell). `from_space_id` is an optional",
               "/// hint the reducer can infer. Required: `board_space_id`, `strand_id`,",
@@ -4206,7 +4207,7 @@
               "expected_value": {
                 "name": "expected_value",
                 "visibility": "pub",
-                "type": "Option<StrandWatchCurrentValue>",
+                "type": "Option<StrandWatchValue>",
                 "attributes": [
                   "#[serde(\n        default,\n        skip_serializing_if = \"Option::is_none\",\n        deserialize_with = \"deserialize_watch_preimage\"\n    )]"
                 ]
@@ -4481,15 +4482,15 @@
       "inline": true,
       "types": [
         {
-          "name": "AgentParticipationOutcome",
-          "schema": "agent-operations.schema.json#/$defs/agent_participation_outcome",
+          "name": "AgentParticipationResponseBody",
+          "schema": "agent-operations.schema.json#/$defs/agent_participation_response_body",
           "rust": {
-            "signature": "pub struct AgentParticipationOutcome",
+            "signature": "pub struct AgentParticipationResponseBody",
             "attributes": [
               "/// Response for `ak.self.agent.participation.{set,get}`.",
               "///",
               "/// Counterpart for",
-              "/// `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/agent_participation_outcome`.",
+              "/// `spec/v1/artifacts/schemas/agent-operations.schema.json#/$defs/agent_participation_response_body`.",
               "#[derive(Clone, Debug, Serialize, Deserialize)]",
               "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]"
             ],
@@ -4708,7 +4709,7 @@
               "///",
               "/// The item is a read-side View over the accepted `moderation_report` typed",
               "/// current result and the `moderation_state` records that point at it, not a",
-              "/// second stored state (content-moderation.md \u00c2\u00a73.3): `id` is the report Event",
+              "/// second stored state (content-moderation.md Â§3.3): `id` is the report Event",
               "/// id retyped to `moderation_queue_item`, `report` is the complete accepted",
               "/// report payload and `created_at` the accepting Commit time.",
               "#[derive(Clone, Debug, Serialize, Deserialize)]",
@@ -4959,8 +4960,8 @@
                   "#[serde(\n        default,\n        skip_serializing_if = \"Option::is_none\",\n        deserialize_with = \"arkret_canonical::serde_helpers::deserialize_non_null_optional\"\n    )]"
                 ]
               },
-              "params": {
-                "name": "params",
+              "parameters": {
+                "name": "parameters",
                 "visibility": "pub",
                 "type": "Option<BTreeMap<String, Value>>",
                 "attributes": [
@@ -5031,7 +5032,7 @@
               "/// Counterpart for",
               "/// `event-payload.schema.json#/$defs/policy_set_state_payload`.",
               "///",
-              "/// `policy_id` is the stable subject of the Policy typed current result, so",
+              "/// `policy_id` is the stable subject of the Policy current state, so",
               "/// repeated `ak.policy.set` Events under the same `policy_id` converge on one",
               "/// document rather than accumulating versions. There is no cell head, basis or",
               "/// version member on the wire. Agent and Applet governance policies carry a required",
@@ -5146,11 +5147,11 @@
               "/// Wire counterpart:",
               "/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_alias_declaration`.",
               "///",
-              "/// `ak.realm.alias` declaration \u00e2\u20ac\u201d the ONLY wire carrier of a Realm alias.",
+              "/// `ak.realm.alias` declaration â€” the ONLY wire carrier of a Realm alias.",
               "///",
               "/// `realm.schema.json` is a closed object with no `alias` property, and",
               "/// Realm genesis/profile payloads MUST NOT carry one",
-              "/// (`discovery/object-addressing.md` \u00c2\u00a73.3).",
+              "/// (`discovery/object-addressing.md` Â§3.3).",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
             ],
@@ -5598,12 +5599,12 @@
       "inline": true,
       "types": [
         {
-          "name": "SortSpec",
-          "schema": "view.schema.json#/$defs/sort_spec",
+          "name": "SortSpecification",
+          "schema": "view.schema.json#/$defs/sort_specification",
           "rust": {
-            "signature": "pub struct SortSpec",
+            "signature": "pub struct SortSpecification",
             "attributes": [
-              "/// Counterpart for `spec/v1/artifacts/schemas/view.schema.json#/$defs/sort_spec`.",
+              "/// Counterpart for `spec/v1/artifacts/schemas/view.schema.json#/$defs/sort_specification`.",
               "#[derive(Clone, Debug, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
             ],
@@ -5814,7 +5815,7 @@
               "///",
               "/// The profile is fixed to the discussion track family and the plaintext",
               "/// therefore carries no `track_name` at all",
-              "/// (`zh/discovery/profiles-presence.md` \u00c2\u00a73.5).",
+              "/// (`zh/discovery/profiles-presence.md` Â§3.5).",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
             ],
@@ -5867,7 +5868,7 @@
               "/// Event history, so it carries no `id`, no `schema`, no `created_at` and no",
               "/// `realm_id`. Realm scope is already bound into the ciphertext by the Signal",
               "/// AAD, the sending device and send time are on the signed envelope, and the",
-              "/// payload kind is the `kind` const. One type both seals and opens \u00e2\u20ac\u201d the",
+              "/// payload kind is the `kind` const. One type both seals and opens â€” the",
               "/// closed schema and this struct describe the same five fields, so a sender's",
               "/// own bytes deserialize back.",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
@@ -6175,7 +6176,7 @@
           "rust": {
             "signature": "pub struct QueryDeviceRecord",
             "attributes": [
-              "/// Per-`(account_id, device_id)` entry in [`KeysQueryOutcome::device_keys`],",
+              "/// Per-`(account_id, device_id)` entry in [`KeysQueryResponseBody::device_keys`],",
               "/// the client-facing self surface.",
               "///",
               "/// Every field is required. A device whose generation is fenced or conflicted,",
@@ -6228,7 +6229,7 @@
             "signature": "pub struct PeerQueryDeviceRecord",
             "attributes": [
               "/// Per-`(account_id, device_id)` entry in",
-              "/// [`PeerKeysQueryOutcome::device_keys`], the Station-to-Station surface.",
+              "/// [`PeerKeysQueryResponseBody::device_keys`], the Station-to-Station surface.",
               "///",
               "/// Every returned row is complete and attested: the origin Station signs the",
               "/// exact projection, so the requesting Station can verify the row itself. A",
@@ -6572,7 +6573,7 @@
               "///",
               "/// This is the single Rust expression of",
               "/// `identity-resolution.schema.json#/$defs/service_route_projection`",
-              "/// (`sync/service-surface.md` \u00c2\u00a72.6). It is produced either locally by",
+              "/// (`sync/service-surface.md` Â§2.6). It is produced either locally by",
               "/// [`AuthenticatedServiceResolution::projection`] after method-native",
               "/// verification, or handed over already verified inside an own-Station result",
               "/// such as the media service binding. There is deliberately only one type: a",
@@ -6906,38 +6907,8 @@
               "constraints": {
                 "name": "constraints",
                 "visibility": "pub",
-                "type": "Vec<BTreeMap<String, Value>>",
+                "type": "Vec<arkret_models_collaboration::governance::grant_constraint::GrantConstraint>",
                 "attributes": []
-              }
-            }
-          }
-        },
-        {
-          "name": "CapabilityConstraint",
-          "schema": "applet-install-plan.schema.json#/$defs/capability_constraint",
-          "rust": {
-            "signature": "pub struct CapabilityConstraint",
-            "attributes": [
-              "/// Counterpart for",
-              "/// `spec/v1/artifacts/schemas/applet-install-plan.schema.json#/$defs/capability_constraint`.",
-              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
-              "#[derive(Clone, Debug, Serialize, Deserialize)]",
-              "#[serde(deny_unknown_fields)]"
-            ],
-            "members": {
-              "constraint_kind": {
-                "name": "constraint_kind",
-                "visibility": "pub",
-                "type": "String",
-                "attributes": []
-              },
-              "params": {
-                "name": "params",
-                "visibility": "pub",
-                "type": "Option<BTreeMap<String, Value>>",
-                "attributes": [
-                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
-                ]
               }
             }
           }
@@ -7005,13 +6976,13 @@
           }
         },
         {
-          "name": "EventSubmission",
-          "schema": "applet-install-plan.schema.json#/$defs/event_submission",
+          "name": "PlannedEvent",
+          "schema": "applet-install-plan.schema.json#/$defs/planned_event",
           "rust": {
-            "signature": "pub struct EventSubmission",
+            "signature": "pub struct PlannedEvent",
             "attributes": [
               "/// Counterpart for",
-              "/// `spec/v1/artifacts/schemas/applet-install-plan.schema.json#/$defs/event_submission`.",
+              "/// `spec/v1/artifacts/schemas/applet-install-plan.schema.json#/$defs/planned_event`.",
               "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
               "#[derive(Clone, Debug, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
@@ -7572,10 +7543,10 @@
           }
         },
         {
-          "name": "RecoveryPolicyActiveOutcome",
-          "schema": "recovery-policy.schema.json#/$defs/recovery_policy_active_outcome",
+          "name": "RecoveryPolicyStatusView",
+          "schema": "recovery-policy.schema.json#/$defs/recovery_policy_status_view",
           "rust": {
-            "signature": "pub struct RecoveryPolicyActiveOutcome",
+            "signature": "pub struct RecoveryPolicyStatusView",
             "attributes": [
               "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
@@ -7604,8 +7575,8 @@
                   "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
                 ]
               },
-              "as_of": {
-                "name": "as_of",
+              "evaluated_at": {
+                "name": "evaluated_at",
                 "visibility": "pub",
                 "type": "Option<DateTime<Utc>>",
                 "attributes": [
@@ -7624,10 +7595,10 @@
           }
         },
         {
-          "name": "RecoveryPolicyPublishOutcome",
-          "schema": "recovery-policy.schema.json#/$defs/recovery_policy_publish_outcome",
+          "name": "RecoveryPolicyPublishResponseBody",
+          "schema": "recovery-policy.schema.json#/$defs/recovery_policy_publish_response_body",
           "rust": {
-            "signature": "pub struct RecoveryPolicyPublishOutcome",
+            "signature": "pub struct RecoveryPolicyPublishResponseBody",
             "attributes": [
               "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
@@ -7670,10 +7641,10 @@
           }
         },
         {
-          "name": "RecoveryPolicyAuthData",
-          "schema": "recovery-policy.schema.json#/properties/auth_data",
+          "name": "RecoveryPolicySignatureProof",
+          "schema": "recovery-policy.schema.json#/properties/signature_proof",
           "rust": {
-            "signature": "pub struct RecoveryPolicyAuthData",
+            "signature": "pub struct RecoveryPolicySignatureProof",
             "attributes": [
               "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
@@ -8434,10 +8405,10 @@
           }
         },
         {
-          "name": "RecoverySessionProofSubmitOutcome",
-          "schema": "recovery-session.schema.json#/$defs/recovery_session_proof_submit_outcome",
+          "name": "RecoverySessionProofSubmitResponseBody",
+          "schema": "recovery-session.schema.json#/$defs/recovery_session_proof_submit_response_body",
           "rust": {
-            "signature": "pub struct RecoverySessionProofSubmitOutcome",
+            "signature": "pub struct RecoverySessionProofSubmitResponseBody",
             "attributes": [
               "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
@@ -9030,12 +9001,12 @@
         },
         {
           "name": "AgentSidecarExchangeControlAssertion",
-          "schema": "typed-current-result.schema.json#/$defs/agent_sidecar_exchange_controls_value/properties/assertions/items",
+          "schema": "current-state.schema.json#/$defs/agent_sidecar_exchange_controls_value/properties/assertions/items",
           "rust": {
             "signature": "pub struct AgentSidecarExchangeControlAssertion",
             "attributes": [
               "/// One accepted encrypted control carrier, identified by the Event's only",
-              "/// registered keyed-set write (`typed-current-result.schema.json`).",
+              "/// registered keyed-set write (`current-state.schema.json`).",
               "#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
             ],
@@ -9043,7 +9014,7 @@
               "tag_id": {
                 "name": "tag_id",
                 "visibility": "pub",
-                "type": "crate::exact_current_results::CanonicalEventDot",
+                "type": "crate::exact_current_state::CanonicalEventDot",
                 "attributes": []
               },
               "value": {
@@ -9431,17 +9402,17 @@
       ]
     },
     {
-      "output": "crates/models-collaboration/src/sync_frames/generated/current_results_contracts.rs",
+      "output": "crates/models-collaboration/src/sync_frames/generated/current_state_contracts.rs",
       "inline": true,
       "types": [
         {
-          "name": "AccountCurrentView",
-          "schema": "account-current-result.schema.json#/$defs/current",
+          "name": "AccountStateView",
+          "schema": "account-state-view.schema.json#/$defs/current",
           "rust": {
-            "signature": "pub struct AccountCurrentView",
+            "signature": "pub struct AccountStateView",
             "attributes": [
               "/// The Account Station's view of one Realm's authority-committed current state.",
-              "/// Spec: `account-current-result.schema.json`.",
+              "/// Spec: `account-state-view.schema.json`.",
               "///",
               "/// `governance_generation` names which governance generation materialized these",
               "/// entries, and `stream_heads` is the per-stream position each entry was",
@@ -9450,10 +9421,10 @@
               "/// one number could not state where this result stands in all of them.",
               "///",
               "/// Convergence is by stable domain selector plus `expected_revision` CAS, so a",
-              "/// caller writes back against the `revision` of the exact entry it read \u00e2\u20ac\u201d never",
+              "/// caller writes back against the `revision` of the exact entry it read â€” never",
               "/// against a whole-Realm token.",
               "/// Field declaration order is byte-for-byte the `properties` order of",
-              "/// `account-current-result.schema.json#/$defs/current`.",
+              "/// `account-state-view.schema.json#/$defs/current`.",
               "#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
             ],
@@ -9479,7 +9450,7 @@
               "entries": {
                 "name": "entries",
                 "visibility": "pub",
-                "type": "Vec<TypedCurrentRow>",
+                "type": "Vec<CurrentState>",
                 "attributes": []
               }
             }
@@ -9487,7 +9458,7 @@
         },
         {
           "name": "AccountCurrentCoverage",
-          "schema": "account-current-result.schema.json#/$defs/coverage",
+          "schema": "account-state-view.schema.json#/$defs/coverage",
           "rust": {
             "signature": "pub struct AccountCurrentCoverage",
             "attributes": [
@@ -9595,7 +9566,7 @@
               "/// The Account Authority populates it from a Station-local revocation",
               "/// admission record, which is the only source of the origin-derived",
               "/// authorization Event and generation. That record deliberately carries no",
-              "/// RealmCommit witness, so this binding names the authorization Event alone \u00e2\u20ac\u201d",
+              "/// RealmCommit witness, so this binding names the authorization Event alone â€”",
               "/// it is not a `CommittedEventRef` and MUST NOT be taken from client input, a",
               "/// local cache or a private lookup.",
               "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
@@ -9631,10 +9602,10 @@
       "inline": true,
       "types": [
         {
-          "name": "RecoverySessionGrantRequest",
-          "schema": "service-operation-dtos.schema.json#/$defs/RecoverySessionGrantRequest",
+          "name": "RecoverySessionGrantRequestBody",
+          "schema": "service-operation-dtos.schema.json#/$defs/RecoverySessionGrantRequestBody",
           "rust": {
-            "signature": "pub struct RecoverySessionGrantRequest",
+            "signature": "pub struct RecoverySessionGrantRequestBody",
             "attributes": [
               "/// Fresh-device existing-principal recovery issuance.",
               "///",
@@ -9681,10 +9652,10 @@
           }
         },
         {
-          "name": "AgentSessionGrantRefreshRequest",
-          "schema": "service-operation-dtos.schema.json#/$defs/AgentSessionGrantRefreshRequest",
+          "name": "AgentSessionGrantRefreshRequestBody",
+          "schema": "service-operation-dtos.schema.json#/$defs/AgentSessionGrantRefreshRequestBody",
           "rust": {
-            "signature": "pub struct AgentSessionGrantRefreshRequest",
+            "signature": "pub struct AgentSessionGrantRefreshRequestBody",
             "attributes": [
               "/// DPoP-bound Agent SessionGrant rotation.",
               "///",
@@ -9797,10 +9768,10 @@
       "inline": true,
       "types": [
         {
-          "name": "AgentSessionGrantRequest",
-          "schema": "service-operation-dtos.schema.json#/$defs/AgentSessionGrantRequest",
+          "name": "AgentSessionGrantRequestBody",
+          "schema": "service-operation-dtos.schema.json#/$defs/AgentSessionGrantRequestBody",
           "rust": {
-            "signature": "pub struct AgentSessionGrantRequest",
+            "signature": "pub struct AgentSessionGrantRequestBody",
             "attributes": [
               "#[derive(Clone, Debug, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
@@ -9827,7 +9798,7 @@
               "agent_scope_request": {
                 "name": "agent_scope_request",
                 "visibility": "pub",
-                "type": "SessionGrantAgentScopeRequest",
+                "type": "RequestedAgentSessionGrantScope",
                 "attributes": []
               },
               "approval_evidence_refs": {
@@ -9862,10 +9833,10 @@
           }
         },
         {
-          "name": "HumanSessionGrantRequest",
-          "schema": "service-operation-dtos.schema.json#/$defs/HumanSessionGrantRequest",
+          "name": "HumanSessionGrantRequestBody",
+          "schema": "service-operation-dtos.schema.json#/$defs/HumanSessionGrantRequestBody",
           "rust": {
-            "signature": "pub struct HumanSessionGrantRequest",
+            "signature": "pub struct HumanSessionGrantRequestBody",
             "attributes": [
               "#[derive(Clone, Debug, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
@@ -9905,10 +9876,10 @@
           }
         },
         {
-          "name": "HumanSessionGrantRefreshRequest",
-          "schema": "service-operation-dtos.schema.json#/$defs/HumanSessionGrantRefreshRequest",
+          "name": "HumanSessionGrantRefreshRequestBody",
+          "schema": "service-operation-dtos.schema.json#/$defs/HumanSessionGrantRefreshRequestBody",
           "rust": {
-            "signature": "pub struct HumanSessionGrantRefreshRequest",
+            "signature": "pub struct HumanSessionGrantRefreshRequestBody",
             "attributes": [
               "#[derive(Clone, Debug, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
@@ -9945,7 +9916,7 @@
         },
         {
           "name": "AgentSessionGrantProof",
-          "schema": "service-operation-dtos.schema.json#/$defs/AgentSessionGrantRequest/properties/proof",
+          "schema": "service-operation-dtos.schema.json#/$defs/AgentSessionGrantRequestBody/properties/proof",
           "rust": {
             "signature": "pub struct AgentSessionGrantProof",
             "attributes": [
@@ -10015,13 +9986,13 @@
       "inline": true,
       "types": [
         {
-          "name": "ContactList",
-          "schema": "contact-operations.schema.json#/$defs/contact_list",
+          "name": "ContactPage",
+          "schema": "contact-operations.schema.json#/$defs/contact_page",
           "rust": {
-            "signature": "pub struct ContactList",
+            "signature": "pub struct ContactPage",
             "attributes": [
               "/// Viewer-specific current Contact rows.",
-              "/// `contact-operations.schema.json#/$defs/contact_list`.",
+              "/// `contact-operations.schema.json#/$defs/contact_page`.",
               "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
               "#[derive(Clone, Debug, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
@@ -10483,13 +10454,13 @@
           }
         },
         {
-          "name": "MimiSubmitMessageOutcome",
-          "schema": "mimi-operations.schema.json#/$defs/mimi_submit_message_outcome",
+          "name": "MimiSubmitMessageResponseBody",
+          "schema": "mimi-operations.schema.json#/$defs/mimi_submit_message_response_body",
           "rust": {
-            "signature": "pub struct MimiSubmitMessageOutcome",
+            "signature": "pub struct MimiSubmitMessageResponseBody",
             "attributes": [
               "/// Counterpart for",
-              "/// `mimi-operations.schema.json#/$defs/mimi_submit_message_outcome`.",
+              "/// `mimi-operations.schema.json#/$defs/mimi_submit_message_response_body`.",
               "///",
               "/// `event_ref` is present only when the submission also produced an Arkret",
               "/// Event; a pure outbound relay reports delivery without one.",
@@ -10524,13 +10495,13 @@
           }
         },
         {
-          "name": "MimiIdentifierQueryOutcome",
-          "schema": "mimi-operations.schema.json#/$defs/mimi_identifier_query_outcome",
+          "name": "MimiIdentifierQueryResponseBody",
+          "schema": "mimi-operations.schema.json#/$defs/mimi_identifier_query_response_body",
           "rust": {
-            "signature": "pub struct MimiIdentifierQueryOutcome",
+            "signature": "pub struct MimiIdentifierQueryResponseBody",
             "attributes": [
               "/// Counterpart for",
-              "/// `mimi-operations.schema.json#/$defs/mimi_identifier_query_outcome`.",
+              "/// `mimi-operations.schema.json#/$defs/mimi_identifier_query_response_body`.",
               "///",
               "/// The outcome is a proof-carrying object: its registered proof context is",
               "/// `ak.mimi_identifier_query_outcome_proof.v1`, and the signed transcript is",
@@ -10566,13 +10537,13 @@
           }
         },
         {
-          "name": "MimiProxyDownloadOutcome",
-          "schema": "mimi-operations.schema.json#/$defs/mimi_proxy_download_outcome",
+          "name": "MimiProxyDownloadResponseBody",
+          "schema": "mimi-operations.schema.json#/$defs/mimi_proxy_download_response_body",
           "rust": {
-            "signature": "pub struct MimiProxyDownloadOutcome",
+            "signature": "pub struct MimiProxyDownloadResponseBody",
             "attributes": [
               "/// Counterpart for",
-              "/// `mimi-operations.schema.json#/$defs/mimi_proxy_download_outcome`.",
+              "/// `mimi-operations.schema.json#/$defs/mimi_proxy_download_response_body`.",
               "///",
               "/// Operation `ak.open.mimi.command.proxy_download.v1`. `download_ref` is the",
               "/// provider's own opaque handle; the SDK never interprets it as a URL or as a",
@@ -10588,8 +10559,8 @@
                 "type": "NonEmptyString",
                 "attributes": []
               },
-              "headers": {
-                "name": "headers",
+              "download_request_headers": {
+                "name": "download_request_headers",
                 "visibility": "pub",
                 "type": "BTreeMap<String, NonEmptyString>",
                 "attributes": [
@@ -10705,12 +10676,12 @@
           }
         },
         {
-          "name": "MimiRequestConsentOutcome",
-          "schema": "mimi-operations.schema.json#/$defs/mimi_request_consent_outcome",
+          "name": "MimiRequestConsentResponseBody",
+          "schema": "mimi-operations.schema.json#/$defs/mimi_request_consent_response_body",
           "rust": {
-            "signature": "pub struct MimiRequestConsentOutcome",
+            "signature": "pub struct MimiRequestConsentResponseBody",
             "attributes": [
-              "/// `mimi-operations.schema.json#/$defs/mimi_request_consent_outcome`.",
+              "/// `mimi-operations.schema.json#/$defs/mimi_request_consent_response_body`.",
               "/// The old `status` mirror is not part of the closed outcome.",
               "#[derive(Clone, Debug, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]",
@@ -10735,12 +10706,12 @@
           }
         },
         {
-          "name": "MimiUpdateConsentOutcome",
-          "schema": "mimi-operations.schema.json#/$defs/mimi_update_consent_outcome",
+          "name": "MimiUpdateConsentResponseBody",
+          "schema": "mimi-operations.schema.json#/$defs/mimi_update_consent_response_body",
           "rust": {
-            "signature": "pub struct MimiUpdateConsentOutcome",
+            "signature": "pub struct MimiUpdateConsentResponseBody",
             "attributes": [
-              "/// `mimi-operations.schema.json#/$defs/mimi_update_consent_outcome`.",
+              "/// `mimi-operations.schema.json#/$defs/mimi_update_consent_response_body`.",
               "#[derive(Clone, Debug, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]",
               "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]"
@@ -10847,7 +10818,7 @@
         },
         {
           "name": "DirectConversationBindingCurrentValue",
-          "schema": "typed-current-result.schema.json#/$defs/direct_conversation_binding_value",
+          "schema": "current-state.schema.json#/$defs/direct_conversation_binding_value",
           "rust": {
             "signature": "pub struct DirectConversationBindingCurrentValue",
             "attributes": [
@@ -10878,12 +10849,12 @@
       "types": [
         {
           "name": "ConsentValue",
-          "schema": "typed-current-result.schema.json#/$defs/consent_value",
+          "schema": "current-state.schema.json#/$defs/consent_value",
           "rust": {
             "signature": "pub struct ConsentValue",
             "attributes": [
               "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
-              "/// Closed `typed-current-result.schema.json#/$defs/consent_value`.",
+              "/// Closed `current-state.schema.json#/$defs/consent_value`.",
               "#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
             ],
@@ -10912,7 +10883,7 @@
               "/// `keys-operations.schema.json#/$defs/backup_active_series_state`.",
               "///",
               "/// v1 registers exactly one backup class, `secret_storage` (key-management",
-              "/// \u00c2\u00a77.5.0 / \u00c2\u00a77.6.1). The object is closed: an `mls_history` or private class",
+              "/// Â§7.5.0 / Â§7.6.1). The object is closed: an `mls_history` or private class",
               "/// member is schema-invalid and is rejected rather than ignored.",
               "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
@@ -10947,12 +10918,12 @@
           }
         },
         {
-          "name": "KeysBackupsList",
-          "schema": "keys-operations.schema.json#/$defs/keys_backups_list",
+          "name": "KeysBackupsPage",
+          "schema": "keys-operations.schema.json#/$defs/keys_backups_page",
           "rust": {
-            "signature": "pub struct KeysBackupsList",
+            "signature": "pub struct KeysBackupsPage",
             "attributes": [
-              "/// `keys-operations.schema.json#/$defs/keys_backups_list`.",
+              "/// `keys-operations.schema.json#/$defs/keys_backups_page`.",
               "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
               "#[derive(Clone, Debug, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
@@ -11024,7 +10995,7 @@
             "signature": "pub struct KeyBackupSummary",
             "attributes": [
               "/// `keys-operations.schema.json#/$defs/backup_metadata`: the closed list",
-              "/// summary of one stored envelope (key-management \u00c2\u00a77.6.1).",
+              "/// summary of one stored envelope (key-management Â§7.6.1).",
               "///",
               "/// Field order is the schema `properties` order. Optional members are absent",
               "/// or carry a value; only the schema's tristate members (`supersedes_id`,",
@@ -11074,8 +11045,8 @@
                 "type": "BackupSeriesId",
                 "attributes": []
               },
-              "series_seq": {
-                "name": "series_seq",
+              "series_sequence": {
+                "name": "series_sequence",
                 "visibility": "pub",
                 "type": "u64",
                 "attributes": []
@@ -11325,12 +11296,12 @@
       "types": [
         {
           "name": "AgentSelectorClaimValue",
-          "schema": "typed-current-result.schema.json#/$defs/agent_selector_claim_value",
+          "schema": "current-state.schema.json#/$defs/agent_selector_claim_value",
           "rust": {
             "signature": "pub struct AgentSelectorClaimValue",
             "attributes": [
-              "/// Value of the `agent_selector_claim` typed current result",
-              "/// (`typed-current-result.schema.json#/$defs/agent_selector_claim_value`).",
+              "/// Value of the `agent_selector_claim` current state",
+              "/// (`current-state.schema.json#/$defs/agent_selector_claim_value`).",
               "///",
               "/// The selector is `(controller principal, agent_slug)`; the only writer is",
               "/// the selector projection of the accepted `ak.agent.provision`. The value is",
@@ -11411,13 +11382,13 @@
           }
         },
         {
-          "name": "RealmStreamList",
-          "schema": "realm-read-operations.schema.json#/$defs/realm_stream_list",
+          "name": "RealmStreamPage",
+          "schema": "realm-read-operations.schema.json#/$defs/realm_stream_page",
           "rust": {
-            "signature": "pub struct RealmStreamList",
+            "signature": "pub struct RealmStreamPage",
             "attributes": [
               "/// ACL-filtered stream enumeration page",
-              "/// (`realm-read-operations.schema.json#/$defs/realm_stream_list`).",
+              "/// (`realm-read-operations.schema.json#/$defs/realm_stream_page`).",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
             ],
@@ -11476,11 +11447,11 @@
         },
         {
           "name": "RealmAuthorityRootValue",
-          "schema": "typed-current-result.schema.json#/$defs/realm_authority_root_value",
+          "schema": "current-state.schema.json#/$defs/realm_authority_root_value",
           "rust": {
             "signature": "pub struct RealmAuthorityRootValue",
             "attributes": [
-              "/// Closed `typed-current-result.schema.json#/$defs/realm_authority_root_value`.",
+              "/// Closed `current-state.schema.json#/$defs/realm_authority_root_value`.",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
             ],
@@ -12009,12 +11980,12 @@
       "types": [
         {
           "name": "InviteDirectedInviteeValue",
-          "schema": "typed-current-result.schema.json#/$defs/invite_directed_invitee_value",
+          "schema": "current-state.schema.json#/$defs/invite_directed_invitee_value",
           "rust": {
             "signature": "pub struct InviteDirectedInviteeValue",
             "attributes": [
-              "/// Closed value of the `invite_directed_invitee` typed current result",
-              "/// (`typed-current-result.schema.json#/$defs/invite_directed_invitee_value`).",
+              "/// Closed value of the `invite_directed_invitee` current state",
+              "/// (`current-state.schema.json#/$defs/invite_directed_invitee_value`).",
               "///",
               "/// It is the create-locked reverse index of the `invite_live_target` slot:",
               "/// written once by a directed `ak.invite.create` from that Event's own payload",
@@ -12035,12 +12006,12 @@
         },
         {
           "name": "InviteLiveTargetOccupant",
-          "schema": "typed-current-result.schema.json#/$defs/invite_live_target_value/oneOf/0",
+          "schema": "current-state.schema.json#/$defs/invite_live_target_value/oneOf/0",
           "rust": {
             "signature": "pub struct InviteLiveTargetOccupant",
             "attributes": [
               "/// The occupied branch of the `invite_live_target` slot value",
-              "/// (`typed-current-result.schema.json#/$defs/invite_live_target_value/oneOf/0`).",
+              "/// (`current-state.schema.json#/$defs/invite_live_target_value/oneOf/0`).",
               "///",
               "/// The occupant is the verbatim `ak:event:` id of the `ak.invite.create` that",
               "/// holds the slot, never its `ak:invite:` retype. The empty branch of the same",
@@ -12068,7 +12039,7 @@
               "/// Closed applicant proof for one automatic join gate",
               "/// (`event-payload.schema.json#/$defs/join_gate_proof`).",
               "///",
-              "/// The binding tuple \u00e2\u20ac\u201d gate, Realm, applicant, policy revision, creation time \u00e2\u20ac\u201d",
+              "/// The binding tuple â€” gate, Realm, applicant, policy revision, creation time â€”",
               "/// rides as wire members and is covered by `proofs`, so a proof replayed across",
               "/// Realms, applicants or policy revisions fails by field comparison before any",
               "/// signature is checked. Freshness is judged against the enclosing Event's",
@@ -12166,7 +12137,7 @@
               "/// (`event-payload.schema.json#/$defs/membership_payload`).",
               "///",
               "/// `additionalProperties:false`: the removed `handle` / `from` keys that older",
-              "/// inkson call sites tried to emit are intentionally NOT representable here \u00e2\u20ac\u201d",
+              "/// inkson call sites tried to emit are intentionally NOT representable here â€”",
               "/// `handle` has no spec-legal home in this payload (the member identity is",
               "/// carried by `member_id`; handle evidence lives in signed `HandleClaim`",
               "/// objects on the roster, not the durable membership event), and the FSM",
@@ -12350,8 +12321,8 @@
                   "#[cfg_attr(feature = \"openapi\", salvo(schema(value_type = String)))]"
                 ]
               },
-              "status_seq": {
-                "name": "status_seq",
+              "status_sequence": {
+                "name": "status_sequence",
                 "visibility": "pub",
                 "type": "u64",
                 "attributes": []
@@ -12384,14 +12355,14 @@
               "#[serde(deny_unknown_fields)]"
             ],
             "members": {
-              "group_info_bytes_b64": {
-                "name": "group_info_bytes_b64",
+              "group_info_base64url": {
+                "name": "group_info_base64url",
                 "visibility": "pub",
                 "type": "String",
                 "attributes": []
               },
-              "ratchet_tree_bytes_b64": {
-                "name": "ratchet_tree_bytes_b64",
+              "ratchet_tree_base64url": {
+                "name": "ratchet_tree_base64url",
                 "visibility": "pub",
                 "type": "String",
                 "attributes": []
@@ -12479,10 +12450,10 @@
           }
         },
         {
-          "name": "PeerStreamScanOutcome",
-          "schema": "authority-commit-operations.schema.json#/$defs/peer_stream_scan_outcome",
+          "name": "PeerStreamScanResponseBody",
+          "schema": "authority-commit-operations.schema.json#/$defs/peer_stream_scan_response_body",
           "rust": {
-            "signature": "pub struct PeerStreamScanOutcome",
+            "signature": "pub struct PeerStreamScanResponseBody",
             "attributes": [
               "#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
@@ -12518,10 +12489,10 @@
           }
         },
         {
-          "name": "AuthorityHandoffRequest",
-          "schema": "authority-commit-operations.schema.json#/$defs/handoff_request",
+          "name": "AuthorityRealmAuthorityHandoffRequestBody",
+          "schema": "authority-commit-operations.schema.json#/$defs/realm_authority_handoff_request_body",
           "rust": {
-            "signature": "pub struct AuthorityHandoffRequest",
+            "signature": "pub struct AuthorityRealmAuthorityHandoffRequestBody",
             "attributes": [
               "#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
@@ -12755,8 +12726,8 @@
                 "type": "DidUrl",
                 "attributes": []
               },
-              "public_key_b64u": {
-                "name": "public_key_b64u",
+              "public_key_base64url": {
+                "name": "public_key_base64url",
                 "visibility": "pub",
                 "type": "arkret_wire::Base64UrlString",
                 "attributes": []
@@ -12830,8 +12801,8 @@
                 "type": "DidUrl",
                 "attributes": []
               },
-              "public_key_b64u": {
-                "name": "public_key_b64u",
+              "public_key_base64url": {
+                "name": "public_key_base64url",
                 "visibility": "pub",
                 "type": "arkret_wire::Base64UrlString",
                 "attributes": []
@@ -12899,8 +12870,8 @@
                 "type": "DidUrl",
                 "attributes": []
               },
-              "public_key_b64u": {
-                "name": "public_key_b64u",
+              "public_key_base64url": {
+                "name": "public_key_base64url",
                 "visibility": "pub",
                 "type": "arkret_wire::Base64UrlString",
                 "attributes": []
@@ -12996,12 +12967,12 @@
         },
         {
           "name": "AgentInteractionCurrentValue",
-          "schema": "typed-current-result.schema.json#/$defs/agent_interaction_value",
+          "schema": "current-state.schema.json#/$defs/agent_interaction_value",
           "rust": {
             "signature": "pub struct AgentInteractionCurrentValue",
             "attributes": [
               "/// Counterpart for",
-              "/// `spec/v1/artifacts/schemas/typed-current-result.schema.json#/$defs/agent_interaction_value`.",
+              "/// `spec/v1/artifacts/schemas/current-state.schema.json#/$defs/agent_interaction_value`.",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]",
               "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]"
@@ -13024,12 +12995,12 @@
         },
         {
           "name": "AgentInteractionExactCurrentSelector",
-          "schema": "typed-current-result.schema.json#/$defs/agent_interaction_result/properties/selector",
+          "schema": "current-state.schema.json#/$defs/current_agent_interaction/properties/selector",
           "rust": {
             "signature": "pub struct AgentInteractionExactCurrentSelector",
             "attributes": [
               "/// Counterpart for",
-              "/// `spec/v1/artifacts/schemas/typed-current-result.schema.json#/$defs/agent_interaction_result/",
+              "/// `spec/v1/artifacts/schemas/current-state.schema.json#/$defs/current_agent_interaction/",
               "/// properties/selector`.",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]",
@@ -13052,13 +13023,13 @@
           }
         },
         {
-          "name": "AgentInteractionExactCurrentRow",
-          "schema": "typed-current-result.schema.json#/$defs/agent_interaction_result",
+          "name": "CurrentAgentInteraction",
+          "schema": "current-state.schema.json#/$defs/current_agent_interaction",
           "rust": {
-            "signature": "pub struct AgentInteractionExactCurrentRow",
+            "signature": "pub struct CurrentAgentInteraction",
             "attributes": [
               "/// Counterpart for",
-              "/// `spec/v1/artifacts/schemas/typed-current-result.schema.json#/$defs/agent_interaction_result`.",
+              "/// `spec/v1/artifacts/schemas/current-state.schema.json#/$defs/current_agent_interaction`.",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]",
               "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]"
@@ -13099,12 +13070,12 @@
       "types": [
         {
           "name": "ReactionAssertionEntry",
-          "schema": "typed-current-result.schema.json#/$defs/reaction_assertion_entry",
+          "schema": "current-state.schema.json#/$defs/reaction_assertion_entry",
           "rust": {
             "signature": "pub struct ReactionAssertionEntry",
             "attributes": [
               "/// One asserted element of the `message_reactions` keyed set",
-              "/// (`typed-current-result.schema.json#/$defs/reaction_assertion_entry`): the",
+              "/// (`current-state.schema.json#/$defs/reaction_assertion_entry`): the",
               "/// accepting Event's canonical dot and that Event's complete reaction payload.",
               "///",
               "/// The asserting actor and the polarity (add or remove) are deliberately not",
@@ -13131,12 +13102,12 @@
         },
         {
           "name": "MessageReactionsCurrentValue",
-          "schema": "typed-current-result.schema.json#/$defs/message_reactions_value",
+          "schema": "current-state.schema.json#/$defs/message_reactions_value",
           "rust": {
             "signature": "pub struct MessageReactionsCurrentValue",
             "attributes": [
-              "/// Closed value of the `message_reactions` typed current result",
-              "/// (`typed-current-result.schema.json#/$defs/message_reactions_value`): the",
+              "/// Closed value of the `message_reactions` current state",
+              "/// (`current-state.schema.json#/$defs/message_reactions_value`): the",
               "/// canonically sorted dot set of reaction assertions on one target.",
               "///",
               "/// `ak.reaction.add` and `ak.reaction.remove` each project exactly one",
@@ -13582,8 +13553,8 @@
                 "type": "DidUrl",
                 "attributes": []
               },
-              "sig": {
-                "name": "sig",
+              "signature": {
+                "name": "signature",
                 "visibility": "pub",
                 "type": "String",
                 "attributes": []
@@ -13593,7 +13564,7 @@
         },
         {
           "name": "CallRosterSource",
-          "schema": "typed-current-result.schema.json#/$defs/call_roster_source",
+          "schema": "current-state.schema.json#/$defs/call_roster_source",
           "rust": {
             "signature": "pub struct CallRosterSource",
             "attributes": [
@@ -13624,7 +13595,7 @@
         },
         {
           "name": "CallParticipantSigningKey",
-          "schema": "typed-current-result.schema.json#/$defs/call_participant_signing_key",
+          "schema": "current-state.schema.json#/$defs/call_participant_signing_key",
           "rust": {
             "signature": "pub struct CallParticipantSigningKey",
             "attributes": [
@@ -13632,8 +13603,8 @@
               "#[serde(deny_unknown_fields)]"
             ],
             "members": {
-              "public_key_b64u": {
-                "name": "public_key_b64u",
+              "public_key_base64url": {
+                "name": "public_key_base64url",
                 "visibility": "pub",
                 "type": "String",
                 "attributes": []
@@ -13643,7 +13614,7 @@
         },
         {
           "name": "CallRosterEntry",
-          "schema": "typed-current-result.schema.json#/$defs/call_roster_entry",
+          "schema": "current-state.schema.json#/$defs/call_roster_entry",
           "rust": {
             "signature": "pub struct CallRosterEntry",
             "attributes": [
@@ -13682,7 +13653,7 @@
         },
         {
           "name": "CallRosterCurrentValue",
-          "schema": "typed-current-result.schema.json#/$defs/call_roster_value",
+          "schema": "current-state.schema.json#/$defs/call_roster_value",
           "rust": {
             "signature": "pub struct CallRosterCurrentValue",
             "attributes": [
@@ -13707,7 +13678,7 @@
         },
         {
           "name": "CallModerationSource",
-          "schema": "typed-current-result.schema.json#/$defs/call_moderation_source",
+          "schema": "current-state.schema.json#/$defs/call_moderation_source",
           "rust": {
             "signature": "pub struct CallModerationSource",
             "attributes": [
@@ -13738,7 +13709,7 @@
         },
         {
           "name": "CallModerationEntry",
-          "schema": "typed-current-result.schema.json#/$defs/call_moderation_entry",
+          "schema": "current-state.schema.json#/$defs/call_moderation_entry",
           "rust": {
             "signature": "pub struct CallModerationEntry",
             "attributes": [
@@ -13769,7 +13740,7 @@
         },
         {
           "name": "CallModerationCurrentValue",
-          "schema": "typed-current-result.schema.json#/$defs/call_moderation_value",
+          "schema": "current-state.schema.json#/$defs/call_moderation_value",
           "rust": {
             "signature": "pub struct CallModerationCurrentValue",
             "attributes": [
@@ -13799,13 +13770,13 @@
       "inline": true,
       "types": [
         {
-          "name": "PushNotifyDeviceOutcome",
-          "schema": "push-operations.schema.json#/$defs/push_notify_device_outcome",
+          "name": "PushGatewaySubmissionOutcome",
+          "schema": "push-operations.schema.json#/$defs/push_gateway_submission_outcome",
           "rust": {
-            "signature": "pub struct PushNotifyDeviceOutcome",
+            "signature": "pub struct PushGatewaySubmissionOutcome",
             "attributes": [
               "/// Counterpart for",
-              "/// `spec/v1/artifacts/schemas/push-operations.schema.json#/$defs/push_notify_device_outcome`.",
+              "/// `spec/v1/artifacts/schemas/push-operations.schema.json#/$defs/push_gateway_submission_outcome`.",
               "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
@@ -14045,7 +14016,7 @@
               "///",
               "/// Only the versioned `did:webvh` and `did:key` adapters are accepted: a",
               "/// `did:key` carries its synthetic immutable `version_id`, and a `did:webvh`",
-              "/// carries `version_id`, `version_time`, or both. `unversioned_refetch` is",
+              "/// carries `version_id`, `version_created_at`, or both. `unversioned_refetch` is",
               "/// always `false`, because a `did:web` current snapshot cannot support",
               "/// historical producer verification. Deserialization enforces the same",
               "/// closed shape.",
@@ -14067,8 +14038,8 @@
                   "#[serde(skip_serializing_if = \"Option::is_none\")]"
                 ]
               },
-              "version_time": {
-                "name": "version_time",
+              "version_created_at": {
+                "name": "version_created_at",
                 "visibility": "pub",
                 "type": "Option<DateTime<Utc>>",
                 "attributes": [
@@ -14231,8 +14202,8 @@
                 "type": "IdentityLinkResponseSigningAlgorithm",
                 "attributes": []
               },
-              "response_signing_public_key_b64u": {
-                "name": "response_signing_public_key_b64u",
+              "response_signing_public_key_base64url": {
+                "name": "response_signing_public_key_base64url",
                 "visibility": "pub",
                 "type": "Base64UrlString",
                 "attributes": []
@@ -14447,8 +14418,8 @@
                 "type": "String",
                 "attributes": []
               },
-              "max_events": {
-                "name": "max_events",
+              "max_event_count": {
+                "name": "max_event_count",
                 "visibility": "pub",
                 "type": "Option<u64>",
                 "attributes": [
@@ -14556,8 +14527,8 @@
                 "type": "String",
                 "attributes": []
               },
-              "sig": {
-                "name": "sig",
+              "signature": {
+                "name": "signature",
                 "visibility": "pub",
                 "type": "String",
                 "attributes": []
@@ -14588,7 +14559,7 @@
         },
         {
           "name": "CallInvitationSendStatus",
-          "schema": "call-invitation-operations.schema.json#/$defs/send_outcome/properties/status"
+          "schema": "call-invitation-operations.schema.json#/$defs/send_response_body/properties/status"
         },
         {
           "name": "CallInvitationAdmissionPhase",
@@ -14697,10 +14668,10 @@
           }
         },
         {
-          "name": "CallInvitationSendOutcome",
-          "schema": "call-invitation-operations.schema.json#/$defs/send_outcome",
+          "name": "CallInvitationSendResponseBody",
+          "schema": "call-invitation-operations.schema.json#/$defs/send_response_body",
           "rust": {
-            "signature": "pub struct CallInvitationSendOutcome",
+            "signature": "pub struct CallInvitationSendResponseBody",
             "attributes": [
               "#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]",
               "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
@@ -14789,10 +14760,10 @@
           }
         },
         {
-          "name": "CallInvitationAdmissionOutcome",
-          "schema": "call-invitation-operations.schema.json#/$defs/admission_outcome",
+          "name": "CallInvitationAdmissionDecision",
+          "schema": "call-invitation-operations.schema.json#/$defs/admission_decision",
           "rust": {
-            "signature": "pub struct CallInvitationAdmissionOutcome",
+            "signature": "pub struct CallInvitationAdmissionDecision",
             "attributes": [
               "#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]",
               "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
@@ -14865,10 +14836,10 @@
                 "type": "CallInvitationAdmissionRequestBody",
                 "attributes": []
               },
-              "outcome": {
-                "name": "outcome",
+              "decision": {
+                "name": "decision",
                 "visibility": "pub",
-                "type": "CallInvitationAdmissionOutcome",
+                "type": "CallInvitationAdmissionDecision",
                 "attributes": []
               }
             }
@@ -14987,11 +14958,11 @@
         },
         {
           "name": "ConsentCurrentSelectorKind",
-          "schema": "typed-current-result.schema.json#/$defs/consent_result/properties/selector/properties/kind"
+          "schema": "current-state.schema.json#/$defs/current_consent/properties/selector/properties/kind"
         },
         {
           "name": "ConsentCurrentSelector",
-          "schema": "typed-current-result.schema.json#/$defs/consent_result/properties/selector",
+          "schema": "current-state.schema.json#/$defs/current_consent/properties/selector",
           "rust": {
             "signature": "pub struct ConsentCurrentSelector",
             "attributes": [
@@ -15016,10 +14987,10 @@
           }
         },
         {
-          "name": "ConsentCurrentRow",
-          "schema": "typed-current-result.schema.json#/$defs/consent_result",
+          "name": "CurrentConsent",
+          "schema": "current-state.schema.json#/$defs/current_consent",
           "rust": {
-            "signature": "pub struct ConsentCurrentRow",
+            "signature": "pub struct CurrentConsent",
             "attributes": [
               "#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]",
               "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
@@ -15096,10 +15067,10 @@
           }
         },
         {
-          "name": "ConsentCurrentReadOutcome",
-          "schema": "consent-operations.schema.json#/$defs/consent_current_read_outcome",
+          "name": "ConsentCurrentReadResponseBody",
+          "schema": "consent-operations.schema.json#/$defs/consent_current_read_response_body",
           "rust": {
-            "signature": "pub struct ConsentCurrentReadOutcome",
+            "signature": "pub struct ConsentCurrentReadResponseBody",
             "attributes": [
               "#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]",
               "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
@@ -15155,7 +15126,7 @@
               "current": {
                 "name": "current",
                 "visibility": "pub",
-                "type": "crate::call_invitation::ConsentCurrentState",
+                "type": "crate::call_invitation::ConsentCurrentReadState",
                 "attributes": []
               }
             }
@@ -15236,7 +15207,7 @@
         },
         {
           "name": "ConsentPrivateContext",
-          "schema": "consent-private-operations.schema.json#/$defs/proxy_request/properties/context",
+          "schema": "consent-private-operations.schema.json#/$defs/proxy_request_body/properties/context",
           "openapi": false,
           "eq": false
         },
@@ -15528,7 +15499,7 @@
         },
         {
           "name": "ConsentPrivateHolderQuarantineCell",
-          "schema": "consent-private-operations.schema.json#/$defs/effects_outcome/properties/body/properties/holder_quarantine/oneOf/0",
+          "schema": "consent-private-operations.schema.json#/$defs/effects_response_body/properties/body/properties/holder_quarantine/oneOf/0",
           "rust": {
             "signature": "pub struct ConsentPrivateHolderQuarantineCell",
             "attributes": [
@@ -15553,7 +15524,7 @@
         },
         {
           "name": "ConsentPrivateInviteDeliveryCell",
-          "schema": "consent-private-operations.schema.json#/$defs/effects_outcome/properties/body/properties/invite_delivery/oneOf/0",
+          "schema": "consent-private-operations.schema.json#/$defs/effects_response_body/properties/body/properties/invite_delivery/oneOf/0",
           "rust": {
             "signature": "pub struct ConsentPrivateInviteDeliveryCell",
             "attributes": [
@@ -15578,7 +15549,7 @@
         },
         {
           "name": "ConsentPrivateInviteReceivePolicyCell",
-          "schema": "consent-private-operations.schema.json#/$defs/effects_outcome/properties/body/properties/invite_receive_policy/oneOf/0",
+          "schema": "consent-private-operations.schema.json#/$defs/effects_response_body/properties/body/properties/invite_receive_policy/oneOf/0",
           "rust": {
             "signature": "pub struct ConsentPrivateInviteReceivePolicyCell",
             "attributes": [
@@ -15603,7 +15574,7 @@
         },
         {
           "name": "ConsentPrivateEffects",
-          "schema": "consent-private-operations.schema.json#/$defs/effects_outcome/properties/body",
+          "schema": "consent-private-operations.schema.json#/$defs/effects_response_body/properties/body",
           "rust": {
             "signature": "pub struct ConsentPrivateEffects",
             "attributes": [
@@ -15634,15 +15605,15 @@
         },
         {
           "name": "ConsentPrivateListOutcomeKind",
-          "schema": "consent-private-operations.schema.json#/$defs/list_outcome/properties/kind",
+          "schema": "consent-private-operations.schema.json#/$defs/list_response_body/properties/kind",
           "openapi": false,
           "copy": true
         },
         {
-          "name": "ConsentPrivateListOutcome",
-          "schema": "consent-private-operations.schema.json#/$defs/list_outcome",
+          "name": "ConsentPrivateListResponseBody",
+          "schema": "consent-private-operations.schema.json#/$defs/list_response_body",
           "rust": {
-            "signature": "pub struct ConsentPrivateListOutcome",
+            "signature": "pub struct ConsentPrivateListResponseBody",
             "attributes": [
               "#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]",
               "#[serde(deny_unknown_fields)]"
@@ -15665,15 +15636,15 @@
         },
         {
           "name": "ConsentPrivateVersionOutcomeKind",
-          "schema": "consent-private-operations.schema.json#/$defs/version_outcome/properties/kind",
+          "schema": "consent-private-operations.schema.json#/$defs/version_response_body/properties/kind",
           "openapi": false,
           "copy": true
         },
         {
-          "name": "ConsentPrivateVersionOutcome",
-          "schema": "consent-private-operations.schema.json#/$defs/version_outcome",
+          "name": "ConsentPrivateVersionResponseBody",
+          "schema": "consent-private-operations.schema.json#/$defs/version_response_body",
           "rust": {
-            "signature": "pub struct ConsentPrivateVersionOutcome",
+            "signature": "pub struct ConsentPrivateVersionResponseBody",
             "attributes": [
               "#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]",
               "#[serde(deny_unknown_fields)]"
@@ -15696,15 +15667,15 @@
         },
         {
           "name": "ConsentPrivateEffectsOutcomeKind",
-          "schema": "consent-private-operations.schema.json#/$defs/effects_outcome/properties/kind",
+          "schema": "consent-private-operations.schema.json#/$defs/effects_response_body/properties/kind",
           "openapi": false,
           "copy": true
         },
         {
-          "name": "ConsentPrivateEffectsOutcome",
-          "schema": "consent-private-operations.schema.json#/$defs/effects_outcome",
+          "name": "ConsentPrivateEffectsResponseBody",
+          "schema": "consent-private-operations.schema.json#/$defs/effects_response_body",
           "rust": {
-            "signature": "pub struct ConsentPrivateEffectsOutcome",
+            "signature": "pub struct ConsentPrivateEffectsResponseBody",
             "attributes": [
               "#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]",
               "#[serde(deny_unknown_fields)]"
@@ -15727,15 +15698,15 @@
         },
         {
           "name": "ConsentPrivateInvitePolicyOutcomeKind",
-          "schema": "consent-private-operations.schema.json#/$defs/invite_policy_outcome/properties/kind",
+          "schema": "consent-private-operations.schema.json#/$defs/invite_policy_response_body/properties/kind",
           "openapi": false,
           "copy": true
         },
         {
-          "name": "ConsentPrivateInvitePolicyOutcome",
-          "schema": "consent-private-operations.schema.json#/$defs/invite_policy_outcome",
+          "name": "ConsentPrivateInvitePolicyResponseBody",
+          "schema": "consent-private-operations.schema.json#/$defs/invite_policy_response_body",
           "rust": {
-            "signature": "pub struct ConsentPrivateInvitePolicyOutcome",
+            "signature": "pub struct ConsentPrivateInvitePolicyResponseBody",
             "attributes": [
               "#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]",
               "#[serde(deny_unknown_fields)]"
@@ -15758,15 +15729,15 @@
         },
         {
           "name": "ConsentPrivateInviteDeliveryOutcomeKind",
-          "schema": "consent-private-operations.schema.json#/$defs/invite_delivery_outcome/properties/kind",
+          "schema": "consent-private-operations.schema.json#/$defs/invite_delivery_response_body/properties/kind",
           "openapi": false,
           "copy": true
         },
         {
-          "name": "ConsentPrivateInviteDeliveryOutcome",
-          "schema": "consent-private-operations.schema.json#/$defs/invite_delivery_outcome",
+          "name": "ConsentPrivateInviteDeliveryResponseBody",
+          "schema": "consent-private-operations.schema.json#/$defs/invite_delivery_response_body",
           "rust": {
-            "signature": "pub struct ConsentPrivateInviteDeliveryOutcome",
+            "signature": "pub struct ConsentPrivateInviteDeliveryResponseBody",
             "attributes": [
               "#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]",
               "#[serde(deny_unknown_fields)]"
@@ -15781,7 +15752,7 @@
               "body": {
                 "name": "body",
                 "visibility": "pub",
-                "type": "crate::governance::invite_addressing::InviteDeliveryOutcome",
+                "type": "crate::governance::invite_addressing::InviteDeliveryResponseBody",
                 "attributes": []
               }
             }
@@ -15789,15 +15760,15 @@
         },
         {
           "name": "ConsentPrivateRequestOutcomeKind",
-          "schema": "consent-private-operations.schema.json#/$defs/request_outcome/properties/kind",
+          "schema": "consent-private-operations.schema.json#/$defs/request_response_body/properties/kind",
           "openapi": false,
           "copy": true
         },
         {
-          "name": "ConsentPrivateRequestOutcome",
-          "schema": "consent-private-operations.schema.json#/$defs/request_outcome",
+          "name": "ConsentPrivateRequestResponseBody",
+          "schema": "consent-private-operations.schema.json#/$defs/request_response_body",
           "rust": {
-            "signature": "pub struct ConsentPrivateRequestOutcome",
+            "signature": "pub struct ConsentPrivateRequestResponseBody",
             "attributes": [
               "#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]",
               "#[serde(deny_unknown_fields)]"
@@ -15812,23 +15783,23 @@
               "body": {
                 "name": "body",
                 "visibility": "pub",
-                "type": "crate::consent_operations::ConsentRequestOutcome",
+                "type": "crate::consent_operations::ConsentRequestResponseBody",
                 "attributes": []
               }
             }
           }
         },
         {
-          "name": "ConsentPrivateCommandOutcome",
-          "schema": "consent-private-operations.schema.json#/$defs/command_outcome",
+          "name": "ConsentPrivateCommandResponseBody",
+          "schema": "consent-private-operations.schema.json#/$defs/command_response_body",
           "openapi": false,
           "eq": false
         },
         {
-          "name": "ConsentPrivateProxyRequest",
-          "schema": "consent-private-operations.schema.json#/$defs/proxy_request",
+          "name": "ConsentPrivateProxyRequestBody",
+          "schema": "consent-private-operations.schema.json#/$defs/proxy_request_body",
           "rust": {
-            "signature": "pub struct ConsentPrivateProxyRequest",
+            "signature": "pub struct ConsentPrivateProxyRequestBody",
             "attributes": [
               "#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]",
               "#[serde(deny_unknown_fields)]"
@@ -15882,10 +15853,10 @@
           }
         },
         {
-          "name": "ConsentPrivateProxyOutcome",
-          "schema": "consent-private-operations.schema.json#/$defs/proxy_outcome",
+          "name": "ConsentPrivateProxyResponseBody",
+          "schema": "consent-private-operations.schema.json#/$defs/proxy_response_body",
           "rust": {
-            "signature": "pub struct ConsentPrivateProxyOutcome",
+            "signature": "pub struct ConsentPrivateProxyResponseBody",
             "attributes": [
               "#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]",
               "#[serde(deny_unknown_fields)]"
@@ -15931,10 +15902,10 @@
                   "#[serde(with = \"arkret_canonical::serde_helpers::canonical_timestamp\")]"
                 ]
               },
-              "outcome": {
-                "name": "outcome",
+              "response_body": {
+                "name": "response_body",
                 "visibility": "pub",
-                "type": "ConsentPrivateCommandOutcome",
+                "type": "ConsentPrivateCommandResponseBody",
                 "attributes": []
               }
             }
@@ -15942,15 +15913,15 @@
         },
         {
           "name": "ConsentPrivateEffectsPublishStatus",
-          "schema": "consent-private-operations.schema.json#/$defs/effects_publish_outcome/properties/status",
+          "schema": "consent-private-operations.schema.json#/$defs/effects_publish_response_body/properties/status",
           "openapi": false,
           "copy": true
         },
         {
-          "name": "ConsentPrivateEffectsPublishRequest",
-          "schema": "consent-private-operations.schema.json#/$defs/effects_publish_request",
+          "name": "ConsentPrivateEffectsPublishRequestBody",
+          "schema": "consent-private-operations.schema.json#/$defs/effects_publish_request_body",
           "rust": {
-            "signature": "pub struct ConsentPrivateEffectsPublishRequest",
+            "signature": "pub struct ConsentPrivateEffectsPublishRequestBody",
             "attributes": [
               "#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]",
               "#[serde(deny_unknown_fields)]"
@@ -16012,10 +15983,10 @@
           }
         },
         {
-          "name": "ConsentPrivateEffectsPublishOutcome",
-          "schema": "consent-private-operations.schema.json#/$defs/effects_publish_outcome",
+          "name": "ConsentPrivateEffectsPublishResponseBody",
+          "schema": "consent-private-operations.schema.json#/$defs/effects_publish_response_body",
           "rust": {
-            "signature": "pub struct ConsentPrivateEffectsPublishOutcome",
+            "signature": "pub struct ConsentPrivateEffectsPublishResponseBody",
             "attributes": [
               "#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]",
               "#[serde(deny_unknown_fields)]"
@@ -17198,7 +17169,7 @@
         },
         {
           "name": "RealmActorControlValue",
-          "schema": "typed-current-result.schema.json#/$defs/realm_actor_control_value",
+          "schema": "current-state.schema.json#/$defs/realm_actor_control_value",
           "rust": {
             "signature": "pub struct RealmActorControlValue",
             "attributes": [
@@ -17223,7 +17194,7 @@
         },
         {
           "name": "RealmActorManagerValue",
-          "schema": "typed-current-result.schema.json#/$defs/realm_actor_manager_value",
+          "schema": "current-state.schema.json#/$defs/realm_actor_manager_value",
           "rust": {
             "signature": "pub struct RealmActorManagerValue",
             "attributes": [
@@ -17254,7 +17225,7 @@
         },
         {
           "name": "RealmActorRecoveryValue",
-          "schema": "typed-current-result.schema.json#/$defs/realm_actor_recovery_value",
+          "schema": "current-state.schema.json#/$defs/realm_actor_recovery_value",
           "rust": {
             "signature": "pub struct RealmActorRecoveryValue",
             "attributes": [
@@ -17285,7 +17256,7 @@
         },
         {
           "name": "RealmActorDeviceGenerationValue",
-          "schema": "typed-current-result.schema.json#/$defs/realm_actor_device_generation_value",
+          "schema": "current-state.schema.json#/$defs/realm_actor_device_generation_value",
           "rust": {
             "signature": "pub struct RealmActorDeviceGenerationValue",
             "attributes": [
@@ -17304,7 +17275,7 @@
         },
         {
           "name": "RealmActorDeviceAuthorizationValue",
-          "schema": "typed-current-result.schema.json#/$defs/realm_actor_device_authorization_value",
+          "schema": "current-state.schema.json#/$defs/realm_actor_device_authorization_value",
           "rust": {
             "signature": "pub struct RealmActorDeviceAuthorizationValue",
             "attributes": [
@@ -17405,7 +17376,7 @@
       "types": [
         {
           "name": "AppletAuthorityMaterialRequestBody",
-          "schema": "applet-authority-material.schema.json#/$defs/request",
+          "schema": "applet-authority-material.schema.json#/$defs/applet_authority_material_request_body",
           "rust": {
             "signature": "pub struct AppletAuthorityMaterialRequestBody",
             "attributes": [
@@ -17430,10 +17401,10 @@
           }
         },
         {
-          "name": "AppletAuthorityMaterialOutcome",
-          "schema": "applet-authority-material.schema.json#/$defs/outcome",
+          "name": "AppletAuthorityMaterialResponseBody",
+          "schema": "applet-authority-material.schema.json#/$defs/response_body",
           "rust": {
-            "signature": "pub struct AppletAuthorityMaterialOutcome",
+            "signature": "pub struct AppletAuthorityMaterialResponseBody",
             "attributes": [
               "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
               "#[derive(Clone, Debug, Serialize, Deserialize)]",
@@ -17468,13 +17439,13 @@
                   "#[cfg_attr(feature = \"openapi\", salvo(schema(value_type = Vec<serde_json::Value>)))]"
                 ]
               },
-              "current_results": {
-                "name": "current_results",
+              "current_states": {
+                "name": "current_states",
                 "visibility": "pub",
-                "type": "Vec<ExactCurrentResultsReadOutcome>",
+                "type": "Vec<ExactCurrentStateReadResponseBody>",
                 "attributes": [
                   "#[cfg_attr(feature = \"openapi\", salvo(schema(value_type = Vec<serde_json::Value>)))]",
-                  "#[serde(deserialize_with = \"deserialize_present_current_results\", serialize_with = \"serialize_present_current_results\")]"
+                  "#[serde(deserialize_with = \"deserialize_present_current_states\", serialize_with = \"serialize_present_current_states\")]"
                 ]
               },
               "current_binding": {
@@ -17561,7 +17532,7 @@
     },
     {
       "rust_type": "crates/models-collaboration/src/objects/query_projection.rs::DocumentMorphProjection",
-      "schema": "view.schema.json#/$defs/document_morph_projection_outcome/properties/document",
+      "schema": "view.schema.json#/$defs/document_morph_view/properties/document",
       "comparison": "rust_fields_subset",
       "reason": "DocumentMorphProjection is an open schema object (additionalProperties is allowed or omitted); the SDK projects documented core fields and retains the existing extension/opaque data semantics. Treating its named properties as a closed object would narrow the protocol.",
       "category": "artifact_expression"
@@ -17581,10 +17552,10 @@
       "category": "domain_semantics"
     },
     {
-      "rust_type": "crates/models-discovery/src/service_description.rs::AuthMetadata",
-      "schema": "service-describe.schema.json#/properties/auth_metadata",
+      "rust_type": "crates/models-discovery/src/service_description.rs::AuthenticationMetadata",
+      "schema": "service-describe.schema.json#/properties/authentication_metadata",
       "comparison": "rust_fields_subset",
-      "reason": "AuthMetadata preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
+      "reason": "AuthenticationMetadata preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
       "category": "domain_semantics"
     },
     {
@@ -17595,17 +17566,17 @@
       "category": "domain_semantics"
     },
     {
-      "rust_type": "crates/models-discovery/src/service_description.rs::AuthMethod",
-      "schema": "service-describe.schema.json#/$defs/auth_method",
+      "rust_type": "crates/models-discovery/src/service_description.rs::AuthenticationMethod",
+      "schema": "service-describe.schema.json#/$defs/authentication_method",
       "comparison": "rust_fields_subset",
-      "reason": "AuthMethod preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
+      "reason": "AuthenticationMethod preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
       "category": "domain_semantics"
     },
     {
-      "rust_type": "crates/models-discovery/src/service_description.rs::AuthGrantExchange",
-      "schema": "service-describe.schema.json#/$defs/auth_grant_exchange",
+      "rust_type": "crates/models-discovery/src/service_description.rs::AccountHandoffExchange",
+      "schema": "service-describe.schema.json#/$defs/account_handoff_exchange",
       "comparison": "rust_fields_subset",
-      "reason": "AuthGrantExchange preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
+      "reason": "AccountHandoffExchange preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
       "category": "domain_semantics"
     },
     {
@@ -17630,10 +17601,10 @@
       "category": "artifact_expression"
     },
     {
-      "rust_type": "crates/models-integration/src/applet/registration.rs::WebhookAuth",
-      "schema": "applet-package.schema.json#/$defs/webhook_auth",
+      "rust_type": "crates/models-integration/src/applet/registration.rs::WebhookSignaturePolicy",
+      "schema": "applet-package.schema.json#/$defs/webhook_signature_policy",
       "comparison": "rust_fields_subset",
-      "reason": "WebhookAuth preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
+      "reason": "WebhookSignaturePolicy preserves the schema's x_* extension map through its flattened Rust extension field. The named core plus extension keys is not a closed member-only declaration; conditional gates remain in the existing domain validator.",
       "category": "domain_semantics"
     },
     {
@@ -17772,26 +17743,74 @@
     },
     {
       "rust_type": "crates/models-identity/src/service_binding_results.rs::ServiceSigningKey",
-      "schema": "media-service-binding-result.schema.json#/$defs/service_signing_key",
+      "schema": "media-service-binding-operations.schema.json#/$defs/service_signing_key",
       "category": "domain_semantics",
       "reason": "Retained with the own-Station binding validators that enforce exact request/session/Realm correspondence, authenticated issuer role, unique current assertion keys, canonical Ed25519 material and the bounded reuse window; the schema field gate checks the complete closed wire field set."
     },
     {
       "rust_type": "crates/models-identity/src/service_binding_results.rs::MediaServiceBindingRequestBody",
-      "schema": "media-service-binding-result.schema.json#/$defs/media_service_binding_request_body",
+      "schema": "media-service-binding-operations.schema.json#/$defs/media_service_binding_request_body",
       "category": "domain_semantics",
       "reason": "Retained with the own-Station binding validators that enforce exact request/session/Realm correspondence, authenticated issuer role, unique current assertion keys, canonical Ed25519 material and the bounded reuse window; the schema field gate checks the complete closed wire field set."
     },
     {
-      "rust_type": "crates/models-identity/src/service_binding_results.rs::MediaServiceBindingOutcome",
-      "schema": "media-service-binding-result.schema.json#/$defs/media_service_binding_outcome",
+      "rust_type": "crates/models-identity/src/service_binding_results.rs::MediaServiceBindingResponseBody",
+      "schema": "media-service-binding-operations.schema.json#/$defs/media_service_binding_response_body",
       "category": "domain_semantics",
       "reason": "Retained with the own-Station binding validators that enforce exact request/session/Realm correspondence, authenticated issuer role, unique current assertion keys, canonical Ed25519 material and the bounded reuse window; the schema field gate checks the complete closed wire field set."
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/sync_frames/account_subscribe.rs::AccountSubscribeParameters",
+      "schema": "account-subscribe-frame.schema.json#/$defs/account_subscribe_parameters",
+      "category": "domain_semantics",
+      "reason": "The established hand-written carrier owns transport validation or domain semantics; the exact member set and decimal coordinate serializers remain checked against this canonical schema."
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/sync_frames/websocket.rs::WebSocketAccountOpenParameters",
+      "schema": "websocket-frame.schema.json#/$defs/account_open_parameters",
+      "category": "domain_semantics",
+      "reason": "The established hand-written carrier owns transport validation or domain semantics; the exact member set and decimal coordinate serializers remain checked against this canonical schema."
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/sync_frames/websocket.rs::WebSocketConnectionDrainPayload",
+      "schema": "websocket-frame.schema.json#/$defs/connection_drain_payload",
+      "category": "domain_semantics",
+      "reason": "The established hand-written carrier owns transport validation or domain semantics; the exact member set and decimal coordinate serializers remain checked against this canonical schema."
+    },
+    {
+      "rust_type": "crates/wire/src/signal.rs::SignalEncryptedPayload",
+      "schema": "signal-envelope.schema.json#/properties/encrypted_payload",
+      "category": "domain_semantics",
+      "reason": "The established hand-written carrier owns transport validation or domain semantics; the exact member set and decimal coordinate serializers remain checked against this canonical schema."
+    },
+    {
+      "rust_type": "crates/models-crypto/src/security_transaction.rs::RecoveryWelcomeRealmSummary",
+      "schema": "recovery-receipt.schema.json#/properties/welcome_realm_summaries/items",
+      "category": "domain_semantics",
+      "reason": "The established hand-written carrier owns transport validation or domain semantics; the exact member set and decimal coordinate serializers remain checked against this canonical schema."
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/sync_frames/account_sync.rs::WindowStartE2eeEpoch",
+      "schema": "account-subscribe-frame.schema.json#/$defs/realm_stream_window/properties/e2ee_epoch/oneOf/1",
+      "category": "domain_semantics",
+      "reason": "The established hand-written carrier owns transport validation or domain semantics; the exact member set and decimal coordinate serializers remain checked against this canonical schema."
+    },
+    {
+      "rust_type": "crates/wire/src/authority_commit.rs::MlsGroupValue",
+      "schema": "current-state.schema.json#/$defs/mls_group_value",
+      "category": "domain_semantics",
+      "reason": "The established hand-written carrier owns transport validation or domain semantics; the exact member set and decimal coordinate serializers remain checked against this canonical schema."
+    },
+    {
+      "rust_type": "crates/models-crypto/src/mls_payloads.rs::MlsGovernanceBindingPayload",
+      "schema": "event-payload.schema.json#/$defs/mls_governance_binding",
+      "category": "domain_semantics",
+      "reason": "The established hand-written carrier owns transport validation or domain semantics; the exact member set and decimal coordinate serializers remain checked against this canonical schema."
     }
   ],
   "retained_exemptions": [
     {
-      "rust_type": "crates/models-crypto/src/recovery_policy.rs::RecoveryPolicyPublishRequest",
+      "rust_type": "crates/models-crypto/src/recovery_policy.rs::RecoveryPolicyPublishRequestBody",
       "reason": "struct-level serde conversion/transparent representation is not an object field set",
       "category": "domain_semantics"
     },

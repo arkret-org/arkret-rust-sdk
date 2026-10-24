@@ -38,7 +38,7 @@ fn main() {
         "recipient_method": envelope["encryption"]["recipient_method"],
         "schema": arkret_wire::SchemaId::KEY_BACKUP_V1,
         "series_id": envelope["series_id"],
-        "series_seq": envelope["series_seq"],
+        "series_sequence": envelope["series_sequence"],
     }))
     .unwrap();
     let plaintext = canonical_json_bytes(&case["plaintext"]).unwrap();

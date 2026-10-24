@@ -9,11 +9,11 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ModerationReportOutcome {
+pub struct ModerationReportResponseBody {
     pub report_id: ReportId,
     pub status: ModerationReportStatus,
     /// DIDs the report was routed to. Per
-    /// `service-operation-dtos.schema.json#/$defs/ModerationReportOutcome`
+    /// `service-operation-dtos.schema.json#/$defs/ModerationReportResponseBody`
     /// this is an array of DID strings (the schema is closed), matching the
     /// `routed_to_ids | did[]` shape in `content-moderation.md` /
     /// `service-http-binding.md`.

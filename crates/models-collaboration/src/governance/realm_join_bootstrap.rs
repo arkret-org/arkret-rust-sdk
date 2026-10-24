@@ -1,6 +1,6 @@
 //! Realm join bootstrap is a single authority-bundle plus snapshot response.
 //!
-//! `realm-join-intake.schema.json#/$defs/peer_bootstrap_outcome`: the verified
+//! `realm-join-intake.schema.json#/$defs/peer_bootstrap_response_body`: the verified
 //! current governance Station returns one signed
 //! [`arkret_wire::RealmStateSnapshot`] together with every stream head visible
 //! after the membership Commit. Nothing is paged and nothing is streamed by the
@@ -18,7 +18,7 @@ use arkret_wire::{
 };
 
 pub use super::realm_join_intake::{
-    PeerRealmJoinBootstrapOutcome, PeerRealmJoinBootstrapRequestBody,
+    PeerRealmJoinBootstrapRequestBody, PeerRealmJoinBootstrapResponseBody,
 };
 
 fn invalid(message: &str) -> WireError {
@@ -57,7 +57,7 @@ impl RealmJoinBootstrapStreamScan {
 /// Event proof, and its output must still pass those verifications.
 #[derive(Clone, Debug)]
 pub struct RealmJoinBootstrapAssembly {
-    outcome: PeerRealmJoinBootstrapOutcome,
+    outcome: PeerRealmJoinBootstrapResponseBody,
     scans: BTreeMap<CommitStreamRef, RealmJoinBootstrapStreamScan>,
 }
 
@@ -68,7 +68,7 @@ impl RealmJoinBootstrapAssembly {
     /// the snapshot's Realm, and no snapshot floor may sit ahead of the head
     /// advertised for the same stream — an authority that answered that way has
     /// handed the joiner a target it has already passed.
-    pub fn new(outcome: PeerRealmJoinBootstrapOutcome) -> Result<Self> {
+    pub fn new(outcome: PeerRealmJoinBootstrapResponseBody) -> Result<Self> {
         outcome.snapshot.require_full_recovery()?;
         if outcome.visible_stream_heads.is_empty() {
             return Err(invalid("realm join bootstrap advertises no visible stream"));
@@ -131,7 +131,7 @@ impl RealmJoinBootstrapAssembly {
         Ok(Self { outcome, scans })
     }
 
-    pub fn outcome(&self) -> &PeerRealmJoinBootstrapOutcome {
+    pub fn outcome(&self) -> &PeerRealmJoinBootstrapResponseBody {
         &self.outcome
     }
 
@@ -249,7 +249,7 @@ mod tests {
             verification_method: DidUrl::new("did:web:station.example#key-1").unwrap(),
             signed_digest: Hash::new(format!("sha256:{}", "11".repeat(32))).unwrap(),
             created_at: Utc.timestamp_opt(1_800_000_000, 0).unwrap(),
-            sig: Base64UrlString::new("AQ").unwrap(),
+            signature: Base64UrlString::new("AQ").unwrap(),
         }
     }
 
@@ -392,8 +392,8 @@ mod tests {
         realm: &RealmId,
         floors: Vec<CommitStreamHead>,
         heads: Vec<CommitStreamHead>,
-    ) -> PeerRealmJoinBootstrapOutcome {
-        PeerRealmJoinBootstrapOutcome {
+    ) -> PeerRealmJoinBootstrapResponseBody {
+        PeerRealmJoinBootstrapResponseBody {
             request_id: RequestId::new("ak:request:01964137-0000-7000-8000-000000000001").unwrap(),
             authority_bundle: bundle(realm),
             snapshot: snapshot(realm, floors),
@@ -413,19 +413,20 @@ mod tests {
             vec![head(stream, 1, 0x02)],
         );
         let value = serde_json::to_value(&source).unwrap();
-        let decoded: PeerRealmJoinBootstrapOutcome = serde_json::from_value(value.clone()).unwrap();
+        let decoded: PeerRealmJoinBootstrapResponseBody =
+            serde_json::from_value(value.clone()).unwrap();
         assert_eq!(decoded, source);
 
         let mut unknown = value.clone();
         unknown["next_cursor"] = json!("more");
-        assert!(serde_json::from_value::<PeerRealmJoinBootstrapOutcome>(unknown).is_err());
+        assert!(serde_json::from_value::<PeerRealmJoinBootstrapResponseBody>(unknown).is_err());
 
         let mut missing = value;
         missing
             .as_object_mut()
             .unwrap()
             .remove("visible_stream_heads");
-        assert!(serde_json::from_value::<PeerRealmJoinBootstrapOutcome>(missing).is_err());
+        assert!(serde_json::from_value::<PeerRealmJoinBootstrapResponseBody>(missing).is_err());
     }
 
     #[test]

@@ -2,8 +2,8 @@
 
 use arkret_canonical::canonical::{canonical_json_bytes, sha256_digest};
 use arkret_wire::{
-    AccountId, Base64UrlString, DidCoreId, DidUrl, Event, EventId, Hash, NonEmptyString,
-    RealmCommit, RealmCommitId, RealmId, Result, SignerEvidenceRef, TypedCurrentRow, WireError,
+    AccountId, Base64UrlString, CurrentState, DidCoreId, DidUrl, Event, EventId, Hash,
+    NonEmptyString, RealmCommit, RealmCommitId, RealmId, Result, SignerEvidenceRef, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -52,7 +52,7 @@ pub struct AgentKeyAuthorization {
 pub struct AgentKeyStateWitness {
     pub commit_id: RealmCommitId,
     pub commit: RealmCommit,
-    pub result: TypedCurrentRow,
+    pub current_state: CurrentState,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -69,7 +69,7 @@ pub enum AgentLifecycleProvenance {
 pub struct AgentLifecycleWitness {
     pub commit_id: RealmCommitId,
     pub commit: RealmCommit,
-    pub result: TypedCurrentRow,
+    pub current_state: CurrentState,
     pub accepted_status_event: Event,
     pub provenance: AgentLifecycleProvenance,
 }
@@ -382,12 +382,12 @@ impl AgentAuthorityState {
                 "Agent authorization differs from its accepted controller Event",
             ));
         }
-        let TypedCurrentRow::Value {
+        let CurrentState::Value {
             selector,
             source_stream_ref,
             revision,
             value,
-        } = &key.result;
+        } = &key.current_state;
         if !matches!(selector, arkret_wire::CurrentSelector::AgentKey { agent_id, agent_key_id }
                 if agent_id == &self.agent_id && agent_key_id.as_str() == binding.agent_key_id.as_str())
             || source_stream_ref != &key.commit.stream_ref
@@ -395,16 +395,16 @@ impl AgentAuthorityState {
             || revision.stream_position != key.commit.stream_position
         {
             return Err(invalid(
-                "Agent key current result has another locator or revision",
+                "Agent key current current_state has another locator or revision",
             ));
         }
         let entries = value
             .get("authorizations")
             .and_then(serde_json::Value::as_array)
-            .ok_or_else(|| invalid("Agent key result omits authorizations"))?;
+            .ok_or_else(|| invalid("Agent key current_state omits authorizations"))?;
         let event = &self.key_authorization_event;
-        // agent.key.authorize result_writes[1] is the registered add;
-        // result_writes[0] is the optional supersedes loop, not its length.
+        // agent.key.authorize state_writes[1] is the registered add;
+        // state_writes[0] is the optional supersedes loop, not its length.
         let expected_tag = format!("{}:1", event.event_id);
         if value.as_object().is_none_or(|v| v.len() != 1)
             || !entries.iter().any(|entry| {
@@ -418,15 +418,15 @@ impl AgentAuthorityState {
             })
         {
             return Err(invalid(
-                "Agent key result omits the accepted canonical authorization dot",
+                "Agent key current_state omits the accepted canonical authorization dot",
             ));
         }
-        let TypedCurrentRow::Value {
+        let CurrentState::Value {
             selector,
             source_stream_ref,
             revision,
             value,
-        } = &lifecycle.result;
+        } = &lifecycle.current_state;
         let status = &lifecycle.accepted_status_event;
         let (expected_event, expected_kind, expected_status) = match &lifecycle.provenance {
             AgentLifecycleProvenance::Genesis {
@@ -473,7 +473,7 @@ impl AgentAuthorityState {
                         != Some("agent_control")))
         {
             return Err(invalid(
-                "Agent lifecycle result differs from its accepted provenance",
+                "Agent lifecycle current_state differs from its accepted provenance",
             ));
         }
         let mut events = std::collections::BTreeMap::new();

@@ -135,7 +135,7 @@ fn validate_notification_track_name(track_name: &str) -> Result<()> {
 /// authored advance Event, and the time of that update is that Event envelope
 /// `created_at`. There is no `read_cursor` typed id kind in the id-kind
 /// registry and no id-addressed read surface. Derived views that need a time —
-/// `ReadMarkerOutcome` and account-subscribe private projections take
+/// `ReadMarkerResponseBody` and account-subscribe private projections take
 /// `updated_at` from the accepted advance envelope, never from this payload.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -260,8 +260,8 @@ pub struct ReadCursorAdvanceRequestBody {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 // Field declaration order is byte-for-byte the `properties` order of
-// `read-cursor-operations.schema.json#/$defs/read_marker_outcome`.
-pub struct ReadMarkerOutcome {
+// `read-cursor-operations.schema.json#/$defs/read_marker_response_body`.
+pub struct ReadMarkerResponseBody {
     pub realm_id: RealmId,
     pub actor_id: ActorId,
     pub device_id: DeviceId,
@@ -276,7 +276,7 @@ pub struct ReadMarkerOutcome {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ReadCursorList {
     #[serde(default)]
-    pub markers: Vec<ReadMarkerOutcome>,
+    pub markers: Vec<ReadMarkerResponseBody>,
 }
 
 #[cfg(test)]
@@ -426,17 +426,17 @@ mod read_cursor_tests {
             "position": position_value(EVENT_A, "01970e589d21-0001-a13f9c2e"),
             "updated_at": "2026-08-15T00:00:00.000Z"
         });
-        let decoded: ReadMarkerOutcome = serde_json::from_value(value.clone()).unwrap();
+        let decoded: ReadMarkerResponseBody = serde_json::from_value(value.clone()).unwrap();
         assert_eq!(decoded.position.event_id.as_str(), EVENT_A);
         assert_eq!(serde_json::to_value(&decoded).unwrap(), value);
 
         let mut unknown = value.clone();
         unknown["stream_position"] = json!(3);
-        assert!(serde_json::from_value::<ReadMarkerOutcome>(unknown).is_err());
+        assert!(serde_json::from_value::<ReadMarkerResponseBody>(unknown).is_err());
 
         let mut missing = value;
         missing.as_object_mut().unwrap().remove("position");
-        assert!(serde_json::from_value::<ReadMarkerOutcome>(missing).is_err());
+        assert!(serde_json::from_value::<ReadMarkerResponseBody>(missing).is_err());
     }
 }
 

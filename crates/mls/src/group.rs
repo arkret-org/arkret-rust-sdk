@@ -15,7 +15,7 @@ use arkret_models_crypto::{
 use arkret_wire::{
     ActorId, Base64UrlString, CommitStreamRef, CommittedEventFullView, DidCoreId,
     EncryptedPayloadScheme, EventId, EventKind, Hash, KeypackageClaimId, MLS_CIPHERSUITES,
-    MlsGroupCurrent, MlsGroupId, MlsWelcomeDelivery, MlsWelcomeRecipientEndpoint, ReasonCode,
+    MlsGroupId, MlsGroupValue, MlsWelcomeDelivery, MlsWelcomeRecipientEndpoint, ReasonCode,
     ScopeRef, canonical,
 };
 use chrono::Utc;
@@ -59,7 +59,7 @@ pub fn welcome_addresses_key_package(
     let provider = OpenMlsRustCrypto::default();
     let package = decode_key_package(&provider, record)?;
     let reference = package.hash_ref(provider.crypto()).map_err(mls_error)?;
-    let bytes = decode(delivery.ciphertext_b64.as_str())?;
+    let bytes = decode(delivery.ciphertext_base64url.as_str())?;
     let message = MlsMessageIn::tls_deserialize_exact(bytes.as_slice()).map_err(mls_error)?;
     let MlsMessageBodyIn::Welcome(welcome) = message.extract() else {
         return Err(Error::Protocol(
@@ -274,7 +274,7 @@ pub struct MlsAddMembersResult {
 pub struct MlsWelcomeDraft {
     pub recipient: MlsEndpointIdentity,
     pub keypackage_claim_ref: KeypackageClaimId,
-    pub ciphertext_b64: Base64UrlString,
+    pub ciphertext_base64url: Base64UrlString,
 }
 
 /// Result of removing one or more leaves from an MLS group.
@@ -1356,7 +1356,7 @@ impl ArkretMlsGroup {
                             .clone()
                             .expect("claimed package was validated"),
                     )?,
-                    ciphertext_b64: Base64UrlString::new(encode(&welcome_bytes))
+                    ciphertext_base64url: Base64UrlString::new(encode(&welcome_bytes))
                         .map_err(|error| Error::Protocol(error.to_owned()))?,
                 })
             })
@@ -1639,7 +1639,7 @@ impl ArkretMlsGroup {
             ));
         }
 
-        let welcome_bytes = decode(delivery.ciphertext_b64.as_str())?;
+        let welcome_bytes = decode(delivery.ciphertext_base64url.as_str())?;
         let message =
             MlsMessageIn::tls_deserialize_exact(welcome_bytes.as_slice()).map_err(mls_error)?;
         let MlsMessageBodyIn::Welcome(welcome) = message.extract() else {
@@ -1838,13 +1838,13 @@ impl ArkretMlsGroup {
 
     /// Install an MLS Commit only after the containing Event has an accepted
     /// `RealmCommit` in the same independent Realm/Circle/Sidecar stream.
-    /// `current` is the exact Station `MlsGroupCurrent` base result pinned
+    /// `current` is the exact Station `MlsGroupValue` base result pinned
     /// before this transition; callers must not reconstruct it from the Event
     /// payload being verified.
     pub fn install_accepted_commit(
         &mut self,
         item: &CommittedEventFullView,
-        current: &MlsGroupCurrent,
+        current: &MlsGroupValue,
     ) -> Result<u64> {
         item.validate_shape()?;
         if item.event.kind != EventKind::MlsCommit {

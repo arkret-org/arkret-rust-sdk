@@ -40,7 +40,7 @@ impl KeyBackupPlaintext {
 pub struct SecretStorageSecret {
     pub item_kind: SecretStorageItemKind,
     pub secret_id: String,
-    pub secret_b64u: Base64UrlString,
+    pub secret_base64url: Base64UrlString,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub secret_generation: Option<u64>,
     #[serde(default, flatten)]
@@ -57,7 +57,7 @@ impl SecretStorageSecret {
         {
             return protocol("secret_storage secret_id is invalid");
         }
-        if self.secret_b64u.as_str().is_empty() {
+        if self.secret_base64url.as_str().is_empty() {
             return protocol("secret_storage secret bytes must not be empty");
         }
         Ok(())
@@ -75,7 +75,7 @@ mod secret_storage_extension_tests {
         let value = json!({
             "item_kind": "private_account_state",
             "secret_id": "account.state",
-            "secret_b64u": "YQ",
+            "secret_base64url": "YQ",
             "secret_generation": 3,
             "x_vendor_hint": {"key": true}
         });
@@ -106,7 +106,7 @@ pub struct KeyOperationSignature {
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub signature_algorithm: Option<NonEmptyString>,
-    pub sig: Base64UrlString,
+    pub signature: Base64UrlString,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

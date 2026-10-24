@@ -188,7 +188,7 @@ mod tests {
                     base_url: base.to_string(), extension_profile_required: (),
                 }],
             );
-            describe.auth_metadata.account_authority = Some(arkret_models_discovery::AccountAuthority {
+            describe.authentication_metadata.account_authority = Some(arkret_models_discovery::AccountAuthority {
                 origin: arkret_wire::WebOrigin::new("https://auth.example").unwrap(),
                 gate_account_base_url: "https://auth.example/_arkret/gate/account".into(),
                 extra: Default::default(),

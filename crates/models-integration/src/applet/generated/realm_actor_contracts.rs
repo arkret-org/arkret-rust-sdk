@@ -2,13 +2,13 @@
 //! Generator: tools/generate-closed-models.py
 //!
 //! Input: schemas/realm-actor.schema.json
-//! sha256=3671ffb24fb296b2bc0574ac8c8692f12c5f05dd349aedc79e116038db58e6b8
+//! sha256=3e94b6c387b6fa1d895c5c5d5d56d86d7dbeeda40e4e513afb23c904e25f1592
 //!
-//! Input: schemas/typed-current-result.schema.json
-//! sha256=af1796a65736414a650ecb791939112f02920d691fd8ee4b9e46397ad70aadbd
+//! Input: schemas/current-state.schema.json
+//! sha256=feba0ff19e227c276a3792aaed506b6534bf9ff8ce6c2e91a0ab36c04777785f
 //!
 //! Bindings: tools/closed-model-bindings.json
-//! sha256=d200bd3e6d76abd1b6154781fb5e54f11fbbc834638cdc29554f83590127fdfa
+//! sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
 
 /// Counterpart: `realm-actor.schema.json#/$defs/ghost_external_tuple`.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -360,7 +360,7 @@ pub struct RealmActorWebvhRecoveryPlan {
     pub witness_records: Vec<serde_json::Value>,
 }
 
-/// Counterpart: `typed-current-result.schema.json#/$defs/realm_actor_control_value`.
+/// Counterpart: `current-state.schema.json#/$defs/realm_actor_control_value`.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmActorControlValue {
@@ -368,7 +368,7 @@ pub struct RealmActorControlValue {
     pub control_method_kid: arkret_wire::DidUrl,
 }
 
-/// Counterpart: `typed-current-result.schema.json#/$defs/realm_actor_manager_value`.
+/// Counterpart: `current-state.schema.json#/$defs/realm_actor_manager_value`.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmActorManagerValue {
@@ -377,7 +377,7 @@ pub struct RealmActorManagerValue {
     pub binding_ref: arkret_wire::CommittedEventRef,
 }
 
-/// Counterpart: `typed-current-result.schema.json#/$defs/realm_actor_recovery_value`.
+/// Counterpart: `current-state.schema.json#/$defs/realm_actor_recovery_value`.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmActorRecoveryValue {
@@ -387,14 +387,14 @@ pub struct RealmActorRecoveryValue {
     pub pending: Option<RealmActorRecoveryIntent>,
 }
 
-/// Counterpart: `typed-current-result.schema.json#/$defs/realm_actor_device_generation_value`.
+/// Counterpart: `current-state.schema.json#/$defs/realm_actor_device_generation_value`.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmActorDeviceGenerationValue {
     pub current_device_generation_ref: u64,
 }
 
-/// Counterpart: `typed-current-result.schema.json#/$defs/realm_actor_device_authorization_value`.
+/// Counterpart: `current-state.schema.json#/$defs/realm_actor_device_authorization_value`.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmActorDeviceAuthorizationValue {

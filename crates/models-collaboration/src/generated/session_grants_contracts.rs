@@ -2,25 +2,25 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/service-operation-dtos.schema.json
-// sha256=3e3a36a140c4328b66c09fa32714d5b36acc9c9d64fabf0b961add6fa0567fe0
+// sha256=18415d05b61700be7b69081cf070ed3c41de10f8e43cabea16992ae94a0f37d9
 //
 // Input: schemas/agent-requested-scope-disclosure.schema.json
-// sha256=0f1d7f670bdbaab69f35732b248d1d5f01d004f11c50e9feeb0cbc726af06b57
+// sha256=d463d06dcb5b56f44e628a8acb13a156e83d830d2899552f608e59230d4f6c3f
 //
 // Input: schemas/common-ids.schema.json
-// sha256=14226f0ac83e4d06639ad791cc0e52e0eb1c3b128cd4c8c12308a99b795141e4
+// sha256=0cc25a02fe0d9a94f6e41f2cf8f64e492ba36362f1e69a699cf1e684924837ee
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=d200bd3e6d76abd1b6154781fb5e54f11fbbc834638cdc29554f83590127fdfa
+// sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
 
-/// Counterpart: `service-operation-dtos.schema.json#/$defs/AgentSessionGrantRequest`.
+/// Counterpart: `service-operation-dtos.schema.json#/$defs/AgentSessionGrantRequestBody`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AgentSessionGrantRequest {
+pub struct AgentSessionGrantRequestBody {
     pub principal_id: DidCoreId,
     pub requested_scope: Vec<String>,
     pub agent_key_authorization_ref: EventId,
-    pub agent_scope_request: SessionGrantAgentScopeRequest,
+    pub agent_scope_request: RequestedAgentSessionGrantScope,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
     pub approval_evidence_refs: Option<Vec<EventId>>,
@@ -31,10 +31,10 @@ pub struct AgentSessionGrantRequest {
     pub proof: AgentSessionGrantProof,
 }
 
-/// Counterpart: `service-operation-dtos.schema.json#/$defs/HumanSessionGrantRequest`.
+/// Counterpart: `service-operation-dtos.schema.json#/$defs/HumanSessionGrantRequestBody`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct HumanSessionGrantRequest {
+pub struct HumanSessionGrantRequestBody {
     pub request_id: RequestId,
     pub principal_id: DidCoreId,
     pub device_id: DeviceId,
@@ -42,10 +42,10 @@ pub struct HumanSessionGrantRequest {
     pub accepted_device_possession_proof: AcceptedDeviceIssuePossessionProof,
 }
 
-/// Counterpart: `service-operation-dtos.schema.json#/$defs/HumanSessionGrantRefreshRequest`.
+/// Counterpart: `service-operation-dtos.schema.json#/$defs/HumanSessionGrantRefreshRequestBody`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct HumanSessionGrantRefreshRequest {
+pub struct HumanSessionGrantRefreshRequestBody {
     pub grant_jwt: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
@@ -55,7 +55,7 @@ pub struct HumanSessionGrantRefreshRequest {
 }
 
 /// Counterpart:
-/// `service-operation-dtos.schema.json#/$defs/AgentSessionGrantRequest/properties/proof`.
+/// `service-operation-dtos.schema.json#/$defs/AgentSessionGrantRequestBody/properties/proof`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentSessionGrantProof {

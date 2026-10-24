@@ -27,7 +27,7 @@ fn portable_relocation_preserves_scid_and_requires_direct_predecessor_link() {
         principal_endpoint: &endpoint,
         local_id: "alice",
         also_known_as: &[],
-        version_time: DateTime::parse_from_rfc3339("2026-05-06T00:00:00.000Z")
+        version_created_at: DateTime::parse_from_rfc3339("2026-05-06T00:00:00.000Z")
             .unwrap()
             .with_timezone(&Utc),
         root_seed: &[7u8; 32],
@@ -48,7 +48,7 @@ fn portable_relocation_preserves_scid_and_requires_direct_predecessor_link() {
         current_did: &inception.did,
         target_did: &target_did,
         previous_entries: std::slice::from_ref(&inception.log_entry),
-        version_time: DateTime::parse_from_rfc3339("2026-05-07T00:00:00.000Z")
+        version_created_at: DateTime::parse_from_rfc3339("2026-05-07T00:00:00.000Z")
             .unwrap()
             .with_timezone(&Utc),
         current_update_seed: &current_seed,
@@ -69,7 +69,7 @@ fn portable_relocation_preserves_scid_and_requires_direct_predecessor_link() {
             current_did: &inception.did,
             target_did: target.as_str(),
             previous_entries: std::slice::from_ref(&inception.log_entry),
-            version_time: DateTime::parse_from_rfc3339("2026-05-07T00:00:00.000Z")
+            version_created_at: DateTime::parse_from_rfc3339("2026-05-07T00:00:00.000Z")
                 .unwrap()
                 .with_timezone(&Utc),
             current_update_seed: &current_seed,
@@ -84,7 +84,7 @@ fn portable_relocation_preserves_scid_and_requires_direct_predecessor_link() {
             current_did: &inception.did,
             target_did: &different_core,
             previous_entries: std::slice::from_ref(&inception.log_entry),
-            version_time: DateTime::parse_from_rfc3339("2026-05-07T00:00:00.000Z")
+            version_created_at: DateTime::parse_from_rfc3339("2026-05-07T00:00:00.000Z")
                 .unwrap()
                 .with_timezone(&Utc),
             current_update_seed: &current_seed,
@@ -123,7 +123,7 @@ fn predecessor_effective_portability_is_shared_and_survives_restart() {
         principal_endpoint: &endpoint,
         local_id: "alice",
         also_known_as: &[],
-        version_time: at("2026-06-01T00:00:00Z"),
+        version_created_at: at("2026-06-01T00:00:00Z"),
         root_seed: &[40u8; 32],
         next_root_public_key_multibase: &public_key(&enable_seed),
         witness_policy: None,
@@ -134,7 +134,7 @@ fn predecessor_effective_portability_is_shared_and_survives_restart() {
             did: &inception.did,
             local_id: &inception.local_id,
             previous_entries: std::slice::from_ref(&inception.log_entry),
-            version_time: at("2026-06-02T00:00:00Z"),
+            version_created_at: at("2026-06-02T00:00:00Z"),
             current_root_seed: &enable_seed,
             next_root_public_key_multibase: &public_key(&relocation_seed),
             state: &inception.log_entry["state"],
@@ -151,7 +151,7 @@ fn predecessor_effective_portability_is_shared_and_survives_restart() {
         current_did: &inception.did,
         target_did: &target_did,
         previous_entries: &predecessor_entries,
-        version_time: at("2026-06-03T00:00:00Z"),
+        version_created_at: at("2026-06-03T00:00:00Z"),
         current_update_seed: &relocation_seed,
         next_update_public_key_multibase: &public_key(&next_seed),
         state: &target_state,
@@ -191,7 +191,7 @@ fn predecessor_effective_portability_is_shared_and_survives_restart() {
         principal_endpoint: &endpoint,
         local_id: "bob",
         also_known_as: &[],
-        version_time: at("2026-07-01T00:00:00Z"),
+        version_created_at: at("2026-07-01T00:00:00Z"),
         root_seed: &[51u8; 32],
         next_root_public_key_multibase: &public_key(&disable_seed),
         witness_policy: None,
@@ -202,7 +202,7 @@ fn predecessor_effective_portability_is_shared_and_survives_restart() {
             did: &portable_inception.did,
             local_id: &portable_inception.local_id,
             previous_entries: std::slice::from_ref(&portable_inception.log_entry),
-            version_time: at("2026-07-02T00:00:00Z"),
+            version_created_at: at("2026-07-02T00:00:00Z"),
             current_root_seed: &disable_seed,
             next_root_public_key_multibase: &public_key(&disabled_relocation_seed),
             state: &portable_inception.log_entry["state"],
@@ -226,7 +226,7 @@ fn predecessor_effective_portability_is_shared_and_survives_restart() {
             current_did: &portable_inception.did,
             target_did: &disabled_target_did,
             previous_entries: &disabled_predecessors,
-            version_time: at("2026-07-03T00:00:00Z"),
+            version_created_at: at("2026-07-03T00:00:00Z"),
             current_update_seed: &disabled_relocation_seed,
             next_update_public_key_multibase: &public_key(&[54u8; 32]),
             state: &disabled_target_state,

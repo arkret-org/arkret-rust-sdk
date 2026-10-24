@@ -4,12 +4,12 @@ use std::fs;
 use std::path::PathBuf;
 
 use arkret_models_collaboration::event_query::{
-    CommittedEventView, EventDeliveryStatusOutcome, EventDeliveryStatusRequestBody,
+    CommittedEventView, EventDeliveryStatusRequestBody, EventDeliveryStatusResponseBody,
 };
 use arkret_models_collaboration::sync_frames::committed_event_subscribe::CommittedEventSubscribeFrame;
 use arkret_schema::ProtocolSchemaRegistry;
 use arkret_schema_conformance::schema_registry_from_spec_artifacts;
-use arkret_wire::{AuthoritySubmitRequest, StreamScanRequest};
+use arkret_wire::{AuthoritySubmitRequestBody, StreamScanRequestBody};
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 
@@ -67,9 +67,9 @@ fn delivery_status_dtos_match_the_published_closed_fragments() {
         "#/$defs/EventDeliveryStatusRequestBody",
         json!({"event_id": EVENT}),
     );
-    assert_schema_and_serde::<EventDeliveryStatusOutcome>(
+    assert_schema_and_serde::<EventDeliveryStatusResponseBody>(
         FILE,
-        "#/$defs/EventDeliveryStatusOutcome",
+        "#/$defs/EventDeliveryStatusResponseBody",
         json!({
             "event_id": EVENT,
             "targets": [
@@ -103,6 +103,6 @@ fn submit_and_peer_read_operations_use_the_current_authority_commit_types() {
         assert!(serde_json::from_value::<T>(json!({})).is_err());
     }
 
-    assert_closed_empty::<AuthoritySubmitRequest>();
-    assert_closed_empty::<StreamScanRequest>();
+    assert_closed_empty::<AuthoritySubmitRequestBody>();
+    assert_closed_empty::<StreamScanRequestBody>();
 }

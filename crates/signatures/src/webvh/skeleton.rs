@@ -39,7 +39,7 @@ pub enum WebvhSkeletonError {
 /// overlay and MUST NOT be inserted into this method-native object.
 pub struct WebvhInceptionSkeletonInput<'a> {
     /// RFC3339 `versionTime` of the inception entry.
-    pub version_time: &'a str,
+    pub version_created_at: &'a str,
     /// `parameters.updateKeys` — the active method-native roots.
     pub update_keys: &'a [String],
     /// `parameters.nextKeyHashes` — pre-rotation commitments. Omitted when empty.
@@ -56,7 +56,7 @@ pub struct WebvhInceptionSkeletonInput<'a> {
 /// derived from.
 ///
 /// Per DIF did:webvh v1.0 the preliminary entry's `versionId` is the bare
-/// `{SCID}` placeholder (not a `<seq>-{SCID}` form) and carries no `proof`.
+/// `{SCID}` placeholder (not a `<sequence>-{SCID}` form) and carries no `proof`.
 #[must_use]
 pub fn build_webvh_inception_skeleton(input: &WebvhInceptionSkeletonInput<'_>) -> Value {
     let mut parameters = Map::new();
@@ -102,7 +102,7 @@ pub fn build_webvh_inception_skeleton(input: &WebvhInceptionSkeletonInput<'_>) -
         .expect("the shared did:webvh skeleton only emits registered v1.0 parameters");
     json!({
         "versionId": WEBVH_SCID_PLACEHOLDER,
-        "versionTime": input.version_time,
+        "versionTime": input.version_created_at,
         "parameters": Value::Object(parameters),
         "state": input.state,
     })
@@ -233,7 +233,7 @@ pub fn webvh_entry_hash_preimage(entry: &Value, prev_anchor: &str) -> Value {
 }
 
 /// `base58btc(multihash(JCS(entry-hash pre-image), sha2-256))` — the value a
-/// `versionId` carries after its `<seq>-` prefix.
+/// `versionId` carries after its `<sequence>-` prefix.
 pub fn webvh_entry_hash_multibase(
     entry: &Value,
     prev_anchor: &str,
@@ -307,7 +307,7 @@ mod tests {
             "alsoKnownAs": [format!("literal {WEBVH_SCID_PLACEHOLDER}")],
         });
         let skeleton = build_webvh_inception_skeleton(&WebvhInceptionSkeletonInput {
-            version_time: "2026-08-15T00:00:00Z",
+            version_created_at: "2026-08-15T00:00:00Z",
             update_keys: &["z6MkFixtureUpdateKey".to_owned()],
             next_key_hashes: &[webvh_next_key_hash_value("z6MkFixtureNextKey")],
             portable: None,
@@ -338,7 +338,7 @@ mod tests {
     fn skeleton_omits_absent_optional_parameters() {
         let state = json!({"id": webvh_placeholder_did("host.example", "alice")});
         let skeleton = build_webvh_inception_skeleton(&WebvhInceptionSkeletonInput {
-            version_time: "2026-08-15T00:00:00Z",
+            version_created_at: "2026-08-15T00:00:00Z",
             update_keys: &["z6MkFixtureUpdateKey".to_owned()],
             next_key_hashes: &[],
             portable: None,

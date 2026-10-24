@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/forbidden-wire-fields.json; version=unversioned;
-//! sha256=80f4e8ff6463ded688190f3092213a43e6b00896116a144123256f58d6a17c99
+//! sha256=1fd1266e457bd2eb0288f066da4e1a7ec837fc85feab65a85769ed94de640dd4
 //! Entries: forbidden_wire_fields=245
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1490,7 +1490,7 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
         value_pointer: "",
     },
     ForbiddenWireFieldDescriptor {
-        id: "webhook_auth.type",
+        id: "webhook_signature_policy.type",
         context: "all_arkret_owned_wire_canonical_json_and_executable_artifact_contexts",
         rejection_level: "hard_reject",
         selectors: &[
@@ -1508,7 +1508,7 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
             },
         ],
         match_kind: "path",
-        match_values: &["webhook_auth.type"],
+        match_values: &["webhook_signature_policy.type"],
         value_pointer: "",
     },
     ForbiddenWireFieldDescriptor {
@@ -2624,12 +2624,12 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
     },
     ForbiddenWireFieldDescriptor {
         id: "hash#key_backup_kdf_params",
-        context: "key_backup.encryption.kdf.params",
+        context: "key_backup.encryption.kdf.parameters",
         rejection_level: "hard_reject",
         selectors: &[ForbiddenWireSelector {
             document_kind: "schema_instance",
             schema_ref: "key-backup.schema.json",
-            instance_pointer: "/encryption/kdf/params",
+            instance_pointer: "/encryption/kdf/parameters",
             match_scope: "root",
         }],
         match_kind: "field",
@@ -2643,7 +2643,7 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
         selectors: &[ForbiddenWireSelector {
             document_kind: "schema_instance",
             schema_ref: "key-backup.schema.json",
-            instance_pointer: "/auth_data",
+            instance_pointer: "/signature_proof",
             match_scope: "root",
         }],
         match_kind: "field",
@@ -2666,11 +2666,11 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
     },
     ForbiddenWireFieldDescriptor {
         id: "available_count",
-        context: "keypackages_upload_outcome",
+        context: "keypackages_upload_response_body",
         rejection_level: "hard_reject",
         selectors: &[ForbiddenWireSelector {
             document_kind: "schema_instance",
-            schema_ref: "keypackage-operations.schema.json#/$defs/keypackages_upload_outcome",
+            schema_ref: "keypackage-operations.schema.json#/$defs/keypackages_upload_response_body",
             instance_pointer: "",
             match_scope: "root",
         }],

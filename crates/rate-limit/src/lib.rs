@@ -8,15 +8,15 @@ use std::time::{Duration, Instant};
 /// Shared fixed-window mechanism configuration.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct FixedWindowConfig {
-    pub max_requests: u64,
+    pub max_request_count: u64,
     pub window: Duration,
     pub max_entries: usize,
 }
 
 impl FixedWindowConfig {
-    pub fn new(max_requests: u64, window: Duration, max_entries: usize) -> Self {
+    pub fn new(max_request_count: u64, window: Duration, max_entries: usize) -> Self {
         Self {
-            max_requests,
+            max_request_count,
             window: window.max(Duration::from_millis(1)),
             max_entries: max_entries.max(1),
         }
@@ -109,7 +109,7 @@ where
                 window.count = 0;
                 window.started_at = now;
             }
-            if window.count.saturating_add(units) > config.max_requests {
+            if window.count.saturating_add(units) > config.max_request_count {
                 return Err(RateLimitRejection {
                     key,
                     retry_after: config

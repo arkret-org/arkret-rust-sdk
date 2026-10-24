@@ -69,7 +69,7 @@ impl CanonicalPublicMaterial {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RecoveryCompletionAttestationAuthData {
+pub struct RecoveryCompletionAttestationSignatureProof {
     pub verification_method: DidUrl,
     pub signature_algorithm: String,
     pub signature: String,
@@ -92,10 +92,10 @@ pub struct RecoveryCompletionAttestation {
     pub terminal_receipt_id: ReceiptId,
     pub terminal_receipt_digest: Hash,
     pub replacement_device_id: DeviceId,
-    pub result_model_generation_ref: u64,
+    pub new_model_generation_ref: u64,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub completed_at: DateTime<Utc>,
-    pub auth_data: RecoveryCompletionAttestationAuthData,
+    pub signature_proof: RecoveryCompletionAttestationSignatureProof,
     /// Exact authority commitment of the accepted recovery re-anchor Event.
     pub reanchor_event_ref: CommittedEventRef,
     /// Exact immediately following authority commitment of the replacement
@@ -110,16 +110,16 @@ impl RecoveryCompletionAttestation {
                 "recovery completion attestation schema is invalid".to_owned(),
             ));
         }
-        if self.auth_data.signature_algorithm != "Ed25519"
-            || self.auth_data.verification_method.is_empty()
-            || self.auth_data.signature.is_empty()
+        if self.signature_proof.signature_algorithm != "Ed25519"
+            || self.signature_proof.verification_method.is_empty()
+            || self.signature_proof.signature.is_empty()
         {
             return Err(WireError::Protocol(
                 "recovery completion attestation requires a complete Ed25519 authorization"
                     .to_owned(),
             ));
         }
-        if self.result_model_generation_ref == 0 {
+        if self.new_model_generation_ref == 0 {
             return Err(WireError::Protocol(
                 "recovery completion generation must be positive".to_owned(),
             ));
@@ -131,7 +131,7 @@ impl RecoveryCompletionAttestation {
         Ok(())
     }
 
-    /// Canonical coordinator signature transcript. `auth_data` is excluded so
+    /// Canonical coordinator signature transcript. `signature_proof` is excluded so
     /// the Ed25519 signature cannot recursively contain itself.
     pub fn signing_bytes(&self) -> Result<Vec<u8>> {
         recovery_completion_attestation_signing_bytes(&UnsignedRecoveryCompletionAttestationBody {
@@ -145,7 +145,7 @@ impl RecoveryCompletionAttestation {
             replacement_device_id: self.replacement_device_id.clone(),
             reanchor_event_ref: self.reanchor_event_ref.clone(),
             device_authorization_event_ref: self.device_authorization_event_ref.clone(),
-            result_model_generation_ref: self.result_model_generation_ref,
+            new_model_generation_ref: self.new_model_generation_ref,
             completed_at: self.completed_at,
         })
     }
@@ -162,7 +162,7 @@ pub struct UnsignedRecoveryCompletionAttestationBody {
     pub terminal_receipt_id: ReceiptId,
     pub terminal_receipt_digest: Hash,
     pub replacement_device_id: DeviceId,
-    pub result_model_generation_ref: u64,
+    pub new_model_generation_ref: u64,
     pub completed_at: DateTime<Utc>,
     pub reanchor_event_ref: CommittedEventRef,
     pub device_authorization_event_ref: CommittedEventRef,
@@ -206,9 +206,9 @@ impl UnsignedRecoveryCompletionAttestation {
             terminal_receipt_id: body.terminal_receipt_id,
             terminal_receipt_digest: body.terminal_receipt_digest,
             replacement_device_id: body.replacement_device_id,
-            result_model_generation_ref: body.result_model_generation_ref,
+            new_model_generation_ref: body.new_model_generation_ref,
             completed_at: body.completed_at,
-            auth_data: RecoveryCompletionAttestationAuthData {
+            signature_proof: RecoveryCompletionAttestationSignatureProof {
                 verification_method: self.verification_method,
                 signature_algorithm: "Ed25519".to_owned(),
                 signature: signature.into_string(),
@@ -224,7 +224,7 @@ impl UnsignedRecoveryCompletionAttestation {
 fn validate_recovery_completion_attestation_body(
     body: &UnsignedRecoveryCompletionAttestationBody,
 ) -> Result<()> {
-    if body.result_model_generation_ref == 0 {
+    if body.new_model_generation_ref == 0 {
         return Err(WireError::Protocol(
             "recovery completion generation must be positive".to_owned(),
         ));
@@ -285,7 +285,7 @@ fn recovery_completion_attestation_signing_bytes(
         "replacement_device_id": &body.replacement_device_id,
         "reanchor_event_ref": &body.reanchor_event_ref,
         "device_authorization_event_ref": &body.device_authorization_event_ref,
-        "result_model_generation_ref": &body.result_model_generation_ref,
+        "new_model_generation_ref": &body.new_model_generation_ref,
         "completed_at": crate::canonical::format_timestamp_canonical(body.completed_at),
     });
     Ok(arkret_canonical::canonical::canonical_json_bytes(&value)?)
@@ -309,19 +309,19 @@ fn request_digest_without_digest<T: Serialize>(request: &T) -> Result<Hash> {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 // Field declaration order is byte-for-byte the properties order of
-// recovery-authority.schema.json#/$defs/issue_recovery_completion_grant_request.
-pub struct IssueRecoveryCompletionGrantRequest {
+// recovery-authority.schema.json#/$defs/recovery_completion_grant_request_body.
+pub struct RecoveryCompletionGrantRequestBody {
     pub transaction_id: TransactionId,
     pub transaction_request_digest: Hash,
     pub terminal_receipt: Value,
     pub completion_attestation: RecoveryCompletionAttestation,
     pub device_authorization_event_id: EventId,
-    pub result_model_generation_ref: u64,
+    pub new_model_generation_ref: u64,
     pub initial_session: Value,
     pub canonical_request_digest: Hash,
 }
 
-impl IssueRecoveryCompletionGrantRequest {
+impl RecoveryCompletionGrantRequestBody {
     pub fn expected_canonical_request_digest(&self) -> Result<Hash> {
         request_digest_without_digest(self)
     }
@@ -336,8 +336,7 @@ impl IssueRecoveryCompletionGrantRequest {
                     .completion_attestation
                     .device_authorization_event_ref
                     .event_id
-            || self.result_model_generation_ref
-                != self.completion_attestation.result_model_generation_ref
+            || self.new_model_generation_ref != self.completion_attestation.new_model_generation_ref
         {
             return Err(WireError::Protocol(
                 "recovery completion grant request and attestation binding disagree".to_owned(),
@@ -369,7 +368,7 @@ impl IssueRecoveryCompletionGrantRequest {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct IssueRecoveryCompletionGrantOutcome {
+pub struct IssueRecoveryCompletionGrantResponseBody {
     pub transaction_id: TransactionId,
     pub session_grant_outcome: Value,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]

@@ -17,7 +17,7 @@ pub struct VerifiedProfileArtifactEntry {
     pub artifact_ref: String,
     pub verifier_id: DidCoreId,
     pub signature: String,
-    pub timestamp: DateTime<Utc>,
+    pub verified_at: DateTime<Utc>,
     pub expires_at: Option<DateTime<Utc>>,
     pub test_count: u64,
     pub spec_file: Option<String>,
@@ -75,7 +75,7 @@ struct RawVerifiedEntry {
         default,
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
     )]
-    timestamp: Option<DateTime<Utc>>,
+    verified_at: Option<DateTime<Utc>>,
     #[serde(
         default,
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
@@ -148,10 +148,10 @@ pub fn parse_verified_profiles_artifact(
             });
             continue;
         };
-        let Some(timestamp) = raw.timestamp else {
+        let Some(verified_at) = raw.verified_at else {
             dropped.push(DroppedVerifiedProfileEntry {
                 profile_id,
-                reason: "missing timestamp",
+                reason: "missing verified_at",
             });
             continue;
         };
@@ -163,7 +163,7 @@ pub fn parse_verified_profiles_artifact(
             artifact_ref,
             verifier_id,
             signature,
-            timestamp,
+            verified_at,
             expires_at: raw.expires_at,
             test_count: raw.test_count.unwrap_or(0),
             spec_file: raw.spec_file,
@@ -216,7 +216,7 @@ mod tests {
                         "artifact_ref": "file:///artifact.json",
                         "verifier_id": "ak:did_core:web:cotest.example",
                         "signature": "signature",
-                        "timestamp": "2026-05-20T00:00:00.000Z"
+                        "verified_at": "2026-05-20T00:00:00.000Z"
                     },
                     {
                         "profile_id": "ak.profile.directory_service.v1",

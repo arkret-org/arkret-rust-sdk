@@ -3,7 +3,7 @@
 use std::fs;
 
 use arkret_models_collaboration::consent_operations::{
-    ConsentCurrentReadRequestBody, ConsentCurrentRow, ConsentRequestRequestBody,
+    ConsentCurrentReadRequestBody, ConsentRequestRequestBody, CurrentConsent,
 };
 use arkret_models_collaboration::events_payloads::consent::ConsentReplacePayload;
 use arkret_models_collaboration::events_payloads::direct_conversation::{
@@ -30,8 +30,8 @@ fn sdk_value(definition: &str, value: &Value) -> Result<Value, String> {
             parsed.validate().map_err(|error| error.to_string())?;
             serde_json::to_value(parsed).map_err(|error| error.to_string())
         }
-        "consent_result" => {
-            let parsed: ConsentCurrentRow =
+        "current_consent" => {
+            let parsed: CurrentConsent =
                 serde_json::from_value(value.clone()).map_err(|error| error.to_string())?;
             parsed.value.validate().map_err(|error| error.to_string())?;
             serde_json::to_value(parsed).map_err(|error| error.to_string())

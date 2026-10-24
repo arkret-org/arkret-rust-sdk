@@ -2,19 +2,19 @@
 
 use arkret_identity::VerifiedSubmission;
 use arkret_models_collaboration::agent_operations::{
-    AgentDeactivateRequestBody, AgentKeyPairOutcome, AgentKeyPairRequestBody,
-    AgentLifecycleOutcome, AgentList, AgentPauseRequestBody, AgentProvisionOutcome,
-    AgentProvisionRequestBody, AgentRenewPairingOutcome, AgentRenewPairingRequestBody,
-    AgentResumeRequestBody, AgentSidecarList, AgentSidecarView, AgentView,
+    AgentDeactivateRequestBody, AgentKeyPairRequestBody, AgentKeyPairResponseBody,
+    AgentOperationStatusView, AgentPage, AgentPauseRequestBody, AgentProvisionRequestBody,
+    AgentProvisionResponseBody, AgentRenewPairingRequestBody, AgentRenewPairingResponseBody,
+    AgentResumeRequestBody, AgentSidecarPage, AgentSidecarView, AgentView,
 };
 use arkret_models_collaboration::governance::agent_participation::{
-    AgentParticipationOutcome, ParticipationReplaceRequestBody,
+    AgentParticipationResponseBody, ParticipationReplaceRequestBody,
 };
 use arkret_models_collaboration::sidecar_operations::{
-    SidecarEnsureOutcome, SidecarEnsureRequestBody,
+    SidecarEnsureRequestBody, SidecarEnsureResponseBody,
 };
 use arkret_models_identity::signer_key_operations::{
-    SignerKeysQueryOutcome, SignerKeysQueryRequestBody,
+    SignerKeyQueryResponseBody, SignerKeysQueryRequestBody,
 };
 use arkret_wire::{RealmId, SidecarId};
 use reqwest::Method;
@@ -42,7 +42,8 @@ impl Client {
     pub async fn request_agent_runtime_approval(
         &self,
         request: &arkret_models_collaboration::agent_scope::AgentRuntimeApprovalRequestBody,
-    ) -> Result<arkret_models_collaboration::agent_operations::AgentRuntimeApprovalOutcome> {
+    ) -> Result<arkret_models_collaboration::agent_operations::AgentRuntimeApprovalResponseBody>
+    {
         request.validate()?;
         let builder = self.canonical_json_body(
             self.public_request(
@@ -57,7 +58,7 @@ impl Client {
     pub async fn agent_runtime_approval_status(
         &self,
         request: &arkret_models_collaboration::agent_operations::AgentRuntimeApprovalStatusRequestBody,
-    ) -> Result<arkret_models_collaboration::agent_operations::AgentRuntimeApprovalStatusOutcome>
+    ) -> Result<arkret_models_collaboration::agent_operations::AgentRuntimeApprovalStatusResponseBody>
     {
         let builder = self.canonical_json_body(
             self.public_request(
@@ -66,7 +67,7 @@ impl Client {
             )?,
             request,
         )?;
-        let outcome: arkret_models_collaboration::agent_operations::AgentRuntimeApprovalStatusOutcome = self.send_json(builder).await?;
+        let outcome: arkret_models_collaboration::agent_operations::AgentRuntimeApprovalStatusResponseBody = self.send_json(builder).await?;
         outcome.validate_signer_evidence_delivery()?;
         Ok(outcome)
     }
@@ -88,11 +89,11 @@ impl Client {
     pub async fn signer_keys_query(
         &self,
         request: &SignerKeysQueryRequestBody,
-    ) -> Result<SignerKeysQueryOutcome> {
+    ) -> Result<SignerKeyQueryResponseBody> {
         request.validate()?;
         let builder = self.request(Method::POST, SIGNER_KEYS_QUERY_PATH)?;
         let builder = self.canonical_json_body(builder, request)?;
-        let outcome: SignerKeysQueryOutcome = self
+        let outcome: SignerKeyQueryResponseBody = self
             .send_json_limited(
                 builder,
                 arkret_models_identity::SELF_SIGNER_OUTCOME_MAX_BYTES,
@@ -107,7 +108,7 @@ impl Client {
     pub async fn agent_key_pair(
         &self,
         request: &VerifiedSubmission<AgentKeyPairRequestBody>,
-    ) -> Result<AgentKeyPairOutcome> {
+    ) -> Result<AgentKeyPairResponseBody> {
         let builder = self.request(Method::POST, AGENT_KEY_PAIR_PATH)?.header(
             "Idempotency-Key",
             request.authorize_event.event.event_id.as_str(),
@@ -120,7 +121,7 @@ impl Client {
     pub async fn agent_provision(
         &self,
         request: &VerifiedSubmission<AgentProvisionRequestBody>,
-    ) -> Result<AgentProvisionOutcome> {
+    ) -> Result<AgentProvisionResponseBody> {
         self.post(AGENTS_PATH, request).await
     }
 
@@ -130,7 +131,7 @@ impl Client {
         &self,
         agent_id: &str,
         request: &AgentRenewPairingRequestBody,
-    ) -> Result<AgentRenewPairingOutcome> {
+    ) -> Result<AgentRenewPairingResponseBody> {
         let path = format!(
             "{}/{}/renew-pairing",
             AGENTS_PATH,
@@ -140,7 +141,7 @@ impl Client {
     }
 
     /// `GET /_arkret/self/agents` (`ak.self.agent.read.list.v1`).
-    pub async fn agent_list(&self) -> Result<AgentList> {
+    pub async fn agent_page(&self) -> Result<AgentPage> {
         self.get(AGENTS_PATH).await
     }
 
@@ -157,7 +158,7 @@ impl Client {
         &self,
         agent_id: &str,
         request: &VerifiedSubmission<AgentPauseRequestBody>,
-    ) -> Result<AgentLifecycleOutcome> {
+    ) -> Result<AgentOperationStatusView> {
         let path = format!("{}/{}/pause", AGENTS_PATH, agent_path_component(agent_id)?);
         self.post(&path, request).await
     }
@@ -168,7 +169,7 @@ impl Client {
         &self,
         agent_id: &str,
         request: &VerifiedSubmission<AgentResumeRequestBody>,
-    ) -> Result<AgentLifecycleOutcome> {
+    ) -> Result<AgentOperationStatusView> {
         let path = format!("{}/{}/resume", AGENTS_PATH, agent_path_component(agent_id)?);
         self.post(&path, request).await
     }
@@ -179,7 +180,7 @@ impl Client {
         &self,
         agent_id: &str,
         request: &VerifiedSubmission<AgentDeactivateRequestBody>,
-    ) -> Result<AgentLifecycleOutcome> {
+    ) -> Result<AgentOperationStatusView> {
         let path = format!(
             "{}/{}/deactivate",
             AGENTS_PATH,
@@ -193,7 +194,7 @@ impl Client {
     pub async fn agent_participation_get(
         &self,
         agent_id: &str,
-    ) -> Result<AgentParticipationOutcome> {
+    ) -> Result<AgentParticipationResponseBody> {
         let path = format!(
             "{}/{}/participation",
             AGENTS_PATH,
@@ -208,7 +209,7 @@ impl Client {
         &self,
         agent_id: &str,
         request: &ParticipationReplaceRequestBody,
-    ) -> Result<AgentParticipationOutcome> {
+    ) -> Result<AgentParticipationResponseBody> {
         let path = format!(
             "{}/{}/participation",
             AGENTS_PATH,
@@ -222,7 +223,7 @@ impl Client {
     pub async fn agent_sidecar_ensure(
         &self,
         request: &VerifiedSubmission<SidecarEnsureRequestBody>,
-    ) -> Result<SidecarEnsureOutcome> {
+    ) -> Result<SidecarEnsureResponseBody> {
         self.post(AGENT_SIDECAR_ENSURE_PATH, request).await
     }
 
@@ -235,11 +236,11 @@ impl Client {
 
     /// `GET /_arkret/self/agent-sidecars`
     /// (`ak.self.agent.sidecar.read.list.v1`).
-    pub async fn agent_sidecar_list(
+    pub async fn agent_sidecar_page(
         &self,
         realm_id: Option<&RealmId>,
         cursor: Option<&str>,
-    ) -> Result<AgentSidecarList> {
+    ) -> Result<AgentSidecarPage> {
         let mut builder = self.request(Method::GET, AGENT_SIDECARS_PATH)?;
         if let Some(realm_id) = realm_id {
             builder = builder.query(&[("realm_id", realm_id.as_str())]);
@@ -296,7 +297,7 @@ mod tests {
 
     #[test]
     fn agent_list_requires_agents_and_has_more() {
-        let error = serde_json::from_value::<AgentList>(serde_json::json!({
+        let error = serde_json::from_value::<AgentPage>(serde_json::json!({
             "items": [{
                 "agent_id": "ak:did_core:web:agents.example:summary",
                 "display_name": "Summary",
@@ -309,7 +310,7 @@ mod tests {
 
         assert!(error.to_string().contains("agents"));
 
-        let error = serde_json::from_value::<AgentList>(serde_json::json!({
+        let error = serde_json::from_value::<AgentPage>(serde_json::json!({
             "agents": []
         }))
         .unwrap_err();
@@ -319,14 +320,14 @@ mod tests {
 
     #[test]
     fn formal_historical_signer_key_response_decodes_for_the_client() {
-        let outcome: SignerKeysQueryOutcome = serde_json::from_value(json!({
+        let outcome: SignerKeyQueryResponseBody = serde_json::from_value(json!({
             "request_id": "ak:request:01904100-0000-7000-8000-000000000001",
             "realm_id": "ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5",
             "recipient_account_id": {
                 "principal_id": "ak:did_core:web:recipient.example",
                 "station_id": "ak:did_core:web:station.example"
             },
-            "results": [{
+            "resolutions": [{
                 "selector": {
                     "verification_mode": "historical_event",
                     "sender_kind": "agent",
@@ -350,7 +351,7 @@ mod tests {
                 },
                 "status": "resolved",
                 "key": {
-                    "public_key_b64u": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                    "public_key_base64url": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
                     "authorization_ref": {
                         "event_id": "ak:event:Aao964Xuq1Q7PmnLt9I97ih00Qs2N6qMkBgKgYCvUFFe",
                         "commit_id": "ak:realm_commit:AdA0TA9zF1BPiudM7qe4WqKZLjMn0r7--gKAHqstAWDZ",
@@ -364,23 +365,23 @@ mod tests {
                         "commit_id": "ak:realm_commit:AQPhm6Di_JMyu-JM932ww_EvyQU0dIIEO2ykFmYb9nD5",
                         "stream_position": 15
                     },
-                    "governance_generation": 4
+                    "governance_generation": "4"
                 },
                 "accepted_at": "2026-09-20T00:00:00.000Z"
             }]
         }))
         .expect("the formal Station response must decode before endpoint validation");
 
-        assert_eq!(outcome.results.len(), 1);
-        assert!(outcome.results[0].selector().is_historical());
-        assert!(outcome.results[0].accepted_at().is_some());
+        assert_eq!(outcome.resolutions.len(), 1);
+        assert!(outcome.resolutions[0].selector().is_historical());
+        assert!(outcome.resolutions[0].accepted_at().is_some());
 
         let request = SignerKeysQueryRequestBody {
             request_id: outcome.request_id.clone(),
             realm_id: outcome.realm_id.clone(),
             recipient_account_id: outcome.recipient_account_id.clone(),
             recipient_actor_id: outcome.recipient_actor_id.clone(),
-            queries: vec![outcome.results[0].selector().clone()],
+            queries: vec![outcome.resolutions[0].selector().clone()],
         };
         outcome
             .validate_for_request(&request)

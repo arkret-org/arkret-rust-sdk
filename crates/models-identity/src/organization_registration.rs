@@ -536,12 +536,12 @@ impl OrganizationRegistrationReceipt {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct OrganizationRegistrationOutcome {
+pub struct OrganizationRegistrationResponseBody {
     pub registration_receipt: OrganizationRegistrationReceipt,
     pub created: bool,
 }
 
-impl OrganizationRegistrationOutcome {
+impl OrganizationRegistrationResponseBody {
     pub fn validate(&self) -> Result<()> {
         self.registration_receipt.validate()
     }
@@ -573,8 +573,8 @@ impl OrganizationRegistrationOutcome {
 pub fn organization_registration_replay_outcome(
     successful_request_digest: &Hash,
     submitted_request_digest: &Hash,
-    successful_outcome: &OrganizationRegistrationOutcome,
-) -> Result<OrganizationRegistrationOutcome> {
+    successful_outcome: &OrganizationRegistrationResponseBody,
+) -> Result<OrganizationRegistrationResponseBody> {
     if successful_request_digest != submitted_request_digest {
         return Err(WireError::Protocol(
             "organization registration challenge was consumed by a different request".to_owned(),
@@ -869,7 +869,7 @@ mod tests {
         };
         receipt.registration_receipt_id = receipt.expected_receipt_id().unwrap();
         receipt.proof.payload_digest = receipt.expected_payload_digest().unwrap();
-        let outcome = OrganizationRegistrationOutcome {
+        let outcome = OrganizationRegistrationResponseBody {
             registration_receipt: receipt,
             created: true,
         };
@@ -1017,8 +1017,8 @@ mod tests {
                     // above rather than being silently treated as valid.
                     serde_json::from_value::<OrganizationRegistrationReceipt>(instance).is_ok()
                 }
-                "OrganizationRegistrationOutcome" => {
-                    serde_json::from_value::<OrganizationRegistrationOutcome>(instance).is_ok()
+                "OrganizationRegistrationResponseBody" => {
+                    serde_json::from_value::<OrganizationRegistrationResponseBody>(instance).is_ok()
                 }
                 other => panic!("unhandled organization registration fixture schema: {other}"),
             };

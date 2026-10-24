@@ -1,9 +1,9 @@
 //! Private exact-selector control material, never a member history feed.
 use arkret_models_collaboration::authority_commit::HistoricalProducerSignerFact;
 use arkret_wire::{
-    ActorId, AuthoritySubmitOutcome, CommitStreamHead, CommitStreamRef, CommittedEventRef,
-    CurrentSelector, DetachedObjectSignature, DetachedSignatureContext, Event, Hash, RealmCommit,
-    RealmCommitAuthorityRef, RealmId, Result, TypedCurrentRow, WireError,
+    ActorId, AuthoritySubmitResponseBody, CommitStreamHead, CommitStreamRef, CommittedEventRef,
+    CurrentSelector, CurrentState, DetachedObjectSignature, DetachedSignatureContext, Event, Hash,
+    RealmCommit, RealmCommitAuthorityRef, RealmId, Result, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -11,12 +11,12 @@ use serde::{Deserialize, Serialize};
 /// The authenticated Account Station supplies the requester, never the client.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PeerRealmActorMaterialRequest {
+pub struct PeerRealmActorMaterialRequestBody {
     pub requester_account_id: arkret_wire::AccountId,
-    pub request: RealmActorMaterialRequest,
+    pub request: RealmActorMaterialRequestBody,
 }
 
-impl PeerRealmActorMaterialRequest {
+impl PeerRealmActorMaterialRequestBody {
     pub fn validate_source(&self, source: &arkret_wire::DidCoreId) -> Result<()> {
         self.request.validate()?;
         if &self.requester_account_id.station_id != source {
@@ -30,7 +30,7 @@ impl PeerRealmActorMaterialRequest {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "purpose", rename_all = "snake_case", deny_unknown_fields)]
-pub enum RealmActorMaterialRequest {
+pub enum RealmActorMaterialRequestBody {
     Current {
         actor_id: ActorId,
         request_nonce: String,
@@ -41,7 +41,7 @@ pub enum RealmActorMaterialRequest {
         request_nonce: String,
         target: CommittedEventRef,
     },
-    Outcome {
+    RequestStatus {
         actor_id: ActorId,
         request_nonce: String,
         target_request_digest: Hash,
@@ -53,7 +53,7 @@ pub enum RealmActorMaterialRequest {
 pub enum RealmActorMaterialPurpose {
     Current,
     Event,
-    Outcome,
+    RequestStatus,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -62,7 +62,7 @@ pub enum RealmActorMaterialPurpose {
 #[allow(clippy::large_enum_variant)]
 pub enum RealmActorMaterialCurrentEntry {
     Present {
-        row: TypedCurrentRow,
+        row: CurrentState,
         source_ref: CommittedEventRef,
     },
     NeverWritten {
@@ -89,47 +89,47 @@ pub enum RealmActorRecoveryState {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum RealmActorRecoveryOutcomeStatus {
+pub enum RealmActorRecoveryStatusTag {
     #[serde(rename = "recovery")]
     Recovery,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum RealmActorDeviceRevokeState {
+pub enum RealmActorDeviceRevocationState {
     Pending,
     Accepted,
     Rejected,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum RealmActorDeviceRevokeOutcomeStatus {
+pub enum RealmActorDeviceRevocationStatusTag {
     #[serde(rename = "device_revoke")]
     DeviceRevoke,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged, deny_unknown_fields)]
-pub enum RealmActorOperationOutcome {
+pub enum RealmActorRequestStatus {
     DeviceRevoke {
-        status: RealmActorDeviceRevokeOutcomeStatus,
+        status: RealmActorDeviceRevocationStatusTag,
         proposal_ref: CommittedEventRef,
         device_id: arkret_wire::DeviceId,
         authorization_ref: CommittedEventRef,
         authorized_generation_ref: u64,
-        state: RealmActorDeviceRevokeState,
+        state: RealmActorDeviceRevocationState,
         #[serde(
             serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
             deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
         )]
         decided_at: Option<DateTime<Utc>>,
     },
-    Submitted(AuthoritySubmitOutcome),
+    Submitted(AuthoritySubmitResponseBody),
     Status {
         status: RealmActorOperationStatus,
     },
     Recovery {
-        status: RealmActorRecoveryOutcomeStatus,
+        status: RealmActorRecoveryStatusTag,
         begin_ref: CommittedEventRef,
         state: RealmActorRecoveryState,
         #[serde(
@@ -152,21 +152,22 @@ pub enum RealmActorMaterial {
         commit: RealmCommit,
         producer_signer_fact: HistoricalProducerSignerFact,
     },
-    Outcome {
+    RequestStatus {
         target_request_digest: Hash,
-        outcome: RealmActorOperationOutcome,
+        request_status: RealmActorRequestStatus,
     },
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RealmActorMaterialOutcome {
+pub struct RealmActorMaterialResponseBody {
     pub realm_id: RealmId,
     pub actor_id: ActorId,
     pub purpose: RealmActorMaterialPurpose,
     pub request_digest: Hash,
     pub request_nonce: String,
     pub requester_actor_id: ActorId,
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub governance_generation: u64,
     pub authority_ref: RealmCommitAuthorityRef,
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_required_nullable")]
@@ -175,19 +176,20 @@ pub struct RealmActorMaterialOutcome {
     pub issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
-    pub result: RealmActorMaterial,
+    pub material: RealmActorMaterial,
     pub signature: DetachedObjectSignature,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RealmActorMaterialUnsigned {
+pub struct RealmActorMaterialSignatureInput {
     pub realm_id: RealmId,
     pub actor_id: ActorId,
     pub purpose: RealmActorMaterialPurpose,
     pub request_digest: Hash,
     pub request_nonce: String,
     pub requester_actor_id: ActorId,
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub governance_generation: u64,
     pub authority_ref: RealmCommitAuthorityRef,
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_required_nullable")]
@@ -196,12 +198,12 @@ pub struct RealmActorMaterialUnsigned {
     pub issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
-    pub result: RealmActorMaterial,
+    pub material: RealmActorMaterial,
 }
 
-impl RealmActorMaterialUnsigned {
-    pub fn into_signed(self, signature: DetachedObjectSignature) -> RealmActorMaterialOutcome {
-        RealmActorMaterialOutcome {
+impl RealmActorMaterialSignatureInput {
+    pub fn into_signed(self, signature: DetachedObjectSignature) -> RealmActorMaterialResponseBody {
+        RealmActorMaterialResponseBody {
             realm_id: self.realm_id,
             actor_id: self.actor_id,
             purpose: self.purpose,
@@ -213,7 +215,7 @@ impl RealmActorMaterialUnsigned {
             control_stream_head: self.control_stream_head,
             issued_at: self.issued_at,
             expires_at: self.expires_at,
-            result: self.result,
+            material: self.material,
             signature,
         }
     }
@@ -238,19 +240,19 @@ pub fn realm_actor_selector_subject(selector: &CurrentSelector) -> Option<&Actor
     }
 }
 
-impl RealmActorMaterialRequest {
+impl RealmActorMaterialRequestBody {
     pub fn actor_id(&self) -> &ActorId {
         match self {
             Self::Current { actor_id, .. }
             | Self::Event { actor_id, .. }
-            | Self::Outcome { actor_id, .. } => actor_id,
+            | Self::RequestStatus { actor_id, .. } => actor_id,
         }
     }
     pub fn request_nonce(&self) -> &str {
         match self {
             Self::Current { request_nonce, .. }
             | Self::Event { request_nonce, .. }
-            | Self::Outcome { request_nonce, .. } => request_nonce,
+            | Self::RequestStatus { request_nonce, .. } => request_nonce,
         }
     }
     pub fn validate(&self) -> Result<()> {
@@ -292,7 +294,7 @@ impl RealmActorMaterialRequest {
     }
 }
 
-impl RealmActorMaterialOutcome {
+impl RealmActorMaterialResponseBody {
     pub fn validate(&self) -> Result<()> {
         self.actor_id.validate()?;
         self.requester_actor_id.validate()?;
@@ -318,7 +320,7 @@ impl RealmActorMaterialOutcome {
         {
             return Err(invalid());
         }
-        match (&self.purpose, &self.result) {
+        match (&self.purpose, &self.material) {
             (RealmActorMaterialPurpose::Current, RealmActorMaterial::Current { entries }) => {
                 if self.control_stream_head.is_none() || !(1..=16).contains(&entries.len()) {
                     return Err(invalid());
@@ -328,7 +330,7 @@ impl RealmActorMaterialOutcome {
                     let selector = match entry {
                         RealmActorMaterialCurrentEntry::Present {
                             row:
-                                TypedCurrentRow::Value {
+                                CurrentState::Value {
                                     selector,
                                     source_stream_ref,
                                     revision,
@@ -387,8 +389,14 @@ impl RealmActorMaterialOutcome {
                     return Err(invalid());
                 }
             }
-            (RealmActorMaterialPurpose::Outcome, RealmActorMaterial::Outcome { outcome, .. }) => {
-                if let RealmActorOperationOutcome::DeviceRevoke {
+            (
+                RealmActorMaterialPurpose::RequestStatus,
+                RealmActorMaterial::RequestStatus {
+                    request_status: outcome,
+                    ..
+                },
+            ) => {
+                if let RealmActorRequestStatus::DeviceRevoke {
                     proposal_ref,
                     authorization_ref,
                     authorized_generation_ref,
@@ -396,7 +404,8 @@ impl RealmActorMaterialOutcome {
                     decided_at,
                     ..
                 } = outcome
-                    && ((*state == RealmActorDeviceRevokeState::Pending) != decided_at.is_none()
+                    && ((*state == RealmActorDeviceRevocationState::Pending)
+                        != decided_at.is_none()
                         || *authorized_generation_ref == 0
                         || proposal_ref.stream_ref != stream
                         || authorization_ref.stream_ref != stream
@@ -412,7 +421,7 @@ impl RealmActorMaterialOutcome {
                 {
                     return Err(invalid());
                 }
-                if let RealmActorOperationOutcome::Recovery {
+                if let RealmActorRequestStatus::Recovery {
                     state,
                     terminal_ref,
                     ..
@@ -428,10 +437,10 @@ impl RealmActorMaterialOutcome {
     }
 }
 
-impl RealmActorMaterialOutcome {
+impl RealmActorMaterialResponseBody {
     pub fn validate_for_request(
         &self,
-        request: &RealmActorMaterialRequest,
+        request: &RealmActorMaterialRequestBody,
         requester: &ActorId,
         now: DateTime<Utc>,
     ) -> Result<()> {
@@ -446,16 +455,16 @@ impl RealmActorMaterialOutcome {
         {
             return Err(invalid());
         }
-        match (request, &self.result) {
+        match (request, &self.material) {
             (
-                RealmActorMaterialRequest::Current { selectors, .. },
+                RealmActorMaterialRequestBody::Current { selectors, .. },
                 RealmActorMaterial::Current { entries },
             ) => {
                 if selectors.len() != entries.len()
                     || selectors.iter().zip(entries).any(|(requested, returned)| {
                         let actual = match returned {
                             RealmActorMaterialCurrentEntry::Present {
-                                row: TypedCurrentRow::Value { selector, .. },
+                                row: CurrentState::Value { selector, .. },
                                 ..
                             }
                             | RealmActorMaterialCurrentEntry::NeverWritten { selector } => selector,
@@ -467,7 +476,7 @@ impl RealmActorMaterialOutcome {
                 }
             }
             (
-                RealmActorMaterialRequest::Event { target, .. },
+                RealmActorMaterialRequestBody::Event { target, .. },
                 RealmActorMaterial::Event { event, commit, .. },
             ) => {
                 if target.event_id != event.event_id
@@ -515,11 +524,11 @@ impl RealmActorMaterialOutcome {
                 }
             }
             (
-                RealmActorMaterialRequest::Outcome {
+                RealmActorMaterialRequestBody::RequestStatus {
                     target_request_digest,
                     ..
                 },
-                RealmActorMaterial::Outcome {
+                RealmActorMaterial::RequestStatus {
                     target_request_digest: returned,
                     ..
                 },
@@ -639,7 +648,7 @@ mod revoke_tests {
         let value = json!({"status":"device_revoke","proposal_ref":source,
             "device_id":"ak:device:00000000-0000-7000-8000-000000000001",
             "authorization_ref":source,"authorized_generation_ref":1,"state":"pending","decided_at":null});
-        let parsed: RealmActorOperationOutcome = serde_json::from_value(value.clone()).unwrap();
+        let parsed: RealmActorRequestStatus = serde_json::from_value(value.clone()).unwrap();
         assert_eq!(serde_json::to_value(parsed).unwrap(), value);
         for field in [
             "decided_at",
@@ -648,18 +657,18 @@ mod revoke_tests {
         ] {
             let mut missing = value.clone();
             missing.as_object_mut().unwrap().remove(field);
-            assert!(serde_json::from_value::<RealmActorOperationOutcome>(missing).is_err());
+            assert!(serde_json::from_value::<RealmActorRequestStatus>(missing).is_err());
         }
         for timestamp in ["2026-10-20T00:00:00Z", "2026-10-20T00:00:00.000+00:00"] {
             let mut invalid = value.clone();
             invalid["state"] = json!("accepted");
             invalid["decided_at"] = json!(timestamp);
-            assert!(serde_json::from_value::<RealmActorOperationOutcome>(invalid).is_err());
+            assert!(serde_json::from_value::<RealmActorRequestStatus>(invalid).is_err());
         }
         let mut terminal = value;
         terminal["state"] = json!("accepted");
         terminal["decided_at"] = json!("2026-10-20T00:00:00.000Z");
-        let parsed: RealmActorOperationOutcome = serde_json::from_value(terminal.clone()).unwrap();
+        let parsed: RealmActorRequestStatus = serde_json::from_value(terminal.clone()).unwrap();
         assert_eq!(serde_json::to_value(parsed).unwrap(), terminal);
     }
 }

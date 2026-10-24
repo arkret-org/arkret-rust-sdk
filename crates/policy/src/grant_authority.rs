@@ -241,15 +241,15 @@ fn retained(parent: &GrantConstraint, child: &GrantConstraint, subject: &ActorId
             if parent.effect == GrantConstraintEffect::Allow =>
         {
             if parent
-                .max_operations
-                .is_some_and(|p| child.max_operations.is_none_or(|c| c > p))
+                .max_operation_count
+                .is_some_and(|p| child.max_operation_count.is_none_or(|c| c > p))
                 || parent
                     .burst
                     .is_some_and(|p| child.burst.is_none_or(|c| c > p))
             {
                 return false;
             }
-            expected.max_operations = child.max_operations;
+            expected.max_operation_count = child.max_operation_count;
             expected.burst = child.burst;
         }
         _ => {}

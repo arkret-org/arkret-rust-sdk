@@ -4,7 +4,7 @@
 use std::fs;
 
 use arkret_models_collaboration::agent_operations::{
-    AgentProvisionOutcome, AgentProvisionRequestBody,
+    AgentProvisionRequestBody, AgentProvisionResponseBody,
 };
 use arkret_schema_conformance::schema_registry_from_spec_artifacts;
 use serde_json::{Value, json};
@@ -30,7 +30,7 @@ fn registry() -> arkret_schema::ProtocolSchemaRegistry {
         .register_fragment(
             "test:agent-provision-outcome",
             schema,
-            "#/$defs/agent_provision_outcome",
+            "#/$defs/agent_provision_response_body",
         )
         .unwrap();
     registry
@@ -141,7 +141,7 @@ fn four_outcomes_round_trip_flat_and_reject_cross_stage_members() {
         registry
             .validate_value("test:agent-provision-outcome", &value)
             .unwrap();
-        let typed: AgentProvisionOutcome = serde_json::from_value(value.clone()).unwrap();
+        let typed: AgentProvisionResponseBody = serde_json::from_value(value.clone()).unwrap();
         assert_eq!(serde_json::to_value(typed).unwrap(), value, "{status}");
         let mut invalid = value;
         invalid["provision_ref"] = json!("retired");
@@ -150,7 +150,7 @@ fn four_outcomes_round_trip_flat_and_reject_cross_stage_members() {
                 .validate_value("test:agent-provision-outcome", &invalid)
                 .is_err()
         );
-        assert!(serde_json::from_value::<AgentProvisionOutcome>(invalid).is_err());
+        assert!(serde_json::from_value::<AgentProvisionResponseBody>(invalid).is_err());
     }
 }
 
@@ -164,7 +164,7 @@ fn awaiting_did_binding_cannot_claim_pairing_and_complete_cannot_keep_allocation
             .validate_value("test:agent-provision-outcome", &premature)
             .is_err()
     );
-    assert!(serde_json::from_value::<AgentProvisionOutcome>(premature).is_err());
+    assert!(serde_json::from_value::<AgentProvisionResponseBody>(premature).is_err());
 
     let mut stale = outcome("complete");
     stale["allocation_handle"] = json!("allocation_handle_01");
@@ -173,5 +173,5 @@ fn awaiting_did_binding_cannot_claim_pairing_and_complete_cannot_keep_allocation
             .validate_value("test:agent-provision-outcome", &stale)
             .is_err()
     );
-    assert!(serde_json::from_value::<AgentProvisionOutcome>(stale).is_err());
+    assert!(serde_json::from_value::<AgentProvisionResponseBody>(stale).is_err());
 }

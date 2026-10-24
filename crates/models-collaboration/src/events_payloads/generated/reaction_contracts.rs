@@ -1,21 +1,21 @@
 // @generated; do not edit by hand.
 // Generator: tools/generate-closed-models.py
 //
-// Input: schemas/typed-current-result.schema.json
-// sha256=af1796a65736414a650ecb791939112f02920d691fd8ee4b9e46397ad70aadbd
+// Input: schemas/current-state.schema.json
+// sha256=feba0ff19e227c276a3792aaed506b6534bf9ff8ce6c2e91a0ab36c04777785f
 //
 // Input: schemas/event-payload.schema.json
-// sha256=6c0740fab50fcb796331bad41ee632e0602de445969cee69c4962e45dab65b27
+// sha256=74e26ef25ba5846ba74149c301a7ff5c7f1afc507f2cfd207cfe0edc060507bf
 //
 // Input: schemas/encrypted-envelope.schema.json
-// sha256=5f2752ea44fd1fbc9de2b85e1d89524b11ee593a43ddc700d52484230e874397
+// sha256=a0f5bb09fcb5ae9612cd3a27c533f4bf7dfa29f0b19aa178443af54fa4817c10
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=d200bd3e6d76abd1b6154781fb5e54f11fbbc834638cdc29554f83590127fdfa
+// sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
 
-/// Counterpart: `typed-current-result.schema.json#/$defs/reaction_assertion_entry`.
+/// Counterpart: `current-state.schema.json#/$defs/reaction_assertion_entry`.
 /// One asserted element of the `message_reactions` keyed set
-/// (`typed-current-result.schema.json#/$defs/reaction_assertion_entry`): the
+/// (`current-state.schema.json#/$defs/reaction_assertion_entry`): the
 /// accepting Event's canonical dot and that Event's complete reaction payload.
 ///
 /// The asserting actor and the polarity (add or remove) are deliberately not
@@ -28,9 +28,9 @@ pub struct ReactionAssertionEntry {
     pub value: ReactionPayload,
 }
 
-/// Counterpart: `typed-current-result.schema.json#/$defs/message_reactions_value`.
-/// Closed value of the `message_reactions` typed current result
-/// (`typed-current-result.schema.json#/$defs/message_reactions_value`): the
+/// Counterpart: `current-state.schema.json#/$defs/message_reactions_value`.
+/// Closed value of the `message_reactions` current state
+/// (`current-state.schema.json#/$defs/message_reactions_value`): the
 /// canonically sorted dot set of reaction assertions on one target.
 ///
 /// `ak.reaction.add` and `ak.reaction.remove` each project exactly one

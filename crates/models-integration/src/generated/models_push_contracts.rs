@@ -2,18 +2,18 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/push-operations.schema.json
-// sha256=2dee9005fb46e3e9234ae4e0d135780161f1bc6ebb4a06a31026a6b8234f5d31
+// sha256=4bbdb549699dfa03e28322ebb5846fe61384e18d4d9c693173b286d659e5ef8a
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=d200bd3e6d76abd1b6154781fb5e54f11fbbc834638cdc29554f83590127fdfa
+// sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
 
-/// Counterpart: `push-operations.schema.json#/$defs/push_notify_device_outcome`.
+/// Counterpart: `push-operations.schema.json#/$defs/push_gateway_submission_outcome`.
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/push-operations.schema.json#/$defs/push_notify_device_outcome`.
+/// `spec/v1/artifacts/schemas/push-operations.schema.json#/$defs/push_gateway_submission_outcome`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PushNotifyDeviceOutcome {
+pub struct PushGatewaySubmissionOutcome {
     pub device_id: DeviceId,
     pub gateway_status: PushNotifyGatewayStatus,
     #[serde(default, skip_serializing_if = "Option::is_none")]

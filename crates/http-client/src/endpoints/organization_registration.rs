@@ -1,8 +1,8 @@
 //! Deployment-governed organization registration, independent of Account onboarding.
 use arkret_models_identity::{
     OrganizationRegistrationChallenge, OrganizationRegistrationChallengeRequestBody,
-    OrganizationRegistrationEnsureRequestBody, OrganizationRegistrationOutcome,
-    OrganizationRegistrationRefreshRequestBody, OrganizationRegistrationRevokeRequestBody,
+    OrganizationRegistrationEnsureRequestBody, OrganizationRegistrationRefreshRequestBody,
+    OrganizationRegistrationResponseBody, OrganizationRegistrationRevokeRequestBody,
     OrganizationRegistrationStatus,
 };
 use arkret_wire::DidCoreId;
@@ -32,9 +32,9 @@ impl Client {
     pub async fn organization_registration_ensure(
         &self,
         request: &OrganizationRegistrationEnsureRequestBody,
-    ) -> Result<OrganizationRegistrationOutcome> {
+    ) -> Result<OrganizationRegistrationResponseBody> {
         request.validate()?;
-        let outcome: OrganizationRegistrationOutcome =
+        let outcome: OrganizationRegistrationResponseBody =
             self.post(&format!("{BASE}:ensure"), request).await?;
         validate_organization(&outcome, &request.organization_id)?;
         let receipt = &outcome.registration_receipt;
@@ -55,11 +55,11 @@ impl Client {
     pub async fn organization_registration_get(
         &self,
         organization: &DidCoreId,
-    ) -> Result<OrganizationRegistrationOutcome> {
+    ) -> Result<OrganizationRegistrationResponseBody> {
         let builder = self
             .request(Method::GET, BASE)?
             .query(&[("organization_id", organization.as_str())]);
-        let outcome: OrganizationRegistrationOutcome = self.send_json(builder).await?;
+        let outcome: OrganizationRegistrationResponseBody = self.send_json(builder).await?;
         validate_organization(&outcome, organization)?;
         require_existing(&outcome)?;
         Ok(outcome)
@@ -68,9 +68,9 @@ impl Client {
     pub async fn organization_registration_refresh(
         &self,
         request: &OrganizationRegistrationRefreshRequestBody,
-    ) -> Result<OrganizationRegistrationOutcome> {
+    ) -> Result<OrganizationRegistrationResponseBody> {
         request.validate()?;
-        let outcome: OrganizationRegistrationOutcome =
+        let outcome: OrganizationRegistrationResponseBody =
             self.post(&format!("{BASE}:refresh"), request).await?;
         validate_organization(&outcome, &request.organization_id)?;
         require_existing(&outcome)?;
@@ -100,8 +100,8 @@ impl Client {
     pub async fn organization_registration_revoke(
         &self,
         request: &OrganizationRegistrationRevokeRequestBody,
-    ) -> Result<OrganizationRegistrationOutcome> {
-        let outcome: OrganizationRegistrationOutcome =
+    ) -> Result<OrganizationRegistrationResponseBody> {
+        let outcome: OrganizationRegistrationResponseBody =
             self.post(&format!("{BASE}:revoke"), request).await?;
         validate_organization(&outcome, &request.organization_id)?;
         require_existing(&outcome)?;
@@ -115,7 +115,7 @@ impl Client {
 }
 
 fn validate_organization(
-    outcome: &OrganizationRegistrationOutcome,
+    outcome: &OrganizationRegistrationResponseBody,
     organization: &DidCoreId,
 ) -> Result<()> {
     outcome.validate()?;
@@ -127,7 +127,7 @@ fn validate_organization(
     Ok(())
 }
 
-fn require_existing(outcome: &OrganizationRegistrationOutcome) -> Result<()> {
+fn require_existing(outcome: &OrganizationRegistrationResponseBody) -> Result<()> {
     if outcome.created {
         return Err(Error::Protocol(
             "organization read/lifecycle response cannot create a generation".into(),
@@ -150,7 +150,7 @@ mod tests {
         organization: &str,
         status: OrganizationRegistrationStatus,
         created: bool,
-    ) -> OrganizationRegistrationOutcome {
+    ) -> OrganizationRegistrationResponseBody {
         let did = arkret_wire::Did::new(format!("did:web:{organization}")).unwrap();
         let at = arkret_canonical::normalize_timestamp_canonical(chrono::Utc::now());
         let signer = arkret_signatures::Ed25519DetachedJwsSigner::from_seed(
@@ -175,7 +175,7 @@ mod tests {
         receipt.proof.payload_digest = receipt.expected_payload_digest().unwrap();
         receipt.proof.jws = signer.sign_detached_jws(&receipt.proof_signing_bytes().unwrap());
         receipt.validate().unwrap();
-        OrganizationRegistrationOutcome {
+        OrganizationRegistrationResponseBody {
             registration_receipt: receipt,
             created,
         }

@@ -2,19 +2,19 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/policy.schema.json
-// sha256=6c559727fa0aee139b5bcaaa693f163e205481b92cb712e56ae253a01e130f5d
+// sha256=c62cd7a01272cd4527562d61558b1dc8432ceeaada49397498199e87d4e93269
 //
 // Input: schemas/common-ids.schema.json
-// sha256=14226f0ac83e4d06639ad791cc0e52e0eb1c3b128cd4c8c12308a99b795141e4
+// sha256=0cc25a02fe0d9a94f6e41f2cf8f64e492ba36362f1e69a699cf1e684924837ee
 //
 // Input: schemas/event-payload.schema.json
-// sha256=6c0740fab50fcb796331bad41ee632e0602de445969cee69c4962e45dab65b27
+// sha256=74e26ef25ba5846ba74149c301a7ff5c7f1afc507f2cfd207cfe0edc060507bf
 //
-// Input: schemas/typed-current-result.schema.json
-// sha256=af1796a65736414a650ecb791939112f02920d691fd8ee4b9e46397ad70aadbd
+// Input: schemas/current-state.schema.json
+// sha256=feba0ff19e227c276a3792aaed506b6534bf9ff8ce6c2e91a0ab36c04777785f
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=d200bd3e6d76abd1b6154781fb5e54f11fbbc834638cdc29554f83590127fdfa
+// sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
 
 /// Counterpart: `policy.schema.json#/$defs/policy_rule/properties/resources/items`.
 /// Resource selector from `policy.schema.json#/$defs/policy_rule/properties/resources/items`.
@@ -88,7 +88,7 @@ pub struct PolicyRule {
         skip_serializing_if = "Option::is_none",
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
-    pub params: Option<BTreeMap<String, Value>>,
+    pub parameters: Option<BTreeMap<String, Value>>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
@@ -157,7 +157,7 @@ pub struct PolicyServerSelector {
 /// Counterpart for
 /// `event-payload.schema.json#/$defs/policy_set_state_payload`.
 ///
-/// `policy_id` is the stable subject of the Policy typed current result, so
+/// `policy_id` is the stable subject of the Policy current state, so
 /// repeated `ak.policy.set` Events under the same `policy_id` converge on one
 /// document rather than accumulating versions. There is no cell head, basis or
 /// version member on the wire. Agent and Applet governance policies carry a required

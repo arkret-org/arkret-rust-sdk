@@ -1,12 +1,12 @@
 //! Typed MLS historical authority operations.
 
 use arkret_models_collaboration::mls_group_state_material::{
-    MlsGroupStateMaterialOutcome, MlsGroupStateMaterialRequestBody,
+    MlsGroupStateMaterialRequestBody, MlsGroupStateMaterialResponseBody,
     MlsMemberGroupStateMaterialReadRequestBody,
 };
 use arkret_models_collaboration::mls_roster_authority::{
-    MlsAttestAddOutcome, MlsAttestAddRequestBody, MlsMemberRosterAuthorityReadRequestBody,
-    MlsRosterAuthorityReadOutcome, MlsRosterAuthorityReadRequestBody,
+    MlsAttestAddRequestBody, MlsAttestAddResponseBody, MlsMemberRosterAuthorityReadRequestBody,
+    MlsRosterAuthorityReadRequestBody, MlsRosterAuthorityReadResponseBody,
 };
 use arkret_wire::{
     PATH_PEER_MLS_ATTEST_ADD, PATH_PEER_MLS_GROUP_STATE_MATERIAL, PATH_PEER_MLS_ROSTER_AUTHORITY,
@@ -21,9 +21,9 @@ impl Client {
     pub async fn self_mls_group_state_material(
         &self,
         request: &MlsMemberGroupStateMaterialReadRequestBody,
-    ) -> Result<MlsGroupStateMaterialOutcome> {
+    ) -> Result<MlsGroupStateMaterialResponseBody> {
         request.validate()?;
-        let outcome: MlsGroupStateMaterialOutcome = self
+        let outcome: MlsGroupStateMaterialResponseBody = self
             .post(PATH_SELF_MLS_GROUP_STATE_MATERIAL, request)
             .await?;
         outcome.validate_for_request(&request.as_peer_request())?;
@@ -34,9 +34,9 @@ impl Client {
     pub async fn peer_mls_group_state_material(
         &self,
         request: &MlsGroupStateMaterialRequestBody,
-    ) -> Result<MlsGroupStateMaterialOutcome> {
+    ) -> Result<MlsGroupStateMaterialResponseBody> {
         request.validate()?;
-        let outcome: MlsGroupStateMaterialOutcome = self
+        let outcome: MlsGroupStateMaterialResponseBody = self
             .post(PATH_PEER_MLS_GROUP_STATE_MATERIAL, request)
             .await?;
         outcome.validate_for_request(request)?;
@@ -48,7 +48,7 @@ impl Client {
     pub async fn peer_mls_attest_add(
         &self,
         request: &MlsAttestAddRequestBody,
-    ) -> Result<MlsAttestAddOutcome> {
+    ) -> Result<MlsAttestAddResponseBody> {
         request.validate_claim_binding()?;
         self.post(PATH_PEER_MLS_ATTEST_ADD, request).await
     }
@@ -57,7 +57,7 @@ impl Client {
     pub async fn peer_mls_roster_authority(
         &self,
         request: &MlsRosterAuthorityReadRequestBody,
-    ) -> Result<MlsRosterAuthorityReadOutcome> {
+    ) -> Result<MlsRosterAuthorityReadResponseBody> {
         request.validate()?;
         self.post(PATH_PEER_MLS_ROSTER_AUTHORITY, request).await
     }
@@ -66,8 +66,9 @@ impl Client {
     pub async fn self_mls_roster_authority(
         &self,
         request: &MlsMemberRosterAuthorityReadRequestBody,
-    ) -> Result<arkret_models_collaboration::mls_roster_authority::MlsSelfRosterAuthorityReadOutcome>
-    {
+    ) -> Result<
+        arkret_models_collaboration::mls_roster_authority::MlsSelfRosterAuthorityReadResponseBody,
+    > {
         request.validate()?;
         self.post(PATH_SELF_MLS_ROSTER_AUTHORITY, request).await
     }

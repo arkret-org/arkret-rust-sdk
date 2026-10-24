@@ -2,10 +2,10 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/keys-operations.schema.json
-// sha256=7b2ab2fcc54cc4793219390b42ce66dfe5795261539ded2dd6ecdf5c5c1ea9b0
+// sha256=6a6d75cafdfdf31a3799e91801801469d6895a108d853e2b022b7a17480337e0
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=d200bd3e6d76abd1b6154781fb5e54f11fbbc834638cdc29554f83590127fdfa
+// sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
 
 /// Counterpart:
 /// `keys-operations.schema.json#/$defs/device_projection_attestation_core/properties/
@@ -83,7 +83,7 @@ pub struct VerifiedDeviceProjection {
 }
 
 /// Counterpart: `keys-operations.schema.json#/$defs/query_device_record`.
-/// Per-`(account_id, device_id)` entry in [`KeysQueryOutcome::device_keys`],
+/// Per-`(account_id, device_id)` entry in [`KeysQueryResponseBody::device_keys`],
 /// the client-facing self surface.
 ///
 /// Every field is required. A device whose generation is fenced or conflicted,
@@ -107,7 +107,7 @@ pub struct QueryDeviceRecord {
 
 /// Counterpart: `keys-operations.schema.json#/$defs/peer_query_device_record`.
 /// Per-`(account_id, device_id)` entry in
-/// [`PeerKeysQueryOutcome::device_keys`], the Station-to-Station surface.
+/// [`PeerKeysQueryResponseBody::device_keys`], the Station-to-Station surface.
 ///
 /// Every returned row is complete and attested: the origin Station signs the
 /// exact projection, so the requesting Station can verify the row itself. A
@@ -158,6 +158,8 @@ pub struct AccountDeviceEventAuthorization {
     pub authorization_ref: arkret_wire::CommittedEventRef,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub revision: arkret_wire::CurrentRevision,
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
     pub governance_generation: u64,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,

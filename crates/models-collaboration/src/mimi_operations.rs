@@ -60,7 +60,7 @@ impl MimiRoomUpdateRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct MimiRoomUpdateOutcome {
+pub struct MimiRoomUpdateResponseBody {
     pub accepted: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub room_state_ref: Option<EventId>,
@@ -71,7 +71,7 @@ pub struct MimiRoomUpdateOutcome {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct MimiNotifyOutcome {
+pub struct MimiNotifyResponseBody {
     pub accepted: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = u64)))]
@@ -270,7 +270,7 @@ impl MimiReportAbuseRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct MimiReportAbuseOutcome {
+pub struct MimiReportAbuseResponseBody {
     pub report_id: ReportId,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub routed_to_ids: Vec<DidCoreId>,
@@ -428,7 +428,7 @@ impl MimiUpdateConsentRequestBody {
         &self,
         peer: &ActorId,
         scope: arkret_wire::ConsentScope,
-        current: Option<&crate::call_invitation::ConsentCurrentRow>,
+        current: Option<&crate::call_invitation::CurrentConsent>,
     ) -> Result<()> {
         use crate::events_payloads::consent::{
             ConsentExpectedCurrent, ConsentPeer, ConsentReplacePayload,
@@ -829,7 +829,7 @@ mod tests {
         use arkret_wire::{CommitStreamRef, ConsentScope, CurrentRevision, RealmCommitId};
 
         use crate::call_invitation::{
-            ConsentCurrentRow, ConsentCurrentSelector, ConsentCurrentSelectorKind,
+            ConsentCurrentSelector, ConsentCurrentSelectorKind, CurrentConsent,
         };
         use crate::consent_operations::ConsentValue;
 
@@ -852,7 +852,7 @@ mod tests {
                     "permissions":permissions
                 }),
             );
-            let current = ConsentCurrentRow {
+            let current = CurrentConsent {
                 selector: ConsentCurrentSelector {
                     kind: ConsentCurrentSelectorKind::Consent,
                     peer_id: peer.clone(),
@@ -880,7 +880,7 @@ mod tests {
         use arkret_wire::{CommitStreamRef, ConsentScope, CurrentRevision, RealmCommitId};
 
         use crate::call_invitation::{
-            ConsentCurrentRow, ConsentCurrentSelector, ConsentCurrentSelectorKind,
+            ConsentCurrentSelector, ConsentCurrentSelectorKind, CurrentConsent,
         };
         use crate::consent_operations::ConsentValue;
         let mut request: MimiUpdateConsentRequestBody =
@@ -891,7 +891,7 @@ mod tests {
             commit_id: RealmCommitId::from_digest([17; 32]),
             stream_position: 7,
         };
-        let current=ConsentCurrentRow{selector:ConsentCurrentSelector{kind:ConsentCurrentSelectorKind::Consent,peer_id:peer.clone()},source_stream_ref:CommitStreamRef::Realm{realm_id:request.consent_event.event.realm_id.clone()},revision:revision.clone(),value:ConsentValue{permissions:serde_json::from_value(json!([{"consent_scope":"voice_call","expires_at":"2020-01-01T00:00:00.000Z"},{"consent_scope":"presence","constraints":[],"reason":""}])).unwrap()}};
+        let current=CurrentConsent{selector:ConsentCurrentSelector{kind:ConsentCurrentSelectorKind::Consent,peer_id:peer.clone()},source_stream_ref:CommitStreamRef::Realm{realm_id:request.consent_event.event.realm_id.clone()},revision:revision.clone(),value:ConsentValue{permissions:serde_json::from_value(json!([{"consent_scope":"voice_call","expires_at":"2020-01-01T00:00:00.000Z"},{"consent_scope":"presence","constraints":[],"reason":""}])).unwrap()}};
         let replacement = |permissions: Value| json!({"peer":{"kind":"actor","actor_id":peer},"expected_current":{"state":"present","revision":revision},"permissions":permissions});
         request.consent_event = consent_event(
             EventKind::ConsentReplace,
@@ -988,14 +988,14 @@ mod tests {
 // mimi-operations.schema.json#/$defs/mimi_submit_message_request_body.
 
 // Counterpart for
-// `mimi-operations.schema.json#/$defs/mimi_submit_message_outcome`.
+// `mimi-operations.schema.json#/$defs/mimi_submit_message_response_body`.
 //
 // `event_ref` is present only when the submission also produced an Arkret
 // Event; a pure outbound relay reports delivery without one.
 // Field declaration order is byte-for-byte the properties order of
-// mimi-operations.schema.json#/$defs/mimi_submit_message_outcome.
+// mimi-operations.schema.json#/$defs/mimi_submit_message_response_body.
 
-impl MimiSubmitMessageOutcome {
+impl MimiSubmitMessageResponseBody {
     /// `accepted` and `rejected` are total statements about the same fan-out,
     /// so neither can be reported together with evidence of the other.
     pub fn validate(&self) -> Result<()> {
@@ -1101,15 +1101,15 @@ impl MimiIdentifierQueryRequestBody {
 }
 
 // Counterpart for
-// `mimi-operations.schema.json#/$defs/mimi_identifier_query_outcome`.
+// `mimi-operations.schema.json#/$defs/mimi_identifier_query_response_body`.
 //
 // The outcome is a proof-carrying object: its registered proof context is
 // `ak.mimi_identifier_query_outcome_proof.v1`, and the signed transcript is
 // the canonical body with `proofs` removed.
 // Field declaration order is byte-for-byte the properties order of
-// mimi-operations.schema.json#/$defs/mimi_identifier_query_outcome.
+// mimi-operations.schema.json#/$defs/mimi_identifier_query_response_body.
 
-impl MimiIdentifierQueryOutcome {
+impl MimiIdentifierQueryResponseBody {
     pub fn unsigned_payload(&self) -> Result<Value> {
         mimi_unsigned_body_without_proofs(self)
     }
@@ -1155,13 +1155,13 @@ pub struct MimiProxyDownloadRequestBody {
 }
 
 // Counterpart for
-// `mimi-operations.schema.json#/$defs/mimi_proxy_download_outcome`.
+// `mimi-operations.schema.json#/$defs/mimi_proxy_download_response_body`.
 //
 // Operation `ak.open.mimi.command.proxy_download.v1`. `download_ref` is the
 // provider's own opaque handle; the SDK never interprets it as a URL or as a
 // typed Arkret identifier.
 // Field declaration order is byte-for-byte the properties order of
-// mimi-operations.schema.json#/$defs/mimi_proxy_download_outcome.
+// mimi-operations.schema.json#/$defs/mimi_proxy_download_response_body.
 
 #[cfg(test)]
 mod mimi_relay_tests {
@@ -1274,7 +1274,7 @@ mod mimi_relay_tests {
                 "payload": "Y2lwaGVydGV4dA"
             },
             "mls_group_id": "QjKOSorlqs3IquY7OikTUTy_Z0mMiL0X2mK4jAOT4R4",
-            "epoch": 7,
+            "epoch": "7",
             "associated_data": {
                 "content_type": "application/octet-stream",
                 "payload_digest": DIGEST
@@ -1355,7 +1355,7 @@ mod mimi_relay_tests {
 
     #[test]
     fn submit_outcome_round_trips_in_schema_property_order() {
-        let outcome: MimiSubmitMessageOutcome =
+        let outcome: MimiSubmitMessageResponseBody =
             serde_json::from_value(submit_outcome_value()).unwrap();
         assert_eq!(outcome.delivery.status, MimiDeliveryStatus::Partial);
         assert_eq!(outcome.rejections.len(), 1);
@@ -1370,10 +1370,10 @@ mod mimi_relay_tests {
     fn delivery_is_the_only_required_outcome_member() {
         let mut missing = submit_outcome_value();
         missing.as_object_mut().unwrap().remove("delivery");
-        assert!(serde_json::from_value::<MimiSubmitMessageOutcome>(missing).is_err());
+        assert!(serde_json::from_value::<MimiSubmitMessageResponseBody>(missing).is_err());
 
         let relayed_only = json!({ "delivery": { "status": "accepted" } });
-        let outcome: MimiSubmitMessageOutcome =
+        let outcome: MimiSubmitMessageResponseBody =
             serde_json::from_value(relayed_only.clone()).unwrap();
         outcome.validate().unwrap();
         assert!(outcome.event_ref.is_none());
@@ -1387,7 +1387,7 @@ mod mimi_relay_tests {
             .as_object_mut()
             .unwrap()
             .insert("status".to_owned(), json!("accepted"));
-        let outcome: MimiSubmitMessageOutcome = serde_json::from_value(accepted).unwrap();
+        let outcome: MimiSubmitMessageResponseBody = serde_json::from_value(accepted).unwrap();
         assert!(outcome.validate().is_err());
 
         let mut rejected = submit_outcome_value();
@@ -1395,7 +1395,7 @@ mod mimi_relay_tests {
             .as_object_mut()
             .unwrap()
             .insert("status".to_owned(), json!("rejected"));
-        let outcome: MimiSubmitMessageOutcome = serde_json::from_value(rejected).unwrap();
+        let outcome: MimiSubmitMessageResponseBody = serde_json::from_value(rejected).unwrap();
         assert!(outcome.validate().is_err());
     }
 
@@ -1413,7 +1413,7 @@ mod mimi_relay_tests {
 
     #[test]
     fn identifier_outcome_round_trips_and_binds_its_own_proof_context() {
-        let outcome: MimiIdentifierQueryOutcome =
+        let outcome: MimiIdentifierQueryResponseBody =
             serde_json::from_value(identifier_outcome_value()).unwrap();
         assert_eq!(outcome.matches.len(), 1);
         assert!(!outcome.has_more);
@@ -1442,7 +1442,7 @@ mod mimi_relay_tests {
 
     #[test]
     fn the_identifier_outcome_transcript_excludes_its_own_proofs() {
-        let mut outcome: MimiIdentifierQueryOutcome =
+        let mut outcome: MimiIdentifierQueryResponseBody =
             serde_json::from_value(identifier_outcome_value()).unwrap();
         let without_proofs = outcome.payload_digest().unwrap();
         outcome.proofs.push(PayloadProof {
@@ -1468,23 +1468,23 @@ mod mimi_relay_tests {
     fn identifier_outcome_requires_has_more() {
         let mut missing = identifier_outcome_value();
         missing.as_object_mut().unwrap().remove("has_more");
-        assert!(serde_json::from_value::<MimiIdentifierQueryOutcome>(missing).is_err());
+        assert!(serde_json::from_value::<MimiIdentifierQueryResponseBody>(missing).is_err());
     }
 
     fn proxy_outcome_value() -> Value {
         json!({
             "download_ref": "provider-download-1",
-            "headers": { "content-type": "application/octet-stream" },
+            "download_request_headers": { "content-type": "application/octet-stream" },
             "expires_at": "2026-09-16T00:05:00.000Z"
         })
     }
 
     #[test]
     fn proxy_download_outcome_round_trips_in_schema_property_order() {
-        let outcome: MimiProxyDownloadOutcome =
+        let outcome: MimiProxyDownloadResponseBody =
             serde_json::from_value(proxy_outcome_value()).unwrap();
         assert_eq!(outcome.download_ref.as_str(), "provider-download-1");
-        assert_eq!(outcome.headers.len(), 1);
+        assert_eq!(outcome.download_request_headers.len(), 1);
         assert!(outcome.expires_at.is_some());
         assert_eq!(
             serde_json::to_value(&outcome).unwrap(),
@@ -1496,10 +1496,11 @@ mod mimi_relay_tests {
     fn download_ref_is_the_only_required_proxy_member() {
         let mut missing = proxy_outcome_value();
         missing.as_object_mut().unwrap().remove("download_ref");
-        assert!(serde_json::from_value::<MimiProxyDownloadOutcome>(missing).is_err());
+        assert!(serde_json::from_value::<MimiProxyDownloadResponseBody>(missing).is_err());
 
         let minimal = json!({ "download_ref": "provider-download-1" });
-        let outcome: MimiProxyDownloadOutcome = serde_json::from_value(minimal.clone()).unwrap();
+        let outcome: MimiProxyDownloadResponseBody =
+            serde_json::from_value(minimal.clone()).unwrap();
         assert_eq!(serde_json::to_value(&outcome).unwrap(), minimal);
 
         let mut empty_ref = proxy_outcome_value();
@@ -1507,24 +1508,24 @@ mod mimi_relay_tests {
             .as_object_mut()
             .unwrap()
             .insert("download_ref".to_owned(), json!(""));
-        assert!(serde_json::from_value::<MimiProxyDownloadOutcome>(empty_ref).is_err());
+        assert!(serde_json::from_value::<MimiProxyDownloadResponseBody>(empty_ref).is_err());
     }
 
     #[test]
     fn proxy_download_header_values_are_non_empty_and_timestamps_canonical() {
         let mut empty_header = proxy_outcome_value();
-        empty_header["headers"]
+        empty_header["download_request_headers"]
             .as_object_mut()
             .unwrap()
             .insert("content-type".to_owned(), json!(""));
-        assert!(serde_json::from_value::<MimiProxyDownloadOutcome>(empty_header).is_err());
+        assert!(serde_json::from_value::<MimiProxyDownloadResponseBody>(empty_header).is_err());
 
         let mut loose = proxy_outcome_value();
         loose
             .as_object_mut()
             .unwrap()
             .insert("expires_at".to_owned(), json!("2026-09-16T00:05:00Z"));
-        assert!(serde_json::from_value::<MimiProxyDownloadOutcome>(loose).is_err());
+        assert!(serde_json::from_value::<MimiProxyDownloadResponseBody>(loose).is_err());
     }
 
     #[test]

@@ -5,13 +5,13 @@
 //! exclusively by the governance Station's [`RealmCommit`] records.
 
 pub use arkret_wire::{
-    AuthorityBundleRequest, AuthorityCommitStatus, AuthorityRejectionStatus,
-    AuthoritySubmitOutcome, AuthoritySubmitRequest, CommitStreamHead, CommitStreamRef,
-    CommittedEventFullView, CommittedEventRef, CommittedEventView, CommittedEventWithheldView,
-    EventAdmissionSubmission, EventDisclosure, EventDisclosureStatus, RealmAuthorityBundle,
+    AuthorityCommitStatus, AuthorityRejectionStatus, AuthoritySubmitRequestBody,
+    AuthoritySubmitResponseBody, CommitStreamHead, CommitStreamRef, CommittedEventFullView,
+    CommittedEventRef, CommittedEventView, CommittedEventWithheldView, EventAdmissionSubmission,
+    EventDisclosure, EventDisclosureStatus, RealmAuthorityBundle, RealmAuthorityBundleRequestBody,
     RealmAuthorityCurrentAssertion, RealmAuthorityHandoff, RealmAuthorityTransition, RealmCommit,
     RealmCommitAuthorityRef, RealmStateSnapshot, RetentionAndHistoryFloor, StreamHistoryFloor,
-    StreamScanOutcome, StreamScanRequest,
+    StreamScanRequestBody, StreamScanResponseBody,
 };
 
-pub use crate::authority_commit::AuthorityHandoffRequest;
+pub use crate::authority_commit::AuthorityRealmAuthorityHandoffRequestBody;

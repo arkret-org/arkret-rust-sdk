@@ -1,13 +1,12 @@
 //! Request/cut consistency only; these fixtures do not claim live installation admission.
 
 use arkret_models_collaboration::applet_installation_authority::{
-    AppletAuthorityMaterialOutcome, AppletAuthorityMaterialRequestBody, AppletCommittedEvent,
+    AppletAuthorityMaterialRequestBody, AppletAuthorityMaterialResponseBody, AppletCommittedEvent,
     AppletInstallationCurrentBinding,
 };
-use arkret_models_collaboration::exact_current_results::{
-    CapabilityGrantExactCurrentRow, CapabilityGrantExactCurrentSelector,
-    CapabilityGrantExactCurrentSelectorKind, ExactCurrentResultEntry,
-    ExactCurrentResultsReadOutcome,
+use arkret_models_collaboration::exact_current_state::{
+    CapabilityGrantExactCurrentSelector, CapabilityGrantExactCurrentSelectorKind,
+    CurrentCapabilityGrant, ExactCurrentStateEntry, ExactCurrentStateReadResponseBody,
 };
 use arkret_models_collaboration::governance::grant_constraint::GrantConstraint;
 use arkret_test_kit::SignedEventFixtureBuilder;
@@ -21,7 +20,7 @@ use serde_json::json;
 fn fixture() -> (
     AppletId,
     AppletAuthorityMaterialRequestBody,
-    AppletAuthorityMaterialOutcome,
+    AppletAuthorityMaterialResponseBody,
 ) {
     let now: DateTime<Utc> = "2026-10-21T01:00:00.000Z".parse().unwrap();
     let applet: AppletId = "ak:applet:01964137-0000-7000-8000-000000000081"
@@ -65,7 +64,7 @@ fn fixture() -> (
         "actions":["ak.message.create"],"resources":[{"kind":"realm","realm_id":realm}],
         "constraints":[GrantConstraint::applet_authority(applet.clone(), service.clone(), format!("sha256:{}","4".repeat(64)).parse().unwrap())],
         "issued_at":arkret_canonical::format_timestamp_canonical(now),
-        "issuer_authority_refs":[{"kind":"realm_root","realm_id":realm,"authority_event_ref":root,"authority_generation":0}],
+        "issuer_authority_refs":[{"kind":"realm_root","realm_id":realm,"authority_event_ref":root,"authority_generation":"0"}],
     });
     let grant = SignedEventFixtureBuilder::new(
         "ak.capability.grant",
@@ -93,7 +92,7 @@ fn fixture() -> (
     value["status"] = json!("active");
     value["authority_depth"] = json!(1);
     value["authority_root_refs"] = value["issuer_authority_refs"].clone();
-    let current = ExactCurrentResultsReadOutcome::Present {
+    let current = ExactCurrentStateReadResponseBody::Present {
         realm_id: realm,
         governance_generation: 0,
         effective_stream_head: CommitStreamHead {
@@ -101,7 +100,7 @@ fn fixture() -> (
             stream_position: 1,
             commit_id: grant_commit.commit_id.clone(),
         },
-        entry: ExactCurrentResultEntry::CapabilityGrant(CapabilityGrantExactCurrentRow {
+        entry: ExactCurrentStateEntry::CapabilityGrant(CurrentCapabilityGrant {
             selector: CapabilityGrantExactCurrentSelector {
                 kind: CapabilityGrantExactCurrentSelectorKind::CapabilityGrant,
                 grant_id: id.clone(),
@@ -114,7 +113,7 @@ fn fixture() -> (
             value: serde_json::from_value(value).unwrap(),
         }),
     };
-    let outcome = AppletAuthorityMaterialOutcome {
+    let outcome = AppletAuthorityMaterialResponseBody {
         applet_id: applet.clone(),
         service_id: "ak:did_core:web:applet.example".parse().unwrap(),
         effective_scope: scope.clone(),
@@ -128,7 +127,7 @@ fn fixture() -> (
             commit: grant_commit,
             producer_device_evidence: None,
         }],
-        current_results: vec![current],
+        current_states: vec![current],
         current_binding: AppletInstallationCurrentBinding::Inactive,
     };
     (
@@ -150,22 +149,22 @@ fn material_read_matches_exact_requested_grants_without_requiring_an_active_inst
         match mutation {
             0 => changed.grant_events.clear(),
             1 => changed
-                .current_results
-                .push(changed.current_results[0].clone()),
+                .current_states
+                .push(changed.current_states[0].clone()),
             2 => {
-                if let ExactCurrentResultsReadOutcome::Present {
-                    entry: ExactCurrentResultEntry::CapabilityGrant(row),
+                if let ExactCurrentStateReadResponseBody::Present {
+                    entry: ExactCurrentStateEntry::CapabilityGrant(row),
                     ..
-                } = &mut changed.current_results[0]
+                } = &mut changed.current_states[0]
                 {
                     row.value.actions = vec!["ak.realm.delete".into()];
                 }
             }
             3 => {
-                if let ExactCurrentResultsReadOutcome::Present {
-                    entry: ExactCurrentResultEntry::CapabilityGrant(row),
+                if let ExactCurrentStateReadResponseBody::Present {
+                    entry: ExactCurrentStateEntry::CapabilityGrant(row),
                     ..
-                } = &mut changed.current_results[0]
+                } = &mut changed.current_states[0]
                 {
                     row.selector.grant_id = GrantId::from_event_id(&EventId::from_digest(
                         arkret_canonical::DigestSuite::Sha256,

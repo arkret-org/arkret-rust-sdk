@@ -1,7 +1,8 @@
 use arkret_models_collaboration::mls_roster_authority::{
     MlsAddAuthorityAttestation, MlsAttestAddRequestBody, MlsRosterAddSigningKeys,
-    MlsRosterAuthorityManifest, MlsRosterAuthorityReadOutcome, MlsRosterAuthorityReadRequestBody,
-    MlsRosterRecord, MlsRosterSigningKey, MlsSelfRosterAuthorityReadOutcome,
+    MlsRosterAuthorityManifest, MlsRosterAuthorityReadRequestBody,
+    MlsRosterAuthorityReadResponseBody, MlsRosterRecord, MlsRosterSigningKey,
+    MlsSelfRosterAuthorityReadResponseBody,
 };
 use arkret_models_crypto::peer_keypackage_claim_receipt_signing_bytes;
 use arkret_models_identity::{AuthenticatedServiceResolution, DidDocument};
@@ -123,7 +124,7 @@ pub fn verify_mls_roster_authority_manifest_signature(
 /// historical Add Station signatures. The caller must still reconcile these
 /// records with accepted Commit/Proposal provenance and RFC public tree bytes.
 pub fn verify_mls_roster_authority_pages(
-    pages: &[MlsRosterAuthorityReadOutcome],
+    pages: &[MlsRosterAuthorityReadResponseBody],
     request: &MlsRosterAuthorityReadRequestBody,
     expected_governance_station: &DidCoreId,
     expected_authority_head_event_ref: &EventId,
@@ -164,7 +165,7 @@ pub fn verify_mls_roster_authority_pages(
 }
 
 fn verify_roster_page_set(
-    pages: &[MlsRosterAuthorityReadOutcome],
+    pages: &[MlsRosterAuthorityReadResponseBody],
     verify_add: impl Fn(&MlsRosterRecord) -> Result<(), WireError>,
 ) -> Result<(), WireError> {
     let first = pages
@@ -196,7 +197,7 @@ fn verify_roster_page_set(
         }
         records.extend(page.records.iter());
     }
-    if records.len() as u64 != first.manifest.total_records {
+    if records.len() as u64 != first.manifest.total_record_count {
         return Err(WireError::Protocol(
             "MLS roster record count mismatch".to_owned(),
         ));
@@ -291,9 +292,9 @@ fn station_signing_key(
         .map_err(roster_error)?;
     Ok(MlsRosterSigningKey {
         verification_method: method,
-        public_key_b64u: arkret_wire::Base64UrlString::new(arkret_canonical::base64url_encode(
-            public_key,
-        ))
+        public_key_base64url: arkret_wire::Base64UrlString::new(
+            arkret_canonical::base64url_encode(public_key),
+        )
         .map_err(roster_error)?,
     })
 }
@@ -301,12 +302,12 @@ fn station_signing_key(
 /// Server-side projection after full historical Station verification. The
 /// original signed page and every frozen closure remain unchanged.
 pub fn project_mls_self_roster_authority_page(
-    page: MlsRosterAuthorityReadOutcome,
+    page: MlsRosterAuthorityReadResponseBody,
     request: &MlsRosterAuthorityReadRequestBody,
     governance: &DidCoreId,
     expected_head: &EventId,
     resolution: &AuthenticatedServiceResolution,
-) -> Result<MlsSelfRosterAuthorityReadOutcome, WireError> {
+) -> Result<MlsSelfRosterAuthorityReadResponseBody, WireError> {
     verify_mls_roster_authority_manifest_signature(
         &page.manifest,
         request,
@@ -364,7 +365,7 @@ pub fn project_mls_self_roster_authority_page(
             });
         }
     }
-    let result = MlsSelfRosterAuthorityReadOutcome {
+    let result = MlsSelfRosterAuthorityReadResponseBody {
         roster: page,
         manifest_signing_key,
         add_signing_keys,
@@ -402,10 +403,10 @@ fn verify_self_station_signature(
             "self MLS signing key differs from original signer",
         ));
     }
-    let public =
-        arkret_canonical::base64url_decode(key.public_key_b64u.as_str()).map_err(roster_error)?;
+    let public = arkret_canonical::base64url_decode(key.public_key_base64url.as_str())
+        .map_err(roster_error)?;
     if public.len() != 32
-        || arkret_canonical::base64url_encode(&public) != key.public_key_b64u.as_str()
+        || arkret_canonical::base64url_encode(&public) != key.public_key_base64url.as_str()
     {
         return Err(roster_error("self MLS key is not canonical Ed25519"));
     }
@@ -427,7 +428,7 @@ fn verify_self_station_signature(
 /// Consume selectors returned by the caller's durably authenticated own
 /// Station. This is not a portable proof or a native history verifier.
 pub fn verify_mls_member_roster_authority_pages(
-    pages: &[MlsSelfRosterAuthorityReadOutcome],
+    pages: &[MlsSelfRosterAuthorityReadResponseBody],
     request: &arkret_models_collaboration::mls_roster_authority::MlsMemberRosterAuthorityReadRequestBody,
 ) -> Result<MlsRosterAuthorityReadRequestBody, WireError> {
     let manifest = &pages
@@ -447,7 +448,7 @@ pub fn verify_mls_member_roster_authority_pages(
 }
 
 pub fn verify_mls_self_roster_authority_pages(
-    pages: &[MlsSelfRosterAuthorityReadOutcome],
+    pages: &[MlsSelfRosterAuthorityReadResponseBody],
     request: &MlsRosterAuthorityReadRequestBody,
     governance: &DidCoreId,
     expected_head: &EventId,
@@ -519,12 +520,12 @@ pub fn verify_mls_self_roster_authority_pages(
 /// Exact self-wrapper budget for deterministic governance page partitioning.
 /// Public Ed25519 keys all have the same 43-character canonical encoding.
 pub fn mls_self_roster_authority_page_encoded_size(
-    page: &MlsRosterAuthorityReadOutcome,
+    page: &MlsRosterAuthorityReadResponseBody,
 ) -> Result<usize, WireError> {
     let key = |signature: &arkret_models_crypto::KeyOperationSignature| -> Result<MlsRosterSigningKey, WireError> {
         Ok(MlsRosterSigningKey {
             verification_method: DidUrl::new(signature.kid.as_str()).map_err(roster_error)?,
-            public_key_b64u: arkret_wire::Base64UrlString::new("A".repeat(43)).map_err(roster_error)?,
+            public_key_base64url: arkret_wire::Base64UrlString::new("A".repeat(43)).map_err(roster_error)?,
         })
     };
     let add_signing_keys = page
@@ -548,7 +549,7 @@ pub fn mls_self_roster_authority_page_encoded_size(
             })
         })
         .collect::<Result<Vec<_>, WireError>>()?;
-    arkret_canonical::canonical_json_bytes(&MlsSelfRosterAuthorityReadOutcome {
+    arkret_canonical::canonical_json_bytes(&MlsSelfRosterAuthorityReadResponseBody {
         roster: page.clone(),
         manifest_signing_key: key(&page.manifest.signature)?,
         add_signing_keys,
@@ -573,7 +574,7 @@ mod roster_bindings {
 
     use arkret_mls::MlsVerifiedLeafBinding;
     use arkret_models_collaboration::mls_group_state_material::{
-        MlsGroupStateMaterialOutcome, MlsMemberGroupStateMaterialReadRequestBody,
+        MlsGroupStateMaterialResponseBody, MlsMemberGroupStateMaterialReadRequestBody,
     };
     use arkret_models_crypto::MlsEndpointIdentity;
     use arkret_wire::MlsWelcomeRecipientEndpoint;
@@ -605,12 +606,12 @@ mod roster_bindings {
     /// accepted target/current cut, not from a Welcome or an untrusted page.
     pub fn install_verified_mls_roster_bindings(
         group: &mut crate::mls::ArkretMlsGroup,
-        pages: &[MlsRosterAuthorityReadOutcome],
+        pages: &[MlsRosterAuthorityReadResponseBody],
         request: &MlsRosterAuthorityReadRequestBody,
         expected_governance: &DidCoreId,
         expected_head: &EventId,
         governance_resolution: &AuthenticatedServiceResolution,
-        material: &MlsGroupStateMaterialOutcome,
+        material: &MlsGroupStateMaterialResponseBody,
     ) -> Result<(), String> {
         verify_mls_roster_authority_pages(
             pages,
@@ -625,9 +626,9 @@ mod roster_bindings {
 
     pub fn install_verified_mls_self_roster_bindings(
         group: &mut crate::mls::ArkretMlsGroup,
-        pages: &[MlsSelfRosterAuthorityReadOutcome],
+        pages: &[MlsSelfRosterAuthorityReadResponseBody],
         request: &arkret_models_collaboration::mls_roster_authority::MlsMemberRosterAuthorityReadRequestBody,
-        material: &MlsGroupStateMaterialOutcome,
+        material: &MlsGroupStateMaterialResponseBody,
     ) -> Result<(), String> {
         let peer = verify_mls_member_roster_authority_pages(pages, request)
             .map_err(|error| format!("verify own-Station MLS roster: {error}"))?;
@@ -640,9 +641,9 @@ mod roster_bindings {
 
     fn install_roster_bindings_after_verified_signatures(
         group: &mut crate::mls::ArkretMlsGroup,
-        pages: &[MlsRosterAuthorityReadOutcome],
+        pages: &[MlsRosterAuthorityReadResponseBody],
         request: &MlsRosterAuthorityReadRequestBody,
-        material: &MlsGroupStateMaterialOutcome,
+        material: &MlsGroupStateMaterialResponseBody,
     ) -> Result<(), String> {
         if group.scope() != &request.effective_scope
             || group.group_id() != request.mls_group_id
@@ -670,7 +671,7 @@ mod roster_bindings {
             .collect::<Vec<_>>();
         let MlsRosterRecord::Genesis {
             actor_id,
-            leaf_signature_key_b64u,
+            leaf_signature_key_base64url,
             endpoint,
             authorization_event_ref,
             ..
@@ -680,39 +681,39 @@ mod roster_bindings {
         };
         if genesis_leaves.len() != 1
             || genesis_leaves[0].actor_id != *actor_id
-            || genesis_leaves[0].signature_key != *leaf_signature_key_b64u
+            || genesis_leaves[0].signature_key != *leaf_signature_key_base64url
         {
             return Err("signed MLS Genesis leaf differs from RFC public tree".to_owned());
         }
         let mut authorities = vec![authority_from_record(
             &request.realm_id,
             actor_id,
-            leaf_signature_key_b64u,
+            leaf_signature_key_base64url,
             endpoint,
             authorization_event_ref,
         )?];
         for record in records.into_iter().skip(1) {
             let MlsRosterRecord::Add {
-                proposal_wire_b64u,
+                proposal_wire_base64url,
                 attestation,
                 ..
             } = record
             else {
                 return Err("signed MLS roster repeats Genesis".to_owned());
             };
-            let proposal_bytes = crate::base64url_decode(proposal_wire_b64u.as_str())
+            let proposal_bytes = crate::base64url_decode(proposal_wire_base64url.as_str())
                 .map_err(|error| format!("decode signed MLS Add Proposal: {error}"))?;
             let proposal = crate::mls::verify_add_proposal_leaf(&proposal_bytes)
                 .map_err(|error| format!("verify signed MLS Add Proposal: {error}"))?;
             if proposal.actor_id != attestation.actor_id
-                || proposal.leaf_signature_key != attestation.leaf_signature_key_b64u
+                || proposal.leaf_signature_key != attestation.leaf_signature_key_base64url
             {
                 return Err("signed MLS Add differs from its RFC KeyPackage leaf".to_owned());
             }
             authorities.push(authority_from_record(
                 &request.realm_id,
                 &attestation.actor_id,
-                &attestation.leaf_signature_key_b64u,
+                &attestation.leaf_signature_key_base64url,
                 &attestation.endpoint,
                 &attestation.authorization_event_ref,
             )?);

@@ -100,17 +100,14 @@ fn bound_payload_required_fields_and_exact_pair_fail_closed() {
 fn binding_value_registry() -> arkret_schema::ProtocolSchemaRegistry {
     let artifacts = arkret_schema_conformance::default_spec_artifacts_dir().unwrap();
     let mut registry = schema_registry_from_spec_artifacts(&artifacts).unwrap();
-    for document in [
-        "event-payload.schema.json",
-        "typed-current-result.schema.json",
-    ] {
+    for document in ["event-payload.schema.json", "current-state.schema.json"] {
         let schema: Value =
             serde_json::from_slice(&fs::read(artifacts.join("schemas").join(document)).unwrap())
                 .unwrap();
         registry.register_reference_document(schema).unwrap();
     }
     let schema: Value = serde_json::from_slice(
-        &fs::read(artifacts.join("schemas/typed-current-result.schema.json")).unwrap(),
+        &fs::read(artifacts.join("schemas/current-state.schema.json")).unwrap(),
     )
     .unwrap();
     registry

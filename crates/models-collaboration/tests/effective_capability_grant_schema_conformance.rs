@@ -4,7 +4,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use arkret_models_collaboration::events_payloads::CapabilityGrantCreateBody;
-use arkret_models_collaboration::governance::authorization::GrantList;
+use arkret_models_collaboration::governance::authorization::EffectiveGrantSnapshot;
 use arkret_models_collaboration::governance::grant_constraint::{
     AuthorityRootRef, CapabilityGrant, IssuerAuthorityRef,
 };
@@ -13,7 +13,7 @@ use arkret_schema_conformance::schema_registry_from_spec_artifacts;
 use serde_json::{Value, json};
 
 const FILE: &str = "service-operation-dtos.schema.json";
-const FRAGMENT: &str = "#/$defs/GrantList";
+const FRAGMENT: &str = "#/$defs/EffectiveGrantSnapshot";
 
 fn artifacts_dir() -> PathBuf {
     arkret_schema_conformance::default_spec_artifacts_dir()
@@ -35,7 +35,7 @@ fn registry() -> ProtocolSchemaRegistry {
         .expect("service operation schema must have an absolute id");
     registry
         .register_fragment("test:grant-list", schema, FRAGMENT)
-        .expect("GrantList fragment must register");
+        .expect("EffectiveGrantSnapshot fragment must register");
     registry
 }
 
@@ -72,7 +72,7 @@ fn grant() -> Value {
             "kind": "realm_root",
             "realm_id": "ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5",
             "authority_event_ref": "ak:event:AR9qVnHK4a0914zPmH5CRZLTjSSV_8ghJKuGGivDaExf",
-            "authority_generation": 0
+            "authority_generation": "0"
         }],
         "issued_at": "2026-09-21T00:00:00.000Z",
         "status": "active"
@@ -98,10 +98,10 @@ fn grant_list_round_trips_the_atomic_typed_row_and_validates_against_spec() {
     let value = grant_list();
     registry()
         .validate_value("test:grant-list", &value)
-        .expect("canonical GrantList must validate against the formal fragment");
+        .expect("canonical EffectiveGrantSnapshot must validate against the formal fragment");
 
-    let parsed: GrantList =
-        serde_json::from_value(value.clone()).expect("SDK must accept the canonical GrantList");
+    let parsed: EffectiveGrantSnapshot = serde_json::from_value(value.clone())
+        .expect("SDK must accept the canonical EffectiveGrantSnapshot");
     assert_eq!(parsed.grants[0].revision.stream_position, 41);
     assert_eq!(serde_json::to_value(parsed).unwrap(), value);
 }
@@ -110,18 +110,18 @@ fn grant_list_round_trips_the_atomic_typed_row_and_validates_against_spec() {
 fn legacy_bare_grants_and_missing_or_untyped_revisions_are_rejected() {
     let mut legacy = grant_list();
     legacy["grants"] = json!([grant()]);
-    assert!(serde_json::from_value::<GrantList>(legacy).is_err());
+    assert!(serde_json::from_value::<EffectiveGrantSnapshot>(legacy).is_err());
 
     let mut missing = grant_list();
     missing["grants"][0]
         .as_object_mut()
         .unwrap()
         .remove("revision");
-    assert!(serde_json::from_value::<GrantList>(missing).is_err());
+    assert!(serde_json::from_value::<EffectiveGrantSnapshot>(missing).is_err());
 
     let mut untyped = grant_list();
     untyped["grants"][0]["revision"] = json!(41);
-    assert!(serde_json::from_value::<GrantList>(untyped).is_err());
+    assert!(serde_json::from_value::<EffectiveGrantSnapshot>(untyped).is_err());
 }
 
 #[test]
@@ -129,18 +129,18 @@ fn list_and_row_are_closed_and_list_metadata_is_required() {
     let mut unknown_row = grant_list();
     unknown_row["grants"][0]["event_id"] =
         json!("ak:event:EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE");
-    assert!(serde_json::from_value::<GrantList>(unknown_row).is_err());
+    assert!(serde_json::from_value::<EffectiveGrantSnapshot>(unknown_row).is_err());
 
     let mut missing_digest = grant_list();
     missing_digest
         .as_object_mut()
         .unwrap()
         .remove("state_digest");
-    assert!(serde_json::from_value::<GrantList>(missing_digest).is_err());
+    assert!(serde_json::from_value::<EffectiveGrantSnapshot>(missing_digest).is_err());
 
     let mut unknown_list = grant_list();
     unknown_list["revision"] = json!({"stream_position": 41});
-    assert!(serde_json::from_value::<GrantList>(unknown_list).is_err());
+    assert!(serde_json::from_value::<EffectiveGrantSnapshot>(unknown_list).is_err());
 
     let mut terminal = grant_list();
     terminal["grants"][0]["grant"]["status"] = json!("relinquished");
@@ -151,7 +151,7 @@ fn list_and_row_are_closed_and_list_metadata_is_required() {
         "the generic nested grant schema deliberately admits lifecycle states"
     );
     assert!(
-        serde_json::from_value::<GrantList>(terminal).is_err(),
+        serde_json::from_value::<EffectiveGrantSnapshot>(terminal).is_err(),
         "the effective-list carrier must enforce the operation's active-only semantics"
     );
 }
@@ -162,7 +162,7 @@ fn realm_root_wire_token_is_closed_and_rejects_legacy_basis() {
         "kind": "realm_root",
         "realm_id": "ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5",
         "authority_event_ref": "ak:event:AR9qVnHK4a0914zPmH5CRZLTjSSV_8ghJKuGGivDaExf",
-        "authority_generation": 0
+        "authority_generation": "0"
     });
     let parsed: IssuerAuthorityRef =
         serde_json::from_value(canonical.clone()).expect("realm_root must deserialize");
@@ -175,7 +175,7 @@ fn realm_root_wire_token_is_closed_and_rejects_legacy_basis() {
         "kind": "realm_authority",
         "realm_id": "ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5",
         "governance_station_id": "ak:did_core:webvh:z6mkstation",
-        "authority_generation": 0,
+        "authority_generation": "0",
         "basis": {
             "event_id": "ak:event:AR9qVnHK4a0914zPmH5CRZLTjSSV_8ghJKuGGivDaExf",
             "commit_id": "ak:realm_commit:ARNRmzDi2r78zveOLmoHOb6AephFMwVuGE1fwXmCoeo4",

@@ -2,13 +2,13 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/moderation-queue-item.schema.json
-// sha256=427e2651ff2bfbdf8db1b6506537df5082dea82a511e237366c7184593e1ef5f
+// sha256=5af8478544c5a82f745571105ee5e8b99b1e99ea96f2d052e6333929e7797df0
 //
 // Input: schemas/time.schema.json
 // sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=d200bd3e6d76abd1b6154781fb5e54f11fbbc834638cdc29554f83590127fdfa
+// sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
 
 /// Counterpart: `moderation-queue-item.schema.json`.
 /// One report item of the moderation queue View

@@ -1,9 +1,9 @@
 //! Push gateway endpoint methods on [`Client`].
 
 use arkret_models_integration::{
-    PushNotifyOutcome, PushNotifyRequestBody, PushRegisterDeviceOutcome,
-    PushRegisterDeviceRequestBody, PushRegistrationHandoffOutcome,
-    PushRegistrationHandoffRequestBody, validate_push_notify_contract_shape,
+    PushNotifyRequestBody, PushNotifyResponseBody, PushRegisterDeviceRequestBody,
+    PushRegisterDeviceResponseBody, PushRegistrationHandoffRequestBody,
+    PushRegistrationHandoffResponseBody, validate_push_notify_contract_shape,
 };
 use arkret_signatures::http_signature::HttpSignatureScenario;
 use arkret_wire::DidCoreId;
@@ -19,7 +19,7 @@ impl Client {
     pub async fn push_register_device(
         &self,
         request: &PushRegisterDeviceRequestBody,
-    ) -> Result<PushRegisterDeviceOutcome> {
+    ) -> Result<PushRegisterDeviceResponseBody> {
         self.post("/_arkret/edge/push/register-device", request)
             .await
     }
@@ -35,7 +35,7 @@ impl Client {
         idempotency_key: &str,
         source_station_id: &DidCoreId,
         destination_gateway_id: &DidCoreId,
-    ) -> Result<PushNotifyOutcome> {
+    ) -> Result<PushNotifyResponseBody> {
         validate_push_notify_contract_shape(request).map_err(Error::Protocol)?;
         crate::client_internals::validate_header_value(HEADER_IDEMPOTENCY_KEY, idempotency_key)?;
         let body = arkret_canonical::canonical::canonical_json_bytes(request)?;
@@ -69,7 +69,7 @@ impl Client {
         request: &PushRegistrationHandoffRequestBody,
         source_station_id: &DidCoreId,
         destination_gateway_id: &DidCoreId,
-    ) -> Result<PushRegistrationHandoffOutcome> {
+    ) -> Result<PushRegistrationHandoffResponseBody> {
         request.validate()?;
         let body = arkret_canonical::canonical::canonical_json_bytes(request)?;
         let builder = self
@@ -136,7 +136,7 @@ mod tests {
         request: &PushRegistrationHandoffRequestBody,
         source: &DidCoreId,
         destination: &DidCoreId,
-    ) -> PushRegistrationHandoffOutcome {
+    ) -> PushRegistrationHandoffResponseBody {
         let stored_at = DateTime::parse_from_rfc3339("2026-09-20T12:34:56Z")
             .unwrap()
             .with_timezone(&Utc);
@@ -162,7 +162,7 @@ mod tests {
             },
         };
         receipt.proof.payload_digest = receipt.expected_payload_digest().unwrap();
-        PushRegistrationHandoffOutcome { receipt }
+        PushRegistrationHandoffResponseBody { receipt }
     }
 
     async fn read_http_request(socket: &mut tokio::net::TcpStream) -> Vec<u8> {
@@ -320,9 +320,11 @@ mod tests {
         let destination = DidCoreId::new("ak:did_core:web:gateway.example").unwrap();
         let target = request.notification.push_target_id.clone().unwrap();
         let device = request.notification.devices[0].device_id.clone();
-        let response_body = serde_json::to_string(&PushNotifyOutcome {
+        let response_body = serde_json::to_string(&PushNotifyResponseBody {
             push_target_id: target.clone(),
-            outcomes: vec![arkret_models_integration::PushNotifyDeviceOutcome::accepted(device)],
+            outcomes: vec![
+                arkret_models_integration::PushGatewaySubmissionOutcome::accepted(device),
+            ],
         })
         .unwrap();
         let capture = tokio::spawn(async move {

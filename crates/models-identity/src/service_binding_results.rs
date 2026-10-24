@@ -42,7 +42,7 @@ fn binding_bytes(value: &impl Serialize, request: bool) -> Result<()> {
 #[serde(deny_unknown_fields)]
 pub struct ServiceSigningKey {
     pub verification_method: DidUrl,
-    pub public_key_b64u: String,
+    pub public_key_base64url: String,
 }
 
 impl ServiceSigningKey {
@@ -61,7 +61,7 @@ impl ServiceSigningKey {
     }
 
     pub fn validate(&self) -> Result<()> {
-        let decoded = arkret_canonical::base64url::base64url_decode(&self.public_key_b64u)
+        let decoded = arkret_canonical::base64url::base64url_decode(&self.public_key_base64url)
             .map_err(|_| {
                 binding_error(
                     ErrorCode::SchemaViolation,
@@ -69,7 +69,7 @@ impl ServiceSigningKey {
                 )
             })?;
         if decoded.len() != 32
-            || arkret_canonical::base64url::base64url_encode(&decoded) != self.public_key_b64u
+            || arkret_canonical::base64url::base64url_encode(&decoded) != self.public_key_base64url
         {
             return Err(binding_error(
                 ErrorCode::SchemaViolation,
@@ -98,7 +98,7 @@ impl MediaServiceBindingRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct MediaServiceBindingOutcome {
+pub struct MediaServiceBindingResponseBody {
     pub request_id: RequestId,
     pub realm_id: RealmId,
     pub route: ServiceResolutionProjection,
@@ -109,7 +109,7 @@ pub struct MediaServiceBindingOutcome {
     pub expires_at: DateTime<Utc>,
 }
 
-impl MediaServiceBindingOutcome {
+impl MediaServiceBindingResponseBody {
     pub fn validate(&self) -> Result<()> {
         binding_bytes(self, false)?;
         self.route.validate()?;
@@ -207,7 +207,7 @@ mod tests {
         assert!(serde_json::from_value::<MediaServiceBindingRequestBody>(extra).is_err());
         let did = Did::new("did:web:issuer.example").unwrap();
         let now = arkret_canonical::normalize_timestamp_canonical(Utc::now());
-        let mut outcome = MediaServiceBindingOutcome {
+        let mut outcome = MediaServiceBindingResponseBody {
             request_id: request.request_id.clone(),
             realm_id: request.realm_id.clone(),
             route: ServiceResolutionProjection {
@@ -221,7 +221,7 @@ mod tests {
             },
             signing_keys: vec![ServiceSigningKey {
                 verification_method: DidUrl::new("did:web:issuer.example#assertion").unwrap(),
-                public_key_b64u: arkret_canonical::base64url_encode([7; 32]),
+                public_key_base64url: arkret_canonical::base64url_encode([7; 32]),
             }],
             observed_at: now,
             expires_at: now + Duration::seconds(300),
@@ -241,7 +241,7 @@ mod tests {
             let mut changed = serde_json::to_value(&outcome).unwrap();
             changed[field] = serde_json::json!({});
             assert!(
-                serde_json::from_value::<MediaServiceBindingOutcome>(changed).is_err(),
+                serde_json::from_value::<MediaServiceBindingResponseBody>(changed).is_err(),
                 "{field}"
             );
         }

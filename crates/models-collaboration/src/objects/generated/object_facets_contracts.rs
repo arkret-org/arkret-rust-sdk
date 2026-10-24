@@ -2,19 +2,19 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/strand.schema.json
-// sha256=857a35af89123d63b0b4248701c9aafe70948538b05b93ba32f41e8c636ae894
+// sha256=6df510ee9e4a7c34c16c911cbd038b5c6f075e682853835bdb524b0f282b1c6a
 //
 // Input: schemas/morph.schema.json
-// sha256=56302af44cf962e007b3255541fc755179ed6bb82b93ee3beb36d3ab551e94cb
+// sha256=b3cac6f2589c477119aadd54227858dbe16aa35dae1b4fd1047ce6afd0aec24f
 //
 // Input: schemas/encrypted-envelope.schema.json
-// sha256=5f2752ea44fd1fbc9de2b85e1d89524b11ee593a43ddc700d52484230e874397
+// sha256=a0f5bb09fcb5ae9612cd3a27c533f4bf7dfa29f0b19aa178443af54fa4817c10
 //
 // Input: schemas/circle.schema.json
-// sha256=25bff113919d1ad9f0598ef42a06d6f190fd184d9110513ef58d6885d15cdf78
+// sha256=6100d0f9ad68406bc14b96bd5a24ac8976468c6b5f0c4cd2d3e8802be64caa6c
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=d200bd3e6d76abd1b6154781fb5e54f11fbbc834638cdc29554f83590127fdfa
+// sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
 
 /// Counterpart: `strand.schema.json#/$defs/strand_track`.
 /// Counterpart for `spec/v1/artifacts/schemas/strand.schema.json#/$defs/strand_track`.

@@ -47,19 +47,19 @@ fn holder(station: &ServiceIdentityFixture) -> AccountId {
     )
 }
 
-fn client(station: &ServiceIdentityFixture) -> (OwnStationResultClient, Arc<Source>) {
+fn client(station: &ServiceIdentityFixture) -> (OwnStationStateClient, Arc<Source>) {
     client_at(station, "https://station.example/".into())
 }
 
 fn client_at(
     station: &ServiceIdentityFixture,
     base_url: String,
-) -> (OwnStationResultClient, Arc<Source>) {
+) -> (OwnStationStateClient, Arc<Source>) {
     let binding = arkret_models_discovery::StationConnectionBinding {
         service_id: station.service_id.clone(),
         base_url,
         trust_domain: "ak:trust_domain:station.example".parse().unwrap(),
-        auth_metadata: arkret_models_discovery::AuthMetadata::minimal(),
+        authentication_metadata: arkret_models_discovery::AuthenticationMetadata::minimal(),
     };
     let snapshot = OwnStationSessionSnapshot::new(
         binding.clone(),
@@ -78,7 +78,7 @@ fn client_at(
         .build()
         .unwrap();
     (
-        OwnStationResultClient::new(raw, binding, source.clone()).unwrap(),
+        OwnStationStateClient::new(raw, binding, source.clone()).unwrap(),
         source,
     )
 }
@@ -159,10 +159,10 @@ fn outcome(
     request: &ConsentCurrentReadRequestBody,
     realm: &RealmId,
     generation: u64,
-) -> ConsentCurrentReadOutcome {
+) -> ConsentCurrentReadResponseBody {
     let mut outcome = serde_json::from_value(json!({
         "request_digest":arkret_models_collaboration::call_invitation::canonical_request_digest(request).unwrap(),
-        "realm_id":realm,"governance_generation":generation,
+        "realm_id":realm,"governance_generation":(generation).to_string(),
         "effective_stream_head":{"stream_ref":{"kind":"realm","realm_id":realm},
             "stream_position":2,"commit_id":arkret_wire::RealmCommitId::from_digest([47;32])},
         "current":{"state":"never_written"},

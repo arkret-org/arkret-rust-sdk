@@ -161,7 +161,7 @@ pub fn fresh_stream_nonce_prefix() -> Result<[u8; NONCE_PREFIX_LEN]> {
 /// Incremental producer with no plaintext or ciphertext accumulation.
 pub struct StreamEncryptor {
     cipher: XChaCha20Poly1305,
-    params: StreamEncryptParams,
+    parameters: StreamEncryptParams,
     prefix: [u8; NONCE_PREFIX_LEN],
     prefix_b64: String,
     epoch: u64,
@@ -176,29 +176,29 @@ impl StreamEncryptor {
     pub fn new(
         size: u64,
         key: &[u8; 32],
-        params: &StreamEncryptParams,
+        parameters: &StreamEncryptParams,
         frozen_prefix: [u8; NONCE_PREFIX_LEN],
         resolver: &impl AttachmentGroupStateEpochResolver,
     ) -> Result<Self> {
         Ok(Self {
             cipher: cipher_from_key(key)?,
-            params: params.clone(),
+            parameters: parameters.clone(),
             prefix: frozen_prefix,
             prefix_b64: base64url_encode(frozen_prefix),
-            epoch: attachment_epoch(&params.key_ref, resolver)?,
+            epoch: attachment_epoch(&parameters.key_ref, resolver)?,
             size,
-            count: stream_segment_count(size, params.segment_bytes)?,
+            count: stream_segment_count(size, parameters.segment_bytes)?,
             next: 0,
             failed: false,
-            hasher: ContentHasher::new(params.digest_suite),
+            hasher: ContentHasher::new(parameters.digest_suite),
         })
     }
 
     pub fn push_segment(&mut self, plaintext: &[u8]) -> Result<Vec<u8>> {
         let expected = self
             .size
-            .saturating_sub(u64::from(self.next) * u64::from(self.params.segment_bytes))
-            .min(u64::from(self.params.segment_bytes));
+            .saturating_sub(u64::from(self.next) * u64::from(self.parameters.segment_bytes))
+            .min(u64::from(self.parameters.segment_bytes));
         if self.failed || self.next >= self.count || plaintext.len() as u64 != expected {
             self.failed = true;
             return Err(protocol(
@@ -209,12 +209,12 @@ impl StreamEncryptor {
         let last = self.next == self.count - 1;
         let nonce = segment_nonce(&self.prefix, self.next, last);
         let context = StreamSegmentAadContext {
-            key_ref: &self.params.key_ref,
-            content_key_salt: &self.params.content_key_salt,
+            key_ref: &self.parameters.key_ref,
+            content_key_salt: &self.parameters.content_key_salt,
             epoch: self.epoch,
             nonce_prefix_b64: &self.prefix_b64,
             segment_count: self.count,
-            media_type: &self.params.media_type,
+            media_type: &self.parameters.media_type,
             size_bytes: self.size,
         };
         let aad = stream_segment_aad(&context, self.next, last)?;
@@ -245,13 +245,13 @@ impl StreamEncryptor {
             encrypted: true,
             scheme: SCHEME_STREAM.into(),
             encryption_algorithm: ALG_STREAM_XCHACHA.into(),
-            key_ref: self.params.key_ref,
-            content_key_salt: self.params.content_key_salt,
+            key_ref: self.parameters.key_ref,
+            content_key_salt: self.parameters.content_key_salt,
             size_bytes: self.size,
-            media_type: self.params.media_type,
+            media_type: self.parameters.media_type,
             nonce: None,
             nonce_prefix: Some(self.prefix_b64),
-            segment_bytes: Some(self.params.segment_bytes),
+            segment_bytes: Some(self.parameters.segment_bytes),
         })
     }
 }
@@ -336,7 +336,7 @@ fn stream_segment_aad(
         ("scheme", json!(SCHEME_STREAM)),
         ("key_ref", json!(context.key_ref)),
         ("content_key_salt", json!(context.content_key_salt)),
-        ("epoch", json!(context.epoch)),
+        ("epoch", json!(context.epoch.to_string())),
         ("nonce_prefix", json!(context.nonce_prefix_b64)),
         ("segment_index", json!(segment_index)),
         (
@@ -368,22 +368,22 @@ pub fn stream_segment_count(size_bytes: u64, segment_bytes: u32) -> Result<u32> 
 pub fn encrypt_stream(
     plaintext: &[u8],
     content_key: &[u8; 32],
-    params: &StreamEncryptParams,
+    parameters: &StreamEncryptParams,
     resolver: &impl AttachmentGroupStateEpochResolver,
 ) -> Result<(Vec<u8>, EncryptedAttachment)> {
-    let count = stream_segment_count(plaintext.len() as u64, params.segment_bytes)?;
+    let count = stream_segment_count(plaintext.len() as u64, parameters.segment_bytes)?;
     let mut encoder = StreamEncryptor::new(
         plaintext.len() as u64,
         content_key,
-        params,
+        parameters,
         fresh_stream_nonce_prefix()?,
         resolver,
     )?;
     let mut ciphertext = Vec::new();
     for index in 0..count {
-        let start = index as usize * params.segment_bytes as usize;
+        let start = index as usize * parameters.segment_bytes as usize;
         let end = start
-            .saturating_add(params.segment_bytes as usize)
+            .saturating_add(parameters.segment_bytes as usize)
             .min(plaintext.len());
         ciphertext.extend_from_slice(&encoder.push_segment(&plaintext[start..end])?);
     }
@@ -757,7 +757,7 @@ mod tests {
         }
     }
 
-    fn params(segment_bytes: u32) -> StreamEncryptParams {
+    fn parameters(segment_bytes: u32) -> StreamEncryptParams {
         StreamEncryptParams {
             key_ref: test_key_ref(),
             content_key_salt: AttachmentContentKeySalt::from_bytes([7; 32]),
@@ -770,14 +770,14 @@ mod tests {
     #[test]
     fn incremental_producer_reuses_a_frozen_prefix_and_commits_every_segment() {
         for suite in [DigestSuite::Sha256, DigestSuite::Blake3] {
-            let mut params = params(MIN_SEGMENT_SIZE);
-            params.digest_suite = suite;
+            let mut parameters = parameters(MIN_SEGMENT_SIZE);
+            parameters.digest_suite = suite;
             let size = 257 * u64::from(MIN_SEGMENT_SIZE) + 7;
             let prefix = [23; 19];
             let mut first =
-                StreamEncryptor::new(size, &key(), &params, prefix, &winning_epoch).unwrap();
+                StreamEncryptor::new(size, &key(), &parameters, prefix, &winning_epoch).unwrap();
             let mut retry =
-                StreamEncryptor::new(size, &key(), &params, prefix, &winning_epoch).unwrap();
+                StreamEncryptor::new(size, &key(), &parameters, prefix, &winning_epoch).unwrap();
             let mut hasher = ContentHasher::new(suite);
             let mut parts = Vec::new();
             for index in 0..258 {
@@ -807,7 +807,7 @@ mod tests {
             decryptor.finish().unwrap();
         }
         let mut invalid =
-            StreamEncryptor::new(1025, &key(), &params(1024), [1; 19], &winning_epoch).unwrap();
+            StreamEncryptor::new(1025, &key(), &parameters(1024), [1; 19], &winning_epoch).unwrap();
         assert!(invalid.push_segment(&[0; 1023]).is_err());
         assert!(invalid.push_segment(&[0; 1024]).is_err());
         assert!(invalid.finish().is_err());
@@ -819,9 +819,9 @@ mod tests {
 
     #[test]
     fn authenticated_salt_tampering_releases_no_plaintext() {
-        let params = params(1024);
+        let parameters = parameters(1024);
         let (ciphertext, envelope) =
-            encrypt_stream(b"authenticated object", &key(), &params, &winning_epoch).unwrap();
+            encrypt_stream(b"authenticated object", &key(), &parameters, &winning_epoch).unwrap();
         let mut changed = envelope_fields(&envelope).unwrap();
         changed.content_key_salt = AttachmentContentKeySalt::from_bytes([8; 32]);
         let changed = typed_envelope(changed).unwrap();
@@ -834,10 +834,10 @@ mod tests {
     #[test]
     fn stream_ciphertext_digest_uses_the_declared_suite() {
         for suite in [DigestSuite::Sha256, DigestSuite::Blake3] {
-            let mut params = params(1024);
-            params.digest_suite = suite;
+            let mut parameters = parameters(1024);
+            parameters.digest_suite = suite;
             let (ciphertext, envelope) =
-                encrypt_stream(b"digest suite", &key(), &params, &winning_epoch).unwrap();
+                encrypt_stream(b"digest suite", &key(), &parameters, &winning_epoch).unwrap();
             assert!(
                 envelope_fields(&envelope)
                     .unwrap()
@@ -855,10 +855,10 @@ mod tests {
     fn incremental_digest_verifies_many_segments_in_both_suites() {
         let plaintext = vec![17; 512 * S + 7];
         for suite in [DigestSuite::Sha256, DigestSuite::Blake3] {
-            let mut params = params(MIN_SEGMENT_SIZE);
-            params.digest_suite = suite;
+            let mut parameters = parameters(MIN_SEGMENT_SIZE);
+            parameters.digest_suite = suite;
             let (ciphertext, envelope) =
-                encrypt_stream(&plaintext, &key(), &params, &winning_epoch).unwrap();
+                encrypt_stream(&plaintext, &key(), &parameters, &winning_epoch).unwrap();
             let mut decryptor = StreamDecryptor::new(&envelope, &key(), &winning_epoch).unwrap();
             let mut recovered_bytes = 0;
             for (index, segment) in ciphertext.chunks(S + TAG_LEN).enumerate() {
@@ -893,7 +893,7 @@ mod tests {
         let (ciphertext, envelope) = encrypt_stream(
             &vec![2; S + 3],
             &key(),
-            &params(MIN_SEGMENT_SIZE),
+            &parameters(MIN_SEGMENT_SIZE),
             &winning_epoch,
         )
         .unwrap();
@@ -951,7 +951,7 @@ mod tests {
     #[test]
     fn stream_roundtrip_multi_segment_short_last() {
         let key = key();
-        let p = params(MIN_SEGMENT_SIZE);
+        let p = parameters(MIN_SEGMENT_SIZE);
         // 3 segments: S, S, 10.
         let plaintext: Vec<u8> = (0..(2 * S + 10) as u32).map(|i| (i % 251) as u8).collect();
         let (ct, env) = encrypt_stream(&plaintext, &key, &p, &winning_epoch).unwrap();
@@ -985,12 +985,12 @@ mod tests {
         let key = key();
         let plaintext = b"epoch-derived attachment".to_vec();
         for key_ref in [test_key_ref(), proof_hash_key_ref()] {
-            let params = StreamEncryptParams {
+            let parameters = StreamEncryptParams {
                 key_ref,
-                ..params(MIN_SEGMENT_SIZE)
+                ..parameters(MIN_SEGMENT_SIZE)
             };
             let (ciphertext, envelope) =
-                encrypt_stream(&plaintext, &key, &params, &winning_epoch).unwrap();
+                encrypt_stream(&plaintext, &key, &parameters, &winning_epoch).unwrap();
             assert_eq!(
                 decrypt_stream(&ciphertext, &envelope, &key, &winning_epoch).unwrap(),
                 plaintext
@@ -1007,12 +1007,13 @@ mod tests {
     #[test]
     fn unresolved_non_winning_and_wrong_epoch_fail_closed() {
         let key = key();
-        let params = params(MIN_SEGMENT_SIZE);
+        let parameters = parameters(MIN_SEGMENT_SIZE);
         let unresolved = |_group_state_ref: &EncryptedAttachmentGroupStateRef| None;
-        let err = encrypt_stream(b"x", &key, &params, &unresolved).unwrap_err();
+        let err = encrypt_stream(b"x", &key, &parameters, &unresolved).unwrap_err();
         assert_eq!(reason(&err), "attachment_group_state_unresolved");
 
-        let (ciphertext, envelope) = encrypt_stream(b"x", &key, &params, &winning_epoch).unwrap();
+        let (ciphertext, envelope) =
+            encrypt_stream(b"x", &key, &parameters, &winning_epoch).unwrap();
         let stale_epoch = |_group_state_ref: &EncryptedAttachmentGroupStateRef| Some(41);
         let err = decrypt_stream(&ciphertext, &envelope, &key, &stale_epoch).unwrap_err();
         assert_eq!(reason(&err), "segment_aead_failed");
@@ -1023,7 +1024,7 @@ mod tests {
         let key = key();
         // empty plaintext → single zero-length last segment, count 1
         let (ct, env) =
-            encrypt_stream(&[], &key, &params(MIN_SEGMENT_SIZE), &winning_epoch).unwrap();
+            encrypt_stream(&[], &key, &parameters(MIN_SEGMENT_SIZE), &winning_epoch).unwrap();
         let fields = envelope_fields(&env).unwrap();
         assert_eq!(
             stream_segment_count(fields.size_bytes, fields.segment_bytes.unwrap()).unwrap(),
@@ -1038,7 +1039,7 @@ mod tests {
         // single short segment
         let p = vec![7u8; 30];
         let (ct, env) =
-            encrypt_stream(&p, &key, &params(MIN_SEGMENT_SIZE), &winning_epoch).unwrap();
+            encrypt_stream(&p, &key, &parameters(MIN_SEGMENT_SIZE), &winning_epoch).unwrap();
         let fields = envelope_fields(&env).unwrap();
         assert_eq!(
             stream_segment_count(fields.size_bytes, fields.segment_bytes.unwrap()).unwrap(),
@@ -1049,7 +1050,7 @@ mod tests {
         // exactly divisible: 2*S / S == 2 segments, last == segment_bytes
         let p = vec![3u8; 2 * S];
         let (ct, env) =
-            encrypt_stream(&p, &key, &params(MIN_SEGMENT_SIZE), &winning_epoch).unwrap();
+            encrypt_stream(&p, &key, &parameters(MIN_SEGMENT_SIZE), &winning_epoch).unwrap();
         let fields = envelope_fields(&env).unwrap();
         assert_eq!(
             stream_segment_count(fields.size_bytes, fields.segment_bytes.unwrap()).unwrap(),
@@ -1060,7 +1061,7 @@ mod tests {
         // last segment of exactly 1 byte: (S+1) / S -> 2 segments (S + 1)
         let p = vec![9u8; S + 1];
         let (ct, env) =
-            encrypt_stream(&p, &key, &params(MIN_SEGMENT_SIZE), &winning_epoch).unwrap();
+            encrypt_stream(&p, &key, &parameters(MIN_SEGMENT_SIZE), &winning_epoch).unwrap();
         let fields = envelope_fields(&env).unwrap();
         assert_eq!(
             stream_segment_count(fields.size_bytes, fields.segment_bytes.unwrap()).unwrap(),
@@ -1074,7 +1075,7 @@ mod tests {
         let key = key();
         let p = vec![1u8; 3 * S + 8];
         let (ct, env) =
-            encrypt_stream(&p, &key, &params(MIN_SEGMENT_SIZE), &winning_epoch).unwrap();
+            encrypt_stream(&p, &key, &parameters(MIN_SEGMENT_SIZE), &winning_epoch).unwrap();
         let segs = split_segments(&ct, &env);
         // push all but the last segment, then finish → truncated
         let mut dec = StreamDecryptor::new(&env, &key, &winning_epoch).unwrap();
@@ -1093,7 +1094,7 @@ mod tests {
         let key = key();
         let p = vec![5u8; 3 * S + 8]; // 4 segments: S,S,S,8
         let (ct, env) =
-            encrypt_stream(&p, &key, &params(MIN_SEGMENT_SIZE), &winning_epoch).unwrap();
+            encrypt_stream(&p, &key, &parameters(MIN_SEGMENT_SIZE), &winning_epoch).unwrap();
         let segs = split_segments(&ct, &env);
         let mut dec = StreamDecryptor::new(&env, &key, &winning_epoch).unwrap();
         // push first three normal segments fine
@@ -1111,7 +1112,7 @@ mod tests {
         let key = key();
         let p = vec![2u8; 2 * S + 10];
         let (ct, env) =
-            encrypt_stream(&p, &key, &params(MIN_SEGMENT_SIZE), &winning_epoch).unwrap();
+            encrypt_stream(&p, &key, &parameters(MIN_SEGMENT_SIZE), &winning_epoch).unwrap();
         let segs = split_segments(&ct, &env);
 
         // reorder: push index 1 before 0
@@ -1131,7 +1132,7 @@ mod tests {
         let key = key();
         let p = vec![4u8; MIN_SEGMENT_SIZE as usize + 36]; // 2 segments: MIN_SEGMENT_SIZE, 36
         let (ct, env) =
-            encrypt_stream(&p, &key, &params(MIN_SEGMENT_SIZE), &winning_epoch).unwrap();
+            encrypt_stream(&p, &key, &parameters(MIN_SEGMENT_SIZE), &winning_epoch).unwrap();
         let segs = split_segments(&ct, &env);
 
         // out-of-range index
@@ -1153,7 +1154,7 @@ mod tests {
         let key = key();
         let p = vec![6u8; 100];
         let (ct, env) =
-            encrypt_stream(&p, &key, &params(MIN_SEGMENT_SIZE), &winning_epoch).unwrap();
+            encrypt_stream(&p, &key, &parameters(MIN_SEGMENT_SIZE), &winning_epoch).unwrap();
         let mut segs = split_segments(&ct, &env);
         segs[0][3] ^= 0xff;
         let mut dec = StreamDecryptor::new(&env, &key, &winning_epoch).unwrap();
@@ -1166,7 +1167,7 @@ mod tests {
         let key = key();
         let p = vec![8u8; 100];
         let (ct, env) =
-            encrypt_stream(&p, &key, &params(MIN_SEGMENT_SIZE), &winning_epoch).unwrap();
+            encrypt_stream(&p, &key, &parameters(MIN_SEGMENT_SIZE), &winning_epoch).unwrap();
         // Corrupt the content address; per-segment AEAD still passes,
         // so the mismatch is only caught at finish().
         let mut fields = envelope_fields(&env).unwrap();
@@ -1183,7 +1184,7 @@ mod tests {
         let key = key();
         let p = vec![1u8; 50];
         let (ct, env) =
-            encrypt_stream(&p, &key, &params(MIN_SEGMENT_SIZE), &winning_epoch).unwrap();
+            encrypt_stream(&p, &key, &parameters(MIN_SEGMENT_SIZE), &winning_epoch).unwrap();
 
         // unknown scheme
         let mut bad = envelope_fields(&env).unwrap();

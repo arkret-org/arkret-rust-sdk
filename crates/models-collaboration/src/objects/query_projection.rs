@@ -55,7 +55,7 @@ mod checkpoint_digest {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct DocumentMorphProjectionOutcome {
+pub struct DocumentMorphView {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub document: DocumentMorphProjection,
     pub versions: Vec<BTreeMap<String, Value>>,
@@ -69,7 +69,7 @@ pub struct DocumentMorphProjectionOutcome {
     pub checkpoint: Option<StateRevision>,
 }
 
-/// `view.schema.json#/$defs/document_morph_projection_outcome/properties/document`.
+/// `view.schema.json#/$defs/document_morph_view/properties/document`.
 ///
 /// `body` is intentionally unconstrained JSON and `morph_kind` is an open
 /// registry string; the Spec does not define a closed discriminated union here.
@@ -121,11 +121,11 @@ pub struct ProjectionAssignedToRelation {
 
 /// Projected Morph read-model row.
 // Field declaration order is byte-for-byte the properties order of
-// service-operation-dtos.schema.json#/$defs/ProjectionMorphRow.
+// service-operation-dtos.schema.json#/$defs/MorphRow.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct ProjectionMorphRow {
+pub struct MorphRow {
     pub morph_id: MorphId,
     pub realm_id: RealmId,
     pub morph_kind: String,
@@ -167,7 +167,7 @@ pub struct ProjectionMorphRow {
     pub updated_at: Option<DateTime<Utc>>,
 }
 
-impl ProjectionMorphRow {
+impl MorphRow {
     /// `common-fields.md` 5.3.1: `stage_changed_at` must not appear without
     /// `stage`.
     pub fn validate(&self) -> Result<()> {
@@ -177,11 +177,11 @@ impl ProjectionMorphRow {
 
 /// Projected Space read-model row.
 // Field declaration order is byte-for-byte the properties order of
-// service-operation-dtos.schema.json#/$defs/ProjectionSpaceRow.
+// service-operation-dtos.schema.json#/$defs/SpaceRow.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct ProjectionSpaceRow {
+pub struct SpaceRow {
     pub space_id: SpaceId,
     pub realm_id: RealmId,
     /// Space kind such as `board`, `list`, `folder`, or a profile-registered
@@ -220,11 +220,11 @@ pub struct ProjectionSpaceRow {
 
 /// Projected Strand read-model row.
 // Field declaration order is byte-for-byte the properties order of
-// service-operation-dtos.schema.json#/$defs/ProjectionStrandRow.
+// service-operation-dtos.schema.json#/$defs/StrandRow.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct ProjectionStrandRow {
+pub struct StrandRow {
     pub strand_id: StrandId,
     pub realm_id: RealmId,
     pub state: ObjectState,
@@ -303,7 +303,7 @@ pub struct ProjectionStrandRow {
     pub is_default: bool,
 }
 
-impl ProjectionStrandRow {
+impl StrandRow {
     /// `common-fields.md` 5.3.1: `stage_changed_at` must not appear without
     /// `stage`.
     pub fn validate(&self) -> Result<()> {
@@ -450,9 +450,9 @@ mod projection_row_tests {
 
     #[test]
     fn morph_row_round_trips_and_is_closed() {
-        assert_round_trips::<ProjectionMorphRow>(morph_row_value());
-        assert_rejects_unknown_member::<ProjectionMorphRow>(morph_row_value());
-        assert_rejects_each_omitted_required_member::<ProjectionMorphRow>(
+        assert_round_trips::<MorphRow>(morph_row_value());
+        assert_rejects_unknown_member::<MorphRow>(morph_row_value());
+        assert_rejects_each_omitted_required_member::<MorphRow>(
             morph_row_value(),
             &["morph_id", "realm_id", "morph_kind", "state"],
         );
@@ -460,9 +460,9 @@ mod projection_row_tests {
 
     #[test]
     fn space_row_round_trips_and_is_closed() {
-        assert_round_trips::<ProjectionSpaceRow>(space_row_value());
-        assert_rejects_unknown_member::<ProjectionSpaceRow>(space_row_value());
-        assert_rejects_each_omitted_required_member::<ProjectionSpaceRow>(
+        assert_round_trips::<SpaceRow>(space_row_value());
+        assert_rejects_unknown_member::<SpaceRow>(space_row_value());
+        assert_rejects_each_omitted_required_member::<SpaceRow>(
             space_row_value(),
             &["space_id", "realm_id", "kind", "state"],
         );
@@ -470,9 +470,9 @@ mod projection_row_tests {
 
     #[test]
     fn strand_row_round_trips_and_is_closed() {
-        assert_round_trips::<ProjectionStrandRow>(strand_row_value());
-        assert_rejects_unknown_member::<ProjectionStrandRow>(strand_row_value());
-        assert_rejects_each_omitted_required_member::<ProjectionStrandRow>(
+        assert_round_trips::<StrandRow>(strand_row_value());
+        assert_rejects_unknown_member::<StrandRow>(strand_row_value());
+        assert_rejects_each_omitted_required_member::<StrandRow>(
             strand_row_value(),
             &["strand_id", "realm_id", "state", "is_default"],
         );
@@ -482,21 +482,21 @@ mod projection_row_tests {
     fn stage_changed_at_never_stands_without_stage() {
         let mut value = morph_row_value();
         value.as_object_mut().unwrap().remove("stage");
-        let row: ProjectionMorphRow = serde_json::from_value(value).unwrap();
+        let row: MorphRow = serde_json::from_value(value).unwrap();
         assert!(row.validate().is_err());
 
         let mut value = strand_row_value();
         value.as_object_mut().unwrap().remove("stage");
-        let row: ProjectionStrandRow = serde_json::from_value(value).unwrap();
+        let row: StrandRow = serde_json::from_value(value).unwrap();
         assert!(row.validate().is_err());
 
-        let paired: ProjectionStrandRow = serde_json::from_value(strand_row_value()).unwrap();
+        let paired: StrandRow = serde_json::from_value(strand_row_value()).unwrap();
         paired.validate().unwrap();
     }
 
     #[test]
     fn strand_row_projects_the_derived_default_flag_and_assignment_edges() {
-        let row: ProjectionStrandRow = serde_json::from_value(strand_row_value()).unwrap();
+        let row: StrandRow = serde_json::from_value(strand_row_value()).unwrap();
         assert!(row.is_default);
         assert_eq!(row.assigned_actor_ids.len(), 1);
         assert_eq!(
@@ -509,20 +509,20 @@ mod projection_row_tests {
 
 /// Bounded projection page of Document Morph rows.
 // Field declaration order is byte-for-byte the properties order of
-// service-operation-dtos.schema.json#/$defs/ProjectionMorphList.
+// service-operation-dtos.schema.json#/$defs/MorphPage.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct ProjectionMorphList {
+pub struct MorphPage {
     pub realm_id: RealmId,
-    pub morphs: Vec<ProjectionMorphRow>,
+    pub morphs: Vec<MorphRow>,
     pub total: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<Cursor>,
     pub has_more: bool,
 }
 
-impl ProjectionMorphList {
+impl MorphPage {
     pub fn validate(&self) -> Result<()> {
         validate_projection_page(
             self.morphs.len(),
@@ -544,20 +544,20 @@ impl ProjectionMorphList {
 
 /// Bounded projection page of Space rows.
 // Field declaration order is byte-for-byte the properties order of
-// service-operation-dtos.schema.json#/$defs/ProjectionSpaceList.
+// service-operation-dtos.schema.json#/$defs/SpacePage.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct ProjectionSpaceList {
+pub struct SpacePage {
     pub realm_id: RealmId,
-    pub spaces: Vec<ProjectionSpaceRow>,
+    pub spaces: Vec<SpaceRow>,
     pub total: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<Cursor>,
     pub has_more: bool,
 }
 
-impl ProjectionSpaceList {
+impl SpacePage {
     pub fn validate(&self) -> Result<()> {
         validate_projection_page(
             self.spaces.len(),
@@ -578,20 +578,20 @@ impl ProjectionSpaceList {
 
 /// Bounded projection page of Strand rows.
 // Field declaration order is byte-for-byte the properties order of
-// service-operation-dtos.schema.json#/$defs/ProjectionStrandList.
+// service-operation-dtos.schema.json#/$defs/StrandPage.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct ProjectionStrandList {
+pub struct StrandPage {
     pub realm_id: RealmId,
-    pub strands: Vec<ProjectionStrandRow>,
+    pub strands: Vec<StrandRow>,
     pub total: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<Cursor>,
     pub has_more: bool,
 }
 
-impl ProjectionStrandList {
+impl StrandPage {
     pub fn validate(&self) -> Result<()> {
         validate_projection_page(
             self.strands.len(),
@@ -656,8 +656,7 @@ mod projection_list_tests {
     #[test]
     fn projection_lists_round_trip_and_reject_unknown_members() {
         let morphs = empty_list_value("morphs");
-        let parsed: ProjectionMorphList =
-            serde_json::from_value(morphs.clone()).expect("closed morph list");
+        let parsed: MorphPage = serde_json::from_value(morphs.clone()).expect("closed morph list");
         parsed.validate().expect("terminal empty page");
         assert_eq!(serde_json::to_value(&parsed).unwrap(), morphs);
 
@@ -666,12 +665,12 @@ mod projection_list_tests {
             .as_object_mut()
             .unwrap()
             .insert("cursor".to_owned(), json!("ak:cursor:AA"));
-        assert!(serde_json::from_value::<ProjectionMorphList>(unknown).is_err());
+        assert!(serde_json::from_value::<MorphPage>(unknown).is_err());
 
-        let spaces: ProjectionSpaceList =
+        let spaces: SpacePage =
             serde_json::from_value(empty_list_value("spaces")).expect("closed space list");
         spaces.validate().expect("terminal empty page");
-        let strands: ProjectionStrandList =
+        let strands: StrandPage =
             serde_json::from_value(empty_list_value("strands")).expect("closed strand list");
         strands.validate().expect("terminal empty page");
     }
@@ -682,7 +681,7 @@ mod projection_list_tests {
             let mut missing = empty_list_value("morphs");
             missing.as_object_mut().unwrap().remove(required);
             assert!(
-                serde_json::from_value::<ProjectionMorphList>(missing).is_err(),
+                serde_json::from_value::<MorphPage>(missing).is_err(),
                 "{required} must not become optional"
             );
         }
@@ -695,8 +694,7 @@ mod projection_list_tests {
             .as_object_mut()
             .unwrap()
             .insert("has_more".to_owned(), json!(true));
-        let parsed: ProjectionMorphList =
-            serde_json::from_value(claims_more).expect("closed morph list");
+        let parsed: MorphPage = serde_json::from_value(claims_more).expect("closed morph list");
         assert!(
             parsed.validate().is_err(),
             "has_more without next_cursor names no resume point"
@@ -707,8 +705,7 @@ mod projection_list_tests {
             .as_object_mut()
             .unwrap()
             .insert("total".to_owned(), json!(3));
-        let parsed: ProjectionMorphList =
-            serde_json::from_value(undercounts).expect("closed morph list");
+        let parsed: MorphPage = serde_json::from_value(undercounts).expect("closed morph list");
         assert!(
             parsed.validate().is_err(),
             "a terminal page cannot drop counted rows"

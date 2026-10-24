@@ -254,7 +254,7 @@ where
 /// The caller's own clock and nonce.
 ///
 /// `expected_nonce` must be the nonce the caller put in its own
-/// [`arkret_wire::AuthorityBundleRequest`]. Accepting a bundle whose assertion
+/// [`arkret_wire::RealmAuthorityBundleRequestBody`]. Accepting a bundle whose assertion
 /// answers somebody else's nonce is accepting a replay.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RealmAuthorityFreshness {

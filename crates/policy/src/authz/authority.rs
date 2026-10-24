@@ -63,6 +63,7 @@ pub enum IssuerAuthorityRef {
     RealmRoot {
         realm_id: RealmId,
         authority_event_ref: EventId,
+        #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
         authority_generation: u64,
     },
 }
@@ -189,12 +190,15 @@ pub enum GrantConstraint {
     /// this on `ak:strand:` / `ak:realm:` / `ak:morph:` projections; an
     /// unfaceted target falls outside scope (fail-closed).
     AllowedObjectFacets { facets: Vec<String> },
-    /// Runtime mirror of the spec `max_operations` + `period` constraint
+    /// Runtime mirror of the spec `max_operation_count` + `period` constraint
     /// used by high-risk burst surfaces such as
     /// `ak.message.mention.broadcast`. The pure authority helper only
     /// preserves and validates shape; concrete counter enforcement is done
     /// by the service-side evaluator for the relevant action.
-    RateLimiting { max_operations: u64, period: String },
+    RateLimiting {
+        max_operation_count: u64,
+        period: String,
+    },
     /// Field-scoped access retained in the runtime projection.  These fields
     /// must not be collapsed away: ordinary Event admission needs the exact dotted
     /// patch paths in order to distinguish, for example, Strand Description
@@ -1309,7 +1313,7 @@ mod managed_service_child_tests {
                 decision: GrantDecisionVerdict::RequireReview,
             },
             GrantConstraint::RateLimiting {
-                max_operations: 5,
+                max_operation_count: 5,
                 period: "PT1H".into(),
             },
             GrantConstraint::Temporal {

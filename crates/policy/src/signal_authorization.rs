@@ -387,7 +387,7 @@ pub fn product_policies_allow(
                 && rule.servers.is_none()
                 && rule.schema_ref.is_none()
                 && rule.profile_ref.is_none()
-                && rule.params.is_none()
+                && rule.parameters.is_none()
                 && rule.review_requirement.is_none();
             if !evaluable {
                 unknown = Some(unknown.map_or(rule.priority, |held| held.max(rule.priority)));
@@ -434,8 +434,8 @@ mod tests {
             "schema":"ak.schema.capability.v1", "realm_id":REALM, "issuer_id":sender, "subject":sender,
             "actions":[CapabilityActionId::MESSAGE_STREAM_SEND, CapabilityActionId::MESSAGE_CREATE],
             "resources":[{"kind":"strand", "realm_id":REALM, "strand_id":STRAND}],
-            "issuer_authority_refs":[{"kind":"realm_root", "realm_id":REALM, "authority_event_ref":arkret_wire::EventId::from_digest(arkret_canonical::DigestSuite::Sha256,[8;32]), "authority_generation":0}],
-            "authority_root_refs":[{"kind":"realm_root", "realm_id":REALM, "authority_event_ref":arkret_wire::EventId::from_digest(arkret_canonical::DigestSuite::Sha256,[8;32]), "authority_generation":0}],
+            "issuer_authority_refs":[{"kind":"realm_root", "realm_id":REALM, "authority_event_ref":arkret_wire::EventId::from_digest(arkret_canonical::DigestSuite::Sha256,[8;32]), "authority_generation":"0"}],
+            "authority_root_refs":[{"kind":"realm_root", "realm_id":REALM, "authority_event_ref":arkret_wire::EventId::from_digest(arkret_canonical::DigestSuite::Sha256,[8;32]), "authority_generation":"0"}],
             "authority_depth":1, "issued_at":"2026-10-01T00:00:00.000Z", "status":"active"
         })).unwrap();
         let head = CommitStreamHead {

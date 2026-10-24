@@ -389,7 +389,7 @@ mod tests {
             PUBLISHED_TEST_KEY_FINGERPRINTS[1]
         );
 
-        let mldsa = base64url_decode(vectors[2]["public_key_b64u"].as_str().unwrap()).unwrap();
+        let mldsa = base64url_decode(vectors[2]["public_key_base64url"].as_str().unwrap()).unwrap();
         assert_eq!(
             public_key_fingerprint(&PublicKeyFingerprintInput::MlDsa65Fips204(&mldsa)).unwrap(),
             PUBLISHED_TEST_KEY_FINGERPRINTS[2]

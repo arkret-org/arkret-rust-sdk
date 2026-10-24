@@ -21,7 +21,7 @@
   "repositories": {
     "arkret-spec": {
       "repository": "arkret-org/arkret-spec",
-      "commit": "41ea5fae873a33335fd01acf9f91c3fd687e2629",
+      "commit": "f821fe67253c4fd5f059df8937c6ddde3b11b5e6",
       "checkout_path": "arkret-spec",
       "roles": [
         "normative-artifacts",
@@ -444,6 +444,21 @@
       "command": [
         "python",
         "tools/deny_unknown_audit.py",
+        "--check"
+      ]
+    },
+    {
+      "id": "sdk.independent-wire-kats",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "schema",
+        "name": "independent canonical signing bytes and Ed25519 fixture signatures"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "tools/regenerate-independent-wire-kats.py",
         "--check"
       ]
     },
@@ -1107,15 +1122,5 @@
         ]
       }
     ]
-  },
-  "resolved_candidates": [
-    {
-      "repository": "inkson",
-      "commit": "003c28ee4080ce48c2f9a33e2ed2d0b70efc938c"
-    },
-    {
-      "repository": "cotest",
-      "commit": "e2119d61f4ff47322ba2ab5d2d31b2e35815c017"
-    }
-  ]
+  }
 }

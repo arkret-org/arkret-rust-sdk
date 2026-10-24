@@ -18,8 +18,10 @@ class TestKitProductionGateTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             manifest = '[package]\nname = "archive"\n[dependencies]\narkret-test-kit = "0.3.0"\n'
-            for path in ("arkret-work/evidence/source/Cargo.toml", ".codex-tmp/frozen/Cargo.toml"):
+            for path in ("arkret-work/evidence/source/Cargo.toml", ".codex-tmp/frozen/Cargo.toml",
+                         "cotest/artifacts/frozen/conflicted/Cargo.toml"):
                 write(root / path, manifest)
+            write(root / 'cotest/artifacts/broken/Cargo.toml', '<<<<<<< archived conflict')
             self.assertEqual(audit(root, root / "absent.json"), [])
             write(root / "new-service/crates/worker/Cargo.toml", manifest)
             errors = audit(root, root / "absent.json")

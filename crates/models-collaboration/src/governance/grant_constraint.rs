@@ -447,7 +447,7 @@ pub struct GrantConstraint {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub allowed_to_container_refs: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub wip_limit_override: Option<bool>,
+    pub wip_limit_override_allowed: Option<bool>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub allowed_tracks: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -483,7 +483,7 @@ pub struct GrantConstraint {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_artifact_bytes: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub max_operations: Option<u64>,
+    pub max_operation_count: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub period: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -491,7 +491,7 @@ pub struct GrantConstraint {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub constraint_scope: Option<GrantConstraintScope>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub max_resources: Option<u64>,
+    pub max_resource_count: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub resource_kind: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -595,7 +595,7 @@ impl GrantConstraint {
             allowed_relation_kinds: Vec::new(),
             allowed_from_container_refs: Vec::new(),
             allowed_to_container_refs: Vec::new(),
-            wip_limit_override: None,
+            wip_limit_override_allowed: None,
             allowed_tracks: Vec::new(),
             denied_tracks: Vec::new(),
             blob_presign_scope: None,
@@ -613,11 +613,11 @@ impl GrantConstraint {
             blob_presign_max_ttl_seconds: None,
             max_total_blob_bytes: None,
             max_artifact_bytes: None,
-            max_operations: None,
+            max_operation_count: None,
             period: None,
             burst: None,
             constraint_scope: None,
-            max_resources: None,
+            max_resource_count: None,
             resource_kind: None,
             approval_required: None,
             approval_mode: None,
@@ -698,6 +698,8 @@ pub enum IssuerAuthorityRef {
     RealmRoot {
         realm_id: RealmId,
         authority_event_ref: EventId,
+        #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+        #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
         authority_generation: u64,
     },
 }
@@ -716,6 +718,8 @@ pub enum AuthorityRootRef {
     RealmRoot {
         realm_id: RealmId,
         authority_event_ref: EventId,
+        #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+        #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
         authority_generation: u64,
     },
 }
@@ -852,4 +856,24 @@ mod tests {
 pub enum ManagedActorRole {
     Bot,
     Ghost,
+}
+
+#[cfg(feature = "openapi")]
+impl salvo_oapi::ToSchema for GrantConstraint {
+    fn to_schema(
+        _components: &mut salvo_oapi::Components,
+    ) -> salvo_oapi::RefOr<salvo_oapi::schema::Schema> {
+        salvo_oapi::schema::Ref::new("https://arkret.org/v1/schemas/grant-constraint.schema.json")
+            .into()
+    }
+}
+
+#[cfg(feature = "openapi")]
+impl salvo_oapi::ComposeSchema for GrantConstraint {
+    fn compose(
+        components: &mut salvo_oapi::Components,
+        _generics: Vec<salvo_oapi::RefOr<salvo_oapi::schema::Schema>>,
+    ) -> salvo_oapi::RefOr<salvo_oapi::schema::Schema> {
+        <Self as salvo_oapi::ToSchema>::to_schema(components)
+    }
 }

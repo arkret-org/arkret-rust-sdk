@@ -134,7 +134,7 @@ impl PollBlock {
         if let Some(context) = &self.reply_context {
             context.validate()?;
         }
-        if self.poll.max_selections == 0
+        if self.poll.max_selection_count == 0
             || self.poll.answers.is_empty()
             || self.poll.answers.len() > 1000
         {

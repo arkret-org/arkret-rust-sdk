@@ -19,8 +19,8 @@
 //!
 //! - `now > expires_at` (**hard expiry**) — [`VerifiedDidBindingStore::get`] returns `None`; the
 //!   entry no longer exists for readers.
-//! - `now > refresh_after` (**stale**) — `get` still returns the entry, with its status downgraded
-//!   to [`DidBindingStatus::Stale`], and the caller decides by risk level.
+//! - `now > refresh_at` (**stale**) — `get` still returns the entry, with its status downgraded to
+//!   [`DidBindingStatus::Stale`], and the caller decides by risk level.
 //!
 //! [`VerifiedDidBindingStore::get_with_freshness`] exposes the distinction
 //! directly as a [`BindingFreshness`].
@@ -194,7 +194,7 @@ impl AcceptedDidBinding {
 pub enum BindingFreshness {
     /// Inside the refresh window.
     Fresh,
-    /// Past `refresh_after` but not hard-expired; `age` is the time since the
+    /// Past `refresh_at` but not hard-expired; `age` is the time since the
     /// refresh point.
     Stale { age: Duration },
     /// Past `expires_at`. Treated as absent by [`VerifiedDidBindingStore::get`].
@@ -407,9 +407,9 @@ pub fn binding_freshness_at(binding: &VerifiedDidBinding, now: DateTime<Utc>) ->
     if binding.is_hard_expired(now) {
         return BindingFreshness::Expired;
     }
-    match binding.refresh_after() {
-        Some(refresh_after) if now > refresh_after => BindingFreshness::Stale {
-            age: now - refresh_after,
+    match binding.refresh_at() {
+        Some(refresh_at) if now > refresh_at => BindingFreshness::Stale {
+            age: now - refresh_at,
         },
         _ => BindingFreshness::Fresh,
     }
@@ -608,7 +608,7 @@ mod tests {
         history_head: Option<String>,
         policy_digest: Hash,
         verified_at: DateTime<Utc>,
-        refresh_after: Option<DateTime<Utc>>,
+        refresh_at: Option<DateTime<Utc>>,
         expires_at: Option<DateTime<Utc>>,
         status: DidBindingStatus,
     }
@@ -626,7 +626,7 @@ mod tests {
                 // `Utc::now()` here would give the fixture sub-millisecond
                 // digits the constructor floors away.
                 verified_at: arkret_canonical::canonical::normalize_timestamp_canonical(Utc::now()),
-                refresh_after: None,
+                refresh_at: None,
                 expires_at: None,
                 status: DidBindingStatus::Active,
             }
@@ -662,7 +662,7 @@ mod tests {
                     evidence_dependencies: receipt.evidence_dependencies().expect("dependencies"),
                     policy_digest: self.policy_digest.clone(),
                     verified_at: self.verified_at,
-                    refresh_after: self.refresh_after,
+                    refresh_at: self.refresh_at,
                     expires_at: self.expires_at,
                     status: self.status,
                 },
@@ -801,7 +801,7 @@ mod tests {
     #[test]
     fn past_refresh_point_returns_a_stale_entry_rather_than_nothing() {
         let mut fixture = Fixture::new();
-        fixture.refresh_after = Some(fixture.verified_at + Duration::minutes(10));
+        fixture.refresh_at = Some(fixture.verified_at + Duration::minutes(10));
         fixture.expires_at = Some(fixture.verified_at + Duration::hours(24));
         let store = store_with(std::slice::from_ref(&fixture));
         let key = fixture.accepted().binding().key();
@@ -821,7 +821,7 @@ mod tests {
     fn deactivated_status_is_not_overwritten_by_the_stale_downgrade() {
         let mut fixture = Fixture::new();
         fixture.status = DidBindingStatus::Deactivated;
-        fixture.refresh_after = Some(fixture.verified_at + Duration::minutes(10));
+        fixture.refresh_at = Some(fixture.verified_at + Duration::minutes(10));
         let store = store_with(std::slice::from_ref(&fixture));
         let key = fixture.accepted().binding().key();
         let hit = store

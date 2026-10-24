@@ -2,16 +2,16 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/invite-delivery.schema.json
-// sha256=6a86ebab62e42642d14fcd077e135d1302383fd561f76682c4c9775c11c6b751
+// sha256=c5fc0f581533d3d37e53da70f81e4ac2288f56f6685789f7c4c95cb5f3bed720
 //
 // Input: schemas/invite-delivery-request.schema.json
-// sha256=7ee223b5038b4f00ed268ddacb76eaea1f6bd656b09f97f29e1b091ce6f5c807
+// sha256=8a24f8dee615340e5632f390c5e3eb7bf8688670c7a4f807ee2ab911caf38951
 //
 // Input: schemas/authority-commit-operations.schema.json
-// sha256=648427c352e65a3ae31a3d9946079a846701513a5c594063501c39e95273a2db
+// sha256=f95cb1acfa8517176738115925b1795d3b13d206a1d99ddf0b5050f670136d2f
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=d200bd3e6d76abd1b6154781fb5e54f11fbbc834638cdc29554f83590127fdfa
+// sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
 
 /// Counterpart: `invite-delivery.schema.json`.
 /// Strong cell value for the `ak.account.invite_delivery` account-data key

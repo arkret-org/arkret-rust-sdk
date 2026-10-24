@@ -209,7 +209,7 @@ impl RelationPrimaryConflictDomainKind {
     }
 }
 
-/// The unique typed-current-result subject for one directly writable Relation
+/// The unique current-state subject for one directly writable Relation
 /// domain.
 ///
 /// The Realm is deliberately not a member: an Event takes it from its own

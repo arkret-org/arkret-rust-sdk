@@ -117,7 +117,7 @@ pub struct PreparedInception {
     pub local_id: String,
     /// `versionTime` recorded on the inception entry (RFC3339).
     #[zeroize(skip)]
-    pub version_time: String,
+    pub version_created_at: String,
     /// `versionId` of the inception entry (`1-<entryHash>`).
     #[zeroize(skip)]
     pub version_id: String,
@@ -168,7 +168,7 @@ pub struct PreparedPrincipalInception {
     pub method_authority: String,
     pub https_authority: String,
     pub local_id: String,
-    pub version_time: String,
+    pub version_created_at: String,
     pub version_id: String,
     pub log_entry: Value,
     pub submit_body: DidOperationSubmitRequestBody,
@@ -211,7 +211,7 @@ pub struct ValidatedPrincipalInception {
 pub struct ValidatedWebvhHistoryPoint {
     pub did: Did,
     pub version_id: String,
-    pub version_time: DateTime<Utc>,
+    pub version_created_at: DateTime<Utc>,
     pub document: Value,
     pub active_update_key_multibase: String,
 }
@@ -234,7 +234,7 @@ pub fn validate_webvh_history_at(
     let mut previous_time = None;
     let mut selected = None;
     for entry in entries {
-        let version_time = entry
+        let version_created_at = entry
             .get("versionTime")
             .and_then(Value::as_str)
             .ok_or_else(|| {
@@ -248,18 +248,19 @@ pub fn validate_webvh_history_at(
                     "webvh history entry has a non-canonical versionTime".to_owned(),
                 )
             })?;
-        if previous_time.is_some_and(|previous| version_time <= previous) {
+        if previous_time.is_some_and(|previous| version_created_at <= previous) {
             return Err(WebvhInceptionError::HistoryFork(
                 "webvh history versionTime is not strictly increasing (fork or reorder)".to_owned(),
             ));
         }
-        previous_time = Some(version_time);
-        if version_time <= at {
-            selected = Some((entry, version_time));
+        previous_time = Some(version_created_at);
+        if version_created_at <= at {
+            selected = Some((entry, version_created_at));
         }
     }
 
-    let (entry, version_time) = selected.ok_or(WebvhInceptionError::HistoryNoVersionAtTime)?;
+    let (entry, version_created_at) =
+        selected.ok_or(WebvhInceptionError::HistoryNoVersionAtTime)?;
     if entry
         .pointer("/parameters/deactivated")
         .and_then(Value::as_bool)
@@ -285,7 +286,7 @@ pub fn validate_webvh_history_at(
     Ok(ValidatedWebvhHistoryPoint {
         did: did.clone(),
         version_id,
-        version_time,
+        version_created_at,
         document,
         active_update_key_multibase,
     })
@@ -305,11 +306,11 @@ pub fn validate_principal_inception_operation(
         .validate()
         .map_err(|error| WebvhInceptionError::InvalidProof(error.to_string()))?;
     if request.did_method != arkret_models_identity::DidMethodName::Webvh
-        || request.seq != Some(1)
-        || request.prev_event_digest.is_some()
+        || request.sequence != Some(1)
+        || request.previous_event_digest.is_some()
     {
         return Err(WebvhInceptionError::InvalidProof(
-            "identity creation requires a did:webvh entry-0 operation with seq=1 and no predecessor"
+            "identity creation requires a did:webvh entry-0 operation with sequence=1 and no predecessor"
                 .to_owned(),
         ));
     }
@@ -648,7 +649,7 @@ pub struct PrincipalRotationInput<'a> {
     pub did: &'a str,
     pub local_id: &'a str,
     pub previous_entries: &'a [Value],
-    pub version_time: DateTime<Utc>,
+    pub version_created_at: DateTime<Utc>,
     pub current_root_seed: &'a [u8; SECRET_KEY_LENGTH],
     pub next_root_public_key_multibase: &'a str,
     pub state: &'a Value,
@@ -660,7 +661,7 @@ pub struct PrincipalRotationInput<'a> {
 pub struct PreparedPrincipalRotation {
     pub did: String,
     pub local_id: String,
-    pub version_time: String,
+    pub version_created_at: String,
     pub previous_version_id: String,
     pub version_id: String,
     pub log_entry: Value,
@@ -678,7 +679,7 @@ pub struct WebvhRelocationInput<'a> {
     pub current_did: &'a str,
     pub target_did: &'a str,
     pub previous_entries: &'a [Value],
-    pub version_time: DateTime<Utc>,
+    pub version_created_at: DateTime<Utc>,
     pub current_update_seed: &'a [u8; SECRET_KEY_LENGTH],
     pub next_update_public_key_multibase: &'a str,
     /// Complete successor DID Document. Its `id` must equal `target_did` and
@@ -691,7 +692,7 @@ pub struct WebvhRelocationInput<'a> {
 pub struct PreparedWebvhRelocation {
     pub predecessor_did: String,
     pub did: String,
-    pub version_time: String,
+    pub version_created_at: String,
     pub previous_version_id: String,
     pub version_id: String,
     pub log_entry: Value,
@@ -709,7 +710,7 @@ impl std::fmt::Debug for PreparedInception {
             .field("method_authority", &self.method_authority)
             .field("https_authority", &self.https_authority)
             .field("local_id", &self.local_id)
-            .field("version_time", &self.version_time)
+            .field("version_created_at", &self.version_created_at)
             .field("version_id", &self.version_id)
             .field("log_entry", &self.log_entry)
             .field("submit_body", &self.submit_body)
@@ -765,7 +766,7 @@ pub struct PrincipalInceptionInput<'a> {
     /// Optional `alsoKnownAs` entries (e.g. the user's `@handle@host`).
     pub also_known_as: &'a [String],
     /// `versionTime` for the inception entry. Coland requires RFC3339.
-    pub version_time: DateTime<Utc>,
+    pub version_created_at: DateTime<Utc>,
     pub root_seed: &'a [u8; SECRET_KEY_LENGTH],
     pub next_root_public_key_multibase: &'a str,
     /// Optional method-native did:webvh v1.0 witness policy.
@@ -779,7 +780,7 @@ pub struct AgentInceptionInput<'a> {
     pub principal_endpoint: &'a Url,
     pub local_id: &'a str,
     pub controller_principal_id: &'a DidCoreId,
-    pub version_time: DateTime<Utc>,
+    pub version_created_at: DateTime<Utc>,
     pub root_seed: &'a [u8; SECRET_KEY_LENGTH],
     pub next_root_public_key_multibase: &'a str,
 }
@@ -788,7 +789,7 @@ pub struct AgentInceptionInput<'a> {
 pub struct RealmActorInceptionInput<'a> {
     pub principal_endpoint: &'a Url,
     pub local_id: &'a str,
-    pub version_time: DateTime<Utc>,
+    pub version_created_at: DateTime<Utc>,
     pub root_seed: &'a [u8; SECRET_KEY_LENGTH],
     pub next_root_public_key_multibase: &'a str,
     pub controller_public_key: &'a [u8; 32],
@@ -800,7 +801,7 @@ pub struct AgentBindingUpdateInput<'a> {
     pub did: &'a str,
     pub local_id: &'a str,
     pub previous_entries: &'a [Value],
-    pub version_time: DateTime<Utc>,
+    pub version_created_at: DateTime<Utc>,
     pub current_root_seed: &'a [u8; SECRET_KEY_LENGTH],
     pub next_root_public_key_multibase: &'a str,
     pub controller_principal_id: &'a DidCoreId,
@@ -816,7 +817,7 @@ pub struct SuppliedPrincipalInceptionInput<'a> {
     pub principal_endpoint: &'a Url,
     pub local_id: &'a str,
     pub also_known_as: &'a [String],
-    pub version_time: &'a str,
+    pub version_created_at: &'a str,
     pub root_public_key_multibase: &'a str,
     pub next_root_public_key_multibase: &'a str,
     pub proof: Value,
@@ -859,7 +860,7 @@ pub fn prepare_agent_inception(
         input.principal_endpoint,
         input.local_id,
         &[],
-        input.version_time,
+        input.version_created_at,
         input.root_seed,
         input.next_root_public_key_multibase,
         None,
@@ -883,7 +884,7 @@ pub fn prepare_realm_actor_inception(
         input.principal_endpoint,
         input.local_id,
         &[],
-        input.version_time,
+        input.version_created_at,
         input.root_seed,
         input.next_root_public_key_multibase,
         None,
@@ -933,7 +934,7 @@ fn prepare_principal_inception_with_portability(
         input.principal_endpoint,
         input.local_id,
         input.also_known_as,
-        input.version_time,
+        input.version_created_at,
         input.root_seed,
         input.next_root_public_key_multibase,
         input.witness_policy,
@@ -973,7 +974,7 @@ where
     let placeholder_did = webvh_placeholder_did(&method_authority, &local_id);
     let service_endpoint = CanonicalServiceUrl::canonicalize(principal_endpoint.as_str())
         .map_err(|error| WebvhInceptionError::InvalidProof(error.to_string()))?;
-    let version_time = version_time_value.to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+    let version_created_at = version_time_value.to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
     let document_skeleton = document_builder(&placeholder_did, service_endpoint.as_str())?;
     document_validator(
         &placeholder_did,
@@ -991,7 +992,7 @@ where
         })
         .transpose()?;
     let entry_skeleton = build_webvh_inception_skeleton(&WebvhInceptionSkeletonInput {
-        version_time: &version_time,
+        version_created_at: &version_created_at,
         update_keys: std::slice::from_ref(&root_public_key_multibase),
         next_key_hashes: std::slice::from_ref(&next_root_key_hash),
         portable: portable.then_some(true),
@@ -1025,7 +1026,7 @@ where
         method_authority,
         https_authority,
         local_id,
-        version_time,
+        version_created_at,
         version_id,
         log_entry,
         submit_body,
@@ -1080,7 +1081,7 @@ fn validate_principal_rotation_history<'a>(
                     "principal history entry {sequence} is missing parameters"
                 ))
             })?;
-        let version_time = entry
+        let version_created_at = entry
             .get("versionTime")
             .and_then(Value::as_str)
             .ok_or_else(|| {
@@ -1094,7 +1095,7 @@ fn validate_principal_rotation_history<'a>(
                     "principal history entry {sequence} has an invalid versionTime"
                 ))
             })?;
-        if previous_version_time.is_some_and(|previous| version_time <= previous) {
+        if previous_version_time.is_some_and(|previous| version_created_at <= previous) {
             return Err(WebvhInceptionError::HistoryFork(format!(
                 "principal history entry {sequence} versionTime is not strictly increasing"
             )));
@@ -1214,7 +1215,7 @@ fn validate_principal_rotation_history<'a>(
         }
         verify_constructed_webvh_proof(entry).map_err(WebvhInceptionError::InvalidProof)?;
         previous_version_id = Some(version_id);
-        previous_version_time = Some(version_time);
+        previous_version_time = Some(version_created_at);
         previous_state_id = Some(state_id);
         effective_portable = successor_effective_portable;
     }
@@ -1348,7 +1349,7 @@ pub fn prepare_agent_binding_update(
             did: input.did,
             local_id: input.local_id,
             previous_entries: input.previous_entries,
-            version_time: input.version_time,
+            version_created_at: input.version_created_at,
             current_root_seed: input.current_root_seed,
             next_root_public_key_multibase: input.next_root_public_key_multibase,
             state: &state,
@@ -1455,15 +1456,15 @@ fn prepare_principal_rotation_inner(
     let next_root_key_hash = webvh_next_key_hash(input.next_root_public_key_multibase)?;
     // Preserve the protocol's millisecond cut: truncating an Agent binding
     // to seconds can put it before the already accepted PCR genesis.
-    let version_time = input
-        .version_time
+    let version_created_at = input
+        .version_created_at
         .to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
     let previous_version_time = previous_entry
         .get("versionTime")
         .and_then(Value::as_str)
         .and_then(|value| value.parse::<DateTime<Utc>>().ok())
         .expect("validated history head has a versionTime");
-    let canonical_version_time = version_time
+    let canonical_version_time = version_created_at
         .parse::<DateTime<Utc>>()
         .expect("canonical RFC3339 timestamp parses");
     if canonical_version_time <= previous_version_time {
@@ -1473,7 +1474,7 @@ fn prepare_principal_rotation_inner(
     }
     let mut log_entry = json!({
         "versionId": previous_version_id,
-        "versionTime": version_time,
+        "versionTime": version_created_at,
         "parameters": {
             "scid": scid,
             "method": WEBVH_METHOD_VERSION,
@@ -1519,7 +1520,7 @@ fn prepare_principal_rotation_inner(
     Ok(PreparedPrincipalRotation {
         did: did.to_string(),
         local_id,
-        version_time,
+        version_created_at,
         previous_version_id: previous_version_id.to_owned(),
         version_id,
         log_entry,
@@ -1553,13 +1554,13 @@ pub struct ServiceRotationInput<'a> {
     /// service generates it before this entry is published and must persist it:
     /// losing it forecloses every later change to this DID.
     pub next_update_public_key_multibase: &'a str,
-    pub version_time: DateTime<Utc>,
+    pub version_created_at: DateTime<Utc>,
 }
 
 /// One prepared service successor entry, ready to publish.
 pub struct PreparedServiceRotation {
     pub did: String,
-    pub version_time: String,
+    pub version_created_at: String,
     pub previous_version_id: String,
     pub version_id: String,
     pub log_entry: Value,
@@ -1669,15 +1670,15 @@ pub fn prepare_service_rotation(
         ));
     }
     let next_update_key_hash = webvh_next_key_hash(input.next_update_public_key_multibase)?;
-    let version_time = input
-        .version_time
+    let version_created_at = input
+        .version_created_at
         .to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
     let previous_version_time = previous_entry
         .get("versionTime")
         .and_then(Value::as_str)
         .and_then(|value| value.parse::<DateTime<Utc>>().ok())
         .expect("validated history head has a versionTime");
-    let canonical_version_time = version_time
+    let canonical_version_time = version_created_at
         .parse::<DateTime<Utc>>()
         .expect("canonical RFC3339 timestamp parses");
     if canonical_version_time <= previous_version_time {
@@ -1687,7 +1688,7 @@ pub fn prepare_service_rotation(
     }
     let mut log_entry = json!({
         "versionId": previous_version_id,
-        "versionTime": version_time,
+        "versionTime": version_created_at,
         "parameters": {
             "scid": scid,
             "method": WEBVH_METHOD_VERSION,
@@ -1729,7 +1730,7 @@ pub fn prepare_service_rotation(
 
     Ok(PreparedServiceRotation {
         did: input.did.to_owned(),
-        version_time,
+        version_created_at,
         previous_version_id: previous_version_id.to_owned(),
         version_id,
         log_entry,
@@ -1853,12 +1854,12 @@ pub fn prepare_webvh_relocation(
         ));
     }
     let next_update_key_hash = webvh_next_key_hash(input.next_update_public_key_multibase)?;
-    let version_time = input
-        .version_time
+    let version_created_at = input
+        .version_created_at
         .to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
     let mut log_entry = json!({
         "versionId": previous_version_id,
-        "versionTime": version_time,
+        "versionTime": version_created_at,
         "parameters": {
             "scid": current_scid,
             "method": WEBVH_METHOD_VERSION,
@@ -1900,7 +1901,7 @@ pub fn prepare_webvh_relocation(
     Ok(PreparedWebvhRelocation {
         predecessor_did: input.current_did.to_owned(),
         did: input.target_did.to_owned(),
-        version_time,
+        version_created_at,
         previous_version_id: previous_version_id.to_owned(),
         version_id,
         log_entry,
@@ -1928,7 +1929,7 @@ pub struct ServiceInceptionInput<'a> {
     /// Optional `alsoKnownAs` entries. Usually empty for a service DID.
     pub also_known_as: &'a [String],
     /// `versionTime` for the inception entry (RFC3339-serialised internally).
-    pub version_time: DateTime<Utc>,
+    pub version_created_at: DateTime<Utc>,
     /// Optional verification-method fragment; defaults to `did-key-1`.
     pub did_key_fragment: Option<&'a str>,
 }
@@ -1942,7 +1943,7 @@ pub struct ServiceRegistrationInceptionInput<'a> {
     pub provider_endpoint: &'a Url,
     pub registration_key: &'a ServiceRegistrationKey,
     pub also_known_as: &'a [String],
-    pub version_time: DateTime<Utc>,
+    pub version_created_at: DateTime<Utc>,
     pub did_key_fragment: Option<&'a str>,
 }
 
@@ -2019,7 +2020,7 @@ fn prepare_service_registration_inception_internal<R: Rng + ?Sized>(
         *input.registration_key.service_kind(),
         &local_id,
         input.also_known_as,
-        input.version_time,
+        input.version_created_at,
         input.did_key_fragment,
         supplied_did_key_seed,
         assertion_keys,
@@ -2040,7 +2041,7 @@ fn prepare_service_inception_internal<R: Rng + ?Sized>(
         ServiceKind::Station,
         input.local_id,
         input.also_known_as,
-        input.version_time,
+        input.version_created_at,
         input.did_key_fragment,
         supplied_did_key_seed,
         &[],
@@ -2055,7 +2056,7 @@ fn prepare_service_inception_parts<R: Rng + ?Sized>(
     service_kind: ServiceKind,
     local_id: &str,
     also_known_as: &[String],
-    version_time: DateTime<Utc>,
+    version_created_at: DateTime<Utc>,
     did_key_fragment: Option<&str>,
     supplied_did_key_seed: Option<&[u8; SECRET_KEY_LENGTH]>,
     assertion_keys: &[(&str, &str)],
@@ -2084,7 +2085,7 @@ fn prepare_service_inception_parts<R: Rng + ?Sized>(
     let placeholder_did = webvh_placeholder_did(&method_authority, &local_id);
     let placeholder_key_id = format!("{placeholder_did}#{did_key_fragment}");
     let service_endpoint = public_base_url.as_str();
-    let version_time = version_time.to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+    let version_created_at = version_created_at.to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
     let mut document_skeleton = embedded_webvh_document_value_without_enrollment(
         &placeholder_did,
         &placeholder_key_id,
@@ -2120,7 +2121,7 @@ fn prepare_service_inception_parts<R: Rng + ?Sized>(
             .push(json!(method_id));
     }
     let entry_skeleton = build_webvh_inception_skeleton(&WebvhInceptionSkeletonInput {
-        version_time: &version_time,
+        version_created_at: &version_created_at,
         update_keys: std::slice::from_ref(&update_public_key_multibase),
         next_key_hashes: std::slice::from_ref(&next_update_key_hash),
         portable: Some(true),
@@ -2152,7 +2153,7 @@ fn prepare_service_inception_parts<R: Rng + ?Sized>(
         method_authority,
         https_authority,
         local_id,
-        version_time,
+        version_created_at,
         version_id,
         log_entry,
         submit_body,
@@ -2180,8 +2181,8 @@ pub fn prepare_supplied_principal_inception(
         input.root_public_key_multibase,
         input.next_root_public_key_multibase,
     )?;
-    DateTime::parse_from_rfc3339(input.version_time).map_err(|_| {
-        WebvhInceptionError::InvalidProof("version_time must be RFC3339".to_owned())
+    DateTime::parse_from_rfc3339(input.version_created_at).map_err(|_| {
+        WebvhInceptionError::InvalidProof("version_created_at must be RFC3339".to_owned())
     })?;
 
     let (method_authority, _https_authority) = authority_pair(input.principal_endpoint)?;
@@ -2205,7 +2206,7 @@ pub fn prepare_supplied_principal_inception(
     let next_root_key_hash = webvh_next_key_hash(input.next_root_public_key_multibase)?;
     let root_public_key_multibase = input.root_public_key_multibase.to_owned();
     let entry_skeleton = build_webvh_inception_skeleton(&WebvhInceptionSkeletonInput {
-        version_time: input.version_time,
+        version_created_at: input.version_created_at,
         update_keys: std::slice::from_ref(&root_public_key_multibase),
         next_key_hashes: std::slice::from_ref(&next_root_key_hash),
         portable: None,
@@ -2608,8 +2609,8 @@ pub fn webvh_next_key_hash(public_key_multibase: &str) -> Result<String, WebvhIn
 
 fn did_submit_body(
     did: &str,
-    seq: u64,
-    prev_event_digest: Option<Hash>,
+    sequence: u64,
+    previous_event_digest: Option<Hash>,
     operation: Value,
 ) -> Result<DidOperationSubmitRequestBody, WebvhInceptionError> {
     let typed_did = Did::new(did.to_owned())
@@ -2622,8 +2623,8 @@ fn did_submit_body(
     Ok(DidOperationSubmitRequestBody {
         did: typed_did,
         did_method: arkret_models_identity::DidMethodName::Webvh,
-        seq: Some(seq),
-        prev_event_digest,
+        sequence: Some(sequence),
+        previous_event_digest,
         operation: operation.into_iter().collect(),
     })
 }
@@ -2800,7 +2801,7 @@ mod historical_verification_tests {
                 principal_endpoint: &endpoint,
                 local_id: "service",
                 also_known_as: &[],
-                version_time: first_time,
+                version_created_at: first_time,
                 did_key_fragment: Some("assertion-1"),
             },
         )
@@ -2873,7 +2874,7 @@ mod historical_verification_tests {
             principal_endpoint: &Url::parse("https://registration.example/").unwrap(),
             local_id: "alice",
             also_known_as: &[],
-            version_time: created_at,
+            version_created_at: created_at,
             root_seed: &root_seed,
             next_root_public_key_multibase: &next_root_public_key_multibase,
             witness_policy: None,
@@ -2996,7 +2997,7 @@ mod historical_verification_tests {
             principal_endpoint: &principal,
             local_id: "witnessed",
             also_known_as: &[],
-            version_time: Utc::now(),
+            version_created_at: Utc::now(),
             root_seed: &[93u8; 32],
             next_root_public_key_multibase: &next,
             witness_policy: Some(&policy),
@@ -3132,7 +3133,7 @@ mod historical_verification_tests {
                 .and_then(Value::as_str),
             Some(fixture.second_assertion_key.as_str())
         );
-        assert_eq!(at_rotation.version_time, fixture.second_time);
+        assert_eq!(at_rotation.version_created_at, fixture.second_time);
     }
 
     #[test]
@@ -3202,7 +3203,7 @@ mod historical_verification_tests {
             principal_endpoint: &endpoint,
             local_id: "agent-01",
             controller_principal_id: &controller_principal_id,
-            version_time: inception_time,
+            version_created_at: inception_time,
             root_seed: &root_seed,
             next_root_public_key_multibase: &next_public,
         })
@@ -3226,7 +3227,7 @@ mod historical_verification_tests {
             did: &inception.did,
             local_id: &inception.local_id,
             previous_entries: std::slice::from_ref(&inception.log_entry),
-            version_time: binding_time,
+            version_created_at: binding_time,
             current_root_seed: &next_seed,
             next_root_public_key_multibase: &future_public,
             controller_principal_id: &controller_principal_id,
@@ -3241,8 +3242,8 @@ mod historical_verification_tests {
         assert_eq!(before_binding.version_id, inception.version_id);
         let at_binding = validate_webvh_history_at(&did, &entries, binding_time).unwrap();
         assert_eq!(at_binding.version_id, binding.version_id);
-        assert_eq!(at_binding.version_time, binding_time);
-        assert!(at_binding.version_time > genesis_accepted_at);
+        assert_eq!(at_binding.version_created_at, binding_time);
+        assert!(at_binding.version_created_at > genesis_accepted_at);
         assert!(binding.version_id.starts_with("2-"));
         let services = binding.log_entry["state"]["service"].as_array().unwrap();
         assert_eq!(services.len(), 3);

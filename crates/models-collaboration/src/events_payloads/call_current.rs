@@ -119,10 +119,10 @@ impl CallRosterCurrentValue {
                 ));
             }
             if let Some(key) = &entry.participant_signing_key {
-                let bytes = arkret_canonical::base64url_decode(&key.public_key_b64u)
+                let bytes = arkret_canonical::base64url_decode(&key.public_key_base64url)
                     .map_err(|e| invalid(&e.to_string()))?;
                 if bytes.len() != 32
-                    || arkret_canonical::base64url_encode(&bytes) != key.public_key_b64u
+                    || arkret_canonical::base64url_encode(&bytes) != key.public_key_base64url
                 {
                     return Err(invalid("Call participant issuer key is not Ed25519"));
                 }

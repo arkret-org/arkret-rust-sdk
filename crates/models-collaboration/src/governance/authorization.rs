@@ -3,8 +3,8 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    ActorId, AuthorityStatus, AuthzDecision, CurrentRevision, FreshnessState, Hash, ReasonCode,
-    WireResourceSelector,
+    ActorId, AuthorityStatus, AuthorizationDecision, CurrentRevision, FreshnessState, Hash,
+    ReasonCode, WireResourceSelector,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -15,7 +15,7 @@ use crate::governance::operation_wire::Invite;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AuthzCheckRequestBody {
+pub struct AuthorizationCheckRequestBody {
     pub actor_id: ActorId,
     pub action: String,
     /// Optional resource selector (Realm / Strand / Space / Morph / etc.).
@@ -29,8 +29,8 @@ pub struct AuthzCheckRequestBody {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AuthzCheckOutcome {
-    pub decision: AuthzDecision,
+pub struct AuthorizationCheckResponseBody {
+    pub decision: AuthorizationDecision,
     #[serde(default)]
     pub matched_grants: Vec<Value>,
     #[serde(default)]
@@ -107,7 +107,7 @@ impl<'de> Deserialize<'de> for EffectiveCapabilityGrantRow {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct GrantList {
+pub struct EffectiveGrantSnapshot {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = Vec<serde_json::Value>)))]
     pub grants: Vec<EffectiveCapabilityGrantRow>,
     pub state_digest: Hash,
@@ -117,7 +117,7 @@ pub struct GrantList {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct AuthzInviteList {
+pub struct AuthorizationInvitePage {
     #[serde(default)]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub invites: Vec<Invite>,

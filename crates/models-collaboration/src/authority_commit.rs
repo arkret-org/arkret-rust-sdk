@@ -328,9 +328,9 @@ impl HistoricalProducerSignerFactEntry {
     }
 }
 
-impl PeerStreamScanOutcome {
-    pub fn validate_for_request(&self, request: &arkret_wire::StreamScanRequest) -> Result<()> {
-        arkret_wire::StreamScanOutcome {
+impl PeerStreamScanResponseBody {
+    pub fn validate_for_request(&self, request: &arkret_wire::StreamScanRequestBody) -> Result<()> {
+        arkret_wire::StreamScanResponseBody {
             committed_events: self.committed_events.clone(),
             readable_floor: self.readable_floor.clone(),
             truncated: self.truncated,
@@ -747,7 +747,7 @@ impl MembershipCompensationFederationSubmission {
     clippy::large_enum_variant,
     reason = "Keep schema-mapped wire variants inline; transport and runtime containers own allocation policy."
 )]
-pub enum SelfAuthoritySubmitRequest {
+pub enum SelfAuthoritySubmitRequestBody {
     Event(EventAdmissionSubmission),
     MlsCommit(MlsCommitSubmission),
     OrdinaryRealmBootstrap(OrdinaryRealmBootstrapUnitSubmission),
@@ -756,7 +756,7 @@ pub enum SelfAuthoritySubmitRequest {
     AuditPairedEvent(AuditPairedEventUnitSubmission),
 }
 
-impl SelfAuthoritySubmitRequest {
+impl SelfAuthoritySubmitRequestBody {
     pub fn validate(&self) -> Result<()> {
         match self {
             Self::Event(value) => value.validate(),
@@ -849,8 +849,8 @@ impl MlsGenesisMaterial {
     #[must_use]
     pub fn from_bytes(group_info: &[u8], ratchet_tree: &[u8]) -> Self {
         Self {
-            group_info_bytes_b64: arkret_wire::base64url::base64url_encode(group_info),
-            ratchet_tree_bytes_b64: arkret_wire::base64url::base64url_encode(ratchet_tree),
+            group_info_base64url: arkret_wire::base64url::base64url_encode(group_info),
+            ratchet_tree_base64url: arkret_wire::base64url::base64url_encode(ratchet_tree),
         }
     }
 
@@ -858,8 +858,8 @@ impl MlsGenesisMaterial {
     /// failure is `schema_violation`.
     pub fn decode(&self) -> Result<(Vec<u8>, Vec<u8>)> {
         Ok((
-            decode_genesis_blob("group_info_bytes_b64", &self.group_info_bytes_b64)?,
-            decode_genesis_blob("ratchet_tree_bytes_b64", &self.ratchet_tree_bytes_b64)?,
+            decode_genesis_blob("group_info_base64url", &self.group_info_base64url)?,
+            decode_genesis_blob("ratchet_tree_base64url", &self.ratchet_tree_base64url)?,
         ))
     }
 
@@ -885,10 +885,10 @@ fn decode_genesis_blob(field: &str, encoded: &str) -> Result<Vec<u8>> {
 }
 
 // Field order is byte-for-byte the authority_forward branch order of
-// authority-commit-operations.schema.json#/$defs/peer_submit_request.
+// authority-commit-operations.schema.json#/$defs/peer_submit_request_body.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PeerAuthorityForwardEventRequest {
+pub struct PeerAuthorityForwardEventRequestBody {
     pub branch: AuthorityForwardBranch,
     pub event_submission: EventAdmissionSubmission,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -899,7 +899,7 @@ pub struct PeerAuthorityForwardEventRequest {
     pub producer_agent_evidence: Option<AgentProducerEvidence>,
 }
 
-impl PeerAuthorityForwardEventRequest {
+impl PeerAuthorityForwardEventRequestBody {
     /// Structural candidate only. Admission must independently establish the
     /// actual accepted inception/purpose and execute the registered native unit.
     pub fn is_native_pcr_candidate(&self) -> bool {
@@ -987,10 +987,10 @@ impl PeerAuthorityForwardEventRequest {
 }
 
 // Field order is byte-for-byte the authority_forward branch order of
-// authority-commit-operations.schema.json#/$defs/peer_submit_request.
+// authority-commit-operations.schema.json#/$defs/peer_submit_request_body.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PeerAuthorityForwardMlsRequest {
+pub struct PeerAuthorityForwardMlsRequestBody {
     pub branch: AuthorityForwardBranch,
     pub mls_submission: MlsCommitSubmission,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -999,7 +999,7 @@ pub struct PeerAuthorityForwardMlsRequest {
     pub producer_agent_evidence: Option<AgentProducerEvidence>,
 }
 
-impl PeerAuthorityForwardMlsRequest {
+impl PeerAuthorityForwardMlsRequestBody {
     pub fn new_agent(
         mls_submission: MlsCommitSubmission,
         producer_agent_evidence: AgentProducerEvidence,
@@ -1050,14 +1050,14 @@ impl PeerAuthorityForwardMlsRequest {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PeerCommittedReplicationRequest {
+pub struct PeerCommittedReplicationRequestBody {
     pub branch: CommittedReplicationBranch,
     pub replications: Vec<CommittedEventSubmission>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PeerRegisteredAtomicUnitRequest {
+pub struct PeerRegisteredAtomicUnitRequestBody {
     pub branch: RegisteredAtomicUnitBranch,
     pub unit: PeerRegisteredAtomicUnit,
 }
@@ -1068,15 +1068,15 @@ pub struct PeerRegisteredAtomicUnitRequest {
     clippy::large_enum_variant,
     reason = "Keep schema-mapped wire variants inline; transport and runtime containers own allocation policy."
 )]
-pub enum PeerAuthoritySubmitRequest {
-    AuthorityForwardEvent(PeerAuthorityForwardEventRequest),
-    AuthorityForwardMls(PeerAuthorityForwardMlsRequest),
-    AuthorityForwardAtomic(PeerAuthorityForwardAtomicRequest),
-    CommittedReplication(PeerCommittedReplicationRequest),
-    RegisteredAtomicUnit(PeerRegisteredAtomicUnitRequest),
+pub enum PeerAuthoritySubmitRequestBody {
+    AuthorityForwardEvent(PeerAuthorityForwardEventRequestBody),
+    AuthorityForwardMls(PeerAuthorityForwardMlsRequestBody),
+    AuthorityForwardAtomic(PeerAuthorityForwardAtomicRequestBody),
+    CommittedReplication(PeerCommittedReplicationRequestBody),
+    RegisteredAtomicUnit(PeerRegisteredAtomicUnitRequestBody),
 }
 
-impl PeerAuthoritySubmitRequest {
+impl PeerAuthoritySubmitRequestBody {
     pub fn validate(&self) -> Result<()> {
         match self {
             Self::AuthorityForwardEvent(value) => value.validate(),
@@ -1219,15 +1219,15 @@ impl MembershipCompensationAcceptanceOutcome {
     clippy::large_enum_variant,
     reason = "Keep schema-mapped wire variants inline; transport and runtime containers own allocation policy."
 )]
-pub enum SelfAuthoritySubmitOutcome {
-    Ordinary(arkret_wire::AuthoritySubmitOutcome),
+pub enum SelfAuthoritySubmitResponseBody {
+    Ordinary(arkret_wire::AuthoritySubmitResponseBody),
     OrdinaryRealmBootstrap(OrdinaryRealmBootstrapAcceptanceOutcome),
     DirectConversationFounding(DirectConversationFoundingAcceptanceOutcome),
     MembershipCompensation(MembershipCompensationAcceptanceOutcome),
     AuditPairedEvent(AuditPairedEventAcceptanceOutcome),
 }
 
-impl SelfAuthoritySubmitOutcome {
+impl SelfAuthoritySubmitResponseBody {
     pub fn validate(&self) -> Result<()> {
         match self {
             Self::Ordinary(value) => value.validate_shape(),
@@ -1238,30 +1238,31 @@ impl SelfAuthoritySubmitOutcome {
         }
     }
 
-    pub fn validate_for_request(&self, request: &SelfAuthoritySubmitRequest) -> Result<()> {
+    pub fn validate_for_request(&self, request: &SelfAuthoritySubmitRequestBody) -> Result<()> {
         request.validate()?;
         self.validate()?;
         let branch_matches = matches!(
             (request, self),
             (
-                SelfAuthoritySubmitRequest::Event(_) | SelfAuthoritySubmitRequest::MlsCommit(_),
+                SelfAuthoritySubmitRequestBody::Event(_)
+                    | SelfAuthoritySubmitRequestBody::MlsCommit(_),
                 Self::Ordinary(_)
             ) | (
-                SelfAuthoritySubmitRequest::OrdinaryRealmBootstrap(_),
+                SelfAuthoritySubmitRequestBody::OrdinaryRealmBootstrap(_),
                 Self::OrdinaryRealmBootstrap(_)
             ) | (
-                SelfAuthoritySubmitRequest::DirectConversationFounding(_),
+                SelfAuthoritySubmitRequestBody::DirectConversationFounding(_),
                 Self::DirectConversationFounding(_)
             ) | (
-                SelfAuthoritySubmitRequest::MembershipCompensation(_),
+                SelfAuthoritySubmitRequestBody::MembershipCompensation(_),
                 Self::MembershipCompensation(_)
             ) | (
-                SelfAuthoritySubmitRequest::AuditPairedEvent(_),
+                SelfAuthoritySubmitRequestBody::AuditPairedEvent(_),
                 Self::AuditPairedEvent(_)
             )
         );
         if let (
-            SelfAuthoritySubmitRequest::AuditPairedEvent(request),
+            SelfAuthoritySubmitRequestBody::AuditPairedEvent(request),
             Self::AuditPairedEvent(outcome),
         ) = (request, self)
         {
@@ -1269,7 +1270,7 @@ impl SelfAuthoritySubmitOutcome {
         }
         if branch_matches {
             if let (
-                SelfAuthoritySubmitRequest::DirectConversationFounding(request),
+                SelfAuthoritySubmitRequestBody::DirectConversationFounding(request),
                 Self::DirectConversationFounding(outcome),
             ) = (request, self)
             {
@@ -1282,7 +1283,7 @@ impl SelfAuthoritySubmitOutcome {
                 }
             }
             if let (
-                SelfAuthoritySubmitRequest::OrdinaryRealmBootstrap(request),
+                SelfAuthoritySubmitRequestBody::OrdinaryRealmBootstrap(request),
                 Self::OrdinaryRealmBootstrap(outcome),
             ) = (request, self)
                 && (request.events.len() != outcome.commits.len()
@@ -1313,7 +1314,7 @@ impl SelfAuthoritySubmitOutcome {
 /// `deny_unknown_fields` closed.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
-pub enum PeerCommittedReplicationOutcomeRecord {
+pub enum CommittedEventReplicationOutcome {
     Stored {},
     Duplicate {},
     Rejected { reason_code: String },
@@ -1321,16 +1322,16 @@ pub enum PeerCommittedReplicationOutcomeRecord {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PeerAuthorityForwardOutcome {
+pub struct PeerAuthorityForwardResponseBody {
     pub branch: AuthorityForwardBranch,
-    pub outcome: PeerAuthorityForwardOutcomeValue,
+    pub response_body: ForwardedAuthorityResponseBody,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PeerCommittedReplicationOutcome {
+pub struct PeerCommittedReplicationResponseBody {
     pub branch: CommittedReplicationBranch,
-    pub replication_outcomes: Vec<PeerCommittedReplicationOutcomeRecord>,
+    pub replication_outcomes: Vec<CommittedEventReplicationOutcome>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1363,7 +1364,7 @@ pub enum RegisteredAtomicUnitRejectionStatus {
     clippy::large_enum_variant,
     reason = "Keep schema-mapped wire variants inline; transport and runtime containers own allocation policy."
 )]
-pub enum PeerRegisteredAtomicUnitOutcomeValue {
+pub enum RegisteredAtomicUnitAdmissionOutcome {
     DirectConversationFounding(DirectConversationFoundingAcceptanceOutcome),
     MembershipCompensation(MembershipCompensationAcceptanceOutcome),
     AuditPairedEvent(AuditPairedEventAcceptanceOutcome),
@@ -1372,9 +1373,9 @@ pub enum PeerRegisteredAtomicUnitOutcomeValue {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PeerRegisteredAtomicUnitOutcome {
+pub struct PeerRegisteredAtomicUnitResponseBody {
     pub branch: RegisteredAtomicUnitBranch,
-    pub outcome: PeerRegisteredAtomicUnitOutcomeValue,
+    pub outcome: RegisteredAtomicUnitAdmissionOutcome,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -1383,16 +1384,16 @@ pub struct PeerRegisteredAtomicUnitOutcome {
     clippy::large_enum_variant,
     reason = "Keep schema-mapped wire variants inline; transport and runtime containers own allocation policy."
 )]
-pub enum PeerAuthoritySubmitOutcome {
-    AuthorityForward(PeerAuthorityForwardOutcome),
-    CommittedReplication(PeerCommittedReplicationOutcome),
-    RegisteredAtomicUnit(PeerRegisteredAtomicUnitOutcome),
+pub enum PeerAuthoritySubmitResponseBody {
+    AuthorityForward(PeerAuthorityForwardResponseBody),
+    CommittedReplication(PeerCommittedReplicationResponseBody),
+    RegisteredAtomicUnit(PeerRegisteredAtomicUnitResponseBody),
 }
 
-impl PeerAuthoritySubmitOutcome {
+impl PeerAuthoritySubmitResponseBody {
     pub fn validate(&self) -> Result<()> {
         match self {
-            Self::AuthorityForward(value) => value.outcome.validate_shape(),
+            Self::AuthorityForward(value) => value.response_body.validate_shape(),
             Self::CommittedReplication(value) => {
                 if value.replication_outcomes.is_empty() || value.replication_outcomes.len() > 100 {
                     return Err(WireError::Protocol(
@@ -1401,22 +1402,21 @@ impl PeerAuthoritySubmitOutcome {
                     ));
                 }
                 for record in &value.replication_outcomes {
-                    if let PeerCommittedReplicationOutcomeRecord::Rejected { reason_code } = record
-                    {
+                    if let CommittedEventReplicationOutcome::Rejected { reason_code } = record {
                         validate_reason_code(reason_code)?;
                     }
                 }
                 Ok(())
             }
             Self::RegisteredAtomicUnit(value) => match &value.outcome {
-                PeerRegisteredAtomicUnitOutcomeValue::DirectConversationFounding(value) => {
+                RegisteredAtomicUnitAdmissionOutcome::DirectConversationFounding(value) => {
                     value.validate()
                 }
-                PeerRegisteredAtomicUnitOutcomeValue::MembershipCompensation(value) => {
+                RegisteredAtomicUnitAdmissionOutcome::MembershipCompensation(value) => {
                     value.validate()
                 }
-                PeerRegisteredAtomicUnitOutcomeValue::AuditPairedEvent(value) => value.validate(),
-                PeerRegisteredAtomicUnitOutcomeValue::Rejected(value) => {
+                RegisteredAtomicUnitAdmissionOutcome::AuditPairedEvent(value) => value.validate(),
+                RegisteredAtomicUnitAdmissionOutcome::Rejected(value) => {
                     validate_reason_code(&value.reason_code)?;
                     if let Some(details) = &value.details {
                         details.validate()?;
@@ -1427,27 +1427,27 @@ impl PeerAuthoritySubmitOutcome {
         }
     }
 
-    pub fn validate_for_request(&self, request: &PeerAuthoritySubmitRequest) -> Result<()> {
+    pub fn validate_for_request(&self, request: &PeerAuthoritySubmitRequestBody) -> Result<()> {
         request.validate()?;
         self.validate()?;
         match (request, self) {
             (
-                PeerAuthoritySubmitRequest::AuthorityForwardEvent(_)
-                | PeerAuthoritySubmitRequest::AuthorityForwardMls(_),
-                Self::AuthorityForward(PeerAuthorityForwardOutcome {
-                    outcome: PeerAuthorityForwardOutcomeValue::Ordinary(_),
+                PeerAuthoritySubmitRequestBody::AuthorityForwardEvent(_)
+                | PeerAuthoritySubmitRequestBody::AuthorityForwardMls(_),
+                Self::AuthorityForward(PeerAuthorityForwardResponseBody {
+                    response_body: ForwardedAuthorityResponseBody::Ordinary(_),
                     ..
                 }),
             ) => Ok(()),
             (
-                PeerAuthoritySubmitRequest::AuthorityForwardAtomic(request),
-                Self::AuthorityForward(PeerAuthorityForwardOutcome {
-                    outcome: PeerAuthorityForwardOutcomeValue::AuditPairedEvent(outcome),
+                PeerAuthoritySubmitRequestBody::AuthorityForwardAtomic(request),
+                Self::AuthorityForward(PeerAuthorityForwardResponseBody {
+                    response_body: ForwardedAuthorityResponseBody::AuditPairedEvent(outcome),
                     ..
                 }),
             ) => outcome.validate_for_request(&request.atomic_submission),
             (
-                PeerAuthoritySubmitRequest::CommittedReplication(request),
+                PeerAuthoritySubmitRequestBody::CommittedReplication(request),
                 Self::CommittedReplication(outcome),
             ) => {
                 if request.replications.len() == outcome.replication_outcomes.len() {
@@ -1460,7 +1460,7 @@ impl PeerAuthoritySubmitOutcome {
                 }
             }
             (
-                PeerAuthoritySubmitRequest::RegisteredAtomicUnit(request),
+                PeerAuthoritySubmitRequestBody::RegisteredAtomicUnit(request),
                 Self::RegisteredAtomicUnit(outcome),
             ) => {
                 let request_kind = match request.unit {
@@ -1475,20 +1475,20 @@ impl PeerAuthoritySubmitOutcome {
                     }
                 };
                 let outcome_kind = match &outcome.outcome {
-                    PeerRegisteredAtomicUnitOutcomeValue::DirectConversationFounding(_) => {
+                    RegisteredAtomicUnitAdmissionOutcome::DirectConversationFounding(_) => {
                         RegisteredAtomicUnitKind::DirectConversationFounding
                     }
-                    PeerRegisteredAtomicUnitOutcomeValue::MembershipCompensation(_) => {
+                    RegisteredAtomicUnitAdmissionOutcome::MembershipCompensation(_) => {
                         RegisteredAtomicUnitKind::MembershipCompensation
                     }
-                    PeerRegisteredAtomicUnitOutcomeValue::AuditPairedEvent(_) => {
+                    RegisteredAtomicUnitAdmissionOutcome::AuditPairedEvent(_) => {
                         RegisteredAtomicUnitKind::AuditPairedEvent
                     }
-                    PeerRegisteredAtomicUnitOutcomeValue::Rejected(value) => value.unit_kind,
+                    RegisteredAtomicUnitAdmissionOutcome::Rejected(value) => value.unit_kind,
                 };
                 if let (
                     PeerRegisteredAtomicUnit::AuditPairedEvent(request),
-                    PeerRegisteredAtomicUnitOutcomeValue::AuditPairedEvent(outcome),
+                    RegisteredAtomicUnitAdmissionOutcome::AuditPairedEvent(outcome),
                 ) = (&request.unit, &outcome.outcome)
                     && outcome
                         .commits
@@ -1599,7 +1599,7 @@ pub fn validate_reason_code(value: &str) -> Result<()> {
     }
 }
 
-impl AuthorityHandoffRequest {
+impl AuthorityRealmAuthorityHandoffRequestBody {
     pub fn validate_shape(&self) -> Result<()> {
         self.handoff.validate_shape()?;
         let private_purpose =
@@ -1887,7 +1887,7 @@ pub fn historical_signer_facts_digest(
     Ok(Hash::new(arkret_canonical::canonical_sha256(&entries)?)?)
 }
 
-impl AuthorityHandoffRequest {
+impl AuthorityRealmAuthorityHandoffRequestBody {
     /// Compare the inventory against all imported digest-bearing Full originals, not a member
     /// floor.
     pub fn validate_imported_signer_facts(
@@ -1994,7 +1994,7 @@ pub fn validate_new_producer_admission_fact(
     }
 }
 
-impl AuthorityHandoffRequest {
+impl AuthorityRealmAuthorityHandoffRequestBody {
     pub fn validate_new_handoff(&self) -> Result<()> {
         if self.handoff.historical_signer_facts_digest.is_none()
             || self.historical_signer_facts.is_none()
@@ -2078,7 +2078,7 @@ include!("generated/authority_commit_contracts.rs");
 impl RealmRecoveryServiceHistoricalSignerFact {
     pub fn digest(&self) -> Result<Hash> {
         self.actor_id.validate()?;
-        validate_realm_signer_fact_key(&self.target_actor_id, &self.public_key_b64u)?;
+        validate_realm_signer_fact_key(&self.target_actor_id, &self.public_key_base64url)?;
         if !matches!(self.actor_id, ActorId::Service { .. }) {
             return Err(WireError::Protocol(
                 "recovery signer must be a Service".into(),
@@ -2195,7 +2195,7 @@ macro_rules! realm_fact_binding {
     ($ty:ty) => {
         impl $ty {
             pub fn digest(&self) -> Result<Hash> {
-                validate_realm_signer_fact_key(&self.actor_id, &self.public_key_b64u)?;
+                validate_realm_signer_fact_key(&self.actor_id, &self.public_key_base64url)?;
                 Ok(Hash::new(arkret_canonical::canonical_sha256(self)?)?)
             }
             pub fn validate_commit_binding(

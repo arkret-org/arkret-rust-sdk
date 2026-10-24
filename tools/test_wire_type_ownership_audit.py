@@ -38,8 +38,8 @@ class WireTypeOwnershipAuditTests(unittest.TestCase):
 
     def test_garth_cannot_copy_sdk_commit_stream_dtos(self) -> None:
         for name, declaration in [("CommittedEventView", "enum"),
-                                  ("StreamScanOutcome", "struct"),
-                                  ("StreamScanRequest", "struct")]:
+                                  ("StreamScanResponseBody", "struct"),
+                                  ("StreamScanRequestBody", "struct")]:
             with self.subTest(name=name):
                 errors = self.garth_audit({"src/new/scan.rs": f"pub {declaration} {name} {{}}"})
                 self.assertEqual(len(errors), 1)
@@ -51,12 +51,12 @@ class WireTypeOwnershipAuditTests(unittest.TestCase):
                               "struct StreamReplica { items: Vec<CommittedEventView> }\n"
                               "struct HistoryRow { source_actor_id: ActorId }",
             "src/own_station_results.rs": "struct OwnStationScanPage { response: "
-                                          "BoundOwnStationResponse<StreamScanRequest, StreamScanOutcome> }",
+                                          "BoundOwnStationResponse<StreamScanRequestBody, StreamScanResponseBody> }",
         }), [])
 
     def test_garth_comments_and_string_examples_do_not_become_wire_types(self) -> None:
         self.assertEqual(self.garth_audit({"src/replica.rs": '''
-            // struct StreamScanOutcome {}
+            // struct StreamScanResponseBody {}
             /* struct HistoryRow { source_actor_id: arkret_wire::DidCoreId } */
             const EXAMPLE: &str = r#"enum CommittedEventView {}"#;
         '''}), [])

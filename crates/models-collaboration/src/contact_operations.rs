@@ -74,7 +74,7 @@ pub enum ContactProducerSigner {
 pub struct ContactDirectProducerSigner {
     pub verification_method: arkret_wire::DidUrl,
     #[serde(deserialize_with = "deserialize_contact_producer_key")]
-    pub public_key_b64u: arkret_wire::Base64UrlString,
+    pub public_key_base64url: arkret_wire::Base64UrlString,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -83,7 +83,7 @@ pub struct ContactDirectProducerSigner {
 pub struct ContactDelegatedProducerSigner {
     pub verification_method: arkret_wire::DidUrl,
     #[serde(deserialize_with = "deserialize_contact_producer_key")]
-    pub public_key_b64u: arkret_wire::Base64UrlString,
+    pub public_key_base64url: arkret_wire::Base64UrlString,
     pub delegated_actor_did: Did,
 }
 fn deserialize_contact_producer_key<'de, D: serde::Deserializer<'de>>(
@@ -102,11 +102,11 @@ fn deserialize_contact_producer_key<'de, D: serde::Deserializer<'de>>(
 impl ContactProducerSigner {
     pub fn direct(
         verification_method: arkret_wire::DidUrl,
-        public_key_b64u: arkret_wire::Base64UrlString,
+        public_key_base64url: arkret_wire::Base64UrlString,
     ) -> arkret_wire::Result<Self> {
         let value = Self::Direct(ContactDirectProducerSigner {
             verification_method,
-            public_key_b64u,
+            public_key_base64url,
         });
         value.validate()?;
         Ok(value)
@@ -114,12 +114,12 @@ impl ContactProducerSigner {
 
     pub fn delegated(
         verification_method: arkret_wire::DidUrl,
-        public_key_b64u: arkret_wire::Base64UrlString,
+        public_key_base64url: arkret_wire::Base64UrlString,
         delegated_actor_did: Did,
     ) -> arkret_wire::Result<Self> {
         let value = Self::Delegated(ContactDelegatedProducerSigner {
             verification_method,
-            public_key_b64u,
+            public_key_base64url,
             delegated_actor_did,
         });
         value.validate()?;
@@ -133,10 +133,10 @@ impl ContactProducerSigner {
         }
     }
 
-    pub fn public_key_b64u(&self) -> &arkret_wire::Base64UrlString {
+    pub fn public_key_base64url(&self) -> &arkret_wire::Base64UrlString {
         match self {
-            Self::Direct(value) => &value.public_key_b64u,
-            Self::Delegated(value) => &value.public_key_b64u,
+            Self::Direct(value) => &value.public_key_base64url,
+            Self::Delegated(value) => &value.public_key_base64url,
         }
     }
 
@@ -196,9 +196,9 @@ impl ContactProducerSigner {
     }
 
     pub fn public_key_bytes(&self) -> arkret_wire::Result<[u8; 32]> {
-        let bytes = arkret_canonical::base64url_decode(self.public_key_b64u().as_str())
+        let bytes = arkret_canonical::base64url_decode(self.public_key_base64url().as_str())
             .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
-        if arkret_canonical::base64url_encode(&bytes) != self.public_key_b64u().as_str() {
+        if arkret_canonical::base64url_encode(&bytes) != self.public_key_base64url().as_str() {
             return Err(arkret_wire::WireError::Protocol(
                 "Contact producer key is not canonical unpadded base64url".into(),
             ));
@@ -412,7 +412,7 @@ pub struct ContactCurrentProof {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub fresh_until: DateTime<Utc>,
+    pub cache_expires_at: DateTime<Utc>,
     pub signature: ProtocolSignature,
 }
 
@@ -446,7 +446,7 @@ struct UnsignedContactCurrentProof {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    fresh_until: DateTime<Utc>,
+    cache_expires_at: DateTime<Utc>,
 }
 
 impl ContactCurrentProof {
@@ -463,7 +463,7 @@ impl ContactCurrentProof {
         scope_instances: Vec<ContactScopeInstance>,
         closed_round: Option<Box<ContactRoundClosure>>,
         issued_at: DateTime<Utc>,
-        fresh_until: DateTime<Utc>,
+        cache_expires_at: DateTime<Utc>,
         sign: impl FnOnce(&[u8]) -> arkret_wire::Result<ProtocolSignature>,
     ) -> arkret_wire::Result<Self> {
         let unsigned = UnsignedContactCurrentProof {
@@ -478,7 +478,7 @@ impl ContactCurrentProof {
             scope_instances,
             closed_round,
             issued_at,
-            fresh_until,
+            cache_expires_at,
         };
         let signature = sign(&arkret_canonical::canonical_json_bytes(&unsigned)?)?;
         Ok(Self {
@@ -493,7 +493,7 @@ impl ContactCurrentProof {
             scope_instances: unsigned.scope_instances,
             closed_round: unsigned.closed_round,
             issued_at: unsigned.issued_at,
-            fresh_until: unsigned.fresh_until,
+            cache_expires_at: unsigned.cache_expires_at,
             signature,
         })
     }
@@ -510,7 +510,7 @@ impl ContactCurrentProof {
             scope_instances: self.scope_instances.clone(),
             closed_round: self.closed_round.clone(),
             issued_at: self.issued_at,
-            fresh_until: self.fresh_until,
+            cache_expires_at: self.cache_expires_at,
         })
     }
     pub fn head_digest(&self) -> Hash {
@@ -1534,9 +1534,9 @@ pub enum ContactResultKind {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(tag = "result_kind", rename_all = "snake_case", deny_unknown_fields)]
+#[serde(tag = "operation_kind", rename_all = "snake_case", deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum ContactPreparedOutcome {
+pub enum ContactPreparedResponseBody {
     Request {
         operation_id: ProtocolOperationId,
         reservation_handle: ReservationHandle,
@@ -1574,7 +1574,7 @@ pub enum ContactPreparedOutcome {
     },
 }
 
-impl ContactPreparedOutcome {
+impl ContactPreparedResponseBody {
     pub fn event_draft(&self) -> arkret_wire::Result<&PreparedEventDraft> {
         let (draft, expected_kind) = match self {
             Self::Request { event_draft, .. } => {
@@ -1600,7 +1600,7 @@ impl ContactPreparedOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(tag = "result_kind", rename_all = "snake_case", deny_unknown_fields)]
+#[serde(tag = "operation_kind", rename_all = "snake_case", deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 // A one-shot HTTP body/aggregate: it is built once per request, moved a
 // handful of times, then dropped. Boxing the large variant would trade a
@@ -1608,7 +1608,7 @@ impl ContactPreparedOutcome {
 // constructor/pattern shape in every downstream repository, so the size
 // skew is accepted deliberately.
 #[allow(clippy::large_enum_variant)]
-pub enum ContactAcceptedOutcome {
+pub enum ContactAcceptedResponseBody {
     Request {
         operation_id: ProtocolOperationId,
         request_acceptance_receipt: RequestAcceptanceReceipt,
@@ -1638,8 +1638,8 @@ pub enum ContactAcceptedOutcome {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ContactFailedOutcome {
-    pub result_kind: ContactResultKind,
+pub struct ContactFailedResponseBody {
+    pub operation_kind: ContactResultKind,
     pub operation_id: ProtocolOperationId,
     pub reason: ContactOperationRejectReason,
 }
@@ -1653,18 +1653,18 @@ pub struct ContactFailedOutcome {
 // constructor/pattern shape in every downstream repository, so the size
 // skew is accepted deliberately.
 #[allow(clippy::large_enum_variant)]
-pub enum ContactOperationOutcome {
+pub enum ContactOperationResponseBody {
     Prepared {
         #[serde(flatten)]
-        outcome: ContactPreparedOutcome,
+        outcome: ContactPreparedResponseBody,
     },
     Accepted {
         #[serde(flatten)]
-        outcome: ContactAcceptedOutcome,
+        outcome: ContactAcceptedResponseBody,
     },
     Failed {
         #[serde(flatten)]
-        outcome: ContactFailedOutcome,
+        outcome: ContactFailedResponseBody,
     },
 }
 
@@ -1794,7 +1794,7 @@ string_marker!(
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum PeerContactOutcome {
+pub enum PeerContactAdmissionAttemptOutcome {
     Accepted,
     Duplicate,
     Deferred,
@@ -1807,7 +1807,7 @@ pub struct PeerContactMirrorReceipt {
     pub domain: PeerContactMirrorReceiptDomain,
     pub request_digest: Hash,
     pub signed_event_ref: EventId,
-    pub outcome: PeerContactOutcome,
+    pub outcome: PeerContactAdmissionAttemptOutcome,
     pub recipient_id: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub received_at: DateTime<Utc>,
@@ -1859,13 +1859,13 @@ pub struct PeerContactControlReceipt {
     pub domain: PeerContactControlReceiptDomain,
     pub request_kind: PeerContactControlKind,
     pub request_digest: Hash,
-    pub outcome: PeerContactOutcome,
+    pub outcome: PeerContactAdmissionAttemptOutcome,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
         deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
     )]
-    pub result_digest: Option<Hash>,
+    pub control_material_digest: Option<Hash>,
     pub recipient_id: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub received_at: DateTime<Utc>,
@@ -1876,9 +1876,9 @@ pub struct PeerContactControlReceipt {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct PeerContactEventSubmitOutcome {
-    pub result_kind: ContactResultKind,
-    pub status: PeerContactOutcome,
+pub struct PeerContactEventSubmitResponseBody {
+    pub operation_kind: ContactResultKind,
+    pub status: PeerContactAdmissionAttemptOutcome,
     pub mirror_receipt: PeerContactMirrorReceipt,
     #[serde(
         default,
@@ -1895,7 +1895,7 @@ pub struct PeerContactEventSubmitOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(tag = "result_kind", rename_all = "snake_case", deny_unknown_fields)]
+#[serde(tag = "operation_kind", rename_all = "snake_case", deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 // A one-shot HTTP body/aggregate: it is built once per request, moved a
 // handful of times, then dropped. Boxing the large variant would trade a
@@ -1903,14 +1903,14 @@ pub struct PeerContactEventSubmitOutcome {
 // constructor/pattern shape in every downstream repository, so the size
 // skew is accepted deliberately.
 #[allow(clippy::large_enum_variant)]
-pub enum PeerContactControlSubmitOutcome {
+pub enum PeerContactControlSubmitResponseBody {
     CurrentRefresh {
-        status: PeerContactOutcome,
+        status: PeerContactAdmissionAttemptOutcome,
         control_receipt: PeerContactControlReceipt,
         material: ContactCurrentMaterial,
     },
     GlareFinalize {
-        status: PeerContactOutcome,
+        status: PeerContactAdmissionAttemptOutcome,
         control_receipt: PeerContactControlReceipt,
         glare_concurrency_attestation: GlareConcurrencyAttestation,
         #[serde(
@@ -1925,8 +1925,8 @@ pub enum PeerContactControlSubmitOutcome {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct PeerContactControlDeferredOutcome {
-    pub status: PeerContactOutcome,
+pub struct PeerContactControlDeferredResponseBody {
+    pub status: PeerContactAdmissionAttemptOutcome,
     pub request_kind: PeerContactControlKind,
     pub control_receipt: PeerContactControlReceipt,
     #[serde(
@@ -1941,20 +1941,21 @@ pub struct PeerContactControlDeferredOutcome {
 #[serde(untagged)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[allow(clippy::large_enum_variant)]
-pub enum PeerContactSubmitOutcome {
-    Event(PeerContactEventSubmitOutcome),
-    Control(PeerContactControlSubmitOutcome),
-    ControlDeferred(PeerContactControlDeferredOutcome),
+pub enum PeerContactSubmitResponseBody {
+    Event(PeerContactEventSubmitResponseBody),
+    Control(PeerContactControlSubmitResponseBody),
+    ControlDeferred(PeerContactControlDeferredResponseBody),
 }
 
-impl PeerContactSubmitOutcome {
+impl PeerContactSubmitResponseBody {
     pub fn validate(&self) -> arkret_wire::Result<()> {
         let valid = match self {
             Self::Event(outcome) => outcome.status == outcome.mirror_receipt.outcome,
             Self::Control(_) => true,
             Self::ControlDeferred(outcome) => {
-                outcome.status == PeerContactOutcome::Deferred
-                    && outcome.control_receipt.outcome == PeerContactOutcome::Deferred
+                outcome.status == PeerContactAdmissionAttemptOutcome::Deferred
+                    && outcome.control_receipt.outcome
+                        == PeerContactAdmissionAttemptOutcome::Deferred
             }
         };
         if valid {
@@ -2354,7 +2355,7 @@ mod contact_list_projection_tests {
 
     #[test]
     fn contact_list_carries_typed_rows() {
-        let list: ContactList = serde_json::from_value(json!({
+        let list: ContactPage = serde_json::from_value(json!({
             "contacts": [accepted_row()],
             "has_more": false
         }))

@@ -7,25 +7,26 @@ use std::sync::Arc;
 
 use arkret_identity::VerifiedSubmission;
 use arkret_models_collaboration::authority_commit::{
-    SelfAuthoritySubmitOutcome, SelfAuthoritySubmitRequest,
+    SelfAuthoritySubmitRequestBody, SelfAuthoritySubmitResponseBody,
 };
-use arkret_models_collaboration::exact_current_results::{
-    ExactCurrentResultsReadOutcome, ExactCurrentResultsReadRequestBody,
+use arkret_models_collaboration::exact_current_state::{
+    ExactCurrentStateReadRequestBody, ExactCurrentStateReadResponseBody,
 };
 use arkret_models_collaboration::mls_group_state_material::{
-    MlsGroupStateMaterialOutcome, MlsMemberGroupStateMaterialReadRequestBody,
+    MlsGroupStateMaterialResponseBody, MlsMemberGroupStateMaterialReadRequestBody,
 };
 use arkret_models_collaboration::mls_roster_authority::{
-    MlsMemberRosterAuthorityReadRequestBody, MlsSelfRosterAuthorityReadOutcome,
+    MlsMemberRosterAuthorityReadRequestBody, MlsSelfRosterAuthorityReadResponseBody,
 };
-use arkret_models_crypto::{KeyPackagesClaimOutcome, KeyPackagesClaimQueryRequestBody};
+use arkret_models_crypto::{KeyPackagesClaimQueryRequestBody, KeyPackagesClaimResponseBody};
 use arkret_models_discovery::StationConnectionBinding;
 use arkret_models_identity::signer_key_operations::{
-    SignerKeysQueryOutcome, SignerKeysQueryRequestBody,
+    SignerKeyQueryResponseBody, SignerKeysQueryRequestBody,
 };
 use arkret_wire::{
     AccountId, CommittedEventView, DidCoreId, EventId, RealmId, RealmSnapshotId,
-    RealmStateSnapshot, RealmStreamList, SessionGrantId, StreamScanOutcome, StreamScanRequest,
+    RealmStateSnapshot, RealmStreamPage, SessionGrantId, StreamScanRequestBody,
+    StreamScanResponseBody,
 };
 
 use crate::{Auth, Client, ClientRequestOptions, Error, Result};
@@ -174,7 +175,7 @@ impl<Q, T> BoundOwnStationResponse<Q, T> {
 }
 
 #[derive(Clone)]
-pub struct OwnStationResultClient {
+pub struct OwnStationStateClient {
     client: Client,
     binding: StationConnectionBinding,
     session: OwnStationSessionSnapshot,
@@ -198,11 +199,11 @@ impl std::fmt::Debug for OwnStationContext {
 impl Client {
     /// Recover the host capability carried by this exact transport. An invalid
     /// carried capability is an error, never permission to use another host.
-    pub fn own_station_result_client(&self) -> Result<Option<OwnStationResultClient>> {
+    pub fn own_station_result_client(&self) -> Result<Option<OwnStationStateClient>> {
         let Some(context) = &self.own_station_context else {
             return Ok(None);
         };
-        let result = OwnStationResultClient::new(
+        let result = OwnStationStateClient::new(
             self.clone(),
             context.session.binding.clone(),
             context.source.clone(),
@@ -214,7 +215,7 @@ impl Client {
     }
 }
 
-impl OwnStationResultClient {
+impl OwnStationStateClient {
     /// Preserve this captured host/session fence through ordinary transport
     /// adapters. Cloning must not re-capture a replacement or ABA session.
     pub fn http_client(&self) -> Result<Client> {
@@ -283,8 +284,8 @@ impl OwnStationResultClient {
     }
     pub async fn scan_commit_stream(
         &self,
-        request: &StreamScanRequest,
-    ) -> Result<BoundOwnStationResponse<StreamScanRequest, StreamScanOutcome>> {
+        request: &StreamScanRequestBody,
+    ) -> Result<BoundOwnStationResponse<StreamScanRequestBody, StreamScanResponseBody>> {
         self.check_session()?;
         let value = self.client.scan_commit_stream(request).await?;
         self.bind(request.clone(), value)
@@ -297,7 +298,7 @@ impl OwnStationResultClient {
         realm: &RealmId,
         cursor: Option<&str>,
         limit: u16,
-    ) -> Result<BoundOwnStationResponse<(RealmId, Option<String>, u16), RealmStreamList>> {
+    ) -> Result<BoundOwnStationResponse<(RealmId, Option<String>, u16), RealmStreamPage>> {
         self.check_session()?;
         let page = self.client.realm_streams_page(realm, cursor, limit).await?;
         self.bind((realm.clone(), cursor.map(str::to_owned), limit), page)
@@ -328,7 +329,7 @@ impl OwnStationResultClient {
                 arkret_models_identity::MediaServiceBindingRequestBody,
                 DidCoreId,
             ),
-            arkret_models_identity::MediaServiceBindingOutcome,
+            arkret_models_identity::MediaServiceBindingResponseBody,
         >,
     > {
         self.check_session()?;
@@ -353,7 +354,8 @@ impl OwnStationResultClient {
     pub async fn signer_keys_query(
         &self,
         request: &SignerKeysQueryRequestBody,
-    ) -> Result<BoundOwnStationResponse<SignerKeysQueryRequestBody, SignerKeysQueryOutcome>> {
+    ) -> Result<BoundOwnStationResponse<SignerKeysQueryRequestBody, SignerKeyQueryResponseBody>>
+    {
         self.check_session()?;
         if request.recipient_account_id.as_ref() != Some(self.session.account_id())
             || request.recipient_actor_id.is_some()
@@ -368,8 +370,9 @@ impl OwnStationResultClient {
     pub async fn keypackages_claim_query(
         &self,
         request: &KeyPackagesClaimQueryRequestBody,
-    ) -> Result<BoundOwnStationResponse<KeyPackagesClaimQueryRequestBody, KeyPackagesClaimOutcome>>
-    {
+    ) -> Result<
+        BoundOwnStationResponse<KeyPackagesClaimQueryRequestBody, KeyPackagesClaimResponseBody>,
+    > {
         self.check_session()?;
         let value = self.client.keypackages_claim_query(request).await?;
         value
@@ -392,7 +395,7 @@ impl OwnStationResultClient {
     ) -> Result<
         BoundOwnStationResponse<
             MlsMemberGroupStateMaterialReadRequestBody,
-            MlsGroupStateMaterialOutcome,
+            MlsGroupStateMaterialResponseBody,
         >,
     > {
         self.check_session()?;
@@ -405,36 +408,34 @@ impl OwnStationResultClient {
     ) -> Result<
         BoundOwnStationResponse<
             MlsMemberRosterAuthorityReadRequestBody,
-            MlsSelfRosterAuthorityReadOutcome,
+            MlsSelfRosterAuthorityReadResponseBody,
         >,
     > {
         self.check_session()?;
         let value = self.client.self_mls_roster_authority(request).await?;
         self.bind(request.clone(), value)
     }
-    pub async fn exact_current_result(
+    pub async fn exact_current_state(
         &self,
-        request: &ExactCurrentResultsReadRequestBody,
+        request: &ExactCurrentStateReadRequestBody,
         generation: u64,
     ) -> Result<
         BoundOwnStationResponse<
-            (ExactCurrentResultsReadRequestBody, u64),
-            ExactCurrentResultsReadOutcome,
+            (ExactCurrentStateReadRequestBody, u64),
+            ExactCurrentStateReadResponseBody,
         >,
     > {
         self.check_session()?;
-        let value = self
-            .client
-            .exact_current_result(request, generation)
-            .await?;
+        let value = self.client.exact_current_state(request, generation).await?;
         self.bind((request.clone(), generation), value)
     }
     pub async fn submit_to_realm_authority(
         &self,
-        request: &VerifiedSubmission<SelfAuthoritySubmitRequest>,
+        request: &VerifiedSubmission<SelfAuthoritySubmitRequestBody>,
         options: &ClientRequestOptions,
-    ) -> Result<BoundOwnStationResponse<SelfAuthoritySubmitRequest, SelfAuthoritySubmitOutcome>>
-    {
+    ) -> Result<
+        BoundOwnStationResponse<SelfAuthoritySubmitRequestBody, SelfAuthoritySubmitResponseBody>,
+    > {
         self.check_session()?;
         let value = self
             .client
@@ -469,7 +470,7 @@ mod tests {
             base_url: base,
             trust_domain: arkret_wire::TrustDomainId::new("ak:trust_domain:station.example")
                 .unwrap(),
-            auth_metadata: arkret_models_discovery::AuthMetadata::minimal(),
+            authentication_metadata: arkret_models_discovery::AuthenticationMetadata::minimal(),
         };
         OwnStationSessionSnapshot::new(
             binding,
@@ -497,7 +498,7 @@ mod tests {
             .unwrap();
         assert!(raw.own_station_result_client().unwrap().is_none());
         let own =
-            OwnStationResultClient::new(raw, captured.binding.clone(), source.clone()).unwrap();
+            OwnStationStateClient::new(raw, captured.binding.clone(), source.clone()).unwrap();
         let carried = own.http_client().unwrap();
         assert_eq!(
             carried
@@ -533,7 +534,7 @@ mod tests {
             .build()
             .unwrap();
         let client =
-            OwnStationResultClient::new(raw.clone(), captured.binding.clone(), source.clone())
+            OwnStationStateClient::new(raw.clone(), captured.binding.clone(), source.clone())
                 .unwrap();
         let server_source = source.clone();
         let server = tokio::spawn(async move {
@@ -556,7 +557,7 @@ mod tests {
             }
         });
         let realm = RealmId::new("ak:realm:AfF-hFqRoMbajXkPapH-xaq0xwK-UKt2ph2zTs9JZRAO").unwrap();
-        let request = StreamScanRequest {
+        let request = StreamScanRequestBody {
             realm_id: realm.clone(),
             stream_ref: arkret_wire::CommitStreamRef::Realm { realm_id: realm },
             direction: arkret_wire::StreamScanDirection::After(None),
@@ -573,7 +574,7 @@ mod tests {
         assert!(response.value().is_err());
         assert!(client.check_session().is_err());
         assert!(
-            OwnStationResultClient::new(
+            OwnStationStateClient::new(
                 raw.with_base_url(url::Url::parse("http://localhost:1/").unwrap())
                     .unwrap(),
                 captured.binding.clone(),
@@ -582,7 +583,7 @@ mod tests {
             .is_err()
         );
         assert!(
-            OwnStationResultClient::new(
+            OwnStationStateClient::new(
                 crate::ClientBuilder::new(url::Url::parse(&captured.binding.base_url).unwrap())
                     .allow_insecure_localhost()
                     .auth(Auth::Bearer("another-token".into()))

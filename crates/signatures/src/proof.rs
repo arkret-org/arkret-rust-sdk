@@ -22,8 +22,8 @@
 //! );
 //! let builder = EventProofBuilder::new();
 //! let bytes = builder.canonical_bytes(&json!({"b": 2, "a": 1})).unwrap();
-//! let sig = signer.sign(&bytes).unwrap();
-//! assert_eq!(sig.len(), 64);
+//! let signature = signer.sign(&bytes).unwrap();
+//! assert_eq!(signature.len(), 64);
 //! # }
 //! ```
 
@@ -294,7 +294,7 @@ fn verify_detached_jws_over(
 ) -> std::result::Result<(), VerifierError> {
     let parts = validate_ed25519_detached_jws_shape(jws)?;
     let sig_bytes = base64url_decode(parts[2])
-        .map_err(|err| VerifierError::Encoding(format!("invalid sig base64: {err}")))?;
+        .map_err(|err| VerifierError::Encoding(format!("invalid signature base64: {err}")))?;
     let signing_input = format!("{}.{}", parts[0], base64url_encode(binding_bytes));
     verify_ed25519_signing_input(&signing_input, &sig_bytes, public_key)
 }
@@ -339,7 +339,7 @@ pub fn validate_ed25519_detached_jws_shape(
         )));
     }
     let sig_bytes = base64url_decode(parts[2])
-        .map_err(|err| VerifierError::Encoding(format!("invalid sig base64: {err}")))?;
+        .map_err(|err| VerifierError::Encoding(format!("invalid signature base64: {err}")))?;
     if sig_bytes.len() != 64 {
         return Err(VerifierError::Encoding(
             "Ed25519 signature must be 64 bytes".to_owned(),
@@ -379,8 +379,8 @@ pub fn verify_detached_ed25519_signature(
     }
     let mut sig_arr = [0u8; 64];
     sig_arr.copy_from_slice(&raw);
-    let sig = ed25519_dalek::Signature::from_bytes(&sig_arr);
-    verifying.verify_strict(message, &sig).is_ok()
+    let signature = ed25519_dalek::Signature::from_bytes(&sig_arr);
+    verifying.verify_strict(message, &signature).is_ok()
 }
 
 /// Produce the canonical Ed25519 detached-JWS wire form over payload bytes.
@@ -417,9 +417,9 @@ fn verify_ed25519_signing_input(
     }
     let mut sig_arr = [0u8; 64];
     sig_arr.copy_from_slice(signature);
-    let sig = ed25519_dalek::Signature::from_bytes(&sig_arr);
+    let signature = ed25519_dalek::Signature::from_bytes(&sig_arr);
     verifying
-        .verify_strict(signing_input.as_bytes(), &sig)
+        .verify_strict(signing_input.as_bytes(), &signature)
         .map_err(|err| VerifierError::Backend(format!("Ed25519 verification failed: {err}")))
 }
 
@@ -720,13 +720,13 @@ mod ed25519_jws {
             }
             let mut sig_arr = [0u8; 64];
             sig_arr.copy_from_slice(signature);
-            let sig = ed25519_dalek::Signature::from_bytes(&sig_arr);
+            let signature = ed25519_dalek::Signature::from_bytes(&sig_arr);
             // `verify_strict` (ed25519-dalek's protocol-recommended path)
             // rejects signature malleability and small-order/non-canonical
             // R, matching `verify_ed25519_signing_input` so both detached-JWS
             // verifiers agree on validity (encoding.md §2.1 determinism).
             verifying
-                .verify_strict(signing_input.as_bytes(), &sig)
+                .verify_strict(signing_input.as_bytes(), &signature)
                 .map_err(|err| {
                     VerifierError::Backend(format!("Ed25519 verification failed: {err}"))
                 })?;
@@ -766,7 +766,7 @@ mod ed25519_jws {
             )));
         }
         let signature = base64url_decode(parts[2])
-            .map_err(|err| VerifierError::Encoding(format!("invalid sig base64: {err}")))?;
+            .map_err(|err| VerifierError::Encoding(format!("invalid signature base64: {err}")))?;
         if signature.len() != 64 {
             return Err(VerifierError::Encoding(format!(
                 "Ed25519 signature must be 64 bytes, got {}",

@@ -41,7 +41,7 @@ fn fixture() -> (
         principal_endpoint: &endpoint,
         local_id: "agent-contact",
         controller_principal_id: &controller.principal_id,
-        version_time: at("2026-10-16T00:00:00Z"),
+        version_created_at: at("2026-10-16T00:00:00Z"),
         root_seed: &[1; 32],
         next_root_public_key_multibase: &next,
     })
@@ -52,7 +52,7 @@ fn fixture() -> (
         did: &inception.did,
         local_id: &inception.local_id,
         previous_entries: std::slice::from_ref(&inception.log_entry),
-        version_time: at("2026-10-16T00:00:01Z"),
+        version_created_at: at("2026-10-16T00:00:01Z"),
         current_root_seed: &[2; 32],
         next_root_public_key_multibase: &future,
         controller_principal_id: &controller.principal_id,
@@ -104,7 +104,7 @@ fn native_history_authenticates_runtime_and_exact_controller_projection() {
         Some(AuthorizationRef::new(format!("{did}#managed-controller")).unwrap());
     let delegated = ContactProducerSigner::delegated(
         DidUrl::new("did:web:controller.example#device").unwrap(),
-        signer.public_key_b64u().clone(),
+        signer.public_key_base64url().clone(),
         did,
     )
     .unwrap();
@@ -174,7 +174,7 @@ fn native_history_rechecks_raw_signatures_and_snapshot_integrity() {
         json!(format!("sha256:{}", "9".repeat(64)));
     assert!(validate_agent_contact_native_history(&event, &holder, &signer, &history).is_err());
     let (event, holder, signer, mut history) = fixture();
-    history.entries[1].version_time += Duration::seconds(1);
+    history.entries[1].version_created_at += Duration::seconds(1);
     assert!(validate_agent_contact_native_history(&event, &holder, &signer, &history).is_err());
 }
 
@@ -183,7 +183,7 @@ fn native_history_never_accepts_an_unrelated_producer_locator() {
     let (event, holder, signer, history) = fixture();
     let wrong = ContactProducerSigner::direct(
         DidUrl::new("did:web:other.example#runtime").unwrap(),
-        signer.public_key_b64u().clone(),
+        signer.public_key_base64url().clone(),
     )
     .unwrap();
     assert!(validate_agent_contact_native_history(&event, &holder, &wrong, &history).is_err());

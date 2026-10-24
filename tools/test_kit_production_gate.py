@@ -28,7 +28,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 CRATE = "arkret-test-kit"
 DEFAULT_DECISIONS = ROOT / "tools" / "test_kit_production_decisions.json"
-SKIPPED_DIRECTORIES = {".git", "target", "node_modules", ".shared-target"}
+SKIPPED_DIRECTORIES = {".git", "target", "node_modules", ".shared-target", "artifacts"}
 NON_SOURCE_ROOTS = {"arkret-work", ".codex-tmp"}
 DEV_SECTIONS = ("dev-dependencies", "dev_dependencies")
 

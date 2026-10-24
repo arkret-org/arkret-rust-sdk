@@ -140,6 +140,16 @@ pub fn signed_commit(
 #[cfg(test)]
 mod tests {
     #[test]
+    fn exhausted_generation_cannot_form_a_handoff_successor() {
+        let (_, mut handoff) = super::objects();
+        handoff.from_generation = u64::MAX;
+        handoff.to_generation = u64::MAX;
+        assert!(handoff.validate_shape().is_err());
+        handoff.from_generation = u64::MAX - 1;
+        handoff.validate_shape().unwrap();
+    }
+
+    #[test]
     fn authority_objects_reproduce_independent_canonical_and_signature_bytes() {
         let (commit, handoff) = super::objects();
         super::assert_canonical_objects(&commit, &handoff);

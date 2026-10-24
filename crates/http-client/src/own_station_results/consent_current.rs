@@ -5,7 +5,7 @@ use arkret_identity::{
     resolve_verification_method_key_from_document, validate_verification_method_relationship,
 };
 use arkret_models_collaboration::consent_operations::{
-    ConsentCurrentReadOutcome, ConsentCurrentReadRequestBody,
+    ConsentCurrentReadRequestBody, ConsentCurrentReadResponseBody,
 };
 use arkret_models_identity::{AuthenticatedServiceResolution, DidDocument};
 use arkret_wire::{
@@ -14,7 +14,7 @@ use arkret_wire::{
 };
 use chrono::{DateTime, Utc};
 
-use super::{BoundOwnStationResponse, OwnStationResultClient, OwnStationSessionSnapshot, protocol};
+use super::{BoundOwnStationResponse, OwnStationSessionSnapshot, OwnStationStateClient, protocol};
 use crate::Result;
 
 /// Independent expected authority for one holder PCR. This is not a wire DTO.
@@ -137,7 +137,7 @@ impl ConsentCurrentReadAuthority {
 
     fn validate_client(
         &self,
-        client: &OwnStationResultClient,
+        client: &OwnStationStateClient,
         request: &ConsentCurrentReadRequestBody,
         registered_pcr: &RealmId,
     ) -> Result<()> {
@@ -161,7 +161,7 @@ impl ConsentCurrentReadAuthority {
         Ok(())
     }
 
-    async fn current_document(&self, client: &OwnStationResultClient) -> Result<DidDocument> {
+    async fn current_document(&self, client: &OwnStationStateClient) -> Result<DidDocument> {
         let locator = if let Some(did) = &self.service_did {
             did.clone()
         } else {
@@ -196,7 +196,7 @@ impl ConsentCurrentReadAuthority {
     fn verify_outcome(
         &self,
         request: &ConsentCurrentReadRequestBody,
-        outcome: &ConsentCurrentReadOutcome,
+        outcome: &ConsentCurrentReadResponseBody,
         current_document: &DidDocument,
         now: DateTime<Utc>,
     ) -> Result<()> {
@@ -246,7 +246,7 @@ impl ConsentCurrentReadAuthority {
     }
 }
 
-impl OwnStationResultClient {
+impl OwnStationStateClient {
     /// Return a session-bound Consent value only after independently checking
     /// its registered PCR, authority tenure, current assertion method and JWS.
     /// Ordinary own-Station synchronization keeps its separate trust contract.
@@ -255,8 +255,9 @@ impl OwnStationResultClient {
         request: &ConsentCurrentReadRequestBody,
         registered_pcr: &RealmId,
         authority: &ConsentCurrentReadAuthority,
-    ) -> Result<BoundOwnStationResponse<ConsentCurrentReadRequestBody, ConsentCurrentReadOutcome>>
-    {
+    ) -> Result<
+        BoundOwnStationResponse<ConsentCurrentReadRequestBody, ConsentCurrentReadResponseBody>,
+    > {
         authority.validate_client(self, request, registered_pcr)?;
         let document = authority.current_document(self).await?;
         self.consent_current_with_document(request, registered_pcr, authority, &document)
@@ -269,8 +270,9 @@ impl OwnStationResultClient {
         registered_pcr: &RealmId,
         authority: &ConsentCurrentReadAuthority,
         document: &DidDocument,
-    ) -> Result<BoundOwnStationResponse<ConsentCurrentReadRequestBody, ConsentCurrentReadOutcome>>
-    {
+    ) -> Result<
+        BoundOwnStationResponse<ConsentCurrentReadRequestBody, ConsentCurrentReadResponseBody>,
+    > {
         authority.validate_client(self, request, registered_pcr)?;
         let value = self.client.consent_current_read(request).await?;
         authority.verify_outcome(request, &value, document, Utc::now())?;

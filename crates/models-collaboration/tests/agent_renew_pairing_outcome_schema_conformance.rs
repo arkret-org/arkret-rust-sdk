@@ -2,7 +2,7 @@
 
 use std::fs;
 
-use arkret_models_collaboration::agent_operations::AgentRenewPairingOutcome;
+use arkret_models_collaboration::agent_operations::AgentRenewPairingResponseBody;
 use arkret_schema_conformance::schema_registry_from_spec_artifacts;
 use serde_json::{Value, json};
 
@@ -20,7 +20,7 @@ fn registry() -> arkret_schema::ProtocolSchemaRegistry {
         .register_fragment(
             "test:agent-renew-pairing-outcome",
             schema,
-            "#/$defs/agent_renew_pairing_outcome",
+            "#/$defs/agent_renew_pairing_response_body",
         )
         .unwrap();
     registry
@@ -44,7 +44,7 @@ fn renewed_binding_round_trips_against_formal_schema() {
     registry()
         .validate_value("test:agent-renew-pairing-outcome", &value)
         .unwrap();
-    let typed: AgentRenewPairingOutcome = serde_json::from_value(value.clone()).unwrap();
+    let typed: AgentRenewPairingResponseBody = serde_json::from_value(value.clone()).unwrap();
     assert_eq!(serde_json::to_value(typed).unwrap(), value);
 }
 
@@ -62,6 +62,6 @@ fn missing_binding_fields_fail_closed_in_schema_and_sdk() {
                 .validate_value("test:agent-renew-pairing-outcome", &missing)
                 .is_err()
         );
-        assert!(serde_json::from_value::<AgentRenewPairingOutcome>(missing).is_err());
+        assert!(serde_json::from_value::<AgentRenewPairingResponseBody>(missing).is_err());
     }
 }

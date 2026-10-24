@@ -2,15 +2,15 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/service-operation-dtos.schema.json
-// sha256=3e3a36a140c4328b66c09fa32714d5b36acc9c9d64fabf0b961add6fa0567fe0
+// sha256=18415d05b61700be7b69081cf070ed3c41de10f8e43cabea16992ae94a0f37d9
 //
 // Input: schemas/common-ids.schema.json
-// sha256=14226f0ac83e4d06639ad791cc0e52e0eb1c3b128cd4c8c12308a99b795141e4
+// sha256=0cc25a02fe0d9a94f6e41f2cf8f64e492ba36362f1e69a699cf1e684924837ee
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=d200bd3e6d76abd1b6154781fb5e54f11fbbc834638cdc29554f83590127fdfa
+// sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
 
-/// Counterpart: `service-operation-dtos.schema.json#/$defs/RecoverySessionGrantRequest`.
+/// Counterpart: `service-operation-dtos.schema.json#/$defs/RecoverySessionGrantRequestBody`.
 /// Fresh-device existing-principal recovery issuance.
 ///
 /// Authorization is the Bound AccountHandoff plus a matching per-request DPoP
@@ -20,7 +20,7 @@
 /// authorization yet.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RecoverySessionGrantRequest {
+pub struct RecoverySessionGrantRequestBody {
     pub credential_class: SessionGrantCredentialClass,
     pub request_id: RequestId,
     pub principal_id: DidCoreId,
@@ -28,7 +28,7 @@ pub struct RecoverySessionGrantRequest {
     pub audience_id: DidCoreId,
 }
 
-/// Counterpart: `service-operation-dtos.schema.json#/$defs/AgentSessionGrantRefreshRequest`.
+/// Counterpart: `service-operation-dtos.schema.json#/$defs/AgentSessionGrantRefreshRequestBody`.
 /// DPoP-bound Agent SessionGrant rotation.
 ///
 /// The predecessor is presented as `Authorization: DPoP` plus a matching DPoP
@@ -36,7 +36,7 @@ pub struct RecoverySessionGrantRequest {
 /// proof kind.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AgentSessionGrantRefreshRequest {
+pub struct AgentSessionGrantRefreshRequestBody {
     pub grant_jwt: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]

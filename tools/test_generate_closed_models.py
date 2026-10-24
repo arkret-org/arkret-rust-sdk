@@ -12,6 +12,31 @@ spec.loader.exec_module(module)
 
 
 class ClosedModelsTests(unittest.TestCase):
+    def test_two_schema_types_cannot_collapse_to_one_rust_name(self):
+        self.bindings['families'][0]['types'].append({
+            'name': 'Example', 'schema': 'another.schema.json'})
+        with self.assertRaisesRegex(ValueError, 'duplicate Rust type name'):
+            self.generate()
+
+    def test_representation_cannot_emit_a_stale_wire_member(self):
+        self.bindings['families'][0]['types'][0]['rust'] = {
+            'signature':'pub struct Example',
+            'attributes':['#[derive(serde::Serialize, serde::Deserialize)]'],
+            'members':{
+                'second':{'name':'old_second','visibility':'pub','type':'bool','attributes':[]},
+                'first':{'name':'first','visibility':'pub','type':'Option<u8>','attributes':[]},
+            },
+        }
+        with self.assertRaisesRegex(ValueError,'different wire member'):
+            self.generate()
+        self.bindings['families'][0]['types'][0]['rust']['members']['second']['name']='second'
+        self.assertIn('pub second: bool',self.generate())
+
+    def test_an_outcome_cannot_hide_a_response_or_current_state(self):
+        self.bindings['families'][0]['types'][0]['name']='ExampleOutcome'
+        with self.assertRaisesRegex(ValueError,'settled processing role'):
+            self.generate()
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)

@@ -28,25 +28,25 @@ impl AgentInteractionExactCurrentSelector {
 
 /// Only a verified same-cut read can yield a mode; a missing snapshot is unknown.
 pub fn agent_interaction_from_verified_exact_read(
-    outcome: &crate::exact_current_results::ExactCurrentResultsReadOutcome,
+    outcome: &crate::exact_current_state::ExactCurrentStateReadResponseBody,
     realm_id: &RealmId,
     agent: &AccountId,
     controller: &AccountId,
     governance_generation: u64,
 ) -> Result<(AgentInteractionMode, Option<CurrentRevision>)> {
-    use crate::exact_current_results::*;
+    use crate::exact_current_state::*;
     let selector = AgentInteractionExactCurrentSelector::new(agent.clone());
-    let request = ExactCurrentResultsReadRequestBody {
+    let request = ExactCurrentStateReadRequestBody {
         realm_id: realm_id.clone(),
-        selector: ExactCurrentResultSelector::AgentInteraction(selector),
+        selector: ExactCurrentStateSelector::AgentInteraction(selector),
     };
     outcome.validate_for_request(&request, governance_generation)?;
     match outcome {
-        ExactCurrentResultsReadOutcome::NeverWritten { .. } => {
+        ExactCurrentStateReadResponseBody::NeverWritten { .. } => {
             Ok((AgentInteractionMode::Private, None))
         }
-        ExactCurrentResultsReadOutcome::Present {
-            entry: ExactCurrentResultEntry::AgentInteraction(entry),
+        ExactCurrentStateReadResponseBody::Present {
+            entry: ExactCurrentStateEntry::AgentInteraction(entry),
             ..
         } if &entry.value.controller_account_id == controller => {
             Ok((entry.value.interaction_mode, Some(entry.revision.clone())))

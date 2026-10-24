@@ -2,7 +2,7 @@
 
 use arkret_models_collaboration::device_pairing::{
     DevicePairingBootstrap, DevicePairingCode, DevicePairingNonce, DevicePairingRequestId,
-    DevicePairingStageOutcome, DevicePairingStageRequestBody, DevicePairingTargetProof,
+    DevicePairingStageRequestBody, DevicePairingStageResponseBody, DevicePairingTargetProof,
     UnsignedDevicePairingTargetProof,
 };
 use arkret_models_collaboration::events_payloads::SignatureMaterial;
@@ -33,7 +33,7 @@ pub struct ServerDevicePairingChallenge {
 impl ServerDevicePairingChallenge {
     pub fn from_stage(
         request: &DevicePairingStageRequestBody,
-        outcome: &DevicePairingStageOutcome,
+        outcome: &DevicePairingStageResponseBody,
     ) -> Self {
         Self {
             client_nonce: request.client_nonce.clone(),
@@ -65,9 +65,11 @@ impl ServerDevicePairingChallenge {
 pub enum DevicePairingProofError {
     #[error("device pairing public key is not a supported Ed25519 key")]
     UnsupportedKey,
-    #[error("device pairing verification_method does not match new_device_pubkey.kid")]
+    #[error("device pairing verification_method does not match new_device_public_key.kid")]
     VerificationMethodMismatch,
-    #[error("device pairing proof signature_algorithm does not match new_device_pubkey.algorithm")]
+    #[error(
+        "device pairing proof signature_algorithm does not match new_device_public_key.algorithm"
+    )]
     AlgorithmMismatch,
     #[error("device pairing proof uses the wrong transcript")]
     TranscriptMismatch,

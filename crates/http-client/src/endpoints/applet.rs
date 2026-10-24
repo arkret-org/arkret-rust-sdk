@@ -3,12 +3,12 @@
 use arkret_identity::VerifiedSubmission;
 use arkret_models_discovery::ServiceDescribe;
 use arkret_models_integration::{
-    AppletActorView, AppletInstallOutcome, AppletInstallPreviewOutcome,
-    AppletInstallPreviewRequestBody, AppletInstallRequestBody, AppletManagedActorAuthorOutcome,
-    AppletManagedActorAuthorRequestBody, AppletPingOutcome, AppletProtocolMetadata,
-    AppletRealmView, AppletRevokeOutcome, AppletRevokePreviewOutcome,
-    AppletRevokePreviewRequestBody, AppletRevokeRequestBody, AppletTransactionOutcome,
-    AppletTransactionRequestBody, GhostPreviewOutcome, GhostPreviewRequestBody,
+    AppletActorView, AppletInstallPreviewRequestBody, AppletInstallPreviewResponseBody,
+    AppletInstallRequestBody, AppletInstallResponseBody, AppletManagedActorAuthorRequestBody,
+    AppletManagedActorAuthorResponseBody, AppletPingResponseBody, AppletProtocolMetadata,
+    AppletRealmView, AppletRevokePreviewRequestBody, AppletRevokePreviewResponseBody,
+    AppletRevokeRequestBody, AppletRevokeResponseBody, AppletTransactionRequestBody,
+    AppletTransactionResponseBody, GhostPreviewRequestBody, GhostPreviewResponseBody,
 };
 use arkret_signatures::http_signature::HttpSignatureScenario;
 use arkret_wire::DidCoreId;
@@ -54,8 +54,8 @@ impl Client {
         &self,
         destination: &DidCoreId,
         applet_id: &arkret_wire::AppletId,
-        request: &arkret_models_integration::AppletConfigurationPeerRequest,
-    ) -> Result<arkret_models_integration::AppletConfigurationOutcome> {
+        request: &arkret_models_integration::AppletConfigurationPeerRequestBody,
+    ) -> Result<arkret_models_integration::AppletConfigurationResponseBody> {
         request.validate()?;
         reject_path_segment(applet_id.as_str())?;
         let path = format!("/_arkret/peer/applets/{applet_id}/configuration");
@@ -68,14 +68,14 @@ impl Client {
             .header(crate::HEADER_DESTINATION_SERVICE_ID, destination.as_str())
             .header(CONTENT_TYPE, "application/json")
             .body(arkret_canonical::canonical_json_bytes(request)?);
-        let outcome: arkret_models_integration::AppletConfigurationOutcome = self
+        let outcome: arkret_models_integration::AppletConfigurationResponseBody = self
             .send_json_protocol_replay_safe_for_scenario(
                 builder,
                 HttpSignatureScenario::ServiceToServiceV1,
             )
             .await?;
         if outcome.request_id != request.request.intent.request_id
-            || outcome.source_outcome.as_ref().is_some_and(|source| {
+            || outcome.source_response_body.as_ref().is_some_and(|source| {
                 source.request_id != outcome.request_id
                     || source.intent_digest != outcome.intent_digest
             })
@@ -89,15 +89,15 @@ impl Client {
     pub async fn applet_configuration_submit(
         &self,
         applet_id: &arkret_wire::AppletId,
-        request: &arkret_models_integration::AppletConfigurationRequest,
-    ) -> Result<arkret_models_integration::AppletConfigurationOutcome> {
+        request: &arkret_models_integration::AppletConfigurationRequestBody,
+    ) -> Result<arkret_models_integration::AppletConfigurationResponseBody> {
         request.validate()?;
         reject_path_segment(applet_id.as_str())?;
         let path = format!("/_arkret/self/applets/{applet_id}/configuration");
-        let outcome: arkret_models_integration::AppletConfigurationOutcome =
+        let outcome: arkret_models_integration::AppletConfigurationResponseBody =
             self.post(&path, request).await?;
         if outcome.request_id != request.intent.request_id
-            || outcome.source_outcome.as_ref().is_some_and(|source| {
+            || outcome.source_response_body.as_ref().is_some_and(|source| {
                 source.request_id != outcome.request_id
                     || source.intent_digest != outcome.intent_digest
             })
@@ -115,8 +115,8 @@ impl Client {
     pub async fn applet_configuration_execute(
         &self,
         idempotency_key: &str,
-        request: &arkret_models_integration::AppletConfigurationExecutionRequest,
-    ) -> Result<arkret_models_integration::AppletConfigurationExecutionOutcome> {
+        request: &arkret_models_integration::AppletConfigurationExecutionRequestBody,
+    ) -> Result<arkret_models_integration::AppletConfigurationExecutionResponseBody> {
         request.validate_at(chrono::Utc::now())?;
         let body = arkret_canonical::canonical_json_bytes(request)?;
         let builder = self
@@ -132,7 +132,7 @@ impl Client {
             .header(crate::HEADER_IDEMPOTENCY_KEY, idempotency_key)
             .header(CONTENT_TYPE, "application/json")
             .body(body);
-        let outcome: arkret_models_integration::AppletConfigurationExecutionOutcome = self
+        let outcome: arkret_models_integration::AppletConfigurationExecutionResponseBody = self
             .send_json_protocol_replay_safe_for_scenario(
                 builder,
                 HttpSignatureScenario::ServiceToServiceV1,
@@ -148,7 +148,8 @@ impl Client {
         &self,
         realm: &arkret_wire::RealmId,
         subject: &arkret_wire::ActorId,
-    ) -> Result<arkret_models_collaboration::governance::authorization::GrantList> {
+    ) -> Result<arkret_models_collaboration::governance::authorization::EffectiveGrantSnapshot>
+    {
         let actor = String::from_utf8(arkret_canonical::canonical_json_bytes(subject)?)
             .map_err(|error| crate::Error::Protocol(error.to_string()))?;
         let request = self
@@ -162,14 +163,14 @@ impl Client {
 
     pub async fn realm_actor_material(
         &self,
-        request: &arkret_models_integration::RealmActorMaterialRequest,
+        request: &arkret_models_integration::RealmActorMaterialRequestBody,
         requester: &arkret_wire::ActorId,
         authority: &arkret_identity::VerifiedRealmAuthority,
         resolution: &arkret_models_identity::AuthenticatedServiceResolution,
         keys: &(dyn arkret_identity::RealmAuthorityKeyDirectory + Sync),
     ) -> Result<arkret_identity::VerifiedRealmActorMaterial> {
         request.validate()?;
-        let outcome: arkret_models_integration::RealmActorMaterialOutcome = self
+        let outcome: arkret_models_integration::RealmActorMaterialResponseBody = self
             .post("/_arkret/self/realm-actors/material", request)
             .await?;
         outcome.validate_for_request(request, requester, chrono::Utc::now())?;
@@ -177,7 +178,8 @@ impl Client {
             base: keys,
             commit_key: None,
         };
-        if let arkret_models_integration::RealmActorMaterial::Event { commit, .. } = &outcome.result
+        if let arkret_models_integration::RealmActorMaterial::Event { commit, .. } =
+            &outcome.material
         {
             let method = &commit.signature.verification_method;
             let did = arkret_identity::verification_method_did(method.as_str())
@@ -232,15 +234,15 @@ impl Client {
         applet_id: &str,
         request: &arkret_models_collaboration::applet_installation_authority::AppletAuthorityMaterialRequestBody,
     ) -> Result<
-        arkret_models_collaboration::applet_installation_authority::AppletAuthorityMaterialOutcome,
-    > {
+        arkret_models_collaboration::applet_installation_authority::AppletAuthorityMaterialResponseBody,
+    >{
         reject_path_segment(applet_id)?;
         let applet = arkret_wire::AppletId::new(applet_id.to_owned())?;
         request.validate()?;
         let (source, _) = self.service_signature_identity.as_ref().ok_or_else(|| {
             crate::Error::Protocol("Applet authority material requires a Service signer".into())
         })?;
-        let material: arkret_models_collaboration::applet_installation_authority::AppletAuthorityMaterialOutcome = self.post(
+        let material: arkret_models_collaboration::applet_installation_authority::AppletAuthorityMaterialResponseBody = self.post(
             &format!("/_arkret/self/applets/{applet_id}/authority/material"),
             request,
         ).await?;
@@ -250,9 +252,9 @@ impl Client {
                 "Applet material belongs to another authenticated Service".into(),
             ));
         }
-        for result in &material.current_results {
-            if let arkret_models_collaboration::exact_current_results::ExactCurrentResultsReadOutcome::Present {
-                entry: arkret_models_collaboration::exact_current_results::ExactCurrentResultEntry::AppletRegistration(row), ..
+        for result in &material.current_states {
+            if let arkret_models_collaboration::exact_current_state::ExactCurrentStateReadResponseBody::Present {
+                entry: arkret_models_collaboration::exact_current_state::ExactCurrentStateEntry::AppletRegistration(row), ..
             } = result {
                 let _: arkret_models_integration::AppletRegistrationPayload =
                     serde_json::from_value(row.value.clone())?;
@@ -337,7 +339,7 @@ impl Client {
         &self,
         applet_id: &str,
         request: &arkret_models_integration::AppletBotPreviewRequestBody,
-    ) -> Result<arkret_models_integration::AppletBotPreviewOutcome> {
+    ) -> Result<arkret_models_integration::AppletBotPreviewResponseBody> {
         reject_path_segment(applet_id)?;
         self.post(
             &format!("/_arkret/self/applets/{applet_id}/bots/provision/preview"),
@@ -348,7 +350,7 @@ impl Client {
     pub async fn management_review_request(
         &self,
         request: &arkret_models_integration::ManagementReviewRequestBody,
-    ) -> Result<arkret_models_integration::ManagementReviewOutcome> {
+    ) -> Result<arkret_models_integration::ManagementReviewResponseBody> {
         request.validate()?;
         self.post("/_arkret/self/management-reviews/requests", request)
             .await
@@ -356,7 +358,7 @@ impl Client {
     pub async fn management_review_decide(
         &self,
         request: &arkret_models_integration::ManagementReviewDecisionRequestBody,
-    ) -> Result<arkret_models_integration::ManagementReviewOutcome> {
+    ) -> Result<arkret_models_integration::ManagementReviewResponseBody> {
         request.validate()?;
         self.post("/_arkret/self/management-reviews/decisions", request)
             .await
@@ -364,11 +366,11 @@ impl Client {
     pub async fn management_review_status(
         &self,
         request: &arkret_models_integration::ManagementReviewLookupRequestBody,
-    ) -> Result<arkret_models_integration::ManagementReviewOutcome> {
+    ) -> Result<arkret_models_integration::ManagementReviewResponseBody> {
         self.post("/_arkret/self/management-reviews/status", request)
             .await
     }
-    pub async fn applet_ping(&self) -> Result<AppletPingOutcome> {
+    pub async fn applet_ping(&self) -> Result<AppletPingResponseBody> {
         self.get("/_arkret/edge/applet/ping").await
     }
 
@@ -379,7 +381,7 @@ impl Client {
     pub async fn applet_install_preview(
         &self,
         request: &AppletInstallPreviewRequestBody,
-    ) -> Result<AppletInstallPreviewOutcome> {
+    ) -> Result<AppletInstallPreviewResponseBody> {
         self.post("/_arkret/self/applets/install/preview", request)
             .await
     }
@@ -390,7 +392,7 @@ impl Client {
         &self,
         applet_service_base_url: &Url,
         request: &AppletManagedActorAuthorRequestBody,
-    ) -> Result<AppletManagedActorAuthorOutcome> {
+    ) -> Result<AppletManagedActorAuthorResponseBody> {
         validate_base_url(applet_service_base_url, self.allow_insecure_localhost)?;
         let url = applet_managed_actor_author_url(applet_service_base_url)?;
         let mut builder = self
@@ -413,7 +415,7 @@ impl Client {
         &self,
         idempotency_key: &str,
         request: &VerifiedSubmission<AppletInstallRequestBody>,
-    ) -> Result<AppletInstallOutcome> {
+    ) -> Result<AppletInstallResponseBody> {
         let options = ClientRequestOptions::new().idempotency_key(idempotency_key);
         self.post_with_options("/_arkret/self/applets/install", request, &options)
             .await
@@ -423,7 +425,7 @@ impl Client {
         &self,
         applet_id: &str,
         request: &AppletRevokePreviewRequestBody,
-    ) -> Result<AppletRevokePreviewOutcome> {
+    ) -> Result<AppletRevokePreviewResponseBody> {
         reject_path_segment(applet_id)?;
         let path = format!("/_arkret/self/applets/{applet_id}/revoke/preview");
         self.post(&path, request).await
@@ -434,7 +436,7 @@ impl Client {
         applet_id: &str,
         idempotency_key: &str,
         request: &VerifiedSubmission<AppletRevokeRequestBody>,
-    ) -> Result<AppletRevokeOutcome> {
+    ) -> Result<AppletRevokeResponseBody> {
         reject_path_segment(applet_id)?;
         let path = format!("/_arkret/self/applets/{applet_id}/revoke");
         let options = ClientRequestOptions::new().idempotency_key(idempotency_key);
@@ -445,7 +447,7 @@ impl Client {
         &self,
         applet_id: &str,
         request: &GhostPreviewRequestBody,
-    ) -> Result<GhostPreviewOutcome> {
+    ) -> Result<GhostPreviewResponseBody> {
         reject_path_segment(applet_id)?;
         let path = format!("/_arkret/self/applets/{applet_id}/ghosts/provision/preview");
         self.post(&path, request).await
@@ -455,7 +457,7 @@ impl Client {
         &self,
         idempotency_key: &str,
         request: &VerifiedSubmission<AppletTransactionRequestBody>,
-    ) -> Result<AppletTransactionOutcome> {
+    ) -> Result<AppletTransactionResponseBody> {
         let options = ClientRequestOptions::new().idempotency_key(idempotency_key);
         self.post_with_options("/_arkret/edge/applet/transactions", request, &options)
             .await
@@ -469,7 +471,7 @@ impl Client {
         request: &VerifiedSubmission<AppletTransactionRequestBody>,
         source_id: &DidCoreId,
         destination_id: &DidCoreId,
-    ) -> Result<AppletTransactionOutcome> {
+    ) -> Result<AppletTransactionResponseBody> {
         request.validate()?;
         if request.source_id() != source_id {
             return Err(crate::Error::Protocol(
@@ -666,7 +668,9 @@ mod native_retry_tests {
 
     #[tokio::test]
     async fn realm_control_retry_refreshes_only_transport_nonce_and_rejects_business_operations() {
-        use arkret_models_integration::{RealmActorControlHttpMetadata, RealmActorMaterialRequest};
+        use arkret_models_integration::{
+            RealmActorControlHttpMetadata, RealmActorMaterialRequestBody,
+        };
         use arkret_wire::{
             CommitStreamRef, CommittedEventRef, CurrentSelector, RealmActorId, RealmCommitId,
             RealmId,
@@ -691,7 +695,7 @@ mod native_retry_tests {
             },
             nonce: arkret_canonical::base64url_encode([94; 32]),
         };
-        let body = RealmActorMaterialRequest::Current {
+        let body = RealmActorMaterialRequestBody::Current {
             actor_id: actor.clone(),
             request_nonce: arkret_canonical::base64url_encode([95; 32]),
             selectors: vec![CurrentSelector::RealmActorControl { actor_id: actor }],
@@ -1102,7 +1106,7 @@ mod native_retry_tests {
         let mut body:KeyPackagesClaimRequestBody=serde_json::from_value(json!({
             "claim_request_id":id,"target_actor_id":metadata.actor_id,"requester_actor_id":metadata.actor_id,"intended_realm_id":scope.realm_id(),"mls_group_id":scope.canonical_mls_group_id().unwrap(),"claim_purpose":"realm_membership","required_capabilities":["ak.content.v1"],
             "expires_at":arkret_canonical::format_timestamp_canonical(at+chrono::Duration::minutes(1)),"target_device_ids":[device],"service_binding":{"source_id":station,"destination_id":station},
-            "requester_authorization":{"kind":"realm_device","verification_method":method,"requester_device_id":device,"device_authorize_event_id":authorization,"signed_at":arkret_canonical::format_timestamp_canonical(at),"signature":{"kid":method,"signature_algorithm":"Ed25519","sig":"AA"}}
+            "requester_authorization":{"kind":"realm_device","verification_method":method,"requester_device_id":device,"device_authorize_event_id":authorization,"signed_at":arkret_canonical::format_timestamp_canonical(at),"signature":{"kid":method,"signature_algorithm":"Ed25519","signature":"AA"}}
         })).unwrap();
         let input = arkret_models_crypto::keypackage_claim_authorization_signing_bytes(
             &body.unsigned_request(),

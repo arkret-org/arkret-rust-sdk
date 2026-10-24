@@ -2,13 +2,13 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/content-block-poll.schema.json
-// sha256=34986ba616ed4fe53e5c5d7e1b35e9c6ff206ca703d3d1babe0dcd01121b6e2c
+// sha256=4b5d4e97c751e4aff7f8ada839580db5e16cfbb27ca8a8ba6d60d9e235c0d9fb
 //
 // Input: schemas/message.schema.json
-// sha256=5cc5ebff41195a4312de792c0dc60887b4cd4b024e931ca4418aacea64e21707
+// sha256=279cc187893bea352ae89e4718237a618b5b1852d5778b54a29b94a1769c3fbd
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=d200bd3e6d76abd1b6154781fb5e54f11fbbc834638cdc29554f83590127fdfa
+// sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
 
 /// Counterpart: `content-block-poll.schema.json#/$defs/poll_answer`.
 /// Counterpart for `spec/v1/artifacts/schemas/content-block-poll.schema.json#/$defs/poll_answer`.
@@ -25,7 +25,7 @@ pub struct PollAnswer {
 #[serde(deny_unknown_fields)]
 pub struct PollBody {
     pub kind: PollDisclosureKind,
-    pub max_selections: u64,
+    pub max_selection_count: u64,
     #[serde(
         default,
         deserialize_with = "deserialize_non_null_optional",
@@ -35,12 +35,12 @@ pub struct PollBody {
     pub answers: Vec<PollAnswer>,
 }
 
-/// Counterpart: `content-block-poll.schema.json#/$defs/poll_response_body`.
+/// Counterpart: `content-block-poll.schema.json#/$defs/poll_vote`.
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/content-block-poll.schema.json#/$defs/poll_response_body`.
+/// `spec/v1/artifacts/schemas/content-block-poll.schema.json#/$defs/poll_vote`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PollResponseBody {
+pub struct PollVote {
     pub poll_ref: MessageId,
     pub selections: Vec<String>,
 }
@@ -99,5 +99,5 @@ pub struct PollResponseBlock {
         skip_serializing_if = "Option::is_none"
     )]
     pub reply_context: Option<PollReplyContext>,
-    pub poll_response: PollResponseBody,
+    pub poll_response: PollVote,
 }

@@ -203,17 +203,17 @@ impl AgentSidecarExchangeControl {
 /// value's selector or an additional plaintext member.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
-pub struct AgentSidecarExchangeControlsCurrentValue {
+pub struct AgentSidecarExchangeControlsValue {
     assertions: Vec<AgentSidecarExchangeControlAssertion>,
 }
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct AgentSidecarExchangeControlsCurrentValueWire {
+struct AgentSidecarExchangeControlsValueWire {
     assertions: Vec<AgentSidecarExchangeControlAssertion>,
 }
 
-impl AgentSidecarExchangeControlsCurrentValue {
+impl AgentSidecarExchangeControlsValue {
     pub fn new(assertions: Vec<AgentSidecarExchangeControlAssertion>) -> Result<Self> {
         if assertions
             .iter()
@@ -277,12 +277,12 @@ impl AgentSidecarExchangeControlsCurrentValue {
     }
 }
 
-impl<'de> Deserialize<'de> for AgentSidecarExchangeControlsCurrentValue {
+impl<'de> Deserialize<'de> for AgentSidecarExchangeControlsValue {
     fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        let wire = AgentSidecarExchangeControlsCurrentValueWire::deserialize(deserializer)?;
+        let wire = AgentSidecarExchangeControlsValueWire::deserialize(deserializer)?;
         Self::new(wire.assertions).map_err(serde::de::Error::custom)
     }
 }
@@ -665,7 +665,7 @@ mod tests {
 
     #[test]
     fn encrypted_control_current_is_closed_sorted_and_context_bound() {
-        use crate::exact_current_results::CanonicalEventDot;
+        use crate::exact_current_state::CanonicalEventDot;
         let entry = |byte| {
             AgentSidecarExchangeControlAssertion {
             tag_id: CanonicalEventDot::new(event_id(byte), 0).unwrap(),
@@ -673,26 +673,23 @@ mod tests {
                 "sidecar_id": sidecar_id(),
                 "source_context_ref": {"kind":"strand","strand_id":strand_id()},
                 "encrypted_payload": {"version":"1.0","content_type":"application/vnd.arkret.agent-sidecar-exchange-control+json",
-                    "encryption_context":{"epoch":1,"group_state_ref":event_id(7)},"ciphertext":"AQIDBA"}
+                    "encryption_context":{"epoch":"1","group_state_ref":event_id(7)},"ciphertext":"AQIDBA"}
             })).unwrap(),
         }
         };
         let mut entries = vec![entry(4), entry(5)];
         entries.sort_by(|a, b| a.tag_id.cmp(&b.tag_id));
-        let current = AgentSidecarExchangeControlsCurrentValue::new(entries.clone()).unwrap();
+        let current = AgentSidecarExchangeControlsValue::new(entries.clone()).unwrap();
         let encoded = serde_json::to_value(&current).unwrap();
         assert_eq!(
-            serde_json::from_value::<AgentSidecarExchangeControlsCurrentValue>(encoded.clone())
-                .unwrap(),
+            serde_json::from_value::<AgentSidecarExchangeControlsValue>(encoded.clone()).unwrap(),
             current
         );
         let mut unknown = encoded;
         unknown["exchange_id"] = json!(EXCHANGE_ID);
-        assert!(
-            serde_json::from_value::<AgentSidecarExchangeControlsCurrentValue>(unknown).is_err()
-        );
+        assert!(serde_json::from_value::<AgentSidecarExchangeControlsValue>(unknown).is_err());
         entries.reverse();
-        assert!(AgentSidecarExchangeControlsCurrentValue::new(entries).is_err());
+        assert!(AgentSidecarExchangeControlsValue::new(entries).is_err());
         assert!(current.clone().with_assertion(entry(4)).is_err());
         let mut wrong_dot = entry(6);
         wrong_dot.tag_id = CanonicalEventDot::new(event_id(6), 1).unwrap();

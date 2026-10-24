@@ -1,30 +1,30 @@
 // @generated; do not edit by hand.
 // Generator: tools/generate-closed-models.py
 //
-// Input: schemas/typed-current-result.schema.json
-// sha256=af1796a65736414a650ecb791939112f02920d691fd8ee4b9e46397ad70aadbd
+// Input: schemas/current-state.schema.json
+// sha256=feba0ff19e227c276a3792aaed506b6534bf9ff8ce6c2e91a0ab36c04777785f
 //
 // Input: schemas/event-payload.schema.json
-// sha256=6c0740fab50fcb796331bad41ee632e0602de445969cee69c4962e45dab65b27
+// sha256=74e26ef25ba5846ba74149c301a7ff5c7f1afc507f2cfd207cfe0edc060507bf
 //
 // Input: schemas/account-operations.schema.json
-// sha256=5b7dba680c2083d0bebc26ad32e7d37293d150cece8f2298a40bf382e7f31405
+// sha256=78c6503698cd43571f2b25543013f9036927ef9bfd005e71377ad3006f4a64d4
 //
 // Input: schemas/common-ids.schema.json
-// sha256=14226f0ac83e4d06639ad791cc0e52e0eb1c3b128cd4c8c12308a99b795141e4
+// sha256=0cc25a02fe0d9a94f6e41f2cf8f64e492ba36362f1e69a699cf1e684924837ee
 //
 // Input: schemas/agent-operations.schema.json
-// sha256=0d2950977b4b8d7c76137b107fd4dbf11401b0b1e5b480ba6ce34d31b82ad5aa
+// sha256=15fedd4b4e4462c678d93ac6521a5dfd0372854cd62cd76ec5e777fd88857ae5
 //
 // Input: schemas/agent-membership-cascade.schema.json
-// sha256=c0bb436f9758322f34eeafa870f05761aee9a4c5d7bf3f5783d81c12639d0b5c
+// sha256=0aeb76477ec3d0ff335ea072a019a0b7d4371ff5890add72cf986fe5167e8de3
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=d200bd3e6d76abd1b6154781fb5e54f11fbbc834638cdc29554f83590127fdfa
+// sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
 
-/// Counterpart: `typed-current-result.schema.json#/$defs/invite_directed_invitee_value`.
-/// Closed value of the `invite_directed_invitee` typed current result
-/// (`typed-current-result.schema.json#/$defs/invite_directed_invitee_value`).
+/// Counterpart: `current-state.schema.json#/$defs/invite_directed_invitee_value`.
+/// Closed value of the `invite_directed_invitee` current state
+/// (`current-state.schema.json#/$defs/invite_directed_invitee_value`).
 ///
 /// It is the create-locked reverse index of the `invite_live_target` slot:
 /// written once by a directed `ak.invite.create` from that Event's own payload
@@ -36,9 +36,9 @@ pub struct InviteDirectedInviteeValue {
     pub invitee_account_id: AccountId,
 }
 
-/// Counterpart: `typed-current-result.schema.json#/$defs/invite_live_target_value/oneOf/0`.
+/// Counterpart: `current-state.schema.json#/$defs/invite_live_target_value/oneOf/0`.
 /// The occupied branch of the `invite_live_target` slot value
-/// (`typed-current-result.schema.json#/$defs/invite_live_target_value/oneOf/0`).
+/// (`current-state.schema.json#/$defs/invite_live_target_value/oneOf/0`).
 ///
 /// The occupant is the verbatim `ak:event:` id of the `ak.invite.create` that
 /// holds the slot, never its `ak:invite:` retype. The empty branch of the same

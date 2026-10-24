@@ -118,7 +118,7 @@ pub fn validate_principal_registration_anchor(
                 registration_anchor_digest,
                 did_version_id: terminal_entry.version_id.clone(),
                 method_history_head: Hash::new(canonical::canonical_sha256(terminal)?)?,
-                did_version_time: Some(terminal_entry.version_time),
+                did_version_time: Some(terminal_entry.version_created_at),
                 control_key_digest: control_key_digest(&root_public_key_multibase)?,
                 root_public_key_multibase,
                 root_verification_method: DidUrl::new(root_verification_method.to_owned())
@@ -170,7 +170,7 @@ mod tests {
             principal_endpoint: &Url::parse("https://registration.example/").unwrap(),
             local_id: "alice",
             also_known_as: &[],
-            version_time: Utc.with_ymd_and_hms(2026, 8, 11, 2, 0, 0).unwrap(),
+            version_created_at: Utc.with_ymd_and_hms(2026, 8, 11, 2, 0, 0).unwrap(),
             root_seed: &root_seed,
             next_root_public_key_multibase: &next_root_public_key_multibase,
             witness_policy: None,

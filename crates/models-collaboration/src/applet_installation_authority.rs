@@ -4,7 +4,7 @@ use arkret_wire::{Event, EventKind, Hash, Result, WireError, canonical};
 use serde::ser::SerializeStruct;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::exact_current_results::ExactCurrentResultsReadOutcome;
+use crate::exact_current_state::ExactCurrentStateReadResponseBody;
 
 /// The formal Applet committed Event carrier. The retained account-device root
 /// is the regular closed two-member sibling, not authority-forward evidence.
@@ -237,7 +237,7 @@ impl AppletAuthorityMaterialRequestBody {
     }
 }
 
-impl AppletAuthorityMaterialOutcome {
+impl AppletAuthorityMaterialResponseBody {
     /// Bind a historical material read to its exact Applet, scope and requested
     /// grants. An inactive current installation remains valid audit material;
     /// this check does not authorize a new business action.
@@ -249,7 +249,7 @@ impl AppletAuthorityMaterialOutcome {
         use crate::events_payloads::capability::{
             CapabilityGrantCreateBody, CapabilityGrantPayload,
         };
-        use crate::exact_current_results::ExactCurrentResultEntry;
+        use crate::exact_current_state::ExactCurrentStateEntry;
         use crate::governance::grant_constraint::{
             CapabilitySubject, GrantConstraintKind, GrantConstraintSubkind,
         };
@@ -268,8 +268,8 @@ impl AppletAuthorityMaterialOutcome {
                         .clone(),
                 )
             || self.grant_events.len() != request.grant_ids.len()
-            || self.current_results.len() < request.grant_ids.len()
-            || self.current_results.len() > request.grant_ids.len() + 1
+            || self.current_states.len() < request.grant_ids.len()
+            || self.current_states.len() > request.grant_ids.len() + 1
         {
             return Err(WireError::Protocol(
                 "Applet material differs from its exact read request".into(),
@@ -291,9 +291,9 @@ impl AppletAuthorityMaterialOutcome {
         let mut seen = std::collections::BTreeSet::new();
         let mut service = None;
         let mut registration_seen = false;
-        for result in &self.current_results {
-            if let ExactCurrentResultsReadOutcome::Present {
-                entry: ExactCurrentResultEntry::AppletRegistration(row),
+        for result in &self.current_states {
+            if let ExactCurrentStateReadResponseBody::Present {
+                entry: ExactCurrentStateEntry::AppletRegistration(row),
                 ..
             } = result
             {
@@ -331,8 +331,8 @@ impl AppletAuthorityMaterialOutcome {
                 registration_seen = true;
                 continue;
             }
-            let ExactCurrentResultsReadOutcome::Present {
-                entry: ExactCurrentResultEntry::CapabilityGrant(row),
+            let ExactCurrentStateReadResponseBody::Present {
+                entry: ExactCurrentStateEntry::CapabilityGrant(row),
                 ..
             } = result
             else {
@@ -448,7 +448,7 @@ impl AppletAuthorityMaterialOutcome {
             self.effective_scope,
             arkret_wire::ScopeRef::Realm { .. } | arkret_wire::ScopeRef::Circle { .. }
         ) || !(1..=64).contains(&self.grant_events.len())
-            || self.current_results.len() > 256
+            || self.current_states.len() > 256
         {
             return Err(WireError::Protocol(
                 "Applet authority material requires a Realm/Circle scope and grant Events".into(),
@@ -458,15 +458,15 @@ impl AppletAuthorityMaterialOutcome {
         for grant in &self.grant_events {
             grant.validate_structural()?;
         }
-        validate_present_current_results_for_scope(&self.effective_scope, &self.current_results)?;
+        validate_present_current_states_for_scope(&self.effective_scope, &self.current_states)?;
         if let AppletInstallationCurrentBinding::Active {
             registration_ref,
             service_id,
             ..
         } = &self.current_binding
             && (self.registration.event.payload.get("service_id").and_then(serde_json::Value::as_str) != Some(service_id.as_str())
-                || !self.current_results.iter().any(|result| matches!(result,
-                    ExactCurrentResultsReadOutcome::Present { effective_stream_head, .. }
+                || !self.current_states.iter().any(|result| matches!(result,
+                    ExactCurrentStateReadResponseBody::Present { effective_stream_head, .. }
                     if effective_stream_head.stream_ref == registration_ref.stream_ref
                         && effective_stream_head.stream_position >= registration_ref.stream_position
                         && (effective_stream_head.stream_position != registration_ref.stream_position
@@ -478,11 +478,11 @@ impl AppletAuthorityMaterialOutcome {
     }
 }
 
-fn validate_present_current_results_for_scope(
+fn validate_present_current_states_for_scope(
     scope: &arkret_wire::ScopeRef,
-    results: &[ExactCurrentResultsReadOutcome],
+    results: &[ExactCurrentStateReadResponseBody],
 ) -> Result<()> {
-    validate_present_current_results(results)?;
+    validate_present_current_states(results)?;
     let realm = scope
         .realm_id_opt()
         .ok_or_else(|| WireError::Protocol("Applet material scope has no Realm".into()))?;
@@ -490,7 +490,7 @@ fn validate_present_current_results_for_scope(
     let grant_stream = arkret_wire::CommitStreamRef::from_scope(scope, None)?;
     let mut heads: Vec<&arkret_wire::CommitStreamHead> = Vec::new();
     for result in results {
-        let ExactCurrentResultsReadOutcome::Present {
+        let ExactCurrentStateReadResponseBody::Present {
             realm_id,
             governance_generation,
             effective_stream_head,
@@ -517,7 +517,7 @@ fn validate_present_current_results_for_scope(
             ));
         }
         heads.push(effective_stream_head);
-        if let crate::exact_current_results::ExactCurrentResultEntry::CapabilityGrant(grant) = entry
+        if let crate::exact_current_state::ExactCurrentStateEntry::CapabilityGrant(grant) = entry
             && (grant.value.id != grant.selector.grant_id
                 || grant.value.realm_id.as_ref() != Some(realm)
                 || grant.source_stream_ref != grant_stream)
@@ -531,11 +531,11 @@ fn validate_present_current_results_for_scope(
     Ok(())
 }
 
-fn validate_present_current_results(results: &[ExactCurrentResultsReadOutcome]) -> Result<()> {
+fn validate_present_current_states(results: &[ExactCurrentStateReadResponseBody]) -> Result<()> {
     if results.is_empty()
         || results
             .iter()
-            .any(|result| !matches!(result, ExactCurrentResultsReadOutcome::Present { .. }))
+            .any(|result| !matches!(result, ExactCurrentStateReadResponseBody::Present { .. }))
     {
         return Err(WireError::Protocol(
             "Applet authority material requires nonempty present current results".into(),
@@ -544,25 +544,25 @@ fn validate_present_current_results(results: &[ExactCurrentResultsReadOutcome]) 
     Ok(())
 }
 
-fn deserialize_present_current_results<'de, D>(
+fn deserialize_present_current_states<'de, D>(
     deserializer: D,
-) -> std::result::Result<Vec<ExactCurrentResultsReadOutcome>, D::Error>
+) -> std::result::Result<Vec<ExactCurrentStateReadResponseBody>, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let results = Vec::<ExactCurrentResultsReadOutcome>::deserialize(deserializer)?;
-    validate_present_current_results(&results).map_err(serde::de::Error::custom)?;
+    let results = Vec::<ExactCurrentStateReadResponseBody>::deserialize(deserializer)?;
+    validate_present_current_states(&results).map_err(serde::de::Error::custom)?;
     Ok(results)
 }
 
-fn serialize_present_current_results<S>(
-    results: &[ExactCurrentResultsReadOutcome],
+fn serialize_present_current_states<S>(
+    results: &[ExactCurrentStateReadResponseBody],
     serializer: S,
 ) -> std::result::Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
-    validate_present_current_results(results).map_err(serde::ser::Error::custom)?;
+    validate_present_current_states(results).map_err(serde::ser::Error::custom)?;
     results.serialize(serializer)
 }
 
@@ -620,7 +620,7 @@ mod authority_material_current_tests {
     fn formal_outcome(status: &str) -> Value {
         let artifacts = arkret_schema_conformance::default_spec_artifacts_dir().unwrap();
         let fixture: Value = serde_json::from_slice(
-            &std::fs::read(artifacts.join("fixtures/exact-current-results-read-fixture.json"))
+            &std::fs::read(artifacts.join("fixtures/exact-current-state-read-fixture.json"))
                 .unwrap(),
         )
         .unwrap();
@@ -635,9 +635,9 @@ mod authority_material_current_tests {
 
     fn decode(
         value: &Value,
-    ) -> std::result::Result<Vec<ExactCurrentResultsReadOutcome>, serde_json::Error> {
+    ) -> std::result::Result<Vec<ExactCurrentStateReadResponseBody>, serde_json::Error> {
         let input = serde_json::to_string(value).unwrap();
-        deserialize_present_current_results(&mut serde_json::Deserializer::from_str(&input))
+        deserialize_present_current_states(&mut serde_json::Deserializer::from_str(&input))
     }
 
     #[test]
@@ -646,10 +646,10 @@ mod authority_material_current_tests {
         let results = decode(&value).unwrap();
         assert!(matches!(
             results[0],
-            ExactCurrentResultsReadOutcome::Present { .. }
+            ExactCurrentStateReadResponseBody::Present { .. }
         ));
         let mut bytes = Vec::new();
-        serialize_present_current_results(&results, &mut serde_json::Serializer::new(&mut bytes))
+        serialize_present_current_states(&results, &mut serde_json::Serializer::new(&mut bytes))
             .unwrap();
         assert_eq!(serde_json::from_slice::<Value>(&bytes).unwrap(), value);
     }
@@ -670,11 +670,11 @@ mod authority_material_current_tests {
 
     #[test]
     fn in_memory_absence_cannot_be_serialized_as_authority_material() {
-        let absence: ExactCurrentResultsReadOutcome =
+        let absence: ExactCurrentStateReadResponseBody =
             serde_json::from_value(formal_outcome("never_written")).unwrap();
         let mut bytes = Vec::new();
         assert!(
-            serialize_present_current_results(
+            serialize_present_current_states(
                 &[absence],
                 &mut serde_json::Serializer::new(&mut bytes)
             )
@@ -722,7 +722,7 @@ mod authority_material_current_tests {
             realm_id: serde_json::from_value(present["realm_id"].clone()).unwrap(),
         };
         let results = decode(&json!([present])).unwrap();
-        validate_present_current_results_for_scope(&scope, &results).unwrap();
+        validate_present_current_states_for_scope(&scope, &results).unwrap();
         let mut other_cut = present.clone();
         other_cut["effective_stream_head"]["stream_position"] = json!(
             present["effective_stream_head"]["stream_position"]
@@ -731,7 +731,7 @@ mod authority_material_current_tests {
                 + 1
         );
         assert!(
-            validate_present_current_results_for_scope(
+            validate_present_current_states_for_scope(
                 &scope,
                 &decode(&json!([present, other_cut])).unwrap()
             )
@@ -745,7 +745,7 @@ mod authority_material_current_tests {
                 + 1
         );
         assert!(
-            validate_present_current_results_for_scope(&scope, &decode(&json!([future])).unwrap())
+            validate_present_current_states_for_scope(&scope, &decode(&json!([future])).unwrap())
                 .is_err()
         );
         let mut other_head = present.clone();
@@ -754,7 +754,7 @@ mod authority_material_current_tests {
                 &arkret_wire::EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [99; 32])
             ));
         assert!(
-            validate_present_current_results_for_scope(
+            validate_present_current_states_for_scope(
                 &scope,
                 &decode(&json!([other_head])).unwrap()
             )
@@ -765,17 +765,23 @@ mod authority_material_current_tests {
             &arkret_wire::EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [99; 32])
         ));
         assert!(
-            validate_present_current_results_for_scope(
+            validate_present_current_states_for_scope(
                 &scope,
                 &decode(&json!([other_realm])).unwrap()
             )
             .is_err()
         );
         let mut other_generation = present.clone();
-        other_generation["governance_generation"] =
-            json!(present["governance_generation"].as_u64().unwrap() + 1);
+        other_generation["governance_generation"] = json!(
+            (arkret_canonical::serde_helpers::parse_uint64_decimal_value(
+                &present["governance_generation"]
+            )
+            .unwrap()
+                + 1)
+            .to_string()
+        );
         assert!(
-            validate_present_current_results_for_scope(
+            validate_present_current_states_for_scope(
                 &scope,
                 &decode(&json!([present, other_generation])).unwrap()
             )
@@ -804,7 +810,7 @@ mod authority_material_current_tests {
         grant["id"] = json!(grant_id);
         grant["authority_depth"] = json!(0);
         grant["issuer_authority_refs"] = json!([{
-            "kind":"realm_root", "realm_id":grant["realm_id"], "authority_generation":0,
+            "kind":"realm_root", "realm_id":grant["realm_id"], "authority_generation":"0",
             "authority_event_ref":arkret_wire::EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [80; 32])
         }]);
         grant["authority_root_refs"] = grant["issuer_authority_refs"].clone();
@@ -822,7 +828,7 @@ mod authority_material_current_tests {
         };
         let commit = arkret_wire::RealmCommitId::from_digest([82; 32]);
         let value = json!({
-            "status":"present", "realm_id":realm, "governance_generation":0,
+            "status":"present", "realm_id":realm, "governance_generation":"0",
             "effective_stream_head":{"stream_ref":stream, "commit_id":commit,"stream_position":9},
             "entry":{"selector":{"kind":"capability_grant","grant_id":grant_id},
                 "source_stream_ref":stream,"revision":{"commit_id":commit,"stream_position":9},"value":grant}
@@ -830,7 +836,7 @@ mod authority_material_current_tests {
         let scope = arkret_wire::ScopeRef::Realm {
             realm_id: realm.clone(),
         };
-        validate_present_current_results_for_scope(&scope, &decode(&json!([value])).unwrap())
+        validate_present_current_states_for_scope(&scope, &decode(&json!([value])).unwrap())
             .unwrap();
         let circle_scope = arkret_wire::ScopeRef::Circle {
             realm_id: realm,
@@ -840,7 +846,7 @@ mod authority_material_current_tests {
             )),
         };
         assert!(
-            validate_present_current_results_for_scope(
+            validate_present_current_states_for_scope(
                 &circle_scope,
                 &decode(&json!([value])).unwrap()
             )
@@ -850,13 +856,13 @@ mod authority_material_current_tests {
         let circle_stream = arkret_wire::CommitStreamRef::from_scope(&circle_scope, None).unwrap();
         circle_value["entry"]["source_stream_ref"] = json!(circle_stream);
         circle_value["effective_stream_head"]["stream_ref"] = json!(circle_stream);
-        validate_present_current_results_for_scope(
+        validate_present_current_states_for_scope(
             &circle_scope,
             &decode(&json!([circle_value.clone()])).unwrap(),
         )
         .unwrap();
         assert!(
-            validate_present_current_results_for_scope(
+            validate_present_current_states_for_scope(
                 &scope,
                 &decode(&json!([circle_value])).unwrap()
             )
@@ -867,11 +873,8 @@ mod authority_material_current_tests {
             &arkret_wire::EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [84; 32],)
         ));
         assert!(
-            validate_present_current_results_for_scope(
-                &scope,
-                &decode(&json!([wrong_id])).unwrap()
-            )
-            .is_err()
+            validate_present_current_states_for_scope(&scope, &decode(&json!([wrong_id])).unwrap())
+                .is_err()
         );
     }
 }

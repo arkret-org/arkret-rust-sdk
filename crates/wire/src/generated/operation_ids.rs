@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-23.2;
-//! sha256=6552ac03bae32d141a4cfe33845c2a4855b57bb1aacd2947927e87868418cfa5 Entries: registered=225
+//! Input: registry/contract-registry.json; version=2026-10-24.2;
+//! sha256=e79e94261c890e82a59726272e1d22118c7d3ba48720b3b9e810971299b09c0f Entries: registered=225
 
 use serde::{Deserialize, Serialize};
 
@@ -171,7 +171,7 @@ pub enum ServiceOperationId {
     SelfContactCommandTombstoneV1,
     SelfContactReadListV1,
     SelfCurrentPrincipalReadResolveV1,
-    SelfCurrentResultsReadExactV1,
+    SelfCurrentStateReadExactV1,
     SelfDeviceMessagesCommandAckV1,
     SelfDeviceMessagesCommandSendV1,
     SelfDeviceMessagesReadListV1,
@@ -399,7 +399,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_CONTACT_COMMAND_TOMBSTONE_V1,
     ServiceOperationId::SELF_CONTACT_READ_LIST_V1,
     ServiceOperationId::SELF_CURRENT_PRINCIPAL_READ_RESOLVE_V1,
-    ServiceOperationId::SELF_CURRENT_RESULTS_READ_EXACT_V1,
+    ServiceOperationId::SELF_CURRENT_STATE_READ_EXACT_V1,
     ServiceOperationId::SELF_DEVICE_MESSAGES_COMMAND_ACK_V1,
     ServiceOperationId::SELF_DEVICE_MESSAGES_COMMAND_SEND_V1,
     ServiceOperationId::SELF_DEVICE_MESSAGES_READ_LIST_V1,
@@ -669,7 +669,7 @@ impl ServiceOperationId {
         Self::SelfContactCommandTombstoneV1,
         Self::SelfContactReadListV1,
         Self::SelfCurrentPrincipalReadResolveV1,
-        Self::SelfCurrentResultsReadExactV1,
+        Self::SelfCurrentStateReadExactV1,
         Self::SelfDeviceMessagesCommandAckV1,
         Self::SelfDeviceMessagesCommandSendV1,
         Self::SelfDeviceMessagesReadListV1,
@@ -1010,8 +1010,8 @@ impl ServiceOperationId {
     pub const SELF_CONTACT_READ_LIST_V1: &'static str = "ak.self.contact.read.list.v1";
     pub const SELF_CURRENT_PRINCIPAL_READ_RESOLVE_V1: &'static str =
         "ak.self.current_principal.read.resolve.v1";
-    pub const SELF_CURRENT_RESULTS_READ_EXACT_V1: &'static str =
-        "ak.self.current_results.read.exact.v1";
+    pub const SELF_CURRENT_STATE_READ_EXACT_V1: &'static str =
+        "ak.self.current_state.read.exact.v1";
     pub const SELF_DEVICE_MESSAGES_COMMAND_ACK_V1: &'static str =
         "ak.self.device_messages.command.ack.v1";
     pub const SELF_DEVICE_MESSAGES_COMMAND_SEND_V1: &'static str =
@@ -1373,7 +1373,7 @@ impl ServiceOperationId {
             Self::SelfContactCommandTombstoneV1 => Self::SELF_CONTACT_COMMAND_TOMBSTONE_V1,
             Self::SelfContactReadListV1 => Self::SELF_CONTACT_READ_LIST_V1,
             Self::SelfCurrentPrincipalReadResolveV1 => Self::SELF_CURRENT_PRINCIPAL_READ_RESOLVE_V1,
-            Self::SelfCurrentResultsReadExactV1 => Self::SELF_CURRENT_RESULTS_READ_EXACT_V1,
+            Self::SelfCurrentStateReadExactV1 => Self::SELF_CURRENT_STATE_READ_EXACT_V1,
             Self::SelfDeviceMessagesCommandAckV1 => Self::SELF_DEVICE_MESSAGES_COMMAND_ACK_V1,
             Self::SelfDeviceMessagesCommandSendV1 => Self::SELF_DEVICE_MESSAGES_COMMAND_SEND_V1,
             Self::SelfDeviceMessagesReadListV1 => Self::SELF_DEVICE_MESSAGES_READ_LIST_V1,
@@ -1793,7 +1793,7 @@ impl ServiceOperationId {
             Self::SELF_CURRENT_PRINCIPAL_READ_RESOLVE_V1 => {
                 Some(Self::SelfCurrentPrincipalReadResolveV1)
             }
-            Self::SELF_CURRENT_RESULTS_READ_EXACT_V1 => Some(Self::SelfCurrentResultsReadExactV1),
+            Self::SELF_CURRENT_STATE_READ_EXACT_V1 => Some(Self::SelfCurrentStateReadExactV1),
             Self::SELF_DEVICE_MESSAGES_COMMAND_ACK_V1 => Some(Self::SelfDeviceMessagesCommandAckV1),
             Self::SELF_DEVICE_MESSAGES_COMMAND_SEND_V1 => {
                 Some(Self::SelfDeviceMessagesCommandSendV1)
@@ -2044,7 +2044,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/applet-edge-operations.schema.json#/$defs/applet_transaction_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/applet-edge-operations.schema.json#/$defs/applet_transaction_outcome",
+            "schemas/applet-edge-operations.schema.json#/$defs/applet_transaction_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -2066,10 +2066,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("canonical_hash"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/applet-configuration-operations.schema.json#/$defs/execution_request",
+            "schemas/applet-configuration-operations.schema.json#/$defs/applet_configuration_execution_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/applet-configuration-operations.schema.json#/$defs/execution_outcome",
+            "schemas/applet-configuration-operations.schema.json#/$defs/execution_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -2096,7 +2096,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/applet-install-authoring.schema.json#/$defs/author_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/applet-install-authoring.schema.json#/$defs/author_outcome",
+            "schemas/applet-install-authoring.schema.json#/$defs/author_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -2137,7 +2137,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         retry_safe: None,
         request_schema_ref: None,
         response_schema_ref: Some(
-            "schemas/applet-edge-operations.schema.json#/$defs/applet_ping_outcome",
+            "schemas/applet-edge-operations.schema.json#/$defs/applet_ping_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -2191,7 +2191,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         retry_safe: None,
         request_schema_ref: None,
         response_schema_ref: Some(
-            "schemas/applet-edge-operations.schema.json#/$defs/applet_third_party_location_list",
+            "schemas/applet-edge-operations.schema.json#/$defs/applet_third_party_location_lookup_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -2209,7 +2209,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         retry_safe: None,
         request_schema_ref: None,
         response_schema_ref: Some(
-            "schemas/applet-edge-operations.schema.json#/$defs/applet_third_party_user_list",
+            "schemas/applet-edge-operations.schema.json#/$defs/applet_third_party_user_lookup_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -2229,7 +2229,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/push-operations.schema.json#/$defs/push_registration_handoff_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/push-operations.schema.json#/$defs/push_registration_handoff_outcome",
+            "schemas/push-operations.schema.json#/$defs/push_registration_handoff_response_body",
         ),
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.edge.push.command.apply_registration.v1\",\"requires_same_request_identity_and_canonical_intent\":true,\"strategy\":\"replay_same_operation\"}",
@@ -2257,7 +2257,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: Some(
             "schemas/push-operations.schema.json#/$defs/push_notify_request_body",
         ),
-        response_schema_ref: Some("schemas/push-operations.schema.json#/$defs/push_notify_outcome"),
+        response_schema_ref: Some(
+            "schemas/push-operations.schema.json#/$defs/push_notify_response_body",
+        ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
@@ -2281,7 +2283,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/push-operations.schema.json#/$defs/push_register_device_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/push-operations.schema.json#/$defs/push_register_device_outcome",
+            "schemas/push-operations.schema.json#/$defs/push_register_device_response_body",
         ),
         uncertain_outcome: Some("{\"strategy\":\"manual_confirmation\"}"),
         durable_effect: Some(DurableEffectDescriptor {
@@ -2345,7 +2347,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/directory-operations.schema.json#/$defs/directory_resolve_realm_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/directory-operations.schema.json#/$defs/directory_realm_resolution_outcome",
+            "schemas/directory-operations.schema.json#/$defs/public_realm_directory_entry",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -2365,7 +2367,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/directory-operations.schema.json#/$defs/directory_search_realms_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/directory-operations.schema.json#/$defs/directory_realm_search_outcome",
+            "schemas/directory-operations.schema.json#/$defs/directory_realm_search_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -2385,7 +2387,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/account-operations.schema.json#/$defs/identity_abandonment_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/account-operations.schema.json#/$defs/identity_abandonment_outcome",
+            "schemas/account-operations.schema.json#/$defs/identity_abandonment_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -2412,7 +2414,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/device-pairing.schema.json#/$defs/device_pairing_finalize_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/device-pairing.schema.json#/$defs/device_pairing_finalize_outcome",
+            "schemas/device-pairing.schema.json#/$defs/device_pairing_finalize_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -2437,7 +2439,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/account-operations.schema.json#/$defs/did_binding_challenge_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/account-operations.schema.json#/$defs/did_binding_challenge_outcome",
+            "schemas/account-operations.schema.json#/$defs/did_binding_challenge_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -2464,7 +2466,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/account-operations.schema.json#/$defs/identity_binding_challenge_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/account-operations.schema.json#/$defs/identity_binding_challenge_outcome",
+            "schemas/account-operations.schema.json#/$defs/identity_binding_challenge_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -2488,10 +2490,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("protocol_sequence"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/recovery-authority.schema.json#/$defs/issue_recovery_completion_grant_request",
+            "schemas/recovery-authority.schema.json#/$defs/recovery_completion_grant_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/recovery-authority.schema.json#/$defs/issue_recovery_completion_grant_outcome",
+            "schemas/recovery-authority.schema.json#/$defs/issue_recovery_completion_grant_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -2516,7 +2518,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/SessionGrantRequestBody",
         ),
         response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/SessionGrantOutcome",
+            "schemas/service-operation-dtos.schema.json#/$defs/SessionGrantResponseBody",
         ),
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.gate.account.command.issue_session_grant.v1\",\"requires_same_request_identity_and_canonical_intent\":true,\"strategy\":\"replay_same_operation\",\"terminal_outcomes\":[\"session_grant_replay_expired\",\"session_grant_replay_terminal\",\"session_grant_replay_indeterminate\"]}",
@@ -2543,7 +2545,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/AccountLogoutRequestBody",
         ),
         response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/AccountLogoutOutcome",
+            "schemas/service-operation-dtos.schema.json#/$defs/AccountLogoutResponseBody",
         ),
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.gate.account.command.logout.v1\",\"requires_same_request_identity_and_canonical_intent\":true,\"strategy\":\"replay_same_operation\",\"terminal_outcomes\":[\"session_grant_replay_indeterminate\"]}",
@@ -2570,7 +2572,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/agent-operations.schema.json#/$defs/agent_key_pair_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_key_pair_outcome",
+            "schemas/agent-operations.schema.json#/$defs/agent_key_pair_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -2595,7 +2597,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/agent-operations.schema.json#/$defs/account_device_pair_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/account_device_pair_outcome",
+            "schemas/agent-operations.schema.json#/$defs/account_device_pair_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -2620,7 +2622,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/SessionGrantRefreshRequestBody",
         ),
         response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/SessionGrantOutcome",
+            "schemas/service-operation-dtos.schema.json#/$defs/SessionGrantResponseBody",
         ),
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.gate.account.command.refresh_session_grant.v1\",\"requires_same_request_identity_and_canonical_intent\":true,\"strategy\":\"replay_same_operation\",\"terminal_outcomes\":[\"session_grant_replay_expired\",\"session_grant_replay_terminal\",\"session_grant_replay_indeterminate\"]}",
@@ -2647,7 +2649,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/account-operations.schema.json#/$defs/account_register_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/account-operations.schema.json#/$defs/account_register_outcome",
+            "schemas/account-operations.schema.json#/$defs/account_register_response_body",
         ),
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.gate.account.command.register.v1\",\"requires_same_request_identity_and_canonical_intent\":true,\"strategy\":\"replay_same_operation\",\"terminal_outcomes\":[\"session_grant_replay_expired\",\"session_grant_replay_terminal\",\"session_grant_replay_indeterminate\"]}",
@@ -2677,7 +2679,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/account-operations.schema.json#/$defs/account_request_erasure_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/account-operations.schema.json#/$defs/account_request_erasure_outcome",
+            "schemas/account-operations.schema.json#/$defs/account_request_erasure_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -2702,7 +2704,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/account-operations.schema.json#/$defs/session_revoke_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/account-operations.schema.json#/$defs/session_revoke_outcome",
+            "schemas/account-operations.schema.json#/$defs/session_revoke_response_body",
         ),
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.gate.account.command.revoke_session.v1\",\"requires_same_request_identity_and_canonical_intent\":true,\"strategy\":\"replay_same_operation\",\"terminal_outcomes\":[\"session_grant_replay_indeterminate\"]}",
@@ -2729,7 +2731,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/account-operations.schema.json#/$defs/account_handoff_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/account-operations.schema.json#/$defs/account_handoff_outcome",
+            "schemas/account-operations.schema.json#/$defs/account_handoff_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -2756,7 +2758,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/device-pairing.schema.json#/$defs/device_pairing_code_claim_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/device-pairing.schema.json#/$defs/device_pairing_code_claim_outcome",
+            "schemas/device-pairing.schema.json#/$defs/device_pairing_code_claim_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -2799,7 +2801,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/agent-operations.schema.json#/$defs/agent_runtime_approval_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_runtime_approval_outcome",
+            "schemas/agent-operations.schema.json#/$defs/agent_runtime_approval_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -2844,7 +2846,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/agent-operations.schema.json#/$defs/agent_runtime_approval_status_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_runtime_approval_status_outcome",
+            "schemas/agent-operations.schema.json#/$defs/agent_runtime_approval_status_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -2864,7 +2866,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/device-pairing.schema.json#/$defs/device_pairing_stage_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/device-pairing.schema.json#/$defs/device_pairing_stage_outcome",
+            "schemas/device-pairing.schema.json#/$defs/device_pairing_stage_response_body",
         ),
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.open.device_pairing.command.stage.v1\",\"requires_fresh_request_identity\":true,\"strategy\":\"reissue_material\"}",
@@ -2911,7 +2913,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/device-pairing.schema.json#/$defs/device_pairing_status_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/device-pairing.schema.json#/$defs/device_pairing_status_outcome",
+            "schemas/device-pairing.schema.json#/$defs/device_pairing_status_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -2966,7 +2968,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: Some(
             "schemas/mimi-operations.schema.json#/$defs/mimi_notify_request_body",
         ),
-        response_schema_ref: Some("schemas/mimi-operations.schema.json#/$defs/mimi_notify_outcome"),
+        response_schema_ref: Some(
+            "schemas/mimi-operations.schema.json#/$defs/mimi_notify_response_body",
+        ),
         uncertain_outcome: Some("{\"strategy\":\"drop_unconfirmed\"}"),
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
@@ -2990,7 +2994,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/mimi-operations.schema.json#/$defs/mimi_proxy_download_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/mimi-operations.schema.json#/$defs/mimi_proxy_download_outcome",
+            "schemas/mimi-operations.schema.json#/$defs/mimi_proxy_download_response_body",
         ),
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.open.mimi.command.proxy_download.v1\",\"requires_fresh_request_identity\":true,\"strategy\":\"reissue_material\"}",
@@ -3017,7 +3021,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/mimi-operations.schema.json#/$defs/mimi_report_abuse_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/mimi-operations.schema.json#/$defs/mimi_report_abuse_outcome",
+            "schemas/mimi-operations.schema.json#/$defs/mimi_report_abuse_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -3042,7 +3046,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/mimi-operations.schema.json#/$defs/mimi_request_consent_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/mimi-operations.schema.json#/$defs/mimi_request_consent_outcome",
+            "schemas/mimi-operations.schema.json#/$defs/mimi_request_consent_response_body",
         ),
         uncertain_outcome: Some("{\"strategy\":\"manual_confirmation\"}"),
         durable_effect: Some(DurableEffectDescriptor {
@@ -3067,7 +3071,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/mimi-operations.schema.json#/$defs/mimi_submit_message_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/mimi-operations.schema.json#/$defs/mimi_submit_message_outcome",
+            "schemas/mimi-operations.schema.json#/$defs/mimi_submit_message_response_body",
         ),
         uncertain_outcome: Some("{\"strategy\":\"manual_confirmation\"}"),
         durable_effect: Some(DurableEffectDescriptor {
@@ -3092,7 +3096,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/mimi-operations.schema.json#/$defs/mimi_update_consent_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/mimi-operations.schema.json#/$defs/mimi_update_consent_outcome",
+            "schemas/mimi-operations.schema.json#/$defs/mimi_update_consent_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -3119,7 +3123,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/mimi-operations.schema.json#/$defs/mimi_room_update_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/mimi-operations.schema.json#/$defs/mimi_room_update_outcome",
+            "schemas/mimi-operations.schema.json#/$defs/mimi_room_update_response_body",
         ),
         uncertain_outcome: Some("{\"strategy\":\"manual_confirmation\"}"),
         durable_effect: Some(DurableEffectDescriptor {
@@ -3146,7 +3150,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/keypackage-operations.schema.json#/$defs/keypackages_claim_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/keypackage-operations.schema.json#/$defs/peer_keypackages_claim_command_outcome",
+            "schemas/keypackage-operations.schema.json#/$defs/peer_keypackages_claim_command_response_body",
         ),
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.open.mimi.exchange.request_key_material.v1\",\"requires_same_request_identity_and_canonical_intent\":true,\"strategy\":\"replay_same_operation\"}",
@@ -3173,7 +3177,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/mimi-operations.schema.json#/$defs/mimi_identifier_query_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/mimi-operations.schema.json#/$defs/mimi_identifier_query_outcome",
+            "schemas/mimi-operations.schema.json#/$defs/mimi_identifier_query_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -3206,7 +3210,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: Some(
-            "schemas/authority-commit-operations.schema.json#/$defs/authority_bundle_request",
+            "schemas/authority-commit-operations.schema.json#/$defs/realm_authority_bundle_request_body",
         ),
         response_schema_ref: Some("schemas/realm-authority-bundle.schema.json"),
         uncertain_outcome: None,
@@ -3245,7 +3249,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/invite.schema.json#/$defs/third_party_invite_activation_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/invite.schema.json#/$defs/third_party_invite_activation_outcome",
+            "schemas/invite.schema.json#/$defs/third_party_invite_activation_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -3272,7 +3276,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/invite.schema.json#/$defs/third_party_invite_present_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/invite.schema.json#/$defs/third_party_invite_present_outcome",
+            "schemas/invite.schema.json#/$defs/third_party_invite_present_response_body",
         ),
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.open.third_party_invite.command.present_token.v1\",\"requires_same_request_identity_and_canonical_intent\":true,\"strategy\":\"replay_same_operation\"}",
@@ -3299,7 +3303,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/invite.schema.json#/$defs/third_party_invite_provision_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/invite.schema.json#/$defs/third_party_invite_provision_outcome",
+            "schemas/invite.schema.json#/$defs/third_party_invite_provision_response_body",
         ),
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.open.third_party_invite.command.provision.v1\",\"requires_same_request_identity_and_canonical_intent\":true,\"strategy\":\"replay_same_operation\"}",
@@ -3328,7 +3332,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/invite.schema.json#/$defs/third_party_invite_provisioning_status_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/invite.schema.json#/$defs/third_party_invite_provisioning_status_outcome",
+            "schemas/invite.schema.json#/$defs/third_party_invite_provisioning_status_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -3348,7 +3352,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/account-operations.schema.json#/$defs/account_status_publication_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/account-operations.schema.json#/$defs/account_status_publication_outcome",
+            "schemas/account-operations.schema.json#/$defs/account_status_publication_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -3375,7 +3379,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/account-operations.schema.json#/$defs/account_status_resolve_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/account-operations.schema.json#/$defs/account_status_resolve_outcome",
+            "schemas/account-operations.schema.json#/$defs/account_status_resolve_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -3392,10 +3396,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("canonical_hash"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/applet-configuration-operations.schema.json#/$defs/peer_request",
+            "schemas/applet-configuration-operations.schema.json#/$defs/peer_applet_configuration_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/applet-configuration-operations.schema.json#/$defs/outcome",
+            "schemas/applet-configuration-operations.schema.json#/$defs/response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -3422,7 +3426,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/call-invitation-operations.schema.json#/$defs/send_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/call-invitation-operations.schema.json#/$defs/send_outcome",
+            "schemas/call-invitation-operations.schema.json#/$defs/send_response_body",
         ),
         uncertain_outcome: Some("{\"strategy\":\"drop_unconfirmed\"}"),
         durable_effect: Some(DurableEffectDescriptor {
@@ -3447,7 +3451,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/call-invitation-operations.schema.json#/$defs/admission_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/call-invitation-operations.schema.json#/$defs/admission_outcome",
+            "schemas/call-invitation-operations.schema.json#/$defs/admission_decision",
         ),
         uncertain_outcome: Some("{\"strategy\":\"drop_unconfirmed\"}"),
         durable_effect: Some(DurableEffectDescriptor {
@@ -3469,10 +3473,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: Some(
-            "schemas/authority-commit-operations.schema.json#/$defs/stream_scan_request",
+            "schemas/authority-commit-operations.schema.json#/$defs/stream_scan_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/authority-commit-operations.schema.json#/$defs/peer_stream_scan_outcome",
+            "schemas/authority-commit-operations.schema.json#/$defs/peer_stream_scan_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -3489,10 +3493,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("request_id"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/consent-private-operations.schema.json#/$defs/proxy_request",
+            "schemas/consent-private-operations.schema.json#/$defs/proxy_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/consent-private-operations.schema.json#/$defs/proxy_outcome",
+            "schemas/consent-private-operations.schema.json#/$defs/proxy_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -3516,10 +3520,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("request_id"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/consent-private-operations.schema.json#/$defs/effects_publish_request",
+            "schemas/consent-private-operations.schema.json#/$defs/effects_publish_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/consent-private-operations.schema.json#/$defs/effects_publish_outcome",
+            "schemas/consent-private-operations.schema.json#/$defs/effects_publish_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -3546,7 +3550,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/consent-operations.schema.json#/$defs/consent_current_read_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/consent-operations.schema.json#/$defs/consent_current_read_outcome",
+            "schemas/consent-operations.schema.json#/$defs/consent_current_read_response_body",
         ),
         uncertain_outcome: Some("{\"strategy\":\"requery\"}"),
         durable_effect: Some(DurableEffectDescriptor {
@@ -3568,10 +3572,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/contact-operations.schema.json#/$defs/peer_contact_submit_request",
+            "schemas/contact-operations.schema.json#/$defs/peer_contact_submit_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/contact-operations.schema.json#/$defs/peer_contact_submit_outcome",
+            "schemas/contact-operations.schema.json#/$defs/peer_contact_submit_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -3596,7 +3600,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/erasure-receipt-operations.schema.json#/$defs/erasure_receipt_submit_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/erasure-receipt-operations.schema.json#/$defs/erasure_receipt_submit_outcome",
+            "schemas/erasure-receipt-operations.schema.json#/$defs/erasure_receipt_submit_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -3638,10 +3642,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("canonical_hash"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/authority-commit-operations.schema.json#/$defs/peer_submit_request",
+            "schemas/authority-commit-operations.schema.json#/$defs/peer_submit_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/authority-commit-operations.schema.json#/$defs/peer_submit_outcome",
+            "schemas/authority-commit-operations.schema.json#/$defs/peer_submit_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -3666,7 +3670,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         retry_safe: Some(true),
         request_schema_ref: Some("schemas/invite-delivery-request.schema.json"),
         response_schema_ref: Some(
-            "schemas/invite-delivery-request.schema.json#/$defs/invite_delivery_outcome",
+            "schemas/invite-delivery-request.schema.json#/$defs/invite_delivery_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -3691,7 +3695,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/keypackage-operations.schema.json#/$defs/keypackages_claim_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/keypackage-operations.schema.json#/$defs/peer_keypackages_claim_command_outcome",
+            "schemas/keypackage-operations.schema.json#/$defs/peer_keypackages_claim_command_response_body",
         ),
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.peer.keys.keypackages.command.claim.v1\",\"requires_same_request_identity_and_canonical_intent\":true,\"strategy\":\"replay_same_operation\"}",
@@ -3718,7 +3722,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/keypackage-operations.schema.json#/$defs/peer_keypackages_claim_query_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/keypackage-operations.schema.json#/$defs/peer_keypackages_claim_query_outcome",
+            "schemas/keypackage-operations.schema.json#/$defs/peer_keypackages_claim_query_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -3738,7 +3742,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/keys-operations.schema.json#/$defs/peer_keys_query_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/keys-operations.schema.json#/$defs/peer_keys_query_outcome",
+            "schemas/keys-operations.schema.json#/$defs/peer_keys_query_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -3755,10 +3759,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("canonical_hash"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/mls-roster-authority.schema.json#/$defs/attest_add_request",
+            "schemas/mls-roster-authority.schema.json#/$defs/mls_add_authority_attest_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/mls-roster-authority.schema.json#/$defs/attest_add_outcome",
+            "schemas/mls-roster-authority.schema.json#/$defs/attest_add_response_body",
         ),
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.peer.mls.command.attest_add.v1\",\"requires_same_request_identity_and_canonical_intent\":true,\"strategy\":\"replay_same_operation\"}",
@@ -3785,7 +3789,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/MlsGroupStateMaterialRequestBody",
         ),
         response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/MlsGroupStateMaterialOutcome",
+            "schemas/service-operation-dtos.schema.json#/$defs/MlsGroupStateMaterialResponseBody",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -3802,10 +3806,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: Some(
-            "schemas/mls-roster-authority.schema.json#/$defs/roster_read_request",
+            "schemas/mls-roster-authority.schema.json#/$defs/mls_roster_authority_read_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/mls-roster-authority.schema.json#/$defs/roster_read_outcome",
+            "schemas/mls-roster-authority.schema.json#/$defs/roster_read_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -3821,8 +3825,12 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "schema_resource",
         idempotency_mechanism: None,
         retry_safe: None,
-        request_schema_ref: Some("schemas/realm-actor-material.schema.json#/$defs/peer_request"),
-        response_schema_ref: Some("schemas/realm-actor-material.schema.json#/$defs/outcome"),
+        request_schema_ref: Some(
+            "schemas/realm-actor-material.schema.json#/$defs/peer_realm_actor_material_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/realm-actor-material.schema.json#/$defs/realm_actor_material_response_body",
+        ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
@@ -3843,7 +3851,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("canonical_hash"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/authority-commit-operations.schema.json#/$defs/handoff_request",
+            "schemas/authority-commit-operations.schema.json#/$defs/realm_authority_handoff_request_body",
         ),
         response_schema_ref: Some("schemas/realm-authority-handoff.schema.json"),
         uncertain_outcome: None,
@@ -3871,7 +3879,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/realm-join-intake.schema.json#/$defs/peer_bootstrap_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/realm-join-intake.schema.json#/$defs/peer_bootstrap_outcome",
+            "schemas/realm-join-intake.schema.json#/$defs/peer_bootstrap_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -3891,7 +3899,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/realm-join-intake.schema.json#/$defs/peer_preview_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/realm-join-intake.schema.json#/$defs/peer_preview_outcome",
+            "schemas/realm-join-intake.schema.json#/$defs/peer_preview_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -3929,10 +3937,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("canonical_hash"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/watch-audit-operations.schema.json#/$defs/peer_watch_audit_read_request",
+            "schemas/watch-audit-operations.schema.json#/$defs/peer_watch_audit_read_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/watch-audit-operations.schema.json#/$defs/watch_audit_read_outcome",
+            "schemas/watch-audit-operations.schema.json#/$defs/watch_audit_read_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -3957,7 +3965,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/StrandWatchCurrentRequestBody",
         ),
         response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/StrandWatchCurrentOutcome",
+            "schemas/service-operation-dtos.schema.json#/$defs/StrandWatchCurrentResponseBody",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -3982,7 +3990,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/DidOperationSubmitRequestBody",
         ),
         response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/DidOperationSubmitOutcome",
+            "schemas/service-operation-dtos.schema.json#/$defs/DidOperationSubmitResponseBody",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -4023,7 +4031,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         retry_safe: None,
         request_schema_ref: None,
         response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/IdentityLogListOutcome",
+            "schemas/service-operation-dtos.schema.json#/$defs/IdentityLogListResponseBody",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -4043,7 +4051,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/OrganizationRegistrationEnsureRequestBody",
         ),
         response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/OrganizationRegistrationOutcome",
+            "schemas/service-operation-dtos.schema.json#/$defs/OrganizationRegistrationResponseBody",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -4095,7 +4103,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/OrganizationRegistrationRefreshRequestBody",
         ),
         response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/OrganizationRegistrationOutcome",
+            "schemas/service-operation-dtos.schema.json#/$defs/OrganizationRegistrationResponseBody",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -4120,7 +4128,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/OrganizationRegistrationRevokeRequestBody",
         ),
         response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/OrganizationRegistrationOutcome",
+            "schemas/service-operation-dtos.schema.json#/$defs/OrganizationRegistrationResponseBody",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -4143,7 +4151,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         retry_safe: None,
         request_schema_ref: None,
         response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/OrganizationRegistrationOutcome",
+            "schemas/service-operation-dtos.schema.json#/$defs/OrganizationRegistrationResponseBody",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -4163,7 +4171,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/IdentityResolveRequestBody",
         ),
         response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/IdentityResolveOutcome",
+            "schemas/service-operation-dtos.schema.json#/$defs/IdentityResolveResponseBody",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -4181,7 +4189,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         retry_safe: None,
         request_schema_ref: None,
         response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/IdentityReceiptListOutcome",
+            "schemas/service-operation-dtos.schema.json#/$defs/IdentityReceiptListResponseBody",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -4198,10 +4206,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("protocol_sequence"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/recovery-policy.schema.json#/$defs/recovery_policy_publish_request",
+            "schemas/recovery-policy.schema.json#/$defs/recovery_policy_publish_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/recovery-policy.schema.json#/$defs/recovery_policy_publish_outcome",
+            "schemas/recovery-policy.schema.json#/$defs/recovery_policy_publish_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -4224,7 +4232,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         retry_safe: None,
         request_schema_ref: None,
         response_schema_ref: Some(
-            "schemas/recovery-policy.schema.json#/$defs/recovery_policy_active_outcome",
+            "schemas/recovery-policy.schema.json#/$defs/recovery_policy_status_view",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -4271,7 +4279,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/recovery-session.schema.json#/$defs/recovery_session_proof_submit_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/recovery-session.schema.json#/$defs/recovery_session_proof_submit_outcome",
+            "schemas/recovery-session.schema.json#/$defs/recovery_session_proof_submit_response_body",
         ),
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.root.identity.recovery_session.resource.get.v1\",\"strategy\":\"query_operation\"}",
@@ -4332,7 +4340,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/ServiceRegistrationEnsureRequestBody",
         ),
         response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/ServiceRegistrationOutcome",
+            "schemas/service-operation-dtos.schema.json#/$defs/ServiceRegistrationResponseBody",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -4355,7 +4363,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         retry_safe: None,
         request_schema_ref: None,
         response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/ServiceRegistrationOutcome",
+            "schemas/service-operation-dtos.schema.json#/$defs/ServiceRegistrationResponseBody",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -4375,7 +4383,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/AccountCursorRevokeRequestBody",
         ),
         response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/AccountCursorRevokeOutcome",
+            "schemas/service-operation-dtos.schema.json#/$defs/AccountCursorRevokeResponseBody",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -4400,7 +4408,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/account-operations.schema.json#/$defs/account_update_profile_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/account-operations.schema.json#/$defs/account_update_profile_outcome",
+            "schemas/account-operations.schema.json#/$defs/account_update_profile_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -4494,7 +4502,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/account-data-operations.schema.json#/$defs/account_data_delete_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/account-data-operations.schema.json#/$defs/account_data_delete_outcome",
+            "schemas/account-data-operations.schema.json#/$defs/account_data_delete_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -4562,7 +4570,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/ActorPrivateEventSubmitRequestBody",
         ),
         response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/ActorPrivateEventSubmitOutcome",
+            "schemas/service-operation-dtos.schema.json#/$defs/ActorPrivateEventSubmitResponseBody",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -4586,10 +4594,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: Some(
-            "schemas/actor-profile-operations.schema.json#/$defs/resolve_request",
+            "schemas/actor-profile-operations.schema.json#/$defs/resolve_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/actor-profile-operations.schema.json#/$defs/resolve_outcome",
+            "schemas/actor-profile-operations.schema.json#/$defs/resolve_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -4609,7 +4617,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/agent-operations.schema.json#/$defs/agent_deactivate_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_lifecycle_state",
+            "schemas/agent-operations.schema.json#/$defs/operation_status_view",
         ),
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.agent.resource.get.v1\",\"strategy\":\"query_operation\"}",
@@ -4636,7 +4644,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/agent-operations.schema.json#/$defs/agent_pause_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_lifecycle_state",
+            "schemas/agent-operations.schema.json#/$defs/operation_status_view",
         ),
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.agent.resource.get.v1\",\"strategy\":\"query_operation\"}",
@@ -4663,7 +4671,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/agent-operations.schema.json#/$defs/agent_provision_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_provision_outcome",
+            "schemas/agent-operations.schema.json#/$defs/agent_provision_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -4688,7 +4696,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/agent-operations.schema.json#/$defs/agent_renew_pairing_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_renew_pairing_outcome",
+            "schemas/agent-operations.schema.json#/$defs/agent_renew_pairing_response_body",
         ),
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.agent.resource.get.v1\",\"strategy\":\"query_operation\"}",
@@ -4715,7 +4723,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/agent-operations.schema.json#/$defs/agent_resume_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_lifecycle_state",
+            "schemas/agent-operations.schema.json#/$defs/operation_status_view",
         ),
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.agent.resource.get.v1\",\"strategy\":\"query_operation\"}",
@@ -4740,7 +4748,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         retry_safe: None,
         request_schema_ref: None,
         response_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_participation_outcome",
+            "schemas/agent-operations.schema.json#/$defs/agent_participation_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -4757,10 +4765,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/principal-operations.schema.json#/$defs/participation_replace_request",
+            "schemas/principal-operations.schema.json#/$defs/agent_participation_replace_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/agent-operations.schema.json#/$defs/agent_participation_outcome",
+            "schemas/agent-operations.schema.json#/$defs/agent_participation_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -4782,7 +4790,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some("schemas/agent-operations.schema.json#/$defs/agent_list"),
+        response_schema_ref: Some("schemas/agent-operations.schema.json#/$defs/agent_page"),
         uncertain_outcome: None,
         durable_effect: None,
     },
@@ -4814,10 +4822,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/principal-operations.schema.json#/$defs/sidecar_ensure_request",
+            "schemas/principal-operations.schema.json#/$defs/agent_sidecar_ensure_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/principal-operations.schema.json#/$defs/sidecar_ensure_outcome",
+            "schemas/principal-operations.schema.json#/$defs/sidecar_ensure_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -4842,7 +4850,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some("schemas/agent-operations.schema.json#/$defs/agent_sidecar_list"),
+        response_schema_ref: Some("schemas/agent-operations.schema.json#/$defs/agent_sidecar_page"),
         uncertain_outcome: None,
         durable_effect: None,
     },
@@ -4873,8 +4881,12 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "schema_resource",
         idempotency_mechanism: None,
         retry_safe: None,
-        request_schema_ref: Some("schemas/applet-authority-material.schema.json#/$defs/request"),
-        response_schema_ref: Some("schemas/applet-authority-material.schema.json#/$defs/outcome"),
+        request_schema_ref: Some(
+            "schemas/applet-authority-material.schema.json#/$defs/applet_authority_material_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/applet-authority-material.schema.json#/$defs/response_body",
+        ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
@@ -4898,7 +4910,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/applet-bot-operations.schema.json#/$defs/bot_preview_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/applet-bot-operations.schema.json#/$defs/bot_preview_outcome",
+            "schemas/applet-bot-operations.schema.json#/$defs/bot_preview_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -4925,7 +4937,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/applet-install-operations.schema.json#/$defs/applet_install_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/applet-install-operations.schema.json#/$defs/applet_install_outcome",
+            "schemas/applet-install-operations.schema.json#/$defs/applet_install_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -4953,7 +4965,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/applet-install-operations.schema.json#/$defs/applet_revoke_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/applet-install-operations.schema.json#/$defs/applet_revoke_outcome",
+            "schemas/applet-install-operations.schema.json#/$defs/applet_revoke_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -4978,10 +4990,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("canonical_hash"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/applet-configuration-operations.schema.json#/$defs/request",
+            "schemas/applet-configuration-operations.schema.json#/$defs/applet_configuration_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/applet-configuration-operations.schema.json#/$defs/outcome",
+            "schemas/applet-configuration-operations.schema.json#/$defs/response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -5005,10 +5017,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("canonical_hash"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/applet-ghost-operations.schema.json#/$defs/ghost_preview_request_body",
+            "schemas/applet-install-authoring.schema.json#/$defs/ghost_preview_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/applet-ghost-operations.schema.json#/$defs/ghost_preview_outcome",
+            "schemas/applet-install-authoring.schema.json#/$defs/ghost_preview_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -5035,7 +5047,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/applet-install-operations.schema.json#/$defs/applet_install_preview_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/applet-install-authoring.schema.json#/$defs/install_preview_outcome",
+            "schemas/applet-install-authoring.schema.json#/$defs/install_preview_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -5062,7 +5074,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/applet-install-operations.schema.json#/$defs/applet_revoke_preview_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/applet-install-operations.schema.json#/$defs/applet_revoke_preview_outcome",
+            "schemas/applet-install-operations.schema.json#/$defs/applet_revoke_preview_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -5084,7 +5096,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/GrantList"),
+        response_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/EffectiveGrantSnapshot",
+        ),
         uncertain_outcome: None,
         durable_effect: None,
     },
@@ -5100,7 +5114,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some("schemas/authz-operations.schema.json#/$defs/authz_invite_list"),
+        response_schema_ref: Some(
+            "schemas/authorization-operations.schema.json#/$defs/authorization_invite_page",
+        ),
         uncertain_outcome: None,
         durable_effect: None,
     },
@@ -5116,10 +5132,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/AuthzCheckRequestBody",
+            "schemas/service-operation-dtos.schema.json#/$defs/AuthorizationCheckRequestBody",
         ),
         response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/AuthzCheckOutcome",
+            "schemas/service-operation-dtos.schema.json#/$defs/AuthorizationCheckResponseBody",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -5139,7 +5155,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/BlobPresignRequestBody",
         ),
         response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/BlobPresignOutcome",
+            "schemas/service-operation-dtos.schema.json#/$defs/BlobPresignResponseBody",
         ),
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.blob.command.presign.v1\",\"requires_fresh_request_identity\":true,\"strategy\":\"reissue_material\"}",
@@ -5197,7 +5213,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: Some(
             "schemas/blob-operations.schema.json#/$defs/blob_upload_request_body",
         ),
-        response_schema_ref: Some("schemas/blob-operations.schema.json#/$defs/blob_upload_outcome"),
+        response_schema_ref: Some(
+            "schemas/blob-operations.schema.json#/$defs/blob_upload_response_body",
+        ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
@@ -5221,7 +5239,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/call-invitation-operations.schema.json#/$defs/send_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/call-invitation-operations.schema.json#/$defs/send_outcome",
+            "schemas/call-invitation-operations.schema.json#/$defs/send_response_body",
         ),
         uncertain_outcome: Some("{\"strategy\":\"drop_unconfirmed\"}"),
         durable_effect: Some(DurableEffectDescriptor {
@@ -5246,7 +5264,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/CallMediaTokenExchangeRequestBody",
         ),
         response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/CallMediaTokenExchangeOutcome",
+            "schemas/service-operation-dtos.schema.json#/$defs/CallMediaTokenExchangeResponseBody",
         ),
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.call.media.exchange.issue_token.v1\",\"requires_fresh_request_identity\":true,\"strategy\":\"reissue_material\"}",
@@ -5296,7 +5314,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         retry_safe: Some(false),
         request_schema_ref: None,
         response_schema_ref: Some(
-            "schemas/circle-operations.schema.json#/$defs/circle_scope_rotate_outcome",
+            "schemas/circle-operations.schema.json#/$defs/circle_scope_rotate_response_body",
         ),
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.circle.resource.get.v1\",\"strategy\":\"query_operation\"}",
@@ -5325,7 +5343,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/circle-operations.schema.json#/$defs/circle_member_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/circle-operations.schema.json#/$defs/circle_membership_outcome",
+            "schemas/circle-operations.schema.json#/$defs/circle_membership_response_body",
         ),
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.circle.resource.get.v1\",\"strategy\":\"query_operation\"}",
@@ -5352,7 +5370,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/circle-operations.schema.json#/$defs/circle_member_delete_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/circle-operations.schema.json#/$defs/circle_membership_outcome",
+            "schemas/circle-operations.schema.json#/$defs/circle_membership_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -5406,10 +5424,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: Some(
-            "schemas/authority-commit-operations.schema.json#/$defs/stream_scan_request",
+            "schemas/authority-commit-operations.schema.json#/$defs/stream_scan_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/authority-commit-operations.schema.json#/$defs/stream_scan_outcome",
+            "schemas/authority-commit-operations.schema.json#/$defs/stream_scan_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -5488,7 +5506,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/consent-operations.schema.json#/$defs/consent_request_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/consent-operations.schema.json#/$defs/consent_request_outcome",
+            "schemas/consent-operations.schema.json#/$defs/consent_request_response_body",
         ),
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.consent.read.list.v1\",\"strategy\":\"query_operation\"}",
@@ -5515,7 +5533,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/consent-operations.schema.json#/$defs/consent_current_read_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/consent-operations.schema.json#/$defs/consent_current_read_outcome",
+            "schemas/consent-operations.schema.json#/$defs/consent_current_read_response_body",
         ),
         uncertain_outcome: Some("{\"strategy\":\"requery\"}"),
         durable_effect: Some(DurableEffectDescriptor {
@@ -5569,10 +5587,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/contact-operations.schema.json#/$defs/contact_reject_request",
+            "schemas/contact-operations.schema.json#/$defs/contact_reject_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/contact-operations.schema.json#/$defs/contact_reject_outcome",
+            "schemas/contact-operations.schema.json#/$defs/contact_reject_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -5594,10 +5612,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/contact-operations.schema.json#/$defs/contact_operation_request",
+            "schemas/contact-operations.schema.json#/$defs/contact_request_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/contact-operations.schema.json#/$defs/contact_request_outcome",
+            "schemas/contact-operations.schema.json#/$defs/contact_request_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -5619,10 +5637,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/contact-operations.schema.json#/$defs/contact_respond_request",
+            "schemas/contact-operations.schema.json#/$defs/contact_accept_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/contact-operations.schema.json#/$defs/contact_respond_outcome",
+            "schemas/contact-operations.schema.json#/$defs/contact_respond_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -5644,10 +5662,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/contact-operations.schema.json#/$defs/contact_scope_update_request",
+            "schemas/contact-operations.schema.json#/$defs/contact_scope_update_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/contact-operations.schema.json#/$defs/contact_scope_update_outcome",
+            "schemas/contact-operations.schema.json#/$defs/contact_scope_update_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -5669,10 +5687,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/contact-operations.schema.json#/$defs/contact_tombstone_request",
+            "schemas/contact-operations.schema.json#/$defs/contact_tombstone_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/contact-operations.schema.json#/$defs/contact_tombstone_outcome",
+            "schemas/contact-operations.schema.json#/$defs/contact_tombstone_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -5694,7 +5712,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some("schemas/contact-operations.schema.json#/$defs/contact_list"),
+        response_schema_ref: Some("schemas/contact-operations.schema.json#/$defs/contact_page"),
         uncertain_outcome: None,
         durable_effect: None,
     },
@@ -5713,27 +5731,27 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/identity-resolution.schema.json#/$defs/current_principal_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/identity-resolution.schema.json#/$defs/current_principal_outcome",
+            "schemas/identity-resolution.schema.json#/$defs/current_principal_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfCurrentResultsReadExactV1,
+        id: ServiceOperationId::SelfCurrentStateReadExactV1,
         http_method: "POST",
-        http_path: "/_arkret/self/current-results/exact",
-        grpc: Some("SelfCurrentResults/ReadExact"),
-        mq: Some("self.current_results.query.exact"),
+        http_path: "/_arkret/self/current-state/exact",
+        grpc: Some("SelfCurrentState/ReadExact"),
+        mq: Some("self.current_state.query.exact"),
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: Some(65536),
         success_shape_kind: "typed_response",
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: Some(
-            "schemas/exact-current-results-read.schema.json#/$defs/exact_current_results_read_request",
+            "schemas/exact-current-state-read.schema.json#/$defs/exact_current_state_read_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/exact-current-results-read.schema.json#/$defs/exact_current_results_read_outcome",
+            "schemas/exact-current-state-read.schema.json#/$defs/exact_current_state_read_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -5755,10 +5773,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("protocol_sequence"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/DeviceMessagesAckRequestBody",
+            "schemas/service-operation-dtos.schema.json#/$defs/DeviceMessagesAcknowledgementRequestBody",
         ),
         response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/DeviceMessagesAckOutcome",
+            "schemas/service-operation-dtos.schema.json#/$defs/DeviceMessagesAcknowledgementResponseBody",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -5783,7 +5801,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/DeviceMessagesSendRequestBody",
         ),
         response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/DeviceMessagesSendOutcome",
+            "schemas/service-operation-dtos.schema.json#/$defs/DeviceMessagesSendResponseBody",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -5806,7 +5824,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         retry_safe: None,
         request_schema_ref: None,
         response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/DeviceMessagesGetOutcome",
+            "schemas/service-operation-dtos.schema.json#/$defs/DeviceMessagesGetResponseBody",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -5823,10 +5841,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: Some(
-            "schemas/direct-conversation-operations.schema.json#/$defs/direct_conversation_resolve_request",
+            "schemas/direct-conversation-operations.schema.json#/$defs/direct_conversation_resolve_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/direct-conversation-operations.schema.json#/$defs/direct_conversation_resolve_outcome",
+            "schemas/direct-conversation-operations.schema.json#/$defs/direct_conversation_resolve_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -5843,10 +5861,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("canonical_hash"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/authority-commit-operations.schema.json#/$defs/self_submit_request",
+            "schemas/authority-commit-operations.schema.json#/$defs/self_submit_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/authority-commit-operations.schema.json#/$defs/self_submit_outcome",
+            "schemas/authority-commit-operations.schema.json#/$defs/self_submit_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -5876,7 +5894,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/EventDeliveryStatusRequestBody",
         ),
         response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/EventDeliveryStatusOutcome",
+            "schemas/service-operation-dtos.schema.json#/$defs/EventDeliveryStatusResponseBody",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -5893,7 +5911,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: Some(
-            "schemas/identity-resolution.schema.json#/$defs/principal_resolution_audit_request",
+            "schemas/identity-resolution.schema.json#/$defs/principal_resolution_audit_request_body",
         ),
         response_schema_ref: Some(
             "schemas/identity-resolution.schema.json#/$defs/principal_resolution_audit_evidence",
@@ -5916,7 +5934,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/principal-locator.schema.json#/$defs/invite_locator_issue_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/principal-locator.schema.json#/$defs/invite_locator_issue_outcome",
+            "schemas/principal-locator.schema.json#/$defs/invite_locator_issue_response_body",
         ),
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.invite_locator.command.issue.v1\",\"requires_fresh_request_identity\":true,\"strategy\":\"reissue_material\"}",
@@ -5943,7 +5961,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/principal-locator.schema.json#/$defs/invite_locator_revoke_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/principal-locator.schema.json#/$defs/invite_locator_revoke_outcome",
+            "schemas/principal-locator.schema.json#/$defs/invite_locator_revoke_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -5968,7 +5986,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/principal-locator.schema.json#/$defs/invite_locator_rotate_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/principal-locator.schema.json#/$defs/invite_locator_issue_outcome",
+            "schemas/principal-locator.schema.json#/$defs/invite_locator_issue_response_body",
         ),
         uncertain_outcome: Some(
             "{\"reissue_operation_id\":\"ak.self.invite_locator.command.issue.v1\",\"requires_fresh_request_identity\":true,\"revoke_operation_id\":\"ak.self.invite_locator.command.revoke.v1\",\"strategy\":\"revoke_then_reissue\"}",
@@ -6032,7 +6050,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/invite-delivery-request.schema.json#/$defs/self_invite_dispatch_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/invite-delivery-request.schema.json#/$defs/invite_delivery_outcome",
+            "schemas/invite-delivery-request.schema.json#/$defs/invite_delivery_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -6129,7 +6147,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some("schemas/keys-operations.schema.json#/$defs/keys_backups_list"),
+        response_schema_ref: Some("schemas/keys-operations.schema.json#/$defs/keys_backups_page"),
         uncertain_outcome: None,
         durable_effect: None,
     },
@@ -6169,7 +6187,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         retry_safe: Some(true),
         request_schema_ref: Some("schemas/key-backup.schema.json"),
         response_schema_ref: Some(
-            "schemas/keys-operations.schema.json#/$defs/keys_backups_replace_outcome",
+            "schemas/keys-operations.schema.json#/$defs/keys_backups_replace_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -6193,7 +6211,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: Some(
             "schemas/keys-operations.schema.json#/$defs/keys_claim_request_body",
         ),
-        response_schema_ref: Some("schemas/keys-operations.schema.json#/$defs/keys_claim_outcome"),
+        response_schema_ref: Some(
+            "schemas/keys-operations.schema.json#/$defs/keys_claim_response_body",
+        ),
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.keys.read.lookup.v1\",\"strategy\":\"query_operation\"}",
         ),
@@ -6219,7 +6239,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/keypackage-operations.schema.json#/$defs/keypackages_claim_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/keypackage-operations.schema.json#/$defs/keypackages_claim_outcome",
+            "schemas/keypackage-operations.schema.json#/$defs/keypackages_claim_response_body",
         ),
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.peer.keys.keypackages.read.claim.v1\",\"strategy\":\"query_operation\"}",
@@ -6246,7 +6266,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/keypackage-operations.schema.json#/$defs/keypackages_consume_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/keypackage-operations.schema.json#/$defs/keypackages_consume_outcome",
+            "schemas/keypackage-operations.schema.json#/$defs/keypackages_consume_response_body",
         ),
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.keys.read.lookup.v1\",\"strategy\":\"query_operation\"}",
@@ -6273,7 +6293,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/keypackage-operations.schema.json#/$defs/keypackages_revoke_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/keypackage-operations.schema.json#/$defs/keypackages_revoke_outcome",
+            "schemas/keypackage-operations.schema.json#/$defs/keypackages_revoke_response_body",
         ),
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.keys.read.lookup.v1\",\"strategy\":\"query_operation\"}",
@@ -6300,7 +6320,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/keypackage-operations.schema.json#/$defs/keypackages_claim_query_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/keypackage-operations.schema.json#/$defs/keypackages_claim_outcome",
+            "schemas/keypackage-operations.schema.json#/$defs/keypackages_claim_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -6320,7 +6340,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/keypackage-operations.schema.json#/$defs/keypackages_upload_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/keypackage-operations.schema.json#/$defs/keypackages_upload_outcome",
+            "schemas/keypackage-operations.schema.json#/$defs/keypackages_upload_response_body",
         ),
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.keys.keypackages.upload.create.v1\",\"requires_fresh_request_identity\":true,\"strategy\":\"reissue_material\"}",
@@ -6346,7 +6366,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: Some(
             "schemas/keys-operations.schema.json#/$defs/keys_query_request_body",
         ),
-        response_schema_ref: Some("schemas/keys-operations.schema.json#/$defs/keys_query_outcome"),
+        response_schema_ref: Some(
+            "schemas/keys-operations.schema.json#/$defs/keys_query_response_body",
+        ),
         uncertain_outcome: None,
         durable_effect: None,
     },
@@ -6364,7 +6386,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: Some(
             "schemas/keys-operations.schema.json#/$defs/keys_upload_request_body",
         ),
-        response_schema_ref: Some("schemas/keys-operations.schema.json#/$defs/keys_upload_outcome"),
+        response_schema_ref: Some(
+            "schemas/keys-operations.schema.json#/$defs/keys_upload_response_body",
+        ),
         uncertain_outcome: Some(
             "{\"operation_id\":\"ak.self.keys.read.lookup.v1\",\"strategy\":\"query_operation\"}",
         ),
@@ -6387,10 +6411,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("canonical_hash"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/management-review-operations.schema.json#/$defs/decision",
+            "schemas/management-review-operations.schema.json#/$defs/management_review_decision_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/management-review-operations.schema.json#/$defs/outcome",
+            "schemas/management-review-operations.schema.json#/$defs/response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -6413,9 +6437,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "schema_resource",
         idempotency_mechanism: Some("canonical_hash"),
         retry_safe: Some(true),
-        request_schema_ref: Some("schemas/management-review-operations.schema.json#/$defs/request"),
+        request_schema_ref: Some(
+            "schemas/management-review-operations.schema.json#/$defs/management_review_request_body",
+        ),
         response_schema_ref: Some(
-            "schemas/management-review-operations.schema.json#/$defs/outcome",
+            "schemas/management-review-operations.schema.json#/$defs/response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -6438,9 +6464,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "schema_resource",
         idempotency_mechanism: None,
         retry_safe: None,
-        request_schema_ref: Some("schemas/management-review-operations.schema.json#/$defs/lookup"),
+        request_schema_ref: Some(
+            "schemas/management-review-operations.schema.json#/$defs/management_review_status_request_body",
+        ),
         response_schema_ref: Some(
-            "schemas/management-review-operations.schema.json#/$defs/outcome",
+            "schemas/management-review-operations.schema.json#/$defs/response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -6462,9 +6490,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: Some(
-            "schemas/media-operations.schema.json#/$defs/media_ice_config_request_body",
+            "schemas/media-operations.schema.json#/$defs/media_ice_configuration_request_body",
         ),
-        response_schema_ref: Some("schemas/ice-config-response.schema.json"),
+        response_schema_ref: Some("schemas/media-ice-configuration-response-body.schema.json"),
         uncertain_outcome: None,
         durable_effect: None,
     },
@@ -6480,10 +6508,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: Some(
-            "schemas/media-service-binding-result.schema.json#/$defs/media_service_binding_request_body",
+            "schemas/media-service-binding-operations.schema.json#/$defs/media_service_binding_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/media-service-binding-result.schema.json#/$defs/media_service_binding_outcome",
+            "schemas/media-service-binding-operations.schema.json#/$defs/media_service_binding_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -6500,10 +6528,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: Some(
-            "schemas/mls-roster-authority.schema.json#/$defs/member_group_state_material_read_request",
+            "schemas/mls-roster-authority.schema.json#/$defs/mls_member_group_state_material_read_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/MlsGroupStateMaterialOutcome",
+            "schemas/service-operation-dtos.schema.json#/$defs/MlsGroupStateMaterialResponseBody",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -6520,10 +6548,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: Some(
-            "schemas/mls-roster-authority.schema.json#/$defs/member_roster_read_request",
+            "schemas/mls-roster-authority.schema.json#/$defs/mls_member_roster_authority_read_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/mls-roster-authority.schema.json#/$defs/self_roster_read_outcome",
+            "schemas/mls-roster-authority.schema.json#/$defs/self_roster_read_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -6543,7 +6571,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/moderation-report.schema.json#/$defs/moderation_report_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/ModerationReportOutcome",
+            "schemas/service-operation-dtos.schema.json#/$defs/ModerationReportResponseBody",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -6565,9 +6593,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/ProjectionMorphList",
-        ),
+        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/MorphPage"),
         uncertain_outcome: None,
         durable_effect: None,
     },
@@ -6583,9 +6609,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/view.schema.json#/$defs/document_morph_projection_outcome",
-        ),
+        response_schema_ref: Some("schemas/view.schema.json#/$defs/document_morph_view"),
         uncertain_outcome: None,
         durable_effect: None,
     },
@@ -6604,7 +6628,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/read-cursor-operations.schema.json#/$defs/read_cursor_advance_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/read-cursor-operations.schema.json#/$defs/read_marker_outcome",
+            "schemas/read-cursor-operations.schema.json#/$defs/read_marker_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -6661,7 +6685,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         retry_safe: None,
         request_schema_ref: None,
         response_schema_ref: Some(
-            "schemas/realm-read-operations.schema.json#/$defs/realm_stream_list",
+            "schemas/realm-read-operations.schema.json#/$defs/realm_stream_page",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -6695,8 +6719,12 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "schema_resource",
         idempotency_mechanism: None,
         retry_safe: None,
-        request_schema_ref: Some("schemas/realm-actor-material.schema.json#/$defs/request"),
-        response_schema_ref: Some("schemas/realm-actor-material.schema.json#/$defs/outcome"),
+        request_schema_ref: Some(
+            "schemas/realm-actor-material.schema.json#/$defs/realm_actor_material_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/realm-actor-material.schema.json#/$defs/realm_actor_material_response_body",
+        ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
@@ -6720,7 +6748,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/realm-join-intake.schema.json#/$defs/self_prepare_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/realm-join-intake.schema.json#/$defs/self_prepare_outcome",
+            "schemas/realm-join-intake.schema.json#/$defs/self_prepare_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -6747,7 +6775,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/realm-join-intake.schema.json#/$defs/self_preview_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/realm-join-intake.schema.json#/$defs/self_preview_outcome",
+            "schemas/realm-join-intake.schema.json#/$defs/self_preview_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -6832,7 +6860,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("protocol_sequence"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/security-transaction.schema.json#/$defs/continue_request",
+            "schemas/security-transaction.schema.json#/$defs/security_transaction_continue_request_body",
         ),
         response_schema_ref: Some("schemas/security-transaction.schema.json"),
         uncertain_outcome: None,
@@ -6854,7 +6882,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         success_shape_kind: "schema_resource",
         idempotency_mechanism: Some("protocol_sequence"),
         retry_safe: Some(true),
-        request_schema_ref: Some("schemas/security-transaction.schema.json#/$defs/create_request"),
+        request_schema_ref: Some(
+            "schemas/security-transaction.schema.json#/$defs/security_transaction_create_request_body",
+        ),
         response_schema_ref: Some("schemas/security-transaction.schema.json"),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -6893,7 +6923,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         retry_safe: Some(false),
         request_schema_ref: Some("schemas/signal-envelope.schema.json"),
         response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/SignalSubmitOutcome",
+            "schemas/service-operation-dtos.schema.json#/$defs/SignalSubmitResponseBody",
         ),
         uncertain_outcome: Some("{\"strategy\":\"drop_unconfirmed\"}"),
         durable_effect: Some(DurableEffectDescriptor {
@@ -6933,7 +6963,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: Some(
             "schemas/signer-key-operations.schema.json#/$defs/query_request_body",
         ),
-        response_schema_ref: Some("schemas/signer-key-operations.schema.json#/$defs/query_outcome"),
+        response_schema_ref: Some(
+            "schemas/signer-key-operations.schema.json#/$defs/query_response_body",
+        ),
         uncertain_outcome: None,
         durable_effect: None,
     },
@@ -6949,9 +6981,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/ProjectionSpaceList",
-        ),
+        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/SpacePage"),
         uncertain_outcome: None,
         durable_effect: None,
     },
@@ -6967,9 +6997,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/ProjectionStrandList",
-        ),
+        response_schema_ref: Some("schemas/service-operation-dtos.schema.json#/$defs/StrandPage"),
         uncertain_outcome: None,
         durable_effect: None,
     },
@@ -6985,10 +7013,10 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("canonical_hash"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/watch-audit-operations.schema.json#/$defs/watch_audit_read_request",
+            "schemas/watch-audit-operations.schema.json#/$defs/watch_audit_read_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/watch-audit-operations.schema.json#/$defs/watch_audit_read_outcome",
+            "schemas/watch-audit-operations.schema.json#/$defs/watch_audit_read_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -7013,7 +7041,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/StrandWatchCurrentRequestBody",
         ),
         response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/StrandWatchCurrentOutcome",
+            "schemas/service-operation-dtos.schema.json#/$defs/StrandWatchCurrentResponseBody",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -7038,7 +7066,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/invite.schema.json#/$defs/third_party_invite_acceptance_attestation_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/invite.schema.json#/$defs/third_party_invite_acceptance_attestation_outcome",
+            "schemas/invite.schema.json#/$defs/third_party_invite_acceptance_attestation_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: None,

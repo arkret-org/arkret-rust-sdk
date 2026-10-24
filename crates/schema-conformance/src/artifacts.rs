@@ -1155,27 +1155,27 @@ mod tests {
     use super::*;
 
     #[test]
-    fn policy_selector_branches_match_the_formal_current_result_schema() {
+    fn policy_selector_branches_match_the_formal_current_state_schema() {
         let Some(artifacts_dir) = local_spec_artifacts_dir() else {
             return;
         };
         let mut registry = schema_registry_from_spec_artifacts(artifacts_dir).unwrap();
         let schema = registry
-            .schema("ak.schema.result_projection.v1")
+            .schema("ak.schema.current_state.v1")
             .unwrap()
             .clone();
         registry
             .register_fragment(
-                "test:policy_result",
+                "test:current_policy",
                 schema.clone(),
-                "#/$defs/policy_result",
+                "#/$defs/current_policy",
             )
             .unwrap();
         registry
             .register_fragment(
-                "test:policy_action_result",
+                "test:current_policy_action",
                 schema,
-                "#/$defs/policy_action_result",
+                "#/$defs/current_policy_action",
             )
             .unwrap();
 
@@ -1222,14 +1222,14 @@ mod tests {
             "policy_scope":"did:web:example.com"
         });
         for (schema_id, selector, value) in [
-            ("test:policy_result", policy, policy_value),
+            ("test:current_policy", policy, policy_value),
             (
-                "test:policy_action_result",
+                "test:current_policy_action",
                 policy_ref,
                 action_value.clone(),
             ),
             (
-                "test:policy_action_result",
+                "test:current_policy_action",
                 realm_action,
                 action_value.clone(),
             ),
@@ -1248,7 +1248,7 @@ mod tests {
             let wire = serde_json::json!({"selector":invalid,"source_stream_ref":source_stream_ref,"revision":revision,"value":action_value});
             assert!(
                 registry
-                    .validate_value("test:policy_action_result", &wire)
+                    .validate_value("test:current_policy_action", &wire)
                     .is_err()
             );
             assert!(serde_json::from_value::<CurrentSelector>(invalid).is_err());
@@ -1256,27 +1256,27 @@ mod tests {
     }
 
     #[test]
-    fn device_selectors_match_formal_complete_current_results() {
+    fn device_selectors_match_formal_complete_current_states() {
         let Some(artifacts_dir) = local_spec_artifacts_dir() else {
             return;
         };
         let mut registry = schema_registry_from_spec_artifacts(artifacts_dir).unwrap();
         let schema = registry
-            .schema("ak.schema.result_projection.v1")
+            .schema("ak.schema.current_state.v1")
             .unwrap()
             .clone();
         for (name, fragment) in [
             (
-                "test:device_authorization_result",
-                "#/$defs/device_authorization_result",
+                "test:current_device_authorization",
+                "#/$defs/current_device_authorization",
             ),
             (
-                "test:device_generation_result",
-                "#/$defs/device_generation_result",
+                "test:current_device_generation",
+                "#/$defs/current_device_generation",
             ),
             (
-                "test:device_revocation_proposals_result",
-                "#/$defs/device_revocation_proposals_result",
+                "test:current_device_revocation_proposals",
+                "#/$defs/current_device_revocation_proposals",
             ),
         ] {
             registry
@@ -1301,17 +1301,17 @@ mod tests {
         });
         let samples = [
             (
-                "test:device_authorization_result",
+                "test:current_device_authorization",
                 serde_json::json!({"kind":"device_authorization","device_id":device}),
                 authorization,
             ),
             (
-                "test:device_generation_result",
+                "test:current_device_generation",
                 serde_json::json!({"kind":"device_generation"}),
                 serde_json::json!({"current_device_generation_ref":1}),
             ),
             (
-                "test:device_revocation_proposals_result",
+                "test:current_device_revocation_proposals",
                 serde_json::json!({"kind":"device_revocation_proposals","device_id":device}),
                 serde_json::json!({"proposals":[]}),
             ),
@@ -1338,7 +1338,7 @@ mod tests {
         });
         assert!(
             registry
-                .validate_value("test:device_generation_result", &wrong_singleton)
+                .validate_value("test:current_device_generation", &wrong_singleton)
                 .is_err()
         );
         assert!(
@@ -1347,18 +1347,18 @@ mod tests {
     }
 
     #[test]
-    fn agent_selectors_match_formal_complete_current_results() {
+    fn agent_selectors_match_formal_complete_current_states() {
         let Some(artifacts_dir) = local_spec_artifacts_dir() else {
             return;
         };
         let mut registry = schema_registry_from_spec_artifacts(artifacts_dir).unwrap();
         let schema = registry
-            .schema("ak.schema.result_projection.v1")
+            .schema("ak.schema.current_state.v1")
             .unwrap()
             .clone();
         for (name, fragment) in [
-            ("test:agent_key_result", "#/$defs/agent_key_result"),
-            ("test:agent_status_result", "#/$defs/agent_status_result"),
+            ("test:current_agent_key", "#/$defs/current_agent_key"),
+            ("test:current_agent_status", "#/$defs/current_agent_status"),
         ] {
             registry
                 .register_fragment(name, schema.clone(), fragment)
@@ -1377,12 +1377,12 @@ mod tests {
         });
         for (schema_id, selector, value) in [
             (
-                "test:agent_key_result",
+                "test:current_agent_key",
                 serde_json::json!({"kind":"agent_key","agent_id":agent_id,"agent_key_id":"runtime_key-1"}),
                 serde_json::json!({"authorizations":[]}),
             ),
             (
-                "test:agent_status_result",
+                "test:current_agent_status",
                 serde_json::json!({"kind":"agent_status","agent_id":agent_id}),
                 serde_json::json!("active"),
             ),

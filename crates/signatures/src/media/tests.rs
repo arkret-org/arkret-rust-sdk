@@ -56,9 +56,9 @@ fn token_request() -> CallMediaTokenExchangeRequestBody {
 fn token_outcome(
     request: &CallMediaTokenExchangeRequestBody,
     expires_at: DateTime<Utc>,
-) -> CallMediaTokenExchangeOutcome {
+) -> CallMediaTokenExchangeResponseBody {
     let identity = "ak:rtc_participant:0198c2f4-0000-7000-8000-000000000000".to_owned();
-    CallMediaTokenExchangeOutcome {
+    CallMediaTokenExchangeResponseBody {
         realm_id: request.realm_id.clone(),
         call_id: request.call_id.clone(),
         actor_id: request.actor_id.clone(),
@@ -69,7 +69,7 @@ fn token_outcome(
         backend_token: MediaBackendToken::Opaque("opaque-backend-token".to_owned()),
         participant_id: identity,
         participant_binding: CallMediaParticipantBinding {
-            sig: String::new(),
+            signature: String::new(),
             issuer_kid: arkret_wire::DidUrl::new(ISSUER_KID).unwrap(),
             expires_at,
         },
@@ -81,11 +81,11 @@ fn token_outcome(
 /// Sign the participant binding over the spec signing_input with `key`,
 /// mutating `outcome` in place. Call this AFTER any tampering so the
 /// signature covers the (possibly tampered) authoritative fields.
-fn sign_outcome(outcome: &mut CallMediaTokenExchangeOutcome, key: &SigningKey) {
+fn sign_outcome(outcome: &mut CallMediaTokenExchangeResponseBody, key: &SigningKey) {
     let input =
         participant_binding_signing_input(&ParticipantBindingContext::from_outcome(outcome))
             .unwrap();
-    outcome.participant_binding.sig =
+    outcome.participant_binding.signature =
         arkret_canonical::base64url::base64url_encode(key.sign(&input).to_bytes());
 }
 
@@ -94,7 +94,7 @@ fn signed_outcome(
     request: &CallMediaTokenExchangeRequestBody,
     key: &SigningKey,
     expires_at: DateTime<Utc>,
-) -> CallMediaTokenExchangeOutcome {
+) -> CallMediaTokenExchangeResponseBody {
     let mut outcome = token_outcome(request, expires_at);
     sign_outcome(&mut outcome, key);
     outcome
@@ -122,7 +122,7 @@ fn normative_current_bindings_verify_original_keys_and_reject_tuple_substitution
             let original = serde_json::to_value(&roster).unwrap();
             for (pointer, value) in [
                 (
-                    "/entries/0/participant_signing_key/public_key_b64u",
+                    "/entries/0/participant_signing_key/public_key_base64url",
                     serde_json::json!(arkret_canonical::base64url_encode([42; 32])),
                 ),
                 (
@@ -185,7 +185,8 @@ fn media_token_outcome_roundtrips_and_verifies() {
         serde_json::from_str(&request_json).unwrap();
     assert_eq!(request_back.focus_id, "fra-1");
     let outcome_json = serde_json::to_string(&outcome).unwrap();
-    let outcome_back: CallMediaTokenExchangeOutcome = serde_json::from_str(&outcome_json).unwrap();
+    let outcome_back: CallMediaTokenExchangeResponseBody =
+        serde_json::from_str(&outcome_json).unwrap();
     assert_eq!(outcome_back.participant_id, outcome.participant_id);
 
     let anchors = anchors_with_issuer_key(&key);
@@ -211,7 +212,7 @@ fn media_token_outcome_rejects_backend_shape_mismatch() {
     let mut wire = serde_json::to_value(outcome).unwrap();
 
     wire["backend_kind"] = serde_json::json!("arkret_native");
-    assert!(serde_json::from_value::<CallMediaTokenExchangeOutcome>(wire.clone()).is_err());
+    assert!(serde_json::from_value::<CallMediaTokenExchangeResponseBody>(wire.clone()).is_err());
 
     wire["backend_token"] = serde_json::json!({
         "kid": ISSUER_KID,
@@ -223,10 +224,10 @@ fn media_token_outcome_rejects_backend_shape_mismatch() {
             "expires_at": "2026-08-16T00:05:00.000Z",
             "media": {"audio": true, "video": true, "screen": false}
         },
-        "sig": "AA",
+        "signature": "AA",
         "signature_algorithm": "Ed25519"
     });
-    assert!(serde_json::from_value::<CallMediaTokenExchangeOutcome>(wire).is_ok());
+    assert!(serde_json::from_value::<CallMediaTokenExchangeResponseBody>(wire).is_ok());
 }
 
 #[test]
@@ -302,9 +303,9 @@ fn media_token_verifies_signatures_and_rejects_tampering() {
 
     // A binding signed by a non-anchored key fails as token_issuer_unauthorised.
     let mut t_sig = signed_outcome(&request, &key, expires_at);
-    t_sig.participant_binding.sig = signed_outcome(&request, &other, expires_at)
+    t_sig.participant_binding.signature = signed_outcome(&request, &other, expires_at)
         .participant_binding
-        .sig;
+        .signature;
     let err = verify_call_media_token_outcome(&request, &t_sig, &anchors, now).unwrap_err();
     assert!(err.to_string().contains("token_issuer_unauthorised"));
     assert!(err.to_string().contains("participant_binding"));

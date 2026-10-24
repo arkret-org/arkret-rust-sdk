@@ -132,8 +132,8 @@ pub use arkret_models_collaboration::agent_scope::{
 pub use arkret_models_collaboration::agent_sidecar::*;
 pub use arkret_models_collaboration::applet_installation_authority::*;
 pub use arkret_models_collaboration::authority_commit::{
-    AccountDeviceHistoricalSignerFact, HistoricalProducerSignerFactEntry, PeerStreamScanOutcome,
-    authority_forward_body_digest, historical_signer_facts_digest,
+    AccountDeviceHistoricalSignerFact, HistoricalProducerSignerFactEntry,
+    PeerStreamScanResponseBody, authority_forward_body_digest, historical_signer_facts_digest,
     validate_historical_signer_fact_inventory, validate_new_account_device_admission_fact,
     validate_new_account_device_admission_fact_for_purpose,
 };
@@ -186,10 +186,11 @@ pub use arkret_models_collaboration::governance::realm_join_bootstrap::{
 };
 pub use arkret_models_collaboration::governance::realm_join_intake::{
     AUTHORITY_LOCATOR_HINTS_MAX, AuthorityLocatorSource, PUBLIC_PREVIEW_DISPLAY_NAME_MAX_CHARS,
-    PeerRealmJoinBootstrapOutcome, PeerRealmJoinBootstrapRequestBody, PeerRealmJoinPreviewOutcome,
-    PeerRealmJoinPreviewRequestBody, RealmJoinCandidate, RealmJoinCandidateServiceKind,
-    RealmJoinIntent, RealmJoinTarget, RealmPublicPreview, SelfRealmJoinPrepareOutcome,
-    SelfRealmJoinPrepareRequestBody, SelfRealmJoinPreviewOutcome, SelfRealmJoinPreviewRequestBody,
+    PeerRealmJoinBootstrapRequestBody, PeerRealmJoinBootstrapResponseBody,
+    PeerRealmJoinPreviewRequestBody, PeerRealmJoinPreviewResponseBody, RealmJoinCandidate,
+    RealmJoinCandidateServiceKind, RealmJoinIntent, RealmJoinTarget, RealmPublicPreview,
+    SelfRealmJoinPrepareRequestBody, SelfRealmJoinPrepareResponseBody,
+    SelfRealmJoinPreviewRequestBody, SelfRealmJoinPreviewResponseBody,
     canonicalize_authority_locator_hints, validate_authority_locator_hints,
 };
 pub use arkret_models_collaboration::governance::realm_lifecycle::*;
@@ -234,10 +235,10 @@ pub use arkret_models_collaboration::signal_message_stream::*;
 pub use arkret_models_collaboration::signal_operations::*;
 pub use arkret_models_collaboration::signal_plaintext::*;
 pub use arkret_models_collaboration::strand_watch_operations::*;
-pub use arkret_models_collaboration::sync_frames::current_results::*;
+pub use arkret_models_collaboration::sync_frames::current_states::*;
 pub use arkret_models_collaboration::sync_frames::websocket::*;
 pub use arkret_models_collaboration::{
-    contact_operations, direct_conversation, exact_current_results,
+    contact_operations, direct_conversation, exact_current_state,
 };
 pub use arkret_models_crypto::artifacts_keys::*;
 pub use arkret_models_crypto::authority_set_policy::*;
@@ -270,7 +271,6 @@ pub use arkret_models_crypto::recovery_session::*;
 pub use arkret_models_crypto::secret_share::*;
 pub use arkret_models_crypto::security_transaction::*;
 pub use arkret_models_discovery::directory::*;
-pub use arkret_models_discovery::http_bodies::*;
 pub use arkret_models_discovery::ops;
 pub use arkret_models_discovery::presence::{
     LAST_ACTIVE_BUCKET_FLOOR_SECONDS, ManualPresenceState, PresencePreference, PresenceStatus,
@@ -409,7 +409,7 @@ pub use arkret_wire::operation_types::*;
 pub use arkret_wire::patch::*;
 pub use arkret_wire::peer_operation_paths::*;
 pub use arkret_wire::plaintext::PlaintextDataClassKind;
-pub use arkret_wire::platform::{WasmHttpRequestBody, WasmHttpResponseBody};
+pub use arkret_wire::platform::{WasmHttpRequest, WasmHttpResponse};
 pub use arkret_wire::primitives::*;
 pub use arkret_wire::problem_details::*;
 pub use arkret_wire::realm_authority_signer::{
@@ -430,7 +430,8 @@ pub use arkret_wire::signal::{
     MAX_SIGNAL_RELAY_CANONICAL_BODY_BYTES, MAX_SIGNAL_RELAY_ITEMS, MAX_SIGNAL_STREAM_REASON_CHARS,
     MAX_SIGNAL_STREAM_RECONNECT_AFTER_MS, MAX_SIGNAL_TTL, SIGNAL_AEAD_PURPOSE, SIGNAL_AEAD_SCHEME,
     SIGNAL_EXPORTER_LABEL, SignalAeadBinding, SignalClass, SignalEncryptedPayload, SignalEnvelope,
-    SignalKeyRef, SignalProof, SignalRelayOutcome, SignalRelayRequest, SignalSenderEndpoint,
+    SignalKeyRef, SignalProof, SignalRelayRequestBody, SignalRelayResponseBody,
+    SignalSenderEndpoint,
 };
 pub use arkret_wire::string_profiles::*;
 pub use arkret_wire::websocket_binding::*;
@@ -479,7 +480,7 @@ pub mod events {
 pub mod sync {
     pub use arkret_models_collaboration::account_subscribe_projections::*;
     pub use arkret_models_collaboration::sync_frames::account_subscribe::*;
-    pub use arkret_models_collaboration::sync_frames::current_results::*;
+    pub use arkret_models_collaboration::sync_frames::current_states::*;
     pub use arkret_models_collaboration::sync_frames::realm_state_snapshot::*;
     pub use arkret_models_discovery::presence::{PresenceStatus, aggregate_presence_states};
 }
@@ -556,7 +557,7 @@ pub use identity::{
     AuthorityDidHistoryResolver, AuthorityHistoryUnavailable, AuthorityHistoryVerificationError,
     CompositeDidResolver, DID_WEB_MAX_DOCUMENT_BYTES, DidDocument,
     DidDocumentVerificationMethodResolver, DidKeriResolver, DidKeyResolver, DidRegistryReceipt,
-    DidResolver, DidWebDocumentOutcome, DidWebResolver, HandleAttestation,
+    DidResolver, DidWebDocumentHttpResponse, DidWebResolver, HandleAttestation,
     IdentityReceiptWitnessRole, ResolvedDid, ResolvedVerificationMethodKey,
     VerifiedAccountBindingReceipt, event_proof_verification_context_with_digest_suite,
     resolve_verification_method_key, resolve_verification_method_key_from_document,

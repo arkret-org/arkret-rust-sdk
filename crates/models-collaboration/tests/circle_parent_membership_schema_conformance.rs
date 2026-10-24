@@ -7,8 +7,8 @@ use std::fs;
 use std::path::PathBuf;
 
 use arkret_models_collaboration::events_payloads::circle::CircleMemberStatePayload;
-use arkret_models_collaboration::sync_frames::current_results::{
-    CircleMemberStateCurrent, CurrentRevision, MemberStateCurrent, MembershipState, TypedCurrentRow,
+use arkret_models_collaboration::sync_frames::current_states::{
+    CircleMemberStateValue, CurrentRevision, CurrentState, MemberStateValue, MembershipState,
 };
 use arkret_schema::ProtocolSchemaRegistry;
 use arkret_schema_conformance::schema_registry_from_spec_artifacts;
@@ -37,10 +37,7 @@ fn fixture() -> Value {
 
 fn registry() -> ProtocolSchemaRegistry {
     let mut registry = schema_registry_from_spec_artifacts(artifacts_dir()).unwrap();
-    for file in [
-        "event-payload.schema.json",
-        "typed-current-result.schema.json",
-    ] {
+    for file in ["event-payload.schema.json", "current-state.schema.json"] {
         registry
             .register_reference_document(read_json(artifacts_dir().join("schemas").join(file)))
             .unwrap();
@@ -106,10 +103,10 @@ fn sdk_decode(schema_ref: &str, value: &Value) -> Result<Value, String> {
                 .map(|payload| serde_json::to_value(payload).unwrap())
                 .map_err(|error| error.to_string())
         }
-        "circle_member_state_result" => {
-            let result: TypedCurrentRow =
+        "current_circle_member_state" => {
+            let result: CurrentState =
                 serde_json::from_value(value.clone()).map_err(|error| error.to_string())?;
-            let TypedCurrentRow::Value {
+            let CurrentState::Value {
                 source_stream_ref,
                 value: current,
                 ..
@@ -117,15 +114,15 @@ fn sdk_decode(schema_ref: &str, value: &Value) -> Result<Value, String> {
             if !matches!(source_stream_ref, CommitStreamRef::Circle { .. }) {
                 return Err("circle_member_state is written on its Circle stream".to_owned());
             }
-            serde_json::from_value::<CircleMemberStateCurrent>(current.clone())
+            serde_json::from_value::<CircleMemberStateValue>(current.clone())
                 .map_err(|error| error.to_string())?;
             Ok(serde_json::to_value(result).unwrap())
         }
-        "member_state_result" => {
-            let result: TypedCurrentRow =
+        "current_member_state" => {
+            let result: CurrentState =
                 serde_json::from_value(value.clone()).map_err(|error| error.to_string())?;
-            let TypedCurrentRow::Value { value: current, .. } = &result;
-            serde_json::from_value::<MemberStateCurrent>(current.clone())
+            let CurrentState::Value { value: current, .. } = &result;
+            serde_json::from_value::<MemberStateValue>(current.clone())
                 .map_err(|error| error.to_string())?;
             Ok(serde_json::to_value(result).unwrap())
         }
@@ -207,7 +204,7 @@ fn membership(value: &Value) -> MembershipState {
     serde_json::from_value(value.clone()).unwrap()
 }
 
-fn circle_current(entry: &Value) -> CircleMemberStateCurrent {
+fn circle_current(entry: &Value) -> CircleMemberStateValue {
     let mut value = json!({
         "membership": entry["membership"],
         "effective_at": "2026-09-29T02:00:00.000Z"
@@ -273,7 +270,7 @@ fn admission_verdict(parent: &Value, payload: &Value) -> Value {
     let realm_id = realm_of(parent);
     let parent_stream: CommitStreamRef =
         serde_json::from_value(parent["source_stream_ref"].clone()).unwrap();
-    let bound = CircleMemberStateCurrent {
+    let bound = CircleMemberStateValue {
         membership: MembershipState::Join,
         parent_membership_revision: payload.parent_membership_revision,
         effective_at: chrono::Utc::now(),

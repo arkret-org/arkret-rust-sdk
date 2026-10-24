@@ -46,7 +46,7 @@ impl ThirdPartyInvitePresentRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ThirdPartyInvitePresentOutcome {
+pub struct ThirdPartyInvitePresentResponseBody {
     pub invite_id: InviteId,
     pub token_commitment: Hash,
     pub binding_proof: InviteClaimBindingProof,
@@ -75,7 +75,7 @@ pub enum ThirdPartyInviteOobKind {
 /// - `offline_token` requires `token_commitment` + `token_salt_id` + `token_entropy_bits >= 128`.
 /// - `lookup` requires `token_commitment` + `lookup_table_ref` + `pepper_id`.
 ///
-/// Both modes ALWAYS carry `max_claims`,
+/// Both modes ALWAYS carry `max_claim_count`,
 /// `verification_id`, and `verification_public_key`. Internal
 /// verifier chain (`verification_id` chain of trust + replay
 /// guard against `pepper_id` reuse) is handled by verifier/reducer layers;
@@ -107,7 +107,7 @@ pub struct ThirdPartyInvite {
     pub pepper_id: Option<String>,
     /// Maximum successful token claims; v1 fixes this at one.
     #[serde(default = "single_claim")]
-    pub max_claims: u32,
+    pub max_claim_count: u32,
     /// Core identity of the verifier expected to verify the OOB code.
     pub verification_id: DidCoreId,
     /// Verifying public key for the verification proof chain.
@@ -118,7 +118,7 @@ impl ThirdPartyInvite {
     /// Reject envelopes whose `oob_code_kind` is incompatible with the
     /// populated fields.
     pub fn validate_minimal(&self) -> Result<()> {
-        if self.max_claims != 1
+        if self.max_claim_count != 1
             || self
                 .display_name_hint
                 .as_ref()
@@ -140,7 +140,7 @@ impl ThirdPartyInvite {
                 .is_some_and(|value| !(1..=128).contains(&value.chars().count()))
         {
             return Err(WireError::Protocol(
-                "third_party_invite requires max_claims=1, a SHA-256 commitment, a non-empty verification key, and bounded public fields"
+                "third_party_invite requires max_claim_count=1, a SHA-256 commitment, a non-empty verification key, and bounded public fields"
                     .to_owned(),
             ));
         }
@@ -493,7 +493,7 @@ fn validate_invite_proof_binding(
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ThirdPartyInviteProvisionOutcome {
+pub struct ThirdPartyInviteProvisionResponseBody {
     pub provisioning_id: ThirdPartyInviteProvisioningId,
     pub realm_id: RealmId,
     pub inviter_account_id: AccountId,
@@ -504,7 +504,7 @@ pub struct ThirdPartyInviteProvisionOutcome {
     pub activation_expires_at: DateTime<Utc>,
 }
 
-impl ThirdPartyInviteProvisionOutcome {
+impl ThirdPartyInviteProvisionResponseBody {
     pub fn validate(&self) -> Result<()> {
         self.third_party_invite.validate_minimal()?;
         if self.activation_expires_at > self.expires_at {
@@ -688,11 +688,11 @@ pub struct ThirdPartyInviteAcceptanceAttestationRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ThirdPartyInviteAcceptanceAttestationOutcome {
+pub struct ThirdPartyInviteAcceptanceAttestationResponseBody {
     pub acceptance_attestation: ThirdPartyInviteAcceptanceAttestation,
 }
 
-impl ThirdPartyInviteAcceptanceAttestationOutcome {
+impl ThirdPartyInviteAcceptanceAttestationResponseBody {
     pub fn validate_for_request(
         &self,
         request: &ThirdPartyInviteAcceptanceAttestationRequestBody,
@@ -746,7 +746,7 @@ impl ThirdPartyInviteActivationRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ThirdPartyInviteActivationOutcome {
+pub struct ThirdPartyInviteActivationResponseBody {
     pub provisioning_id: ThirdPartyInviteProvisioningId,
     pub realm_id: RealmId,
     pub invite_id: InviteId,
@@ -754,7 +754,7 @@ pub struct ThirdPartyInviteActivationOutcome {
     pub activated_at: DateTime<Utc>,
 }
 
-impl ThirdPartyInviteActivationOutcome {
+impl ThirdPartyInviteActivationResponseBody {
     pub fn validate_for_request(
         &self,
         request: &ThirdPartyInviteActivationRequestBody,
@@ -794,7 +794,7 @@ pub struct ThirdPartyInviteProvisioningStatusRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ThirdPartyInviteProvisioningStatusOutcome {
+pub struct ThirdPartyInviteProvisioningStatusResponseBody {
     pub provisioning_id: ThirdPartyInviteProvisioningId,
     pub realm_id: RealmId,
     pub provisioning_state: ThirdPartyInviteProvisioningState,
@@ -816,7 +816,7 @@ pub struct ThirdPartyInviteProvisioningStatusOutcome {
     pub activation_expires_at: DateTime<Utc>,
 }
 
-impl ThirdPartyInviteProvisioningStatusOutcome {
+impl ThirdPartyInviteProvisioningStatusResponseBody {
     pub fn validate(&self) -> Result<()> {
         let bound = self.invite_id.is_some()
             || self.activated_at.is_some()

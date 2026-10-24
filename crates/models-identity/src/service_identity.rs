@@ -406,7 +406,8 @@ impl ServiceWebvhDataIntegrityProof {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ServiceWebvhInceptionOperation {
     pub version_id: String,
-    pub version_time: DateTime<Utc>,
+    #[serde(rename = "versionTime")]
+    pub version_created_at: DateTime<Utc>,
     pub parameters: ServiceWebvhInceptionParameters,
     pub state: ServiceDidDocument,
     pub proof: Vec<ServiceWebvhDataIntegrityProof>,
@@ -711,13 +712,13 @@ impl ServiceRegistrationEnsureRequestBody {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ServiceRegistrationOutcome {
+pub struct ServiceRegistrationResponseBody {
     pub did_document: ServiceDidDocument,
     pub registration_receipt: ServiceRegistrationReceipt,
     pub created: bool,
 }
 
-impl ServiceRegistrationOutcome {
+impl ServiceRegistrationResponseBody {
     pub fn validate_for(&self, key: &ServiceRegistrationKey) -> Result<()> {
         if self.did_document.id != self.registration_receipt.did {
             return Err(WireError::Protocol(

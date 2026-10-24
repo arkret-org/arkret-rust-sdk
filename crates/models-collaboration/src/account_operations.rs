@@ -12,7 +12,7 @@ use arkret_wire::{
 use serde::{Deserialize, Serialize};
 
 use crate::objects::account_status::AccountStatus;
-use crate::session_grants::SessionGrantOutcome;
+use crate::session_grants::SessionGrantResponseBody;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -68,7 +68,7 @@ impl AccountRegisterRequestBody {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AccountRegisterOutcome {
+pub struct AccountRegisterResponseBody {
     pub principal_id: DidCoreId,
     pub state: AccountStatus,
     #[serde(default)]
@@ -87,10 +87,10 @@ pub struct AccountRegisterOutcome {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pcr_genesis_commits: Option<[RealmCommit; 2]>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub session_grant_outcome: Option<SessionGrantOutcome>,
+    pub session_grant_outcome: Option<SessionGrantResponseBody>,
 }
 
-impl AccountRegisterOutcome {
+impl AccountRegisterResponseBody {
     pub fn validate_against_request(&self, request: &AccountRegisterRequestBody) -> Result<()> {
         request.validate()?;
         if self.principal_id != request.principal_id

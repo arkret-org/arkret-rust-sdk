@@ -2,10 +2,10 @@
 
 use arkret_identity::VerifiedSubmission;
 use arkret_models_collaboration::authority_commit::{
-    SelfAuthoritySubmitOutcome, SelfAuthoritySubmitRequest,
+    SelfAuthoritySubmitRequestBody, SelfAuthoritySubmitResponseBody,
 };
 use arkret_models_collaboration::message_authoring::MessageSubmitRequestBody;
-use arkret_wire::AuthoritySubmitOutcome;
+use arkret_wire::AuthoritySubmitResponseBody;
 
 use crate::{Client, ClientRequestOptions, Error, Result};
 
@@ -16,18 +16,18 @@ impl Client {
         &self,
         request: &VerifiedSubmission<MessageSubmitRequestBody>,
         options: &ClientRequestOptions,
-    ) -> Result<AuthoritySubmitOutcome> {
+    ) -> Result<AuthoritySubmitResponseBody> {
         request.validate()?;
         match self
             .submit_to_realm_authority(
-                &request.rebind(SelfAuthoritySubmitRequest::Event(
+                &request.rebind(SelfAuthoritySubmitRequestBody::Event(
                     request.submission.clone(),
                 ))?,
                 options,
             )
             .await?
         {
-            SelfAuthoritySubmitOutcome::Ordinary(outcome) => Ok(outcome),
+            SelfAuthoritySubmitResponseBody::Ordinary(outcome) => Ok(outcome),
             _ => Err(Error::Protocol(
                 "message Event submission returned an aggregate outcome".to_owned(),
             )),

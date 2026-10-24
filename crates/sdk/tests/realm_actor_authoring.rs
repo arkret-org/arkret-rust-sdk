@@ -68,7 +68,7 @@ fn candidate() -> (RealmActorCreatePayload, Ed25519PayloadSigner) {
     let inception = prepare_realm_actor_inception(&RealmActorInceptionInput {
         principal_endpoint: &endpoint,
         local_id: "ghost-1",
-        version_time: at,
+        version_created_at: at,
         root_seed: &root,
         next_root_public_key_multibase: &next_key,
         controller_public_key: control.verifying_key().as_bytes(),
@@ -180,7 +180,7 @@ fn manager_handover_requires_two_native_rotations_new_control_and_service_accept
                 state,
                 current_update_seed: &[seed; 32],
                 next_update_public_key_multibase: &multibase(next),
-                version_time: start + chrono::Duration::seconds(seconds),
+                version_created_at: start + chrono::Duration::seconds(seconds),
             },
         )
         .unwrap();
@@ -491,7 +491,7 @@ fn recovery_service_originals_verify_without_business_grants_and_bind_all_source
         let original:RealmRecoveryServiceHistoricalSignerFact=serde_json::from_value(json!({
             "kind":"realm_recovery_service", "event_id":event.event_id, "actor_id":actor,
             "target_actor_id":begin.target_actor_id,"verification_method":event.producer_proof.as_ref().unwrap().verification_method,
-            "public_key_b64u":arkret_canonical::base64url_encode(SigningKey::from_bytes(&[34;32]).verifying_key().as_bytes()),
+            "public_key_base64url":arkret_canonical::base64url_encode(SigningKey::from_bytes(&[34;32]).verifying_key().as_bytes()),
             "accepted_at":format_timestamp_canonical(creation.control_signature.created_at),"applet_id":creation.applet_id,
             "registration_epoch":Hash::new(canonical_sha256(&"registration").unwrap()).unwrap(),
             "registration_ref":begin.manager_ref,"manager_ref":begin.manager_ref,"recovery_ref":begin.recovery_ref
@@ -514,7 +514,7 @@ fn recovery_service_originals_verify_without_business_grants_and_bind_all_source
         bad.actor_id = begin.target_actor_id.clone();
         assert!(verify(bad).is_err());
         let mut bad = original.clone();
-        bad.public_key_b64u = Base64UrlString::new(arkret_canonical::base64url_encode(
+        bad.public_key_base64url = Base64UrlString::new(arkret_canonical::base64url_encode(
             SigningKey::from_bytes(&[35; 32]).verifying_key().as_bytes(),
         ))
         .unwrap();
@@ -557,7 +557,7 @@ fn recovery_plan() -> (
                 &arkret_canonical::ed25519_pubkey_to_did_key_multibase(
                     next_update.verifying_key().as_bytes(),
                 ),
-            version_time: at,
+            version_created_at: at,
         },
     )
     .unwrap();
@@ -765,17 +765,17 @@ fn private_current_material_requires_exact_original_source_coordinates() {
     let case = &fixture["cases"][3];
     let mut value = case["unsigned_projection"].clone();
     value["signature"] = case["signature"].clone();
-    let material: RealmActorMaterialOutcome = serde_json::from_value(value.clone()).unwrap();
+    let material: RealmActorMaterialResponseBody = serde_json::from_value(value.clone()).unwrap();
     material.validate().unwrap();
     let mut missing = value.clone();
-    missing["result"]["entries"][0]
+    missing["material"]["entries"][0]
         .as_object_mut()
         .unwrap()
         .remove("source_ref");
-    assert!(serde_json::from_value::<RealmActorMaterialOutcome>(missing).is_err());
+    assert!(serde_json::from_value::<RealmActorMaterialResponseBody>(missing).is_err());
     for field in ["commit_id", "stream_position", "stream_ref"] {
         let mut wrong = value.clone();
-        let source = &mut wrong["result"]["entries"][0]["source_ref"];
+        let source = &mut wrong["material"]["entries"][0]["source_ref"];
         match field {
             "commit_id" => {
                 source[field] = json!(format!(
@@ -791,7 +791,7 @@ fn private_current_material_requires_exact_original_source_coordinates() {
                 ))
             }
         }
-        let wrong: RealmActorMaterialOutcome = serde_json::from_value(wrong).unwrap();
+        let wrong: RealmActorMaterialResponseBody = serde_json::from_value(wrong).unwrap();
         assert!(wrong.validate().is_err(), "{field}");
     }
 }

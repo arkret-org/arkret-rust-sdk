@@ -28,7 +28,7 @@ use crate::artifacts_applet::{
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AppletPingOutcome {
+pub struct AppletPingResponseBody {
     pub applet_id: AppletId,
     pub service_id: DidCoreId,
     #[serde(deserialize_with = "arkret_wire::deserialize_protocol_version")]
@@ -47,7 +47,7 @@ pub enum AppletTransactionStatus {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
-pub enum AppletTransactionOutcome {
+pub enum AppletTransactionResponseBody {
     Accepted {
         /// Required even when the transaction accepts only Signals.
         committed_event_refs: Vec<CommittedEventRef>,
@@ -71,7 +71,7 @@ pub enum AppletTransactionOutcome {
     },
 }
 
-impl AppletTransactionOutcome {
+impl AppletTransactionResponseBody {
     pub fn status(&self) -> AppletTransactionStatus {
         match self {
             Self::Accepted { .. } => AppletTransactionStatus::Accepted,
@@ -286,7 +286,7 @@ fn validate_signer_root(
 #[serde(deny_unknown_fields)]
 pub struct AppletManagedActorAuthoringContext {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub material: crate::RealmActorMaterialOutcome,
+    pub material: crate::RealmActorMaterialResponseBody,
 }
 impl AppletManagedActorAuthoringContext {
     pub fn validate(&self) -> Result<()> {
@@ -368,7 +368,7 @@ pub enum AppletInstallEffectiveStatus {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AppletInstallOutcome {
+pub struct AppletInstallResponseBody {
     pub install_id: String,
     pub applet_id: AppletId,
     pub service_id: DidCoreId,
@@ -487,7 +487,7 @@ pub struct AppletRevokePlan {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AppletRevokePreviewOutcome {
+pub struct AppletRevokePreviewResponseBody {
     pub revoke_plan: AppletRevokePlan,
 }
 
@@ -659,7 +659,7 @@ pub enum AppletRevokeStep {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AppletRevokeOutcome {
+pub struct AppletRevokeResponseBody {
     pub operation_id: ProtocolOperationId,
     pub revoke_plan_digest: Hash,
     pub status: AppletRevokeSagaStatus,
@@ -1179,7 +1179,7 @@ impl AppletManagedActorAuthoringRequest {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AppletInstallPreviewOutcome {
+pub struct AppletInstallPreviewResponseBody {
     pub plan: crate::AppletInstallPlan,
 }
 
@@ -1193,7 +1193,7 @@ pub struct AppletManagedActorAuthorRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AppletManagedActorAuthorOutcome {
+pub struct AppletManagedActorAuthorResponseBody {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub create_event: Event,
 }
@@ -1295,7 +1295,7 @@ pub struct AppletBotPreviewRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AppletBotPreviewOutcome {
+pub struct AppletBotPreviewResponseBody {
     pub authoring_request: AppletManagedActorAuthoringRequest,
 }
 /// Covered RFC9421 metadata for one accepted Realm actor Device.

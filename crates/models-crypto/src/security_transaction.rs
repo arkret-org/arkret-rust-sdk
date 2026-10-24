@@ -150,7 +150,7 @@ pub struct PcrPolicyRecoveryIntent {
     pub recovery_session_id: RecoverySessionId,
     pub replacement_device_id: DeviceId,
     pub previous_model_generation_ref: u64,
-    pub result_model_generation_ref: u64,
+    pub new_model_generation_ref: u64,
     pub terminal_receipt_id: ReceiptId,
     pub reanchor_unit: PreparedEventUnit,
     pub reanchor_commit_intent: RecoveryCommitIntent,
@@ -160,7 +160,7 @@ impl PcrPolicyRecoveryIntent {
     pub fn validate(&self, account_id: &AccountId) -> Result<()> {
         validate_generation_advance(
             self.previous_model_generation_ref,
-            self.result_model_generation_ref,
+            self.new_model_generation_ref,
         )?;
         validate_recovery_event_unit(
             account_id,
@@ -191,7 +191,7 @@ pub struct PcrPolicyRecoveryPlan {
     pub recovery_session_snapshot_digest: Hash,
     pub proof_digest: Hash,
     pub previous_model_generation_ref: u64,
-    pub result_model_generation_ref: u64,
+    pub new_model_generation_ref: u64,
     pub reanchor_unit: PreparedEventUnit,
     pub reanchor_commit_intent: RecoveryCommitIntent,
 }
@@ -203,7 +203,7 @@ impl PcrPolicyRecoveryPlan {
         }
         validate_generation_advance(
             self.previous_model_generation_ref,
-            self.result_model_generation_ref,
+            self.new_model_generation_ref,
         )?;
         validate_recovery_event_unit(
             account_id,
@@ -380,7 +380,7 @@ pub enum SecurityRotationRevokeCommandDecision {
 pub struct SecurityRotationRevokeCommandOutcome {
     pub proposal_event_id: EventId,
     pub covering_commit_id: RealmCommitId,
-    pub result: SecurityRotationRevokeCommandDecision,
+    pub outcome: SecurityRotationRevokeCommandDecision,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub decided_at: DateTime<Utc>,
 }
@@ -505,7 +505,7 @@ impl SecurityTransaction {
                                 "revoke command outcome changed its covering proposal",
                             );
                         }
-                        match outcome.result {
+                        match outcome.outcome {
                             SecurityRotationRevokeCommandDecision::Accepted
                                 if self.accepted_steps.is_empty() =>
                             {
@@ -530,7 +530,7 @@ impl SecurityTransaction {
                     }
                     _ => {
                         return protocol(
-                            "rotation revoke proposal/result progress is inconsistent",
+                            "rotation revoke proposal/outcome progress is inconsistent",
                         );
                     }
                 }
@@ -609,7 +609,7 @@ impl SecurityTransaction {
             || attestation.replacement_device_id != binding.replacement_device_id
             || attestation.reanchor_event_ref.event_id != binding.reanchor_event_id
             || attestation.device_authorization_event_ref.event_id != binding.authorize_event_id
-            || attestation.result_model_generation_ref != plan.result_model_generation_ref
+            || attestation.new_model_generation_ref != plan.new_model_generation_ref
             || attestation.completed_at != completed_at
             || attestation.reanchor_event_ref.stream_ref
                 != (CommitStreamRef::Realm {
@@ -627,7 +627,7 @@ impl SecurityTransaction {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RecoveryTransactionCreateRequest {
+pub struct RecoveryTransactionCreateRequestBody {
     pub transaction_id: TransactionId,
     pub kind: SecurityTransactionKind,
     pub account_id: AccountId,
@@ -636,7 +636,7 @@ pub struct RecoveryTransactionCreateRequest {
     pub recovery_intent: PcrPolicyRecoveryIntent,
 }
 
-impl RecoveryTransactionCreateRequest {
+impl RecoveryTransactionCreateRequestBody {
     pub fn new(
         transaction_id: TransactionId,
         account_id: AccountId,
@@ -666,7 +666,7 @@ impl RecoveryTransactionCreateRequest {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct SecurityRotationTransactionCreateRequest {
+pub struct SecurityRotationTransactionCreateRequestBody {
     pub transaction_id: TransactionId,
     pub kind: SecurityTransactionKind,
     pub account_id: AccountId,
@@ -676,7 +676,7 @@ pub struct SecurityRotationTransactionCreateRequest {
     pub prepared_plan: SecurityRotationPlan,
 }
 
-impl SecurityRotationTransactionCreateRequest {
+impl SecurityRotationTransactionCreateRequestBody {
     pub fn from_prepared_rotations(
         transaction_id: TransactionId,
         account_id: AccountId,
@@ -744,12 +744,12 @@ impl SecurityRotationTransactionCreateRequest {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 #[allow(clippy::large_enum_variant)]
-pub enum SecurityTransactionCreateRequest {
-    Recovery(RecoveryTransactionCreateRequest),
-    SecurityRotation(SecurityRotationTransactionCreateRequest),
+pub enum SecurityTransactionCreateRequestBody {
+    Recovery(RecoveryTransactionCreateRequestBody),
+    SecurityRotation(SecurityRotationTransactionCreateRequestBody),
 }
 
-impl SecurityTransactionCreateRequest {
+impl SecurityTransactionCreateRequestBody {
     pub fn validate(&self) -> Result<()> {
         match self {
             Self::Recovery(request) => request.validate(),
@@ -868,7 +868,7 @@ pub enum ClientStepAttestationArtifact {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ClientStepAttestationAuthData {
+pub struct ClientStepAttestationSignatureProof {
     pub verification_method: DidUrl,
     pub signature_algorithm: String,
     pub signature: Base64UrlString,
@@ -884,7 +884,7 @@ pub struct ClientStepAttestation {
     pub transaction_request_digest: Hash,
     pub prepared_plan_digest: Hash,
     pub artifact: ClientStepAttestationArtifact,
-    pub auth_data: ClientStepAttestationAuthData,
+    pub signature_proof: ClientStepAttestationSignatureProof,
 }
 
 impl ClientStepAttestation {
@@ -895,7 +895,7 @@ impl ClientStepAttestation {
     pub fn validate(&self) -> Result<()> {
         validate_step_output_ref(&self.output_ref)?;
         require_sha256("prepared_plan_digest", &self.prepared_plan_digest)?;
-        if self.auth_data.signature_algorithm != "Ed25519" {
+        if self.signature_proof.signature_algorithm != "Ed25519" {
             return protocol("client step attestation requires Ed25519");
         }
         match (&self.step, &self.artifact) {
@@ -930,14 +930,14 @@ impl ClientStepAttestation {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct SecurityTransactionContinueRequest {
+pub struct SecurityTransactionContinueRequestBody {
     pub request_digest: Hash,
     pub prepared_plan_digest: Hash,
     pub expected_accepted_step_count: u64,
     pub client_attestation: ClientStepAttestation,
 }
 
-impl SecurityTransactionContinueRequest {
+impl SecurityTransactionContinueRequestBody {
     pub fn validate_for_transaction(&self, transaction: &SecurityTransaction) -> Result<()> {
         transaction.validate_structural()?;
         if self.request_digest != transaction.request_digest
@@ -985,7 +985,7 @@ impl SecurityTransactionContinueRequest {
                     || receipt.reanchor_event_id != plan.binding.reanchor_event_id
                     || receipt.authorization_event_id != plan.binding.authorize_event_id
                     || receipt.previous_model_generation_ref != plan.previous_model_generation_ref
-                    || receipt.result_model_generation_ref != plan.result_model_generation_ref
+                    || receipt.new_model_generation_ref != plan.new_model_generation_ref
                 {
                     return protocol("recovery receipt disagrees with the prepared transaction");
                 }
@@ -1055,6 +1055,8 @@ pub struct RecoveryBackupUnlocked {
 pub struct RecoveryWelcomeRealmSummary {
     pub realm_id: RealmId,
     pub mls_group_id: MlsGroupId,
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
     pub epoch: u64,
 }
 
@@ -1073,7 +1075,7 @@ pub enum RecoveryReceiptOutcome {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RecoveryReceiptAuthData {
+pub struct RecoveryReceiptSignatureProof {
     pub verification_method: DidUrl,
     pub signature_algorithm: String,
     pub signature: Base64UrlString,
@@ -1096,7 +1098,7 @@ pub struct RecoveryReceipt {
     pub identity_model: RecoveryIdentityModel,
     pub recovery_authority_kind: RecoveryAuthorityKind,
     pub previous_model_generation_ref: u64,
-    pub result_model_generation_ref: u64,
+    pub new_model_generation_ref: u64,
     pub authorization_event_id: EventId,
     pub reanchor_event_id: EventId,
     pub proof_summary: RecoveryProofSummary,
@@ -1111,7 +1113,7 @@ pub struct RecoveryReceipt {
     pub started_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub completed_at: DateTime<Utc>,
-    pub auth_data: RecoveryReceiptAuthData,
+    pub signature_proof: RecoveryReceiptSignatureProof,
     #[serde(default, flatten)]
     pub extra: XExtensionMap,
 }
@@ -1127,9 +1129,9 @@ impl RecoveryReceipt {
         }
         validate_generation_advance(
             self.previous_model_generation_ref,
-            self.result_model_generation_ref,
+            self.new_model_generation_ref,
         )?;
-        if self.auth_data.signature_algorithm != "Ed25519" {
+        if self.signature_proof.signature_algorithm != "Ed25519" {
             return protocol("recovery receipt requires Ed25519");
         }
         if (self.proof_summary.kind == RecoveryProofKind::DeviceQuorum)
@@ -1156,7 +1158,7 @@ impl RecoveryReceipt {
         value
             .as_object_mut()
             .ok_or_else(|| WireError::Protocol("recovery receipt must be an object".to_owned()))?
-            .remove("auth_data");
+            .remove("signature_proof");
         let mut bytes = b"ak.identity.recovery_receipt.signature.v1\n".to_vec();
         bytes.extend(arkret_canonical::canonical_json_bytes(&value)?);
         Ok(bytes)
@@ -1210,7 +1212,7 @@ fn validate_prepared_plan_matches_intent(
         || plan.binding.replacement_device_id != intent.replacement_device_id
         || plan.binding.terminal_receipt_id != intent.terminal_receipt_id
         || plan.previous_model_generation_ref != intent.previous_model_generation_ref
-        || plan.result_model_generation_ref != intent.result_model_generation_ref
+        || plan.new_model_generation_ref != intent.new_model_generation_ref
         || plan.reanchor_commit_intent != intent.reanchor_commit_intent
         || !same_unit
     {
@@ -1425,8 +1427,8 @@ fn validate_unique_recovery_artifacts(receipt: &RecoveryReceipt) -> Result<()> {
     Ok(())
 }
 
-fn validate_generation_advance(previous: u64, result: u64) -> Result<()> {
-    if previous == 0 || result <= previous {
+fn validate_generation_advance(previous: u64, outcome: u64) -> Result<()> {
+    if previous == 0 || outcome <= previous {
         return protocol("PCR generation refs require a positive monotonic advance");
     }
     Ok(())
@@ -1604,7 +1606,7 @@ mod tests {
             "prepared_plan_digest": format!("sha256:{}", "b".repeat(64)),
             "expected_accepted_step_count": 0
         });
-        assert!(serde_json::from_value::<SecurityTransactionContinueRequest>(value).is_err());
+        assert!(serde_json::from_value::<SecurityTransactionContinueRequestBody>(value).is_err());
     }
 
     #[test]

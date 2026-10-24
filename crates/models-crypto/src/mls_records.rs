@@ -354,6 +354,8 @@ pub struct MlsGroupStateRecord {
     pub group_id: MlsGroupId,
     pub actor_id: ActorId,
     pub endpoint: MlsEndpointIdentity,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub epoch: u64,
     pub serialized_state: Vec<u8>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]

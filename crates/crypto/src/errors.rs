@@ -96,7 +96,7 @@ pub enum KeyBackupError {
     /// material.
     #[error("key backup RNG failure: {0}")]
     Rng(String),
-    /// Argon2 / HKDF key-derivation failure (bad params or hashing error).
+    /// Argon2 / HKDF key-derivation failure (bad parameters or hashing error).
     #[error("key backup key-derivation failure: {0}")]
     Kdf(String),
     /// XChaCha20-Poly1305 AEAD encrypt/decrypt failure (includes a failed

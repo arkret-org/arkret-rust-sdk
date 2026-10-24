@@ -145,7 +145,7 @@ pub enum ErasureReceiptRejectionStatus {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(untagged)]
-pub enum ErasureReceiptSubmitOutcome {
+pub enum ErasureReceiptSubmitResponseBody {
     Accepted(ErasureReceiptAcceptance),
     Rejected(ErasureReceiptRejection),
 }

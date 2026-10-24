@@ -158,7 +158,7 @@ mod tests {
                 "principal_id": PRINCIPAL,
                 "actor_kind": "user",
                 "display_name": "Alice",
-                "profile_fields": {"bio": "hi"}
+                "profile_fields": {"biography": "hi"}
             }
         }))
         .unwrap();
@@ -188,7 +188,7 @@ mod tests {
         let current = created();
         let payload: ActorProfileUpdatePayload = serde_json::from_value(json!({
             "target_ref": current.id,
-            "patch": {"display_name": "Alice C.", "profile_fields.bio": {"$op": "unset"}},
+            "patch": {"display_name": "Alice C.", "profile_fields.biography": {"$op": "unset"}},
             "expected_state_digest": ActorProfileUpdatePayload::state_digest(&current).unwrap()
         }))
         .unwrap();

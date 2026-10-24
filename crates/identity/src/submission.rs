@@ -538,7 +538,7 @@ mod tests {
 
     #[test]
     fn endpoint_rebinding_preserves_exact_verified_bytes_and_rejects_mutated_draft() {
-        use arkret_models_collaboration::authority_commit::SelfAuthoritySubmitRequest;
+        use arkret_models_collaboration::authority_commit::SelfAuthoritySubmitRequestBody;
         use arkret_wire::EventAdmissionSubmission;
         let (wire, context) = signed();
         let original = EventAdmissionSubmission::new(wire.clone());
@@ -549,7 +549,9 @@ mod tests {
             bytes
         );
         let endpoint = verified
-            .rebind(SelfAuthoritySubmitRequest::Event(verified.wire().clone()))
+            .rebind(SelfAuthoritySubmitRequestBody::Event(
+                verified.wire().clone(),
+            ))
             .unwrap();
         assert_eq!(
             arkret_canonical::canonical_json_bytes(&endpoint).unwrap(),

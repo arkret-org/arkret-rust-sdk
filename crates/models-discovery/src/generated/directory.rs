@@ -2,16 +2,16 @@
 //! Generator: tools/generate-closed-models.py
 //!
 //! Input: schemas/service-operation-dtos.schema.json
-//! sha256=3e3a36a140c4328b66c09fa32714d5b36acc9c9d64fabf0b961add6fa0567fe0
+//! sha256=18415d05b61700be7b69081cf070ed3c41de10f8e43cabea16992ae94a0f37d9
 //!
 //! Input: schemas/directory-operations.schema.json
-//! sha256=89220e1647acb03806220ccd2da3f4e4af805f5907b07d4c2aba6decf6e037ad
+//! sha256=2dcbff9f2c3fadf2c539a08da77cbca00448f8b643cc95a0c727a08b840e9d08
 //!
 //! Input: schemas/time.schema.json
 //! sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
 //!
 //! Bindings: tools/closed-model-bindings.json
-//! sha256=d200bd3e6d76abd1b6154781fb5e54f11fbbc834638cdc29554f83590127fdfa
+//! sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
 
 /// Counterpart: `service-operation-dtos.schema.json#/$defs/PublicRealmMetadata`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -77,11 +77,11 @@ pub struct DirectorySearchRealmsRequestBody {
     pub cursor: Option<String>,
 }
 
-/// Counterpart: `directory-operations.schema.json#/$defs/directory_realm_search_outcome`.
+/// Counterpart: `directory-operations.schema.json#/$defs/directory_realm_search_response_body`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct DirectoryRealmSearchOutcome {
+pub struct DirectoryRealmSearchResponseBody {
     pub realms: Vec<PublicRealmDirectoryEntry>,
     pub has_more: bool,
     #[serde(

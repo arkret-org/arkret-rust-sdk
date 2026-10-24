@@ -5,7 +5,7 @@
 //! it pins **what** was verified (`did` / `method` / `verification_method`),
 //! **for whom** (`trust_domain` / `purpose`), **against which evidence**
 //! (`document_digest` / `history_head` / `version_id` / `evidence_digest` /
-//! `policy_digest`) and **for how long** (`verified_at` / `refresh_after` /
+//! `policy_digest`) and **for how long** (`verified_at` / `refresh_at` /
 //! `expires_at` / `status`).
 //!
 //! The type has no public fields. Every instance goes through
@@ -132,7 +132,7 @@ impl std::fmt::Display for DidBindingPurpose {
 pub enum DidBindingStatus {
     /// Verified and inside its freshness window.
     Active,
-    /// Past `refresh_after` but not hard-expired. Usable for ordinary
+    /// Past `refresh_at` but not hard-expired. Usable for ordinary
     /// verification; an authority path must refresh or fail closed.
     Stale,
     /// The DID (or this key) was deactivated. Never usable.
@@ -246,7 +246,7 @@ fn pin_state(present: bool, absent: PinState) -> PinState {
 // Freshness profile and requirement
 // ============================================================================
 
-/// What a call site does with a binding that is past `refresh_after` (§5.4).
+/// What a call site does with a binding that is past `refresh_at` (§5.4).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum StaleBehavior {
@@ -265,7 +265,7 @@ impl FreshnessProfile {
     /// parameters and the id is not.
     ///
     /// `fresh_for` is the single freshness threshold: it is where
-    /// `refresh_after` lands and it is the authority `max_age`. Passing a
+    /// `refresh_at` lands and it is the authority `max_age`. Passing a
     /// `hard_expiry` shorter than it is rejected by the §5.4 tier constraint
     /// `0 < fresh_for <= hard_expiry`, so the caller gets the clamped value
     /// rather than a row that claims a window it cannot honor.
@@ -315,7 +315,7 @@ impl FreshnessProfile {
     /// | `low` | unbounded (hard expiry still applies) | yes, and never with a live fallback |
     ///
     /// `fresh_for_seconds` stays the single freshness threshold: it is where
-    /// `refresh_after` lands for every tier, and it is the `high` tier's
+    /// `refresh_at` lands for every tier, and it is the `high` tier's
     /// `max_age`. A tier that consumes stale bindings is bounded by its grace
     /// window instead, not by a second independently maintained constant.
     pub fn requirement(&self) -> FreshnessRequirement {
@@ -329,8 +329,8 @@ impl FreshnessProfile {
         }
     }
 
-    /// `refresh_after` for a binding verified at `verified_at`.
-    pub fn refresh_after(&self, verified_at: DateTime<Utc>) -> Option<DateTime<Utc>> {
+    /// `refresh_at` for a binding verified at `verified_at`.
+    pub fn refresh_at(&self, verified_at: DateTime<Utc>) -> Option<DateTime<Utc>> {
         self.max_age().map(|window| verified_at + window)
     }
 
@@ -366,7 +366,7 @@ pub struct FreshnessRequirement {
     /// profile's `fresh_for_seconds`. `None` only for a profile that declares no
     /// freshness threshold at all (a `low` accepted-only row).
     pub max_age: Option<Duration>,
-    /// When `true`, a binding past its `refresh_after` point (status `Stale`)
+    /// When `true`, a binding past its `refresh_at` point (status `Stale`)
     /// is rejected and the caller refreshes or fails closed.
     pub require_fresh: bool,
 }
@@ -400,16 +400,16 @@ pub enum BindingError {
         verified_at: DateTime<Utc>,
         expires_at: DateTime<Utc>,
     },
-    /// `refresh_after` precedes `verified_at`.
-    #[error("refresh_after {refresh_after} must not precede verified_at {verified_at}")]
+    /// `refresh_at` precedes `verified_at`.
+    #[error("refresh_at {refresh_at} must not precede verified_at {verified_at}")]
     RefreshBeforeVerification {
         verified_at: DateTime<Utc>,
-        refresh_after: DateTime<Utc>,
+        refresh_at: DateTime<Utc>,
     },
-    /// `refresh_after` is past the hard-expiry point.
-    #[error("refresh_after {refresh_after} must not exceed expires_at {expires_at}")]
+    /// `refresh_at` is past the hard-expiry point.
+    #[error("refresh_at {refresh_at} must not exceed expires_at {expires_at}")]
     RefreshAfterExpiry {
-        refresh_after: DateTime<Utc>,
+        refresh_at: DateTime<Utc>,
         expires_at: DateTime<Utc>,
     },
     /// A pin is missing but no limited-trust record was carried.
@@ -500,7 +500,7 @@ pub struct VerifiedDidBindingInput {
         default,
         with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
     )]
-    pub refresh_after: Option<DateTime<Utc>>,
+    pub refresh_at: Option<DateTime<Utc>>,
     /// Hard-expiry point; past it the binding no longer exists for readers.
     #[serde(
         default,
@@ -528,7 +528,7 @@ pub struct VerifiedDidBindingDocumentInput {
     pub evidence_dependencies: EvidenceDependencies,
     pub policy_digest: Hash,
     pub verified_at: DateTime<Utc>,
-    pub refresh_after: Option<DateTime<Utc>>,
+    pub refresh_at: Option<DateTime<Utc>>,
     pub expires_at: Option<DateTime<Utc>>,
     pub status: DidBindingStatus,
 }
@@ -558,8 +558,8 @@ impl VerifiedDidBinding {
     ///
     /// 1. `method` that disagrees with `did.method()`;
     /// 2. a `verification_method` whose DID part is not `did`;
-    /// 3. an incoherent freshness window (`expires_at <= verified_at`, `refresh_after <
-    ///    verified_at`, `refresh_after > expires_at`);
+    /// 3. an incoherent freshness window (`expires_at <= verified_at`, `refresh_at < verified_at`,
+    ///    `refresh_at > expires_at`);
     /// 4. a missing `history_head` / `version_id` pin with no recorded [`LimitedTrust`] state (and
     ///    vice versa).
     ///
@@ -573,8 +573,8 @@ impl VerifiedDidBinding {
     /// that no round-trip through the store can preserve.
     pub fn new(mut input: VerifiedDidBindingInput) -> Result<Self, BindingError> {
         input.verified_at = canonical::normalize_timestamp_canonical(input.verified_at);
-        input.refresh_after = input
-            .refresh_after
+        input.refresh_at = input
+            .refresh_at
             .map(canonical::normalize_timestamp_canonical);
         input.expires_at = input
             .expires_at
@@ -614,18 +614,18 @@ impl VerifiedDidBinding {
                 expires_at,
             });
         }
-        if let Some(refresh_after) = input.refresh_after {
-            if refresh_after < input.verified_at {
+        if let Some(refresh_at) = input.refresh_at {
+            if refresh_at < input.verified_at {
                 return Err(BindingError::RefreshBeforeVerification {
                     verified_at: input.verified_at,
-                    refresh_after,
+                    refresh_at,
                 });
             }
             if let Some(expires_at) = input.expires_at
-                && refresh_after > expires_at
+                && refresh_at > expires_at
             {
                 return Err(BindingError::RefreshAfterExpiry {
-                    refresh_after,
+                    refresh_at,
                     expires_at,
                 });
             }
@@ -692,7 +692,7 @@ impl VerifiedDidBinding {
             evidence_dependencies: input.evidence_dependencies,
             policy_digest: input.policy_digest,
             verified_at: input.verified_at,
-            refresh_after: input.refresh_after,
+            refresh_at: input.refresh_at,
             expires_at: input.expires_at,
             status: input.status,
         })
@@ -751,8 +751,8 @@ impl VerifiedDidBinding {
             if self.inner.status != DidBindingStatus::Active {
                 return false;
             }
-            if let Some(refresh_after) = self.inner.refresh_after
-                && now > refresh_after
+            if let Some(refresh_at) = self.inner.refresh_at
+                && now > refresh_at
             {
                 return false;
             }
@@ -836,8 +836,8 @@ impl VerifiedDidBinding {
     }
 
     /// Background-refresh point.
-    pub fn refresh_after(&self) -> Option<DateTime<Utc>> {
-        self.inner.refresh_after
+    pub fn refresh_at(&self) -> Option<DateTime<Utc>> {
+        self.inner.refresh_at
     }
 
     /// Hard-expiry point.
@@ -924,7 +924,7 @@ mod tests {
             evidence_dependencies: EvidenceDependencies::default(),
             policy_digest: hash(0x44),
             verified_at: Utc::now(),
-            refresh_after: None,
+            refresh_at: None,
             expires_at: None,
             status: DidBindingStatus::Active,
         }
@@ -973,7 +973,7 @@ mod tests {
     #[test]
     fn rejects_refresh_point_outside_the_window() {
         let mut before = input();
-        before.refresh_after = Some(before.verified_at - Duration::seconds(1));
+        before.refresh_at = Some(before.verified_at - Duration::seconds(1));
         assert!(matches!(
             VerifiedDidBinding::new(before),
             Err(BindingError::RefreshBeforeVerification { .. })
@@ -981,7 +981,7 @@ mod tests {
 
         let mut after = input();
         after.expires_at = Some(after.verified_at + Duration::minutes(5));
-        after.refresh_after = Some(after.verified_at + Duration::minutes(6));
+        after.refresh_at = Some(after.verified_at + Duration::minutes(6));
         assert!(matches!(
             VerifiedDidBinding::new(after),
             Err(BindingError::RefreshAfterExpiry { .. })
@@ -1174,7 +1174,7 @@ mod tests {
                 evidence_dependencies: EvidenceDependencies::default(),
                 policy_digest: hash(0x66),
                 verified_at: Utc::now(),
-                refresh_after: None,
+                refresh_at: None,
                 expires_at: None,
                 status: DidBindingStatus::Active,
             },

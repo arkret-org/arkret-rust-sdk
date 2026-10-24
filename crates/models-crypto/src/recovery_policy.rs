@@ -144,7 +144,7 @@ impl RecoveryMethod {
 }
 
 // Field declaration order is byte-for-byte the properties order of
-// recovery-policy.schema.json#/properties/auth_data.
+// recovery-policy.schema.json#/properties/signature_proof.
 
 // Field declaration order is byte-for-byte the properties order of
 // recovery-policy.schema.json#/properties.
@@ -175,7 +175,7 @@ pub struct RecoveryPolicy {
         with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
     )]
     pub expires_at: Option<DateTime<Utc>>,
-    pub auth_data: RecoveryPolicyAuthData,
+    pub signature_proof: RecoveryPolicySignatureProof,
     pub methods: Vec<RecoveryMethod>,
     #[serde(default, flatten)]
     pub extra: XExtensionMap,
@@ -222,8 +222,8 @@ impl RecoveryPolicy {
 ///
 /// The v1 transcript is
 /// `UTF8("ak.identity.recovery_policy.signature.v1\n") || RFC8785_JCS(policy
-/// without the top-level auth_data member)`. Every present optional and `x_*`
-/// top-level member remains covered; only `auth_data` is excluded as one whole
+/// without the top-level signature_proof member)`. Every present optional and `x_*`
+/// top-level member remains covered; only `signature_proof` is excluded as one whole
 /// top-level member.
 pub fn recovery_policy_signature_transcript_bytes(policy: &RecoveryPolicy) -> Result<Vec<u8>> {
     policy.validate_shape()?;
@@ -231,10 +231,10 @@ pub fn recovery_policy_signature_transcript_bytes(policy: &RecoveryPolicy) -> Re
     let removed = value
         .as_object_mut()
         .ok_or_else(|| WireError::Protocol("recovery policy must be an object".to_owned()))?
-        .remove("auth_data");
+        .remove("signature_proof");
     if removed.is_none() {
         return Err(WireError::Protocol(
-            "recovery policy is missing auth_data".to_owned(),
+            "recovery policy is missing signature_proof".to_owned(),
         ));
     }
     let canonical = arkret_canonical::canonical_json_bytes(&value)?;
@@ -292,9 +292,9 @@ impl RecoveryPolicySummary {
 // recovery-policy.schema.json#/$defs/authority_stream_head.
 
 // Field declaration order is byte-for-byte the properties order of
-// recovery-policy.schema.json#/$defs/recovery_policy_active_outcome.
+// recovery-policy.schema.json#/$defs/recovery_policy_status_view.
 
-impl RecoveryPolicyActiveOutcome {
+impl RecoveryPolicyStatusView {
     pub fn validate_shape(&self) -> Result<()> {
         match (&self.active_policy, &self.recovery_policy_ref) {
             (None, Some(_)) => Err(WireError::Protocol(
@@ -318,7 +318,7 @@ impl RecoveryPolicyActiveOutcome {
 }
 
 // Field declaration order is byte-for-byte the properties order of
-// recovery-policy.schema.json#/$defs/recovery_policy_publish_outcome.
+// recovery-policy.schema.json#/$defs/recovery_policy_publish_response_body.
 
 #[cfg(test)]
 pub(crate) mod fixtures {
@@ -367,7 +367,7 @@ pub(crate) mod fixtures {
             "supersedes_id": null,
             "trust_domain": TRUST_DOMAIN,
             "issued_at": "2026-08-01T00:00:00.000Z",
-            "auth_data": {
+            "signature_proof": {
                 "verification_method": "did:webvh:z6mkfixture:alice.example#founding-device",
                 "signature_algorithm": "Ed25519",
                 "signature": "Zml4dHVyZS1zaWduYXR1cmU"
@@ -395,7 +395,13 @@ mod tests {
 
     #[test]
     fn recovery_policy_rejects_missing_required_members() {
-        for member in ["schema", "policy_id", "account_id", "auth_data", "methods"] {
+        for member in [
+            "schema",
+            "policy_id",
+            "account_id",
+            "signature_proof",
+            "methods",
+        ] {
             let mut missing = fixtures::policy();
             missing.as_object_mut().unwrap().remove(member);
             assert!(
@@ -467,13 +473,13 @@ mod tests {
             .unwrap();
 
         let mut changed_auth = policy.clone();
-        changed_auth.auth_data.verification_method =
+        changed_auth.signature_proof.verification_method =
             DidUrl::new("did:web:ignored.example#other".to_owned()).unwrap();
-        changed_auth.auth_data.signature = Base64UrlString::new("aGVsbG8").unwrap();
+        changed_auth.signature_proof.signature = Base64UrlString::new("aGVsbG8").unwrap();
         assert_eq!(
             recovery_policy_signature_transcript_bytes(&changed_auth).unwrap(),
             transcript,
-            "the whole top-level auth_data member is excluded"
+            "the whole top-level signature_proof member is excluded"
         );
 
         let mut tampered = policy;
@@ -587,12 +593,12 @@ mod tests {
     #[test]
     fn active_outcome_absent_policy_forbids_a_policy_ref() {
         let value = json!({"active_policy": null});
-        let parsed: RecoveryPolicyActiveOutcome =
+        let parsed: RecoveryPolicyStatusView =
             serde_json::from_value(value.clone()).expect("closed outcome");
         parsed.validate_shape().expect("null read is a success");
         assert_eq!(serde_json::to_value(&parsed).unwrap(), value);
 
-        let with_ref: RecoveryPolicyActiveOutcome = serde_json::from_value(json!({
+        let with_ref: RecoveryPolicyStatusView = serde_json::from_value(json!({
             "active_policy": null,
             "recovery_policy_ref": {"policy_id": fixtures::POLICY_ID, "policy_version": 1}
         }))
@@ -604,7 +610,7 @@ mod tests {
             .as_object_mut()
             .unwrap()
             .insert("observed_frontier".to_owned(), json!([]));
-        assert!(serde_json::from_value::<RecoveryPolicyActiveOutcome>(unknown).is_err());
+        assert!(serde_json::from_value::<RecoveryPolicyStatusView>(unknown).is_err());
     }
 
     #[test]
@@ -629,7 +635,7 @@ mod tests {
             "acceptance_basis_ref": RealmCommitId::from_digest([5; 32]),
             "accepted_at": "2026-08-02T00:00:00.000Z"
         });
-        let parsed: RecoveryPolicyPublishOutcome =
+        let parsed: RecoveryPolicyPublishResponseBody =
             serde_json::from_value(value.clone()).expect("closed outcome");
         assert_eq!(serde_json::to_value(&parsed).unwrap(), value);
 
@@ -638,16 +644,16 @@ mod tests {
             .as_object_mut()
             .unwrap()
             .insert("accepted_frontier".to_owned(), json!([]));
-        assert!(serde_json::from_value::<RecoveryPolicyPublishOutcome>(unknown).is_err());
+        assert!(serde_json::from_value::<RecoveryPolicyPublishResponseBody>(unknown).is_err());
 
         let mut missing = value;
         missing.as_object_mut().unwrap().remove("version");
-        assert!(serde_json::from_value::<RecoveryPolicyPublishOutcome>(missing).is_err());
+        assert!(serde_json::from_value::<RecoveryPolicyPublishResponseBody>(missing).is_err());
     }
 }
 
 /// Counterpart for
-/// `recovery-policy.schema.json#/$defs/recovery_policy_publish_request`.
+/// `recovery-policy.schema.json#/$defs/recovery_policy_publish_request_body`.
 ///
 /// The schema is `EventAdmissionSubmission` narrowed to `ak.policy.set` carrying
 /// a `recovery_policy_set_payload`, so publication uses the ordinary
@@ -656,17 +662,17 @@ mod tests {
 /// of any other kind, or one whose payload is not a recovery policy, never
 /// becomes a publish request.
 // The single member is the `EventAdmissionSubmission` the schema composes with;
-// `recovery-policy.schema.json#/$defs/recovery_policy_publish_request` adds no
+// `recovery-policy.schema.json#/$defs/recovery_policy_publish_request_body` adds no
 // property of its own.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(transparent)]
-pub struct RecoveryPolicyPublishRequest {
+pub struct RecoveryPolicyPublishRequestBody {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     submission: EventAdmissionSubmission,
 }
 
-impl RecoveryPolicyPublishRequest {
+impl RecoveryPolicyPublishRequestBody {
     pub fn new(submission: EventAdmissionSubmission) -> Result<Self> {
         let request = Self { submission };
         request.validate()?;
@@ -716,7 +722,7 @@ impl RecoveryPolicyPublishRequest {
     }
 }
 
-impl<'de> Deserialize<'de> for RecoveryPolicyPublishRequest {
+impl<'de> Deserialize<'de> for RecoveryPolicyPublishRequestBody {
     fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -758,7 +764,7 @@ mod recovery_policy_publish_tests {
                 "supersedes_id": null,
                 "trust_domain": "ak:trust_domain:station.example",
                 "issued_at": "2026-09-16T00:00:00.000Z",
-                "auth_data": {
+                "signature_proof": {
                     "verification_method": "did:web:station.example#key-1",
                     "signature_algorithm": "Ed25519",
                     "signature": "c2lnbmF0dXJl"
@@ -787,7 +793,8 @@ mod recovery_policy_publish_tests {
     #[test]
     fn a_recovery_policy_set_submission_round_trips() {
         let value = submission_value("ak.policy.set", recovery_policy_payload_value());
-        let request: RecoveryPolicyPublishRequest = serde_json::from_value(value.clone()).unwrap();
+        let request: RecoveryPolicyPublishRequestBody =
+            serde_json::from_value(value.clone()).unwrap();
         assert_eq!(request.event().kind, EventKind::PolicySet);
         assert_eq!(request.account_id().unwrap(), holder());
         assert_eq!(request.payload().unwrap().value.policy_id.as_str(), POLICY);
@@ -797,7 +804,7 @@ mod recovery_policy_publish_tests {
     #[test]
     fn only_ak_policy_set_may_publish_a_recovery_policy() {
         let value = submission_value("ak.realm.policy_bundle", recovery_policy_payload_value());
-        assert!(serde_json::from_value::<RecoveryPolicyPublishRequest>(value).is_err());
+        assert!(serde_json::from_value::<RecoveryPolicyPublishRequestBody>(value).is_err());
     }
 
     #[test]
@@ -818,7 +825,7 @@ mod recovery_policy_publish_tests {
             }
         });
         let value = submission_value("ak.policy.set", governance);
-        assert!(serde_json::from_value::<RecoveryPolicyPublishRequest>(value).is_err());
+        assert!(serde_json::from_value::<RecoveryPolicyPublishRequestBody>(value).is_err());
     }
 
     #[test]
@@ -829,7 +836,7 @@ mod recovery_policy_publish_tests {
             .unwrap()
             .insert("policy_id".to_owned(), json!(OTHER_POLICY));
         let value = submission_value("ak.policy.set", mismatched);
-        assert!(serde_json::from_value::<RecoveryPolicyPublishRequest>(value).is_err());
+        assert!(serde_json::from_value::<RecoveryPolicyPublishRequestBody>(value).is_err());
     }
 
     #[test]
@@ -839,13 +846,13 @@ mod recovery_policy_publish_tests {
             .as_object_mut()
             .unwrap()
             .insert("commit".to_owned(), json!({}));
-        assert!(serde_json::from_value::<RecoveryPolicyPublishRequest>(value).is_err());
+        assert!(serde_json::from_value::<RecoveryPolicyPublishRequestBody>(value).is_err());
     }
 
     #[test]
     fn an_empty_method_set_publishes_an_explicit_revocation() {
         let value = submission_value("ak.policy.set", recovery_policy_payload_value());
-        let request: RecoveryPolicyPublishRequest = serde_json::from_value(value).unwrap();
+        let request: RecoveryPolicyPublishRequestBody = serde_json::from_value(value).unwrap();
         assert!(request.payload().unwrap().value.revokes_recovery());
     }
 }

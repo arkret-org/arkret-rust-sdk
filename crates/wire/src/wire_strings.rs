@@ -730,7 +730,7 @@ impl<'de> Deserialize<'de> for NonEmptyJsonObject {
 /// (`zh/extensions/mimi-interop.md` §4). Two spellings of one room would
 /// otherwise each own a "first accepted binding" and the `revoked` terminal
 /// state could be bypassed by respelling, because the subject is what names
-/// the typed current result the binding writes to. A non-canonical value is
+/// the current state the binding writes to. A non-canonical value is
 /// rejected here; it is never normalized and then accepted.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 #[serde(transparent)]

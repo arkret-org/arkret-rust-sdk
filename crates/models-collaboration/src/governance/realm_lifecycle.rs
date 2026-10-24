@@ -89,7 +89,7 @@ pub struct MemberCountHysteresis {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub absolute: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub ratio: Option<f64>,
+    pub ratio_basis_points: Option<u16>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

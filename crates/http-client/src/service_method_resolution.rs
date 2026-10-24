@@ -123,7 +123,7 @@ where
                 let document = DidWebResolver::new()
                     .insert_from_https_response(
                         &current_did,
-                        arkret_identity::DidWebDocumentOutcome {
+                        arkret_identity::DidWebDocumentHttpResponse {
                             url,
                             content_type,
                             body,
@@ -152,7 +152,7 @@ where
                 resolver
                     .insert_from_https_response(
                         &current_did,
-                        arkret_identity::DidWebvhDocumentOutcome {
+                        arkret_identity::DidWebvhDocumentHttpResponse {
                             url: doc_url,
                             content_type: doc_type,
                             body: doc_body,
@@ -164,7 +164,7 @@ where
                 resolver
                     .ingest_log(
                         &current_did,
-                        arkret_identity::DidWebvhLogOutcome {
+                        arkret_identity::DidWebvhLogHttpResponse {
                             url: log_url,
                             content_type: log_type,
                             body: log_body,
@@ -346,7 +346,7 @@ mod tests {
                 provider_endpoint: &provider,
                 registration_key: &registration,
                 also_known_as: &[],
-                version_time: Utc::now() - chrono::Duration::minutes(1),
+                version_created_at: Utc::now() - chrono::Duration::minutes(1),
                 did_key_fragment: None,
             },
         )

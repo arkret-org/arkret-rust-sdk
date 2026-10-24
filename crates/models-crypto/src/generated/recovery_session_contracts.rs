@@ -2,19 +2,19 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/recovery-session.schema.json
-// sha256=8a9bfd64d8eb6c86b035c57c8da9d4d38a3db63ef0a08ed0e61add38250b6a05
+// sha256=d1611974b0c00d6bd347ff52e1842366ec13eea38b8b81a0ce533ab0e9c5fffd
 //
 // Input: schemas/account-operations.schema.json
-// sha256=5b7dba680c2083d0bebc26ad32e7d37293d150cece8f2298a40bf382e7f31405
+// sha256=78c6503698cd43571f2b25543013f9036927ef9bfd005e71377ad3006f4a64d4
 //
 // Input: schemas/recovery-policy.schema.json
-// sha256=819fc1da2cfe93f35ca0ee9802a6a621f227e22d8ec61d499bb11721f546a741
+// sha256=64ee8fa0a54cb044195141e91cfb8989320d304f2ebef750eaa857ef712a4b05
 //
 // Input: schemas/recovery-authority.schema.json
-// sha256=175897c1fe545d915a82fa9244f7d2a31a2fd2169e16f811c0eac424c6102047
+// sha256=ef16f627ed7099bb47c7641250230cbca051c3f9fd131a66fe674296363d8353
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=d200bd3e6d76abd1b6154781fb5e54f11fbbc834638cdc29554f83590127fdfa
+// sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
 
 /// Counterpart: `recovery-session.schema.json#/$defs/proof_summary`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -216,11 +216,11 @@ pub struct RecoverySessionProofSubmitRequestBody {
     pub proof: RecoverySessionProof,
 }
 
-/// Counterpart: `recovery-session.schema.json#/$defs/recovery_session_proof_submit_outcome`.
+/// Counterpart: `recovery-session.schema.json#/$defs/recovery_session_proof_submit_response_body`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RecoverySessionProofSubmitOutcome {
+pub struct RecoverySessionProofSubmitResponseBody {
     pub recovery_session_id: RecoverySessionId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]

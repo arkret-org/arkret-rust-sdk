@@ -1,9 +1,9 @@
 //! Canonical KeyPackage write signatures.
 
 use arkret_models_crypto::{
-    KeyOperationSignature, KeyPackagesConsumeUnsignedRequest, KeyPackagesRevokeUnsignedRequest,
-    KeyPackagesUploadUnsignedRequest, keypackages_consume_signing_input,
-    keypackages_revoke_signing_input, keypackages_upload_signing_input,
+    KeyOperationSignature, KeyPackagesConsumeFields, KeyPackagesRevokeFields,
+    KeyPackagesUploadFields, keypackages_consume_signing_input, keypackages_revoke_signing_input,
+    keypackages_upload_signing_input,
 };
 use arkret_wire::{Base64UrlString, NonEmptyString};
 use base64::Engine as _;
@@ -41,7 +41,7 @@ pub fn keypackage_signature_from_bytes(
         signature_algorithm: Some(
             NonEmptyString::new("Ed25519").expect("static algorithm is non-empty"),
         ),
-        sig: Base64UrlString::new(URL_SAFE_NO_PAD.encode(signature))
+        signature: Base64UrlString::new(URL_SAFE_NO_PAD.encode(signature))
             .expect("Ed25519 signature base64url is valid"),
     })
 }
@@ -73,7 +73,7 @@ pub fn verify_keypackage_signing_input(
         return Err(KeyPackageSignatureError::UnsupportedAlgorithm);
     }
     let signature_bytes = URL_SAFE_NO_PAD
-        .decode(signature.sig.as_str())
+        .decode(signature.signature.as_str())
         .map_err(|_| KeyPackageSignatureError::InvalidSignatureEncoding)?;
     let signature = Signature::from_slice(&signature_bytes)
         .map_err(|_| KeyPackageSignatureError::InvalidSignatureEncoding)?;
@@ -85,7 +85,7 @@ pub fn verify_keypackage_signing_input(
 }
 
 pub fn sign_keypackages_upload_request(
-    unsigned: &KeyPackagesUploadUnsignedRequest,
+    unsigned: &KeyPackagesUploadFields,
     verification_method: &str,
     signing_seed: &[u8; 32],
 ) -> KeyPackageSignatureResult<KeyOperationSignature> {
@@ -97,7 +97,7 @@ pub fn sign_keypackages_upload_request(
 }
 
 pub fn sign_keypackages_consume_request(
-    unsigned: &KeyPackagesConsumeUnsignedRequest,
+    unsigned: &KeyPackagesConsumeFields,
     verification_method: &str,
     signing_seed: &[u8; 32],
 ) -> KeyPackageSignatureResult<KeyOperationSignature> {
@@ -109,7 +109,7 @@ pub fn sign_keypackages_consume_request(
 }
 
 pub fn sign_keypackages_revoke_request(
-    unsigned: &KeyPackagesRevokeUnsignedRequest,
+    unsigned: &KeyPackagesRevokeFields,
     verification_method: &str,
     signing_seed: &[u8; 32],
 ) -> KeyPackageSignatureResult<KeyOperationSignature> {
@@ -142,7 +142,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            signature.sig.as_str(),
+            signature.signature.as_str(),
             "MSNSXkOn8sYj6vDzAR5gLB_wYstyPNSCgHHKhnJO5qt-ZiYHIlL_ErLtBiv8n81Cn7asi4OCTzKK0wVej-pTAQ"
         );
         verify_keypackage_signing_input(

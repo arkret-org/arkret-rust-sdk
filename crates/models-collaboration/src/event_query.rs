@@ -248,7 +248,7 @@ where
 /// Complete durable frozen fanout target set for one caller-visible Event.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct EventDeliveryStatusOutcome {
+pub struct EventDeliveryStatusResponseBody {
     pub event_id: EventId,
     #[serde(
         deserialize_with = "deserialize_event_delivery_targets",
@@ -257,7 +257,7 @@ pub struct EventDeliveryStatusOutcome {
     pub targets: Vec<EventDeliveryTargetStatus>,
 }
 
-impl EventDeliveryStatusOutcome {
+impl EventDeliveryStatusResponseBody {
     pub fn validate(&self) -> arkret_wire::Result<()> {
         validate_event_delivery_targets(&self.targets)
     }
@@ -295,7 +295,8 @@ mod event_delivery_status_tests {
             serde_json::from_value(request_value.clone()).unwrap();
         assert_eq!(serde_json::to_value(request).unwrap(), request_value);
 
-        let outcome: EventDeliveryStatusOutcome = serde_json::from_value(outcome_value()).unwrap();
+        let outcome: EventDeliveryStatusResponseBody =
+            serde_json::from_value(outcome_value()).unwrap();
         outcome.validate().unwrap();
         assert_eq!(serde_json::to_value(outcome).unwrap(), outcome_value());
 
@@ -304,7 +305,7 @@ mod event_delivery_status_tests {
                 .unwrap()
                 .insert("unregistered_member".to_owned(), json!(true));
             if open.get("targets").is_some() {
-                assert!(serde_json::from_value::<EventDeliveryStatusOutcome>(open).is_err());
+                assert!(serde_json::from_value::<EventDeliveryStatusResponseBody>(open).is_err());
             } else {
                 assert!(serde_json::from_value::<EventDeliveryStatusRequestBody>(open).is_err());
             }
@@ -315,15 +316,15 @@ mod event_delivery_status_tests {
     fn delivery_status_rejects_invalid_opaque_ids_and_noncanonical_sets() {
         let mut invalid_id = outcome_value();
         invalid_id["targets"][0]["target_id"] = json!("ak:did_core:web:station.example");
-        assert!(serde_json::from_value::<EventDeliveryStatusOutcome>(invalid_id).is_err());
+        assert!(serde_json::from_value::<EventDeliveryStatusResponseBody>(invalid_id).is_err());
 
         let mut unsorted = outcome_value();
         unsorted["targets"].as_array_mut().unwrap().reverse();
-        assert!(serde_json::from_value::<EventDeliveryStatusOutcome>(unsorted).is_err());
+        assert!(serde_json::from_value::<EventDeliveryStatusResponseBody>(unsorted).is_err());
 
         let mut duplicate = outcome_value();
         duplicate["targets"][1]["target_id"] = json!("A_frozen_target_0001");
-        assert!(serde_json::from_value::<EventDeliveryStatusOutcome>(duplicate).is_err());
+        assert!(serde_json::from_value::<EventDeliveryStatusResponseBody>(duplicate).is_err());
 
         let target = json!({
             "target_id": "A_frozen_target_0001",
@@ -344,7 +345,7 @@ mod event_delivery_status_tests {
             })
             .collect::<Vec<_>>();
         assert!(
-            serde_json::from_value::<EventDeliveryStatusOutcome>(json!({
+            serde_json::from_value::<EventDeliveryStatusResponseBody>(json!({
                 "event_id": EVENT,
                 "targets": targets
             }))

@@ -2,16 +2,16 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/relation.schema.json
-// sha256=b9ea3ff011ef017dd52b4644d5a9e1b2c87ca4a227313475a5d6f02641917290
+// sha256=70545ff21fc729e799002ff573e2cf03f7c6e2096ae97437583e5fbc51b981a4
 //
 // Input: schemas/common-ids.schema.json
-// sha256=14226f0ac83e4d06639ad791cc0e52e0eb1c3b128cd4c8c12308a99b795141e4
+// sha256=0cc25a02fe0d9a94f6e41f2cf8f64e492ba36362f1e69a699cf1e684924837ee
 //
 // Input: schemas/event-envelope.schema.json
-// sha256=470926cd50b39da7f0b77bf374d7e30cdda0a684665bd9d72172926feddf6af4
+// sha256=4ddb02094d953f0a1d96ed17d777d649cadaaa39a417665a4ff5623f9d68a9a2
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=d200bd3e6d76abd1b6154781fb5e54f11fbbc834638cdc29554f83590127fdfa
+// sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
 
 /// Counterpart: `relation.schema.json#/$defs/relation_definition`.
 /// Closed authoring input for `ak.relation.create`.

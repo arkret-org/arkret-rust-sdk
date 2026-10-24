@@ -24,7 +24,7 @@ pub struct UnsignedAccountStatusRecord {
     pub account_id: AccountId,
     pub principal_control_realm_id: RealmId,
     pub binding_version: u64,
-    pub status_seq: u64,
+    pub status_sequence: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub previous_account_status_record_id: Option<AccountStatusRecordId>,
     pub status: AccountStatus,
@@ -50,12 +50,12 @@ impl UnsignedAccountStatusRecord {
             ));
         }
         self.account_id.validate()?;
-        if self.binding_version == 0 || self.status_seq == 0 {
+        if self.binding_version == 0 || self.status_sequence == 0 {
             return Err(WireError::Protocol(
                 "account status record bounds are invalid".into(),
             ));
         }
-        if self.status_seq == 1 {
+        if self.status_sequence == 1 {
             if self.previous_account_status_record_id.is_some()
                 || self.status != AccountStatus::Active
             {
@@ -152,7 +152,7 @@ impl UnsignedAccountStatusRecord {
             account_id: self.account_id,
             principal_control_realm_id: self.principal_control_realm_id,
             binding_version: self.binding_version,
-            status_seq: self.status_seq,
+            status_sequence: self.status_sequence,
             previous_account_status_record_id: self.previous_account_status_record_id,
             status: self.status,
             reason_code: self.reason_code,
@@ -176,7 +176,7 @@ pub struct AccountStatusRecord {
     pub account_id: AccountId,
     pub principal_control_realm_id: RealmId,
     pub binding_version: u64,
-    pub status_seq: u64,
+    pub status_sequence: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub previous_account_status_record_id: Option<AccountStatusRecordId>,
     pub status: AccountStatus,
@@ -203,7 +203,7 @@ impl AccountStatusRecord {
             account_id: self.account_id.clone(),
             principal_control_realm_id: self.principal_control_realm_id.clone(),
             binding_version: self.binding_version,
-            status_seq: self.status_seq,
+            status_sequence: self.status_sequence,
             previous_account_status_record_id: self.previous_account_status_record_id.clone(),
             status: self.status,
             reason_code: self.reason_code.clone(),
@@ -258,7 +258,7 @@ pub struct AccountStatusReceipt {
     pub record_digest: Hash,
     pub account_authority_id: DidCoreId,
     pub account_id: AccountId,
-    pub status_seq: u64,
+    pub status_sequence: u64,
     pub receiver_id: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
@@ -272,7 +272,7 @@ pub struct UnsignedAccountStatusReceipt {
     pub record_digest: Hash,
     pub account_authority_id: DidCoreId,
     pub account_id: AccountId,
-    pub status_seq: u64,
+    pub status_sequence: u64,
     pub receiver_id: DidCoreId,
     pub accepted_at: DateTime<Utc>,
     pub verification_method: DidUrl,
@@ -286,7 +286,7 @@ impl UnsignedAccountStatusReceipt {
             "record_digest": self.record_digest,
             "account_authority_id": self.account_authority_id,
             "account_id": self.account_id,
-            "status_seq": self.status_seq,
+            "status_sequence": self.status_sequence,
             "receiver_id": self.receiver_id,
             "accepted_at": arkret_canonical::format_timestamp_canonical(self.accepted_at),
         }))?)
@@ -335,7 +335,7 @@ impl UnsignedAccountStatusReceipt {
             record_digest: self.record_digest,
             account_authority_id: self.account_authority_id,
             account_id: self.account_id,
-            status_seq: self.status_seq,
+            status_sequence: self.status_sequence,
             receiver_id: self.receiver_id,
             accepted_at: self.accepted_at,
             proof,
@@ -353,9 +353,9 @@ impl AccountStatusReceipt {
 
     pub fn validate_shape(&self) -> Result<()> {
         self.account_id.validate()?;
-        if self.status_seq == 0 {
+        if self.status_sequence == 0 {
             return Err(WireError::Protocol(
-                "account status receipt status_seq must be positive".into(),
+                "account status receipt status_sequence must be positive".into(),
             ));
         }
         self.proof.validate_production()?;
@@ -379,7 +379,7 @@ impl AccountStatusReceipt {
             record_digest: self.record_digest.clone(),
             account_authority_id: self.account_authority_id.clone(),
             account_id: self.account_id.clone(),
-            status_seq: self.status_seq,
+            status_sequence: self.status_sequence,
             receiver_id: self.receiver_id.clone(),
             accepted_at: self.accepted_at,
             verification_method: self.proof.verification_method.clone(),
@@ -394,7 +394,7 @@ impl AccountStatusReceipt {
             || self.record_digest != record.payload_digest()?
             || self.account_authority_id != record.account_authority_id
             || self.account_id != record.account_id
-            || self.status_seq != record.status_seq
+            || self.status_sequence != record.status_sequence
         {
             return Err(WireError::Protocol(
                 "account status receipt binding mismatch".into(),

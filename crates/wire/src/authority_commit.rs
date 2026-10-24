@@ -212,7 +212,7 @@ pub struct DetachedObjectSignature {
     pub signed_digest: Hash,
     #[serde(serialize_with = "crate::serde_helpers::serialize_canonical_timestamp")]
     pub created_at: DateTime<Utc>,
-    pub sig: Base64UrlString,
+    pub signature: Base64UrlString,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -314,8 +314,7 @@ impl CalendarScheduleSourceValue {
 impl RealmAuthorityRootValue {
     pub fn validate(&self) -> Result<()> {
         const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
-        if self.controller_epoch > MAX_SAFE_INTEGER || self.authority_generation > MAX_SAFE_INTEGER
-        {
+        if self.controller_epoch > MAX_SAFE_INTEGER {
             return Err(WireError::Protocol(
                 "authority root counter exceeds the v1 integer range".into(),
             ));
@@ -449,7 +448,7 @@ impl RealmAuthorityHandoff {
                 "handoff signer inventory digest requires fixed SHA256".into(),
             ));
         }
-        if self.to_generation != self.from_generation.saturating_add(1) {
+        if self.from_generation.checked_add(1) != Some(self.to_generation) {
             return Err(WireError::Protocol(
                 "authority handoff generations must be consecutive".to_owned(),
             ));
@@ -528,6 +527,7 @@ impl RealmAuthorityTransition {
 #[serde(deny_unknown_fields)]
 pub struct RealmAuthorityCurrentAssertion {
     pub realm_id: RealmId,
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub current_generation: u64,
     pub current_service_id: DidCoreId,
     pub last_handoff_ref: Option<RealmAuthorityHandoffId>,
@@ -570,6 +570,7 @@ pub struct RealmAuthorityBundle {
     pub genesis_event: Event,
     pub genesis_commit: RealmCommit,
     pub authority_transitions: Vec<RealmAuthorityTransition>,
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub current_generation: u64,
     pub current_service_id: DidCoreId,
     /// Authenticated service resolution is owned by `arkret-models-identity`;
@@ -813,7 +814,7 @@ impl RealmAuthorityBundle {
     /// exists, so expired or future-issued assertions fail closed.
     pub fn validate_for_request(
         &self,
-        request: &AuthorityBundleRequest,
+        request: &RealmAuthorityBundleRequestBody,
         now: DateTime<Utc>,
     ) -> Result<()> {
         request.validate()?;
@@ -873,6 +874,8 @@ pub struct RealmSnapshotHistoryBasis {
 pub struct RealmStateSnapshot {
     pub snapshot_id: RealmSnapshotId,
     pub realm_id: RealmId,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub governance_generation: u64,
     pub purpose: RealmSnapshotPurpose,
     #[serde(
@@ -882,7 +885,7 @@ pub struct RealmStateSnapshot {
     )]
     pub history_basis: Option<RealmSnapshotHistoryBasis>,
     pub visible_stream_heads: Vec<CommitStreamHead>,
-    pub current_state_entries: Vec<TypedCurrentRow>,
+    pub current_state_entries: Vec<CurrentState>,
     pub retention_and_history_floor: RetentionAndHistoryFloor,
     #[serde(serialize_with = "crate::serde_helpers::serialize_canonical_timestamp")]
     pub created_at: DateTime<Utc>,
@@ -945,7 +948,7 @@ impl RealmStateSnapshot {
         let mut parent_seen = false;
         let mut member_seen = false;
         for row in &self.current_state_entries {
-            let TypedCurrentRow::Value {
+            let CurrentState::Value {
                 selector,
                 source_stream_ref,
                 revision,
@@ -1041,7 +1044,7 @@ pub struct MlsWelcomeDelivery {
     pub recipient_actor_id: ActorId,
     pub recipient_endpoint: MlsWelcomeRecipientEndpoint,
     pub keypackage_claim_ref: KeypackageClaimId,
-    pub ciphertext_b64: Base64UrlString,
+    pub ciphertext_base64url: Base64UrlString,
     pub producer_proof: DetachedObjectSignature,
 }
 
@@ -1055,12 +1058,12 @@ impl MlsWelcomeDelivery {
     }
 
     pub fn validate_shape(&self) -> Result<()> {
-        let ciphertext =
-            crate::base64url::base64url_decode(self.ciphertext_b64.as_str()).map_err(|_| {
+        let ciphertext = crate::base64url::base64url_decode(self.ciphertext_base64url.as_str())
+            .map_err(|_| {
                 WireError::Protocol("MLS Welcome ciphertext is not base64url".to_owned())
             })?;
         if ciphertext.is_empty()
-            || crate::base64url::base64url_encode(&ciphertext) != self.ciphertext_b64.as_str()
+            || crate::base64url::base64url_encode(&ciphertext) != self.ciphertext_base64url.as_str()
         {
             return Err(WireError::Protocol(
                 "MLS Welcome ciphertext must be canonical unpadded base64url".to_owned(),
@@ -1155,10 +1158,10 @@ impl ActorPrivateEventSubmitRequestBody {
 /// by `event_kind`. An exact retry returns the first stored outcome; no
 /// RealmCommit exists for these writes.
 ///
-/// Spec: `service-operation-dtos.schema.json#/$defs/ActorPrivateEventSubmitOutcome`.
+/// Spec: `service-operation-dtos.schema.json#/$defs/ActorPrivateEventSubmitResponseBody`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "event_kind", deny_unknown_fields)]
-pub enum ActorPrivateEventSubmitOutcome {
+pub enum ActorPrivateEventSubmitResponseBody {
     #[serde(rename = "ak.agent.action_reject")]
     AgentActionReject { accepted_event_id: EventId },
     #[serde(rename = "ak.agent.action_request")]
@@ -1174,7 +1177,7 @@ pub enum ActorPrivateEventSubmitOutcome {
     },
 }
 
-impl ActorPrivateEventSubmitOutcome {
+impl ActorPrivateEventSubmitResponseBody {
     #[must_use]
     pub fn accepted_event_id(&self) -> &EventId {
         match self {
@@ -1781,7 +1784,7 @@ pub enum CurrentSelector {
     },
     /// The reacted-to object: a reaction set is keyed per target and the
     /// payload carries no other target field
-    /// (`typed-current-result.schema.json#/$defs/message_reactions_result`).
+    /// (`current-state.schema.json#/$defs/current_message_reactions`).
     MessageReactions {
         target_ref: crate::ObjectRef,
     },
@@ -1805,7 +1808,7 @@ pub enum CurrentSelector {
     },
     RealmMediaService,
     /// The accepted `ak.self.moderation.report` Event's own id
-    /// (`typed-current-result.schema.json#/$defs/moderation_report_result`).
+    /// (`current-state.schema.json#/$defs/current_moderation_report`).
     ModerationReport {
         event_id: EventId,
     },
@@ -1814,13 +1817,13 @@ pub enum CurrentSelector {
         event_id: EventId,
     },
     /// The moderated target of `ak.moderation.decision` and its lift
-    /// (`typed-current-result.schema.json#/$defs/moderation_state_result`).
+    /// (`current-state.schema.json#/$defs/current_moderation_state`).
     ModerationState {
         target_ref: crate::ObjectRef,
     },
     /// The redacted target of `ak.message.redact` (its `message_id`) or of
     /// `ak.redaction` (its `target_ref`), spelled verbatim
-    /// (`typed-current-result.schema.json#/$defs/object_redaction_result`).
+    /// (`current-state.schema.json#/$defs/current_object_redaction`).
     ObjectRedaction {
         target_ref: crate::ObjectRef,
     },
@@ -1829,35 +1832,35 @@ pub enum CurrentSelector {
     },
     /// One Capability Grant's complete projection, keyed by its
     /// create-derived id
-    /// (`typed-current-result.schema.json#/$defs/capability_grant_result`).
+    /// (`current-state.schema.json#/$defs/current_capability_grant`).
     CapabilityGrant {
         grant_id: GrantId,
     },
     /// One Invite's process-state register
-    /// (`typed-current-result.schema.json#/$defs/invite_lifecycle_result`).
+    /// (`current-state.schema.json#/$defs/current_invite_lifecycle`).
     InviteLifecycle {
         invite_id: InviteId,
     },
     /// One invitee account's live directed-invite slot inside the Realm; the
     /// Realm is the envelope's, so it is not a subject member
-    /// (`typed-current-result.schema.json#/$defs/invite_live_target_result`).
+    /// (`current-state.schema.json#/$defs/current_invite_live_target`).
     InviteLiveTarget {
         invitee_account_id: AccountId,
     },
     /// One directed Invite's create-locked invitee
-    /// (`typed-current-result.schema.json#/$defs/invite_directed_invitee_result`).
+    /// (`current-state.schema.json#/$defs/current_invite_directed_invitee`).
     InviteDirectedInvitee {
         invite_id: InviteId,
     },
     /// One global Actor Profile, keyed by its create-derived id
-    /// (`typed-current-result.schema.json#/$defs/actor_profile_result`).
+    /// (`current-state.schema.json#/$defs/current_actor_profile`).
     ActorProfile {
         actor_profile_id: ActorProfileId,
     },
     /// One accountability endorsement. The Realm is the result's scope, so it
     /// is not a subject member; the scope set is the normalized exact set its
     /// composite subject digests
-    /// (`typed-current-result.schema.json#/$defs/identity_accountability_result`).
+    /// (`current-state.schema.json#/$defs/current_identity_accountability`).
     IdentityAccountability {
         issuer_id: DidCoreId,
         subject_id: DidCoreId,
@@ -2037,7 +2040,7 @@ enum FlatCurrentSelector {
     },
     RealmMediaService,
     /// The accepted `ak.self.moderation.report` Event's own id
-    /// (`typed-current-result.schema.json#/$defs/moderation_report_result`).
+    /// (`current-state.schema.json#/$defs/current_moderation_report`).
     ModerationReport {
         event_id: EventId,
     },
@@ -2045,13 +2048,13 @@ enum FlatCurrentSelector {
         event_id: EventId,
     },
     /// The moderated target of `ak.moderation.decision` and its lift
-    /// (`typed-current-result.schema.json#/$defs/moderation_state_result`).
+    /// (`current-state.schema.json#/$defs/current_moderation_state`).
     ModerationState {
         target_ref: crate::ObjectRef,
     },
     /// The redacted target of `ak.message.redact` (its `message_id`) or of
     /// `ak.redaction` (its `target_ref`), spelled verbatim
-    /// (`typed-current-result.schema.json#/$defs/object_redaction_result`).
+    /// (`current-state.schema.json#/$defs/current_object_redaction`).
     ObjectRedaction {
         target_ref: crate::ObjectRef,
     },
@@ -2060,35 +2063,35 @@ enum FlatCurrentSelector {
     },
     /// One Capability Grant's complete projection, keyed by its
     /// create-derived id
-    /// (`typed-current-result.schema.json#/$defs/capability_grant_result`).
+    /// (`current-state.schema.json#/$defs/current_capability_grant`).
     CapabilityGrant {
         grant_id: GrantId,
     },
     /// One Invite's process-state register
-    /// (`typed-current-result.schema.json#/$defs/invite_lifecycle_result`).
+    /// (`current-state.schema.json#/$defs/current_invite_lifecycle`).
     InviteLifecycle {
         invite_id: InviteId,
     },
     /// One invitee account's live directed-invite slot inside the Realm; the
     /// Realm is the envelope's, so it is not a subject member
-    /// (`typed-current-result.schema.json#/$defs/invite_live_target_result`).
+    /// (`current-state.schema.json#/$defs/current_invite_live_target`).
     InviteLiveTarget {
         invitee_account_id: AccountId,
     },
     /// One directed Invite's create-locked invitee
-    /// (`typed-current-result.schema.json#/$defs/invite_directed_invitee_result`).
+    /// (`current-state.schema.json#/$defs/current_invite_directed_invitee`).
     InviteDirectedInvitee {
         invite_id: InviteId,
     },
     /// One global Actor Profile, keyed by its create-derived id
-    /// (`typed-current-result.schema.json#/$defs/actor_profile_result`).
+    /// (`current-state.schema.json#/$defs/current_actor_profile`).
     ActorProfile {
         actor_profile_id: ActorProfileId,
     },
     /// One accountability endorsement. The Realm is the result's scope, so it
     /// is not a subject member; the scope set is the normalized exact set its
     /// composite subject digests
-    /// (`typed-current-result.schema.json#/$defs/identity_accountability_result`).
+    /// (`current-state.schema.json#/$defs/current_identity_accountability`).
     IdentityAccountability {
         issuer_id: DidCoreId,
         subject_id: DidCoreId,
@@ -2557,7 +2560,7 @@ pub enum MembershipState {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct MemberStateCurrent {
+pub struct MemberStateValue {
     pub membership: MembershipState,
     #[serde(
         default,
@@ -2574,8 +2577,8 @@ pub struct MemberStateCurrent {
 /// Deserialization enforces that conditional, so no invalid register exists.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(try_from = "CircleMemberStateCurrentWire")]
-pub struct CircleMemberStateCurrent {
+#[serde(try_from = "CircleMemberStateValueWire")]
+pub struct CircleMemberStateValue {
     pub membership: MembershipState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub parent_membership_revision: Option<CurrentRevision>,
@@ -2585,7 +2588,7 @@ pub struct CircleMemberStateCurrent {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct CircleMemberStateCurrentWire {
+struct CircleMemberStateValueWire {
     membership: MembershipState,
     #[serde(default, deserialize_with = "deserialize_present_revision")]
     parent_membership_revision: Option<CurrentRevision>,
@@ -2602,10 +2605,10 @@ where
     CurrentRevision::deserialize(deserializer).map(Some)
 }
 
-impl TryFrom<CircleMemberStateCurrentWire> for CircleMemberStateCurrent {
+impl TryFrom<CircleMemberStateValueWire> for CircleMemberStateValue {
     type Error = WireError;
 
-    fn try_from(value: CircleMemberStateCurrentWire) -> Result<Self> {
+    fn try_from(value: CircleMemberStateValueWire) -> Result<Self> {
         let current = Self {
             membership: value.membership,
             parent_membership_revision: value.parent_membership_revision,
@@ -2616,7 +2619,7 @@ impl TryFrom<CircleMemberStateCurrentWire> for CircleMemberStateCurrent {
     }
 }
 
-impl CircleMemberStateCurrent {
+impl CircleMemberStateValue {
     /// `parent_membership_revision` is present exactly on a `join` value.
     pub fn validate(&self) -> Result<()> {
         validate_parent_membership_revision(
@@ -2668,13 +2671,16 @@ pub fn validate_parent_membership_revision(is_join: bool, present: bool) -> Resu
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct MlsGroupCurrent {
+pub struct MlsGroupValue {
     pub effective_scope: ScopeRef,
     pub genesis_event_ref: EventId,
     pub cipher_suite: crate::NonEmptyString,
     pub current_mls_commit_event_ref: EventId,
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub epoch: u64,
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub current_key_access_revision: u64,
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub covered_key_access_revision: u64,
     pub public_tree_ref: crate::BlobRef,
 }
@@ -2686,8 +2692,8 @@ pub struct MlsGroupCurrent {
 /// through `arkret_models_collaboration::events_payloads::reaction`).
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum TypedCurrentRow {
+#[serde(untagged, deny_unknown_fields)]
+pub enum CurrentState {
     Value {
         selector: CurrentSelector,
         source_stream_ref: CommitStreamRef,
@@ -2696,7 +2702,7 @@ pub enum TypedCurrentRow {
     },
 }
 
-impl TypedCurrentRow {
+impl CurrentState {
     /// Circle join basis from one already verified parent Realm current row.
     /// The complete ActorId and exact Realm stream must match; only join qualifies.
     pub fn parent_membership_revision(
@@ -2715,7 +2721,7 @@ impl TypedCurrentRow {
         };
         (actor_id == member
             && realm_id == parent_realm
-            && serde_json::from_value::<MemberStateCurrent>(value.clone())
+            && serde_json::from_value::<MemberStateValue>(value.clone())
                 .is_ok_and(|current| current.membership == MembershipState::Join))
         .then(|| revision.clone())
     }
@@ -2723,12 +2729,12 @@ impl TypedCurrentRow {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AuthoritySubmitRequest {
+pub enum AuthoritySubmitRequestBody {
     Event(EventAdmissionSubmission),
     MlsCommit(MlsCommitSubmission),
 }
 
-impl AuthoritySubmitRequest {
+impl AuthoritySubmitRequestBody {
     pub fn validate(&self) -> Result<()> {
         match self {
             Self::Event(submission) => submission.validate(),
@@ -2754,7 +2760,7 @@ pub enum AuthorityRejectionStatus {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 #[allow(clippy::large_enum_variant)]
-pub enum AuthoritySubmitOutcome {
+pub enum AuthoritySubmitResponseBody {
     Accepted {
         status: AuthorityCommitStatus,
         commit: RealmCommit,
@@ -2765,7 +2771,7 @@ pub enum AuthoritySubmitOutcome {
     },
 }
 
-impl AuthoritySubmitOutcome {
+impl AuthoritySubmitResponseBody {
     pub fn validate_shape(&self) -> Result<()> {
         match self {
             Self::Accepted { commit, .. } => commit.validate_shape(),
@@ -2776,12 +2782,12 @@ impl AuthoritySubmitOutcome {
         }
     }
 
-    pub fn validate_for_request(&self, request: &AuthoritySubmitRequest) -> Result<()> {
+    pub fn validate_for_request(&self, request: &AuthoritySubmitRequestBody) -> Result<()> {
         request.validate()?;
         self.validate_shape()?;
         let event = match request {
-            AuthoritySubmitRequest::Event(submission) => &submission.event,
-            AuthoritySubmitRequest::MlsCommit(submission) => &submission.commit_event,
+            AuthoritySubmitRequestBody::Event(submission) => &submission.event,
+            AuthoritySubmitRequestBody::MlsCommit(submission) => &submission.commit_event,
         };
         if let Self::Accepted { commit, .. } = self {
             let expected_stream =
@@ -2801,7 +2807,7 @@ impl AuthoritySubmitOutcome {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct StreamScanRequest {
+pub struct StreamScanRequestBody {
     pub realm_id: RealmId,
     pub stream_ref: CommitStreamRef,
     pub direction: StreamScanDirection,
@@ -2814,7 +2820,7 @@ pub enum StreamScanDirection {
     Before(Option<u64>),
 }
 
-impl Serialize for StreamScanRequest {
+impl Serialize for StreamScanRequestBody {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -2835,7 +2841,7 @@ impl Serialize for StreamScanRequest {
     }
 }
 
-impl<'de> Deserialize<'de> for StreamScanRequest {
+impl<'de> Deserialize<'de> for StreamScanRequestBody {
     fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -2886,7 +2892,7 @@ impl<'de> Deserialize<'de> for StreamScanRequest {
     }
 }
 
-impl StreamScanRequest {
+impl StreamScanRequestBody {
     pub fn validate(&self) -> Result<()> {
         if &self.realm_id != self.stream_ref.realm_id() {
             return Err(WireError::Protocol(
@@ -3050,7 +3056,7 @@ impl CommittedEventRef {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct StreamScanOutcome {
+pub struct StreamScanResponseBody {
     pub committed_events: Vec<CommittedEventView>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub readable_floor: Option<ReadableFloor>,
@@ -3073,7 +3079,7 @@ pub struct ReadableFloor {
     pub floor_reason: ReadableFloorReason,
 }
 
-impl StreamScanOutcome {
+impl StreamScanResponseBody {
     /// Additional scope narrowing after the caller proved the actual requested
     /// stream and member interval. Empty pages carry no structural scope proof.
     pub fn into_effective_scope(mut self, scope: &ScopeRef) -> Result<Option<Self>> {
@@ -3088,7 +3094,7 @@ impl StreamScanOutcome {
         Ok(Some(self))
     }
 
-    pub fn validate_for_request(&self, request: &StreamScanRequest) -> Result<()> {
+    pub fn validate_for_request(&self, request: &StreamScanRequestBody) -> Result<()> {
         request.validate()?;
         if self.committed_events.len() > usize::from(request.limit) {
             return Err(WireError::Protocol(
@@ -3214,7 +3220,7 @@ impl StreamScanOutcome {
 /// Maximum rows in one `ak.self.realm.read.streams.v1` page.
 pub const REALM_STREAM_LIST_MAX_ITEMS: usize = 500;
 
-impl RealmStreamList {
+impl RealmStreamPage {
     /// Check the page invariants of the closed schema and its operation:
     /// rows belong to the Realm, are strictly ordered by the unsigned bytes of
     /// RFC 8785 JCS(stream_ref), carry an established head, and `has_more`
@@ -3283,12 +3289,12 @@ impl RealmStreamList {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AuthorityBundleRequest {
+pub struct RealmAuthorityBundleRequestBody {
     pub realm_id: RealmId,
     pub nonce: Base64UrlString,
 }
 
-impl AuthorityBundleRequest {
+impl RealmAuthorityBundleRequestBody {
     pub fn validate(&self) -> Result<()> {
         if !(22..=128).contains(&self.nonce.as_str().len()) {
             return Err(WireError::Protocol(

@@ -209,13 +209,13 @@ pub struct HandleClaim {
     pub claim: HandleClaimCore,
     pub status: HandleClaimStatus,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub as_of: DateTime<Utc>,
+    pub evaluated_at: DateTime<Utc>,
     pub verifier_id: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub verified_at: Option<DateTime<Utc>>,
     pub revocation: Option<HandleClaimRevocation>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub fresh_until: DateTime<Utc>,
+    pub cache_expires_at: DateTime<Utc>,
     pub status_proof: PayloadProof,
 }
 
@@ -230,13 +230,13 @@ struct HandleClaimStatusDigestInput<'a> {
     claim: &'a HandleClaimCore,
     status: HandleClaimStatus,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    as_of: DateTime<Utc>,
+    evaluated_at: DateTime<Utc>,
     verifier_id: &'a DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     verified_at: &'a Option<DateTime<Utc>>,
     revocation: &'a Option<HandleClaimRevocation>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    fresh_until: DateTime<Utc>,
+    cache_expires_at: DateTime<Utc>,
 }
 
 impl HandleClaim {
@@ -249,11 +249,11 @@ impl HandleClaim {
                 schema: &self.schema,
                 claim: &self.claim,
                 status: self.status,
-                as_of: self.as_of,
+                evaluated_at: self.evaluated_at,
                 verifier_id: &self.verifier_id,
                 verified_at: &self.verified_at,
                 revocation: &self.revocation,
-                fresh_until: self.fresh_until,
+                cache_expires_at: self.cache_expires_at,
             },
         )
     }
@@ -269,13 +269,13 @@ impl HandleClaim {
         if self.schema != Self::SCHEMA {
             return Err(protocol("handle claim status schema mismatch"));
         }
-        if self.fresh_until <= self.as_of
-            || self.fresh_until
-                > self.as_of + Duration::seconds(HANDLE_CLAIM_STATUS_MAX_FRESHNESS_SECONDS)
+        if self.cache_expires_at <= self.evaluated_at
+            || self.cache_expires_at
+                > self.evaluated_at + Duration::seconds(HANDLE_CLAIM_STATUS_MAX_FRESHNESS_SECONDS)
             || self
                 .claim
                 .expires_at
-                .is_some_and(|expires| self.fresh_until > expires)
+                .is_some_and(|expires| self.cache_expires_at > expires)
         {
             return Err(protocol("handle claim status freshness is invalid"));
         }
@@ -286,10 +286,9 @@ impl HandleClaim {
                 }
             }
             HandleClaimStatus::Verified => {
-                if self
-                    .verified_at
-                    .is_none_or(|verified| verified < self.claim.issued_at || verified > self.as_of)
-                    || self.revocation.is_some()
+                if self.verified_at.is_none_or(|verified| {
+                    verified < self.claim.issued_at || verified > self.evaluated_at
+                }) || self.revocation.is_some()
                 {
                     return Err(protocol("verified handle claim status fields are invalid"));
                 }
@@ -299,7 +298,7 @@ impl HandleClaim {
                     .revocation
                     .as_ref()
                     .ok_or_else(|| protocol("revoked handle claim is missing carrier"))?;
-                revocation.validate_for(&self.claim, self.as_of)?;
+                revocation.validate_for(&self.claim, self.evaluated_at)?;
             }
         }
         validate_proof(
@@ -319,8 +318,8 @@ impl HandleClaim {
     ) -> Result<()> {
         self.validate()?;
         if self.status != HandleClaimStatus::Verified
-            || now < self.as_of
-            || now >= self.fresh_until
+            || now < self.evaluated_at
+            || now >= self.cache_expires_at
             || self.claim.expires_at.is_some_and(|expires| expires <= now)
         {
             return Err(protocol("handle claim is not currently verified and fresh"));

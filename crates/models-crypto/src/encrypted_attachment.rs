@@ -54,6 +54,7 @@ impl From<AttachmentContentKeySalt> for String {
 pub struct AttachmentContentKeyContext {
     pub effective_scope: ScopeRef,
     pub genesis_event_ref: EventId,
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub epoch: u64,
     pub scheme: String,
     pub encryption_algorithm: String,

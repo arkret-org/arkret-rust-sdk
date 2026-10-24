@@ -218,7 +218,7 @@ mod tests {
             "resource_kind": kind,
             "discoverability": "listed",
             "directory_ids": [DIRECTORY],
-            "profile_visibility": {"display_name": "public", "bio": "hidden"}
+            "profile_visibility": {"display_name": "public", "biography": "hidden"}
         })
     }
 

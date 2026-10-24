@@ -4,6 +4,7 @@
 //! authority. There is no prepare/reservation phase and no client-authored
 //! acceptance or history checkpoint.
 
+pub use arkret_models_identity::AgentLifecycleState;
 use arkret_models_identity::{AuthenticatedSignerResolutionEvidence, ResolutionCommitment};
 use arkret_wire::serde_helpers::canonical_timestamp;
 use arkret_wire::{
@@ -29,39 +30,9 @@ use crate::string_marker;
 pub const AGENT_KEY_PAIRING_REQUEST_BINDING_KIND: &str = "ak.agent.key_pairing_request_binding.v1";
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AgentLifecycleState {
-    #[default]
-    Active,
-    Paused,
-    Deactivated,
-}
-
-impl AgentLifecycleState {
-    /// The `agent_status` wire token, spelled exactly once here.
-    pub fn as_wire_str(self) -> &'static str {
-        match self {
-            Self::Active => "active",
-            Self::Paused => "paused",
-            Self::Deactivated => "deactivated",
-        }
-    }
-
-    pub fn from_wire_str(value: &str) -> Option<Self> {
-        match value {
-            "active" => Some(Self::Active),
-            "paused" => Some(Self::Paused),
-            "deactivated" => Some(Self::Deactivated),
-            _ => None,
-        }
-    }
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AgentKeyPairOutcome {
+pub struct AgentKeyPairResponseBody {
     pub activation_state: AgentKeyPairActivationState,
     pub authorize_event_ref: EventId,
 }
@@ -200,7 +171,7 @@ pub struct AgentProvisionComplete {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum AgentProvisionOutcome {
+pub enum AgentProvisionResponseBody {
     AwaitingControllerEvent(AgentProvisionAwaitingControllerEvent),
     AwaitingPcrGenesis(AgentProvisionAwaitingPcrGenesis),
     AwaitingDidBinding(AgentProvisionAwaitingDidBinding),
@@ -218,7 +189,7 @@ pub struct AgentRenewPairingRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AgentRenewPairingOutcome {
+pub struct AgentRenewPairingResponseBody {
     pub agent_id: DidCoreId,
     pub principal_control_realm_id: RealmId,
     pub controller_authorization_ref: DidUrl,
@@ -334,7 +305,7 @@ pub struct AgentPresence {
     #[serde(with = "canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     #[serde(with = "canonical_timestamp")]
-    pub refresh_after: DateTime<Utc>,
+    pub refresh_at: DateTime<Utc>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -409,11 +380,11 @@ pub struct AgentPairingResolveRequestBody {
 // agent-operations.schema.json#/$defs/agent_runtime_approval_controller_projection.
 
 /// Runtime receipt for submitting a stable pending key candidate.
-/// agent-operations.schema.json#/$defs/agent_runtime_approval_outcome.
+/// agent-operations.schema.json#/$defs/agent_runtime_approval_response_body.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AgentRuntimeApprovalOutcome {
+pub struct AgentRuntimeApprovalResponseBody {
     pub approval_request_id: OpaqueLocalId,
     pub status: AgentLifecycleState,
 }
@@ -444,11 +415,11 @@ impl AgentRuntimeApprovalStatusRequestBody {
 
 /// Operation-local status; key activation requires the complete authenticated
 /// signer root in addition to the provenance Event reference.
-/// agent-operations.schema.json#/$defs/agent_runtime_approval_status_outcome.
+/// agent-operations.schema.json#/$defs/agent_runtime_approval_status_response_body.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AgentRuntimeApprovalStatusOutcome {
+pub struct AgentRuntimeApprovalStatusResponseBody {
     pub lifecycle: AgentLifecycleState,
     pub runtime_state: AgentRuntimeState,
     pub readiness: AgentReadiness,
@@ -467,7 +438,7 @@ pub struct AgentRuntimeApprovalStatusOutcome {
     pub current_signer_evidence: Option<KeyStateCurrentSignerEvidence>,
 }
 
-impl AgentRuntimeApprovalStatusOutcome {
+impl AgentRuntimeApprovalStatusResponseBody {
     pub fn validate_signer_evidence_delivery(&self) -> Result<()> {
         let all = [
             self.authorized_event_ref.is_some(),
@@ -667,9 +638,9 @@ pub fn agent_key_pairing_request_binding_digest(
         .map_err(|error| WireError::Protocol(error.to_string()))
 }
 
-impl AgentList {
+impl AgentPage {
     /// Wire prefix every `next_cursor` token carries
-    /// (`agent-operations.schema.json#/$defs/agent_list`).
+    /// (`agent-operations.schema.json#/$defs/agent_page`).
     pub const CURSOR_PREFIX: &'static str = "ak:cursor:";
 
     /// Reject a continuation token that is not the opaque `ak:cursor:` form the
@@ -720,7 +691,7 @@ impl AgentSidecarView {
 }
 
 // Field declaration order is byte-for-byte the properties order of
-// agent-operations.schema.json#/$defs/agent_sidecar_list.
+// agent-operations.schema.json#/$defs/agent_sidecar_page.
 
 #[cfg(test)]
 mod tests {
@@ -729,7 +700,7 @@ mod tests {
     #[test]
     fn runtime_approval_status_requires_complete_authorization_closure() {
         let now = Utc::now();
-        let mut outcome = AgentRuntimeApprovalStatusOutcome {
+        let mut outcome = AgentRuntimeApprovalStatusResponseBody {
             lifecycle: AgentLifecycleState::Active,
             runtime_state: AgentRuntimeState::PairingExpired,
             readiness: AgentReadiness {
@@ -739,7 +710,7 @@ mod tests {
             presence: AgentPresence {
                 state: AgentPresenceState::Unknown,
                 expires_at: now,
-                refresh_after: now,
+                refresh_at: now,
             },
             approval_request_id: None,
             authorized_event_ref: None,
@@ -905,16 +876,16 @@ mod tests {
             "presence": {
                 "state": "unknown",
                 "expires_at": "2026-07-18T00:15:00.000Z",
-                "refresh_after": "2026-07-18T00:00:00.000Z"
+                "refresh_at": "2026-07-18T00:00:00.000Z"
             }
         })
     }
 
-    /// `agent_list` names its array `agents`; the closed
-    /// `agent-operations.schema.json#/$defs/agent_list` admits no other member.
+    /// `agent_page` names its array `agents`; the closed
+    /// `agent-operations.schema.json#/$defs/agent_page` admits no other member.
     #[test]
     fn an_agent_list_names_its_array_agents() {
-        let list: AgentList = serde_json::from_value(serde_json::json!({
+        let list: AgentPage = serde_json::from_value(serde_json::json!({
             "agents": [agent_projection_value()],
             "has_more": false
         }))
@@ -923,7 +894,7 @@ mod tests {
         list.validate().unwrap();
 
         assert!(
-            serde_json::from_value::<AgentList>(serde_json::json!({
+            serde_json::from_value::<AgentPage>(serde_json::json!({
                 "agent_projections": [agent_projection_value()],
                 "has_more": false
             }))
@@ -951,7 +922,7 @@ mod tests {
 
     #[test]
     fn a_next_cursor_outside_the_ak_cursor_form_is_rejected() {
-        let mut list: AgentList = serde_json::from_value(serde_json::json!({
+        let mut list: AgentPage = serde_json::from_value(serde_json::json!({
             "agents": [agent_projection_value()],
             "next_cursor": "ak:cursor:aGVsbG8-_",
             "has_more": true

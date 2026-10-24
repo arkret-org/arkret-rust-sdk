@@ -33,7 +33,7 @@ use ed25519_dalek::SigningKey;
 // Fixtures
 // ============================================================================
 
-const CANONICAL: &[u8] = br#"{"kind":"ak.message.create.v1","seq":1}"#;
+const CANONICAL: &[u8] = br#"{"kind":"ak.message.create.v1","sequence":1}"#;
 
 fn signing_key() -> SigningKey {
     SigningKey::from_bytes(&[17u8; 32])
@@ -182,7 +182,7 @@ fn accepted_without_resolver(now: DateTime<Utc>) -> AcceptedDidBinding {
             evidence_dependencies: receipt.evidence_dependencies().expect("dependencies"),
             policy_digest: hash(0x44),
             verified_at: now,
-            refresh_after: Some(now + Duration::minutes(30)),
+            refresh_at: Some(now + Duration::minutes(30)),
             expires_at: Some(now + Duration::hours(24)),
             status: DidBindingStatus::Active,
         },
@@ -287,7 +287,7 @@ fn hard_expiry_reads_as_a_miss_and_refreshes_once() {
 fn a_stale_binding_blocks_a_fresh_authority_call_but_not_a_low_risk_one() {
     let store = InMemoryVerifiedDidBindingStore::default();
     let now = Utc::now();
-    let after_refresh = now + Duration::minutes(45); // past refresh_after (30m), inside 24h.
+    let after_refresh = now + Duration::minutes(45); // past refresh_at (30m), inside 24h.
 
     // High-risk caller demands freshness: the stale entry does not satisfy it.
     let strict_spy = spy();

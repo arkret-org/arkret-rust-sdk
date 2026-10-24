@@ -3,52 +3,54 @@
 
 use arkret_identity::VerifiedSubmission;
 use arkret_models_collaboration::account_operations::{
-    AccountRegisterOutcome, AccountRegisterRequestBody, AccountUpdateProfileRequestBody,
+    AccountRegisterRequestBody, AccountRegisterResponseBody, AccountUpdateProfileRequestBody,
     AccountView,
 };
 use arkret_models_collaboration::consent_operations::{
-    ConsentReplaceRequestBody, ConsentRequestOutcome, ConsentRequestRequestBody, ConsentView,
+    ConsentReplaceRequestBody, ConsentRequestRequestBody, ConsentRequestResponseBody, ConsentView,
 };
 use arkret_models_collaboration::contact_operations::{
-    ContactAcceptRequestBody, ContactCommitRequestBody, ContactList, ContactOperationOutcome,
-    ContactOperationRequestBody, ContactRejectRequestBody, ContactScopeUpdateRequestBody,
-    ContactTombstoneRequestBody,
+    ContactAcceptRequestBody, ContactCommitRequestBody, ContactOperationRequestBody,
+    ContactOperationResponseBody, ContactPage, ContactRejectRequestBody,
+    ContactScopeUpdateRequestBody, ContactTombstoneRequestBody,
 };
 use arkret_models_collaboration::device_pairing::{
-    AccountDevicePairOutcome, AccountDevicePairRequestBody, DevicePairingBootstrap,
-    DevicePairingCodeClaimOutcome, DevicePairingCodeClaimRequestBody, DevicePairingFinalizeOutcome,
-    DevicePairingFinalizeRequestBody, DevicePairingResolveRequestBody, DevicePairingStageOutcome,
-    DevicePairingStageRequestBody, DevicePairingStatusOutcome, DevicePairingStatusRequestBody,
+    AccountDevicePairRequestBody, AccountDevicePairResponseBody, DevicePairingBootstrap,
+    DevicePairingCodeClaimRequestBody, DevicePairingCodeClaimResponseBody,
+    DevicePairingFinalizeRequestBody, DevicePairingFinalizeResponseBody,
+    DevicePairingResolveRequestBody, DevicePairingStageRequestBody, DevicePairingStageResponseBody,
+    DevicePairingStatusRequestBody, DevicePairingStatusResponseBody,
 };
 use arkret_models_collaboration::direct_conversation::{
-    DirectConversationResolveOutcome, DirectConversationResolveRequestBody,
+    DirectConversationResolveRequestBody, DirectConversationResolveResponseBody,
 };
 use arkret_models_collaboration::governance::authorization::{
-    AuthzCheckOutcome, AuthzCheckRequestBody,
+    AuthorizationCheckRequestBody, AuthorizationCheckResponseBody,
 };
 use arkret_models_collaboration::governance::invite_addressing::InviteReceivePolicy;
 use arkret_models_collaboration::objects::read_receipts::{
-    ReadCursorAdvanceRequestBody, ReadMarkerOutcome,
+    ReadCursorAdvanceRequestBody, ReadMarkerResponseBody,
 };
 #[cfg(all(test, not(target_arch = "wasm32")))]
 use arkret_models_collaboration::session_grants::{
-    AgentSessionGrantProof, AgentSessionGrantProofKind, AgentSessionGrantRequest,
-    SessionGrantAgentScopeRequest, SessionGrantDpopBindingProof,
+    AgentSessionGrantProof, AgentSessionGrantProofKind, AgentSessionGrantRequestBody,
+    RequestedAgentSessionGrantScope, SessionGrantDpopBindingProof,
 };
 use arkret_models_collaboration::session_grants::{
-    SessionGrantOutcome, SessionGrantRefreshRequestBody, SessionGrantRequestBody,
+    SessionGrantRefreshRequestBody, SessionGrantRequestBody, SessionGrantResponseBody,
 };
 use arkret_models_collaboration::sync_frames::account_subscribe::{
     AccountSubscribeBatch, AccountSubscribeFrame, AccountSubscribeFrameKind,
-    AccountSubscribeSnapshotResult, AccountSyncRoundBudget, StreamTraceValidator, SyncRequestBody,
+    AccountSubscribeParameters, AccountSubscribeSnapshotResult, AccountSyncRoundBudget,
+    StreamTraceValidator,
 };
 use arkret_models_discovery::ServiceDescribe;
 use arkret_models_identity::{
-    AccountCursorRevokeOutcome, AccountCursorRevokeRequestBody, AccountHandoffOutcome,
-    AccountHandoffRequestBody, AccountLogoutOutcome, AccountLogoutRequestBody,
-    AccountOnboardingState, AccountUpdateProfileOutcome, IdentityAbandonmentOutcome,
-    IdentityAbandonmentRequestBody, IdentityBindingChallengeOutcome,
-    IdentityBindingChallengeRequestBody,
+    AccountCursorRevokeRequestBody, AccountCursorRevokeResponseBody, AccountHandoffRequestBody,
+    AccountHandoffResponseBody, AccountLogoutRequestBody, AccountLogoutResponseBody,
+    AccountOnboardingState, AccountUpdateProfileResponseBody, IdentityAbandonmentRequestBody,
+    IdentityAbandonmentResponseBody, IdentityBindingChallengeRequestBody,
+    IdentityBindingChallengeResponseBody,
 };
 use arkret_wire::{
     PATH_SELF_CONTACTS, PATH_SELF_CONTACTS_REQUEST, PATH_SELF_CONTACTS_RESPOND,
@@ -72,14 +74,14 @@ impl Client {
     pub async fn contacts_reject(
         &self,
         request: &VerifiedSubmission<ContactRejectRequestBody>,
-    ) -> Result<ContactOperationOutcome> {
+    ) -> Result<ContactOperationResponseBody> {
         self.post("/_arkret/self/contacts/reject", request).await
     }
 
     pub async fn contacts_scope_update(
         &self,
         request: &VerifiedSubmission<ContactScopeUpdateRequestBody>,
-    ) -> Result<ContactOperationOutcome> {
+    ) -> Result<ContactOperationResponseBody> {
         self.post("/_arkret/self/contacts/scope-update", request)
             .await
     }
@@ -88,7 +90,7 @@ impl Client {
     pub async fn submit_contact_event(
         &self,
         request: &VerifiedSubmission<ContactCommitRequestBody>,
-    ) -> Result<ContactOperationOutcome> {
+    ) -> Result<ContactOperationResponseBody> {
         let path = match request.signed_event.kind {
             arkret_wire::EventKind::ContactRequested => "/_arkret/self/contacts/request",
             arkret_wire::EventKind::ContactAccepted => "/_arkret/self/contacts/respond",
@@ -123,9 +125,9 @@ impl Client {
     pub async fn consent_request(
         &self,
         request: &ConsentRequestRequestBody,
-    ) -> Result<ConsentRequestOutcome> {
+    ) -> Result<ConsentRequestResponseBody> {
         request.validate()?;
-        let outcome: ConsentRequestOutcome = self
+        let outcome: ConsentRequestResponseBody = self
             .post(arkret_wire::PATH_SELF_CONSENT_REQUEST, request)
             .await?;
         outcome.validate()?;
@@ -135,11 +137,14 @@ impl Client {
     pub async fn advance_read_cursor(
         &self,
         request: &VerifiedSubmission<ReadCursorAdvanceRequestBody>,
-    ) -> Result<ReadMarkerOutcome> {
+    ) -> Result<ReadMarkerResponseBody> {
         self.post("/_arkret/self/read-cursors", request).await
     }
 
-    pub async fn authz_check(&self, request: &AuthzCheckRequestBody) -> Result<AuthzCheckOutcome> {
+    pub async fn authz_check(
+        &self,
+        request: &AuthorizationCheckRequestBody,
+    ) -> Result<AuthorizationCheckResponseBody> {
         self.post("/_arkret/self/authz/check", request).await
     }
 }
@@ -196,8 +201,8 @@ impl Client {
     pub async fn auth_create_account_handoff(
         &self,
         req: &AccountHandoffRequestBody,
-    ) -> Result<AccountHandoffOutcome> {
-        let outcome: AccountHandoffOutcome = self
+    ) -> Result<AccountHandoffResponseBody> {
+        let outcome: AccountHandoffResponseBody = self
             .post("/_arkret/gate/account/authentication-handoffs", req)
             .await?;
         outcome.validate()?;
@@ -220,7 +225,7 @@ impl Client {
     pub async fn auth_issue_identity_binding_challenge(
         &self,
         req: &IdentityBindingChallengeRequestBody,
-    ) -> Result<IdentityBindingChallengeOutcome> {
+    ) -> Result<IdentityBindingChallengeResponseBody> {
         self.post("/_arkret/gate/account/identity-binding-challenges", req)
             .await
     }
@@ -234,7 +239,7 @@ impl Client {
     pub async fn auth_issue_session_grant(
         &self,
         req: &SessionGrantRequestBody,
-    ) -> Result<SessionGrantOutcome> {
+    ) -> Result<SessionGrantResponseBody> {
         self.post_protocol_replay_safe("/_arkret/gate/account/session-grants", req)
             .await
     }
@@ -245,7 +250,7 @@ impl Client {
     pub async fn auth_refresh_session_grant(
         &self,
         req: &SessionGrantRefreshRequestBody,
-    ) -> Result<SessionGrantOutcome> {
+    ) -> Result<SessionGrantResponseBody> {
         self.post_protocol_replay_safe("/_arkret/gate/account/session-grants/refresh", req)
             .await
     }
@@ -253,7 +258,7 @@ impl Client {
     /// `POST /_arkret/gate/account/logout`
     /// (`ak.gate.account.command.logout.v1`): terminate the current
     /// DPoP-bound account session at the Account Authority.
-    pub async fn auth_account_logout(&self) -> Result<AccountLogoutOutcome> {
+    pub async fn auth_account_logout(&self) -> Result<AccountLogoutResponseBody> {
         self.post(
             "/_arkret/gate/account/logout",
             &AccountLogoutRequestBody::default(),
@@ -268,9 +273,9 @@ impl Client {
     pub async fn account_register(
         &self,
         request: &VerifiedSubmission<AccountRegisterRequestBody>,
-    ) -> Result<AccountRegisterOutcome> {
+    ) -> Result<AccountRegisterResponseBody> {
         request.validate()?;
-        let outcome: AccountRegisterOutcome =
+        let outcome: AccountRegisterResponseBody =
             self.post("/_arkret/gate/account/register", request).await?;
         outcome.validate_against_request(request)?;
         Ok(outcome)
@@ -281,7 +286,7 @@ impl Client {
     pub async fn auth_abandon_identity_creation(
         &self,
         request: &IdentityAbandonmentRequestBody,
-    ) -> Result<IdentityAbandonmentOutcome> {
+    ) -> Result<IdentityAbandonmentResponseBody> {
         request.validate()?;
         self.post("/_arkret/gate/account/identity-abandonments", request)
             .await
@@ -290,7 +295,7 @@ impl Client {
     pub async fn account_update_profile(
         &self,
         request: &VerifiedSubmission<AccountUpdateProfileRequestBody>,
-    ) -> Result<AccountUpdateProfileOutcome> {
+    ) -> Result<AccountUpdateProfileResponseBody> {
         request.validate()?;
         self.post("/_arkret/self/account/profile", request).await
     }
@@ -298,7 +303,7 @@ impl Client {
     pub async fn account_device_pair(
         &self,
         request: &VerifiedSubmission<AccountDevicePairRequestBody>,
-    ) -> Result<AccountDevicePairOutcome> {
+    ) -> Result<AccountDevicePairResponseBody> {
         self.post("/_arkret/gate/account/device-pair", request)
             .await
     }
@@ -310,7 +315,7 @@ impl Client {
     pub async fn device_pairing_stage(
         &self,
         request: &DevicePairingStageRequestBody,
-    ) -> Result<DevicePairingStageOutcome> {
+    ) -> Result<DevicePairingStageResponseBody> {
         self.post("/_arkret/open/device-pairing/requests", request)
             .await
     }
@@ -325,7 +330,7 @@ impl Client {
     pub async fn auth_finalize_device_pairing(
         &self,
         request: &DevicePairingFinalizeRequestBody,
-    ) -> Result<DevicePairingFinalizeOutcome> {
+    ) -> Result<DevicePairingFinalizeResponseBody> {
         self.post(
             "/_arkret/gate/account/device-pairing/finalizations",
             request,
@@ -341,7 +346,7 @@ impl Client {
     pub async fn device_pairing_claim_code(
         &self,
         request: &DevicePairingCodeClaimRequestBody,
-    ) -> Result<DevicePairingCodeClaimOutcome> {
+    ) -> Result<DevicePairingCodeClaimResponseBody> {
         self.post("/_arkret/gate/account/device-pairing/code-claims", request)
             .await
     }
@@ -364,8 +369,8 @@ impl Client {
     pub async fn device_pairing_status(
         &self,
         request: &DevicePairingStatusRequestBody,
-    ) -> Result<DevicePairingStatusOutcome> {
-        let outcome: DevicePairingStatusOutcome = self
+    ) -> Result<DevicePairingStatusResponseBody> {
+        let outcome: DevicePairingStatusResponseBody = self
             .post("/_arkret/open/device-pairing/requests/status", request)
             .await?;
         // The conditional members are the §5.4.1 pre-assembly entry point, so a
@@ -374,9 +379,9 @@ impl Client {
         Ok(outcome)
     }
 
-    fn account_subscribe_request(
+    fn account_subscribe_parameters(
         &self,
-        request: &SyncRequestBody,
+        request: &AccountSubscribeParameters,
         accept: &str,
     ) -> Result<RequestBuilder> {
         request.validate()?;
@@ -392,10 +397,10 @@ impl Client {
         if let Some(replace) = request.replace_filter {
             builder = builder.query(&[("replace_filter", replace)]);
         }
-        if let Some(page) = &request.realm_list {
+        if let Some(page) = &request.realm_list_parameters {
             let encoded = String::from_utf8(arkret_canonical::canonical_json_bytes(page)?)
                 .map_err(|error| Error::Protocol(error.to_string()))?;
-            builder = builder.query(&[("realm_list", encoded)]);
+            builder = builder.query(&[("realm_list_parameters", encoded)]);
         }
         if let Some(filter) = &request.filter {
             let encoded = String::from_utf8(arkret_canonical::canonical_json_bytes(filter)?)
@@ -407,12 +412,12 @@ impl Client {
 
     async fn account_subscribe(
         &self,
-        request: &SyncRequestBody,
+        request: &AccountSubscribeParameters,
         options: &ClientRequestOptions,
     ) -> Result<Response> {
         // Long-lived NDJSON stream — exempt from the per-request default
         // total timeout (see `DEFAULT_REQUEST_TIMEOUT`).
-        let builder = self.account_subscribe_request(request, "application/x-ndjson")?;
+        let builder = self.account_subscribe_parameters(request, "application/x-ndjson")?;
         self.send_response(self.apply_request_options(builder, options)?)
             .await
     }
@@ -434,7 +439,7 @@ impl Client {
     /// silently consumed.
     pub async fn account_subscribe_batch(
         &self,
-        request: &SyncRequestBody,
+        request: &AccountSubscribeParameters,
     ) -> Result<AccountSubscribeBatch> {
         self.account_subscribe_batch_with_options(request, &ClientRequestOptions::default())
             .await
@@ -442,7 +447,7 @@ impl Client {
 
     pub async fn account_subscribe_batch_with_options(
         &self,
-        request: &SyncRequestBody,
+        request: &AccountSubscribeParameters,
         options: &ClientRequestOptions,
     ) -> Result<AccountSubscribeBatch> {
         use futures_util::StreamExt;
@@ -480,7 +485,7 @@ impl Client {
             }
         }
 
-        let builder = self.account_subscribe_request(request, "application/x-ndjson")?;
+        let builder = self.account_subscribe_parameters(request, "application/x-ndjson")?;
         let response = self
             .send_response(self.apply_request_options(builder, options)?)
             .await?;
@@ -526,7 +531,7 @@ impl Client {
     /// until the underlying HTTP body ends.
     pub async fn account_subscribe_frames(
         &self,
-        request: &SyncRequestBody,
+        request: &AccountSubscribeParameters,
     ) -> Result<AccountSubscribeFrameStream> {
         self.account_subscribe_frames_with_options(request, &ClientRequestOptions::default())
             .await
@@ -534,7 +539,7 @@ impl Client {
 
     pub async fn account_subscribe_frames_with_options(
         &self,
-        request: &SyncRequestBody,
+        request: &AccountSubscribeParameters,
         options: &ClientRequestOptions,
     ) -> Result<AccountSubscribeFrameStream> {
         use futures_util::StreamExt;
@@ -585,7 +590,7 @@ impl Client {
     pub async fn account_cursor_revoke(
         &self,
         request: &AccountCursorRevokeRequestBody,
-    ) -> Result<AccountCursorRevokeOutcome> {
+    ) -> Result<AccountCursorRevokeResponseBody> {
         self.post("/_arkret/self/account/cursor/revoke", request)
             .await
     }
@@ -593,25 +598,25 @@ impl Client {
     pub async fn contacts_request(
         &self,
         request: &VerifiedSubmission<ContactOperationRequestBody>,
-    ) -> Result<ContactOperationOutcome> {
+    ) -> Result<ContactOperationResponseBody> {
         self.post(PATH_SELF_CONTACTS_REQUEST, request).await
     }
 
     pub async fn contacts_respond(
         &self,
         request: &VerifiedSubmission<ContactAcceptRequestBody>,
-    ) -> Result<ContactOperationOutcome> {
+    ) -> Result<ContactOperationResponseBody> {
         self.post(PATH_SELF_CONTACTS_RESPOND, request).await
     }
 
-    pub async fn contacts_list(&self) -> Result<ContactList> {
+    pub async fn contacts_list(&self) -> Result<ContactPage> {
         self.get(PATH_SELF_CONTACTS).await
     }
 
     pub async fn contacts_tombstone(
         &self,
         request: &VerifiedSubmission<ContactTombstoneRequestBody>,
-    ) -> Result<ContactOperationOutcome> {
+    ) -> Result<ContactOperationResponseBody> {
         self.post(PATH_SELF_CONTACTS_TOMBSTONE, request).await
     }
 
@@ -624,7 +629,7 @@ impl Client {
     pub async fn direct_conversation_resolve(
         &self,
         request: &DirectConversationResolveRequestBody,
-    ) -> Result<DirectConversationResolveOutcome> {
+    ) -> Result<DirectConversationResolveResponseBody> {
         self.post(PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE, request)
             .await
     }
@@ -640,13 +645,13 @@ mod tests {
         Client::new(Url::parse("https://alice.example/").unwrap()).unwrap()
     }
 
-    fn empty_request() -> SyncRequestBody {
-        SyncRequestBody {
+    fn empty_request() -> AccountSubscribeParameters {
+        AccountSubscribeParameters {
             after: None,
             catchup: None,
             filter: None,
 
-            realm_list: None,
+            realm_list_parameters: None,
             replace_filter: None,
         }
     }
@@ -702,14 +707,14 @@ mod tests {
     /// nothing failed until the body was actually deserialized at run time.
     #[cfg(not(target_arch = "wasm32"))]
     fn session_grant_request() -> SessionGrantRequestBody {
-        SessionGrantRequestBody::Agent(AgentSessionGrantRequest {
+        SessionGrantRequestBody::Agent(AgentSessionGrantRequestBody {
             principal_id: arkret_wire::DidCoreId::new("ak:did_core:web:agent.example").unwrap(),
             requested_scope: vec!["ak.message.create".to_owned()],
             agent_key_authorization_ref: arkret_wire::EventId::new(
                 "ak:event:Ae6YFfDokA1FLUx_l-MhAbSvTvoys2ZpRPmqFwrWjd9g",
             )
             .unwrap(),
-            agent_scope_request: SessionGrantAgentScopeRequest {
+            agent_scope_request: RequestedAgentSessionGrantScope {
                 realm_ids: Vec::new(),
                 strand_ids: Vec::new(),
                 track_names: Vec::new(),
@@ -1106,7 +1111,7 @@ mod tests {
 
     #[test]
     fn account_subscribe_query_preserves_canonical_empty_filter_and_false() {
-        let request = SyncRequestBody {
+        let request = AccountSubscribeParameters {
             after: Some("ak:cursor:resume".to_owned()),
             filter: Some(
                 serde_json::from_value(
@@ -1114,12 +1119,12 @@ mod tests {
                 )
                 .unwrap(),
             ),
-            realm_list: Some(Default::default()),
+            realm_list_parameters: Some(Default::default()),
             replace_filter: Some(true),
             ..empty_request()
         };
         let built = client()
-            .account_subscribe_request(&request, "application/x-ndjson")
+            .account_subscribe_parameters(&request, "application/x-ndjson")
             .unwrap()
             .build()
             .unwrap();
@@ -1131,7 +1136,7 @@ mod tests {
             query.get("filter").unwrap(),
             "{\"lazy_load_members\":false,\"realm_ids\":[]}"
         );
-        assert_eq!(query.get("realm_list").unwrap(), "{}");
+        assert_eq!(query.get("realm_list_parameters").unwrap(), "{}");
         assert_eq!(query.get("replace_filter").unwrap(), "true");
         assert!(!query.keys().any(|name| name.starts_with("filter.")));
     }
@@ -1207,7 +1212,7 @@ mod tests {
             serde_json::json!({"subscriptions": {}}),
             serde_json::json!({"subscriptions": null}),
         ] {
-            assert!(serde_json::from_value::<SyncRequestBody>(value).is_err());
+            assert!(serde_json::from_value::<AccountSubscribeParameters>(value).is_err());
         }
     }
 
@@ -1215,7 +1220,7 @@ mod tests {
     fn account_subscribe_request_options_attach_wait_for_header() {
         let options = ClientRequestOptions::new().wait_for("ak:cursor:01904100");
         let built = client()
-            .account_subscribe_request(&empty_request(), "application/x-ndjson")
+            .account_subscribe_parameters(&empty_request(), "application/x-ndjson")
             .and_then(|request| client().apply_request_options(request, &options))
             .unwrap()
             .build()

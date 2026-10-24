@@ -1,7 +1,7 @@
 //! Standard Account Authority SessionGrant revocation.
 
 use arkret_models_collaboration::account_lifecycle::{
-    SessionRevokeOutcome, SessionRevokeRequestBody,
+    SessionRevokeRequestBody, SessionRevokeResponseBody,
 };
 use arkret_wire::SessionGrantId;
 use reqwest::Method;
@@ -32,8 +32,8 @@ impl std::fmt::Debug for SessionGrantRevokeAttempt {
 
 impl SessionGrantRevokeAttempt {
     /// Submit or replay this exact attempt at its original Account Authority.
-    pub async fn send(&self) -> Result<SessionRevokeOutcome> {
-        let outcome: SessionRevokeOutcome = self
+    pub async fn send(&self) -> Result<SessionRevokeResponseBody> {
+        let outcome: SessionRevokeResponseBody = self
             .client
             .post_protocol_replay_safe(PATH, &self.request)
             .await?;
@@ -111,7 +111,7 @@ impl Client {
         &self,
         authorizing_grant_id: &SessionGrantId,
         request: &SessionRevokeRequestBody,
-    ) -> Result<SessionRevokeOutcome> {
+    ) -> Result<SessionRevokeResponseBody> {
         self.prepare_session_grant_revoke(authorizing_grant_id, request)?
             .send()
             .await

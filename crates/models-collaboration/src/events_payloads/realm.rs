@@ -17,6 +17,7 @@ use crate::serde_absence::deserialize_non_null_optional;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmGovernanceStationChangePayload {
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub expected_governance_generation: u64,
     pub expected_realm_stream_commit_id: RealmCommitId,
     pub new_governance_station_id: DidCoreId,
@@ -41,13 +42,9 @@ impl RealmOwnerTransferPayload {
 
 impl RealmAuthorityResetPayload {
     pub fn successor_authority_generation(current: u64) -> Result<u64> {
-        const JSON_SAFE_INTEGER_MAX: u64 = 9_007_199_254_740_991;
-        current
-            .checked_add(1)
-            .filter(|successor| *successor <= JSON_SAFE_INTEGER_MAX)
-            .ok_or_else(|| {
-                WireError::Protocol("Realm authority_generation is exhausted".to_owned())
-            })
+        current.checked_add(1).ok_or_else(|| {
+            WireError::Protocol("Realm authority_generation is exhausted".to_owned())
+        })
     }
 }
 
@@ -97,7 +94,7 @@ pub struct RealmPreauthPolicy {
 /// cell (`ak.realm.join_rule`, `ak.realm.history_access`,
 /// `ak.scope.read_receipt_policy`, `ak.realm.media_service`, …) are written by
 /// those events and reach the accepted policy projection through their own
-/// typed current result; echoing them here would create a second, drifting
+/// current state; echoing them here would create a second, drifting
 /// truth.
 ///
 /// `policy_revision` is strictly monotonic: the governance Station rejects a
@@ -115,7 +112,7 @@ pub struct RealmPolicyBundlePayload {
     /// decrypt call media. Absent means `false`. One of three conditions that
     /// MUST all hold (`crypto-media/media-service-binding.md` §8.2).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub media_service_decrypts: Option<bool>,
+    pub media_service_decryption_allowed: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub join_policy: Option<JoinPolicyPayload>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -142,7 +139,7 @@ impl RealmPolicyBundlePayload {
         Self {
             policy_revision,
             federation_policy: None,
-            media_service_decrypts: None,
+            media_service_decryption_allowed: None,
             join_policy: None,
             handle_issuer_policies: None,
             agent_participation: None,
@@ -165,8 +162,8 @@ impl RealmPolicyBundlePayload {
         }
     }
 
-    pub fn media_service_decrypts(&self) -> bool {
-        self.media_service_decrypts.unwrap_or(false)
+    pub fn media_service_decryption_allowed(&self) -> bool {
+        self.media_service_decryption_allowed.unwrap_or(false)
     }
 
     /// `minProperties: 2` — a revision that enables nothing is a
@@ -683,7 +680,7 @@ pub struct MediaServiceFocus {
         deserialize_with = "deserialize_non_null_optional",
         skip_serializing_if = "Option::is_none"
     )]
-    pub health_endpoint: Option<String>,
+    pub health_url: Option<String>,
     #[serde(
         default,
         deserialize_with = "deserialize_non_null_optional",
@@ -707,11 +704,11 @@ impl MediaServiceFocus {
             return media_schema_violation("media service connect_url must be an https or wss URL");
         }
         if self
-            .health_endpoint
+            .health_url
             .as_deref()
             .is_some_and(|url| !is_url_with_scheme(url, "https://"))
         {
-            return media_schema_violation("media service health_endpoint must be an https URL");
+            return media_schema_violation("media service health_url must be an https URL");
         }
         if contains_duplicate(&self.capabilities) {
             return media_schema_violation("media service focus capabilities must be unique");
@@ -744,7 +741,7 @@ pub struct RealmMediaServiceValue {
         deserialize_with = "deserialize_non_null_optional",
         skip_serializing_if = "Option::is_none"
     )]
-    pub ice_config_endpoint: Option<String>,
+    pub ice_configuration_url: Option<String>,
     pub foci: Vec<MediaServiceFocus>,
     #[serde(
         default,
@@ -779,12 +776,12 @@ impl RealmMediaServiceValue {
             return media_schema_violation("media service modes must be non-empty and unique");
         }
         if self
-            .ice_config_endpoint
+            .ice_configuration_url
             .as_deref()
             .is_some_and(|url| !is_url_with_scheme(url, "https://"))
         {
             return media_schema_violation(
-                "media service ice_config_endpoint must be an https URL",
+                "media service ice_configuration_url must be an https URL",
             );
         }
         if self.foci.is_empty() || contains_duplicate(&self.foci) {
@@ -862,7 +859,7 @@ mod media_service_tests {
             "token_endpoint": "https://media.example/token",
             "connect_url": "wss://media.example/rtc",
             "capabilities": ["simulcast", "svc"],
-            "health_endpoint": "https://media.example/health",
+            "health_url": "https://media.example/health",
             "cascade_group": "eu"
         })
     }
@@ -963,7 +960,7 @@ mod media_service_tests {
             "value": {
                 "service_id": "ak:did_core:web:media.example",
                 "modes": ["sfu"],
-                "ice_config_endpoint": "https://media.example/ice",
+                "ice_configuration_url": "https://media.example/ice",
                 "foci": [focus_json()],
                 "default_call_mode": "sfu",
                 "allowed_call_modes": ["p2p", "sfu"],

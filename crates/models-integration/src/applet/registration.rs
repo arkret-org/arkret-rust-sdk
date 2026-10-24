@@ -225,10 +225,10 @@ impl HttpMessageSignatureAlgorithm {
 }
 
 /// Optional inbound-webhook auth metadata. Wire shape mirrors
-/// `applet-package.schema.json#/$defs/webhook_auth`.
+/// `applet-package.schema.json#/$defs/webhook_signature_policy`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct WebhookAuth {
+pub struct WebhookSignaturePolicy {
     pub key_ref: DidUrl,
     pub accepted_signature_algorithms: Vec<HttpMessageSignatureAlgorithm>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -238,7 +238,7 @@ pub struct WebhookAuth {
     pub extra: XExtensionMap,
 }
 
-impl WebhookAuth {
+impl WebhookSignaturePolicy {
     pub fn http_message_signature(
         key_ref: DidUrl,
         accepted_signature_algorithms: Vec<HttpMessageSignatureAlgorithm>,
@@ -290,7 +290,7 @@ pub struct AppletEndpointEntry {
     pub method: AppletEndpointMethod,
     pub path: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub auth: Option<AppletEndpointAuth>,
+    pub authentication_kind: Option<AppletEndpointAuth>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     /// `x_`-prefixed protocol extension members
@@ -320,7 +320,7 @@ pub struct AppletEndpointPolicy {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AppletLimits {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub max_transaction_events: Option<u64>,
+    pub max_transaction_event_count: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_payload_bytes: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -358,7 +358,7 @@ struct AppletDidMethodVersionEvidenceWire {
     #[serde(default)]
     version_id: Option<String>,
     #[serde(default)]
-    version_time: Option<DateTime<Utc>>,
+    version_created_at: Option<DateTime<Utc>>,
     unversioned_refetch: bool,
 }
 
@@ -371,7 +371,7 @@ impl<'de> Deserialize<'de> for AppletDidMethodVersionEvidence {
         let evidence = Self {
             method: wire.method,
             version_id: wire.version_id,
-            version_time: wire.version_time,
+            version_created_at: wire.version_created_at,
             unversioned_refetch: wire.unversioned_refetch,
         };
         evidence.validate().map_err(serde::de::Error::custom)?;
@@ -383,12 +383,12 @@ impl AppletDidMethodVersionEvidence {
     pub fn versioned(
         method: impl Into<String>,
         version_id: Option<String>,
-        version_time: Option<DateTime<Utc>>,
+        version_created_at: Option<DateTime<Utc>>,
     ) -> Result<Self> {
         let evidence = Self {
             method: method.into(),
             version_id,
-            version_time,
+            version_created_at,
             unversioned_refetch: false,
         };
         evidence.validate()?;
@@ -419,9 +419,9 @@ impl AppletDidMethodVersionEvidence {
                 "did:key registration epoch evidence requires its synthetic immutable version_id"
                     .to_owned(),
             )),
-            "did:webvh" if self.version_id.is_none() && self.version_time.is_none() => {
+            "did:webvh" if self.version_id.is_none() && self.version_created_at.is_none() => {
                 Err(WireError::Protocol(
-                    "did:webvh registration epoch evidence requires version_id or version_time"
+                    "did:webvh registration epoch evidence requires version_id or version_created_at"
                         .to_owned(),
                 ))
             }
@@ -502,7 +502,7 @@ pub struct AppletRegistrationPayload {
     /// `AppletRegistrationEpochTranscript` or
     /// [`AppletPackage::stamp_registration_epoch`].
     pub registration_epoch: Hash,
-    pub webhook_auth: WebhookAuth,
+    pub webhook_signature_policy: WebhookSignaturePolicy,
     /// Required manifest snapshot (claimed profiles, limits, policies,
     /// widget, and registration-epoch evidence) per
     /// `applet_registration_payload.manifest`. Populated by
@@ -545,7 +545,7 @@ struct AppletRegistrationPayloadWire {
     rate_limited: bool,
     requested_scopes: Vec<String>,
     registration_epoch: Hash,
-    webhook_auth: WebhookAuth,
+    webhook_signature_policy: WebhookSignaturePolicy,
     manifest: AppletRegistrationManifest,
     proof: DetachedProof,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -572,7 +572,7 @@ impl<'de> Deserialize<'de> for AppletRegistrationPayload {
             rate_limited: wire.rate_limited,
             requested_scopes: wire.requested_scopes,
             registration_epoch: wire.registration_epoch,
-            webhook_auth: wire.webhook_auth,
+            webhook_signature_policy: wire.webhook_signature_policy,
             manifest: wire.manifest,
             proof: wire.proof,
             created_at: wire.created_at,
@@ -873,7 +873,7 @@ pub struct AppletRegistrationEpochTranscript {
     pub service_did_document: AppletRegistrationEpochDidDocument,
     pub accepted_signing_keys: Vec<AppletAcceptedSigningKeyEvidence>,
     pub endpoint_policy: AppletEndpointPolicy,
-    pub webhook_auth: WebhookAuth,
+    pub webhook_signature_policy: WebhookSignaturePolicy,
     pub security_policy: AppletRegistrationEpochSecurityPolicy,
 }
 
@@ -921,7 +921,7 @@ impl AppletRegistrationEpochTranscript {
             },
             accepted_signing_keys: evidence.accepted_signing_keys.clone(),
             endpoint_policy: package.endpoint_policy.clone(),
-            webhook_auth: package.webhook_auth.clone(),
+            webhook_signature_policy: package.webhook_signature_policy.clone(),
             security_policy: AppletRegistrationEpochSecurityPolicy {
                 claimed_profiles: package.claimed_profiles.clone(),
                 limits: package.limits.clone(),
@@ -961,7 +961,7 @@ impl AppletRegistrationEpochTranscript {
             &self.accepted_signing_keys,
             |left, right| left.key_ref == right.key_ref,
         )?;
-        self.webhook_auth
+        self.webhook_signature_policy
             .accepted_signature_algorithms
             .sort_by(|left, right| {
                 left.as_wire_name()
@@ -969,22 +969,24 @@ impl AppletRegistrationEpochTranscript {
                     .cmp(right.as_wire_name().as_bytes())
             });
         reject_duplicate_adjacent_by(
-            "webhook_auth.accepted_signature_algorithms",
-            &self.webhook_auth.accepted_signature_algorithms,
+            "webhook_signature_policy.accepted_signature_algorithms",
+            &self.webhook_signature_policy.accepted_signature_algorithms,
             |left, right| left == right,
         )?;
         self.endpoint_policy.endpoints.sort_by(|left, right| {
-            (left.method, left.path.as_bytes(), left.auth).cmp(&(
+            (left.method, left.path.as_bytes(), left.authentication_kind).cmp(&(
                 right.method,
                 right.path.as_bytes(),
-                right.auth,
+                right.authentication_kind,
             ))
         });
         reject_duplicate_adjacent_by(
             "endpoint_policy.endpoints",
             &self.endpoint_policy.endpoints,
             |left, right| {
-                left.method == right.method && left.path == right.path && left.auth == right.auth
+                left.method == right.method
+                    && left.path == right.path
+                    && left.authentication_kind == right.authentication_kind
             },
         )
     }
@@ -1013,7 +1015,9 @@ impl AppletRegistrationEpochTranscript {
                 "applet registration epoch DID method evidence mismatch".to_owned(),
             ));
         }
-        if verification_method_controller_core(self.webhook_auth.key_ref.as_str())? != service_id {
+        if verification_method_controller_core(self.webhook_signature_policy.key_ref.as_str())?
+            != service_id
+        {
             return Err(WireError::Protocol(
                 "applet registration epoch signing key is outside service DID".to_owned(),
             ));
@@ -1028,7 +1032,7 @@ impl AppletRegistrationEpochTranscript {
         if !self
             .accepted_signing_keys
             .iter()
-            .any(|key| key.key_ref == self.webhook_auth.key_ref)
+            .any(|key| key.key_ref == self.webhook_signature_policy.key_ref)
         {
             return Err(WireError::Protocol(
                 "applet registration epoch webhook key is not accepted".to_owned(),
@@ -1057,8 +1061,8 @@ impl AppletRegistrationEpochTranscript {
             |left, right| left.key_ref.as_bytes().cmp(right.key_ref.as_bytes()),
         )?;
         validate_strictly_sorted_by(
-            "webhook_auth.accepted_signature_algorithms",
-            &self.webhook_auth.accepted_signature_algorithms,
+            "webhook_signature_policy.accepted_signature_algorithms",
+            &self.webhook_signature_policy.accepted_signature_algorithms,
             |left, right| {
                 left.as_wire_name()
                     .as_bytes()
@@ -1069,16 +1073,19 @@ impl AppletRegistrationEpochTranscript {
             "endpoint_policy.endpoints",
             &self.endpoint_policy.endpoints,
             |left, right| {
-                (left.method, left.path.as_bytes(), left.auth).cmp(&(
+                (left.method, left.path.as_bytes(), left.authentication_kind).cmp(&(
                     right.method,
                     right.path.as_bytes(),
-                    right.auth,
+                    right.authentication_kind,
                 ))
             },
         )?;
         if self.accepted_signing_keys.is_empty()
             || self.endpoint_policy.endpoints.is_empty()
-            || self.webhook_auth.accepted_signature_algorithms.is_empty()
+            || self
+                .webhook_signature_policy
+                .accepted_signature_algorithms
+                .is_empty()
             || self.security_policy.claimed_profiles.is_empty()
         {
             return Err(WireError::Protocol(
@@ -1223,7 +1230,7 @@ pub struct AppletPackage {
     /// `normative-language.md` §7 forbids `*_set` wire suffixes).
     pub endpoint_policy: AppletEndpointPolicy,
     /// HTTP message signature key ref / accepted algorithms.
-    pub webhook_auth: WebhookAuth,
+    pub webhook_signature_policy: WebhookSignaturePolicy,
     pub receive_events: bool,
     pub receive_signals: bool,
     pub rate_limited: bool,
@@ -1290,7 +1297,7 @@ impl AppletPackage {
             namespaces,
             requested_scopes: Vec::new(),
             endpoint_policy: AppletEndpointPolicy::default(),
-            webhook_auth: WebhookAuth::http_message_signature(
+            webhook_signature_policy: WebhookSignaturePolicy::http_message_signature(
                 webhook_key_ref,
                 vec![HttpMessageSignatureAlgorithm::Ed25519],
             ),
@@ -1376,7 +1383,7 @@ impl AppletPackage {
         unsigned.proof = None;
         let canonical_bytes = canonical::canonical_json_bytes(&unsigned)?;
         let payload_digest = Hash::new(canonical::sha256_digest(&canonical_bytes))?;
-        let sig = signer.sign_payload(&canonical_bytes)?;
+        let signature = signer.sign_payload(&canonical_bytes)?;
         self.proof = Some(DetachedProof {
             kind: proof_kind::DETACHED_JWS.to_owned(),
             verification_method: verification_method.to_owned(),
@@ -1384,7 +1391,7 @@ impl AppletPackage {
             created_at: Utc::now(),
             domain: None,
             audience: None,
-            jws: sig.jws,
+            jws: signature.jws,
             extra: XExtensionMap::default(),
         });
         Ok(())
@@ -1522,7 +1529,7 @@ impl AppletPackage {
             rate_limited: self.rate_limited,
             requested_scopes: self.requested_scopes.clone(),
             registration_epoch: self.registration_epoch.clone(),
-            webhook_auth: self.webhook_auth.clone(),
+            webhook_signature_policy: self.webhook_signature_policy.clone(),
             manifest: self.manifest_snapshot(registration_epoch_evidence),
             proof: self.proof.clone().ok_or_else(|| {
                 WireError::Protocol(

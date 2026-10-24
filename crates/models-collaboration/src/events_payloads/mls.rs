@@ -99,10 +99,46 @@ pub enum MlsProposalType {
     AppCustom,
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[serde(try_from = "u64", into = "u64")]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct MlsGenesisEpoch;
+
+impl Serialize for MlsGenesisEpoch {
+    fn serialize<S: serde::Serializer>(
+        &self,
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error> {
+        arkret_canonical::serde_helpers::uint64_decimal::serialize(&0, serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for MlsGenesisEpoch {
+    fn deserialize<D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> std::result::Result<Self, D::Error> {
+        let value = arkret_canonical::serde_helpers::uint64_decimal::deserialize(deserializer)?;
+        Self::try_from(value).map_err(serde::de::Error::custom)
+    }
+}
+
+#[cfg(feature = "openapi")]
+impl salvo_oapi::ToSchema for MlsGenesisEpoch {
+    fn to_schema(_: &mut salvo_oapi::Components) -> salvo_oapi::RefOr<salvo_oapi::schema::Schema> {
+        salvo_oapi::schema::Object::new()
+            .schema_type(salvo_oapi::schema::BasicType::String)
+            .enum_values(["0"])
+            .into()
+    }
+}
+
+#[cfg(feature = "openapi")]
+impl salvo_oapi::ComposeSchema for MlsGenesisEpoch {
+    fn compose(
+        components: &mut salvo_oapi::Components,
+        _: Vec<salvo_oapi::RefOr<salvo_oapi::schema::Schema>>,
+    ) -> salvo_oapi::RefOr<salvo_oapi::schema::Schema> {
+        <Self as salvo_oapi::ToSchema>::to_schema(components)
+    }
+}
 
 impl TryFrom<u64> for MlsGenesisEpoch {
     type Error = &'static str;
@@ -165,21 +201,20 @@ impl MlsGenesisPayload {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MlsGenesisCreatorLeafAuthority {
-    pub leaf_signature_key_b64u: Base64UrlString,
+    pub leaf_signature_key_base64url: Base64UrlString,
     pub endpoint: MlsWelcomeRecipientEndpoint,
     pub authorization_event_ref: EventId,
 }
 
 impl MlsGenesisCreatorLeafAuthority {
     pub fn validate(&self) -> Result<()> {
-        let key =
-            arkret_canonical::base64url::base64url_decode(self.leaf_signature_key_b64u.as_str())
-                .map_err(|_| {
-                    WireError::Protocol("MLS creator leaf key is not base64url".to_owned())
-                })?;
+        let key = arkret_canonical::base64url::base64url_decode(
+            self.leaf_signature_key_base64url.as_str(),
+        )
+        .map_err(|_| WireError::Protocol("MLS creator leaf key is not base64url".to_owned()))?;
         if key.len() != 32
             || arkret_canonical::base64url::base64url_encode(&key)
-                != self.leaf_signature_key_b64u.as_str()
+                != self.leaf_signature_key_base64url.as_str()
         {
             return Err(WireError::Protocol(
                 "MLS creator leaf key must be canonical Ed25519 public key bytes".to_owned(),
@@ -198,6 +233,8 @@ pub struct MlsCommitFailedPayload {
     pub commit_ref: EventId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub welcome_ref: Option<EventId>,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub epoch: u64,
     pub failure_stage: MlsCommitFailureStage,
     #[serde(default, skip_serializing_if = "Option::is_none")]

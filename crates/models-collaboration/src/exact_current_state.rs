@@ -14,9 +14,7 @@ use arkret_wire::{
 use regex::Regex;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::agent_interaction::{
-    AgentInteractionExactCurrentRow, AgentInteractionExactCurrentSelector,
-};
+use crate::agent_interaction::{AgentInteractionExactCurrentSelector, CurrentAgentInteraction};
 use crate::events_payloads::moderation::{
     ModerationDecisionLiftPayload, ModerationDecisionPayload,
 };
@@ -202,7 +200,7 @@ pub struct ModerationStateExactCurrentSelector {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ExactCurrentResultSelector {
+pub enum ExactCurrentStateSelector {
     Relation(RelationExactCurrentSelector),
     ModerationState(ModerationStateExactCurrentSelector),
     AgentInteraction(AgentInteractionExactCurrentSelector),
@@ -249,7 +247,7 @@ pub struct CapabilityGrantExactCurrentSelector {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct CapabilityGrantExactCurrentRow {
+pub struct CurrentCapabilityGrant {
     pub selector: CapabilityGrantExactCurrentSelector,
     pub source_stream_ref: CommitStreamRef,
     pub revision: CurrentRevision,
@@ -274,7 +272,7 @@ pub struct AppletRegistrationExactCurrentSelector {
 /// AppletRegistrationPayload implementation after this shared read carrier.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AppletRegistrationExactCurrentRow {
+pub struct CurrentAppletRegistration {
     pub selector: AppletRegistrationExactCurrentSelector,
     pub source_stream_ref: CommitStreamRef,
     pub revision: CurrentRevision,
@@ -284,7 +282,7 @@ pub struct AppletRegistrationExactCurrentRow {
     pub value: serde_json::Value,
 }
 
-impl ExactCurrentResultSelector {
+impl ExactCurrentStateSelector {
     pub fn validate(&self) -> Result<()> {
         match self {
             Self::Relation(selector) => selector.primary_conflict_domain.validate(),
@@ -311,22 +309,22 @@ pub struct PolicyExactCurrentSelector {
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PolicyExactCurrentRow {
+pub struct CurrentPolicy {
     pub selector: PolicyExactCurrentSelector,
     pub source_stream_ref: CommitStreamRef,
     pub revision: CurrentRevision,
     pub value: crate::governance::operation_wire::PolicySetValue,
 }
 
-/// `ak.self.current_results.read.exact.v1` request body.
+/// `ak.self.current_state.read.exact.v1` request body.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ExactCurrentResultsReadRequestBody {
+pub struct ExactCurrentStateReadRequestBody {
     pub realm_id: RealmId,
-    pub selector: ExactCurrentResultSelector,
+    pub selector: ExactCurrentStateSelector,
 }
 
-impl ExactCurrentResultsReadRequestBody {
+impl ExactCurrentStateReadRequestBody {
     pub fn validate(&self) -> Result<()> {
         self.selector.validate()
     }
@@ -334,7 +332,7 @@ impl ExactCurrentResultsReadRequestBody {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RelationExactCurrentRow {
+pub struct CurrentRelation {
     pub selector: RelationExactCurrentSelector,
     /// Exact stream of the covering RealmCommit named by `revision.commit_id`.
     pub source_stream_ref: CommitStreamRef,
@@ -367,33 +365,33 @@ pub struct ModerationDecisionEntry {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ModerationStateCurrentValue {
+pub struct ModerationStateValue {
     pub assertions: Vec<ModerationDecisionEntry>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ModerationStateExactCurrentRow {
+pub struct CurrentModerationState {
     pub selector: ModerationStateExactCurrentSelector,
     /// Exact stream of the covering RealmCommit named by `revision.commit_id`.
     pub source_stream_ref: CommitStreamRef,
     pub revision: CurrentRevision,
-    pub value: ModerationStateCurrentValue,
+    pub value: ModerationStateValue,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ExactCurrentResultEntry {
-    Relation(RelationExactCurrentRow),
-    ModerationState(ModerationStateExactCurrentRow),
-    AgentInteraction(AgentInteractionExactCurrentRow),
-    CapabilityGrant(CapabilityGrantExactCurrentRow),
-    AppletRegistration(AppletRegistrationExactCurrentRow),
-    Policy(PolicyExactCurrentRow),
+pub enum ExactCurrentStateEntry {
+    Relation(CurrentRelation),
+    ModerationState(CurrentModerationState),
+    AgentInteraction(CurrentAgentInteraction),
+    CapabilityGrant(CurrentCapabilityGrant),
+    AppletRegistration(CurrentAppletRegistration),
+    Policy(CurrentPolicy),
     CalendarScheduleSource(CalendarScheduleSourceExactRow),
 }
 
-impl ExactCurrentResultEntry {
+impl ExactCurrentStateEntry {
     /// Structural cut binding shared by exact reads and Applet material supply.
     /// This does not grant either read authority or authenticate the head.
     pub(crate) fn validate_covering_head(
@@ -443,49 +441,49 @@ impl ExactCurrentResultEntry {
         }
     }
 
-    fn matches_selector(&self, requested: &ExactCurrentResultSelector) -> bool {
+    fn matches_selector(&self, requested: &ExactCurrentStateSelector) -> bool {
         if let (
             Self::AppletRegistration(entry),
-            ExactCurrentResultSelector::AppletRegistration(selector),
+            ExactCurrentStateSelector::AppletRegistration(selector),
         ) = (self, requested)
         {
             return &entry.selector == selector;
         }
-        if let (Self::Policy(entry), ExactCurrentResultSelector::Policy(selector)) =
+        if let (Self::Policy(entry), ExactCurrentStateSelector::Policy(selector)) =
             (self, requested)
         {
             return &entry.selector == selector;
         }
         if let (
             Self::CalendarScheduleSource(entry),
-            ExactCurrentResultSelector::CalendarScheduleSource(selector),
+            ExactCurrentStateSelector::CalendarScheduleSource(selector),
         ) = (self, requested)
         {
             return &entry.selector == selector;
         }
         if let (
             Self::CapabilityGrant(entry),
-            ExactCurrentResultSelector::CapabilityGrant(selector),
+            ExactCurrentStateSelector::CapabilityGrant(selector),
         ) = (self, requested)
         {
             return &entry.selector == selector;
         }
         if let (
             Self::AgentInteraction(entry),
-            ExactCurrentResultSelector::AgentInteraction(selector),
+            ExactCurrentStateSelector::AgentInteraction(selector),
         ) = (self, requested)
         {
             return &entry.selector == selector;
         }
         matches!(
             (self, requested),
-            (Self::Relation(entry), ExactCurrentResultSelector::Relation(selector))
+            (Self::Relation(entry), ExactCurrentStateSelector::Relation(selector))
                 if &entry.selector == selector
         ) || matches!(
             (self, requested),
             (
                 Self::ModerationState(entry),
-                ExactCurrentResultSelector::ModerationState(selector)
+                ExactCurrentStateSelector::ModerationState(selector)
             ) if &entry.selector == selector
         )
     }
@@ -638,28 +636,30 @@ pub enum NeverWrittenExactCurrentSelector {
     clippy::large_enum_variant,
     reason = "Keep schema-mapped wire variants inline; transport and runtime containers own allocation policy."
 )]
-pub enum ExactCurrentResultsReadOutcome {
+pub enum ExactCurrentStateReadResponseBody {
     Present {
         realm_id: RealmId,
+        #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
         governance_generation: u64,
         effective_stream_head: CommitStreamHead,
-        entry: ExactCurrentResultEntry,
+        entry: ExactCurrentStateEntry,
     },
     NeverWritten {
         realm_id: RealmId,
+        #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
         governance_generation: u64,
         effective_stream_head: CommitStreamHead,
         selector: NeverWrittenExactCurrentSelector,
     },
 }
 
-impl ExactCurrentResultsReadOutcome {
+impl ExactCurrentStateReadResponseBody {
     /// Validate every caller-visible binding before the result can supply a CAS
     /// basis. The governing generation must come from the caller's separately
     /// verified current Station state.
     pub fn validate_for_request(
         &self,
-        request: &ExactCurrentResultsReadRequestBody,
+        request: &ExactCurrentStateReadRequestBody,
         expected_governance_generation: u64,
     ) -> Result<()> {
         request.validate()?;
@@ -705,10 +705,10 @@ impl ExactCurrentResultsReadOutcome {
                 }
                 if !matches!(
                     (&request.selector, selector),
-                    (ExactCurrentResultSelector::Relation(requested), NeverWrittenExactCurrentSelector::Relation(actual)) if requested == actual
-                ) && !matches!((&request.selector, selector), (ExactCurrentResultSelector::AgentInteraction(requested), NeverWrittenExactCurrentSelector::AgentInteraction(actual)) if requested == actual)
-                    && !matches!((&request.selector,selector),(ExactCurrentResultSelector::AppletRegistration(requested),NeverWrittenExactCurrentSelector::AppletRegistration(actual)) if requested==actual)
-                    && !matches!((&request.selector,selector),(ExactCurrentResultSelector::Policy(requested),NeverWrittenExactCurrentSelector::Policy(actual)) if requested==actual)
+                    (ExactCurrentStateSelector::Relation(requested), NeverWrittenExactCurrentSelector::Relation(actual)) if requested == actual
+                ) && !matches!((&request.selector, selector), (ExactCurrentStateSelector::AgentInteraction(requested), NeverWrittenExactCurrentSelector::AgentInteraction(actual)) if requested == actual)
+                    && !matches!((&request.selector,selector),(ExactCurrentStateSelector::AppletRegistration(requested),NeverWrittenExactCurrentSelector::AppletRegistration(actual)) if requested==actual)
+                    && !matches!((&request.selector,selector),(ExactCurrentStateSelector::Policy(requested),NeverWrittenExactCurrentSelector::Policy(actual)) if requested==actual)
                 {
                     return Err(WireError::Protocol(
                         "exact-current never_written selector differs from request".to_owned(),
@@ -734,9 +734,9 @@ impl ExactCurrentResultsReadOutcome {
 /// Validate minimal Calendar sources against the same authenticated current cut.
 pub fn validate_calendar_current_pairs(
     realm: &RealmId,
-    entries: &[arkret_wire::TypedCurrentRow],
+    entries: &[arkret_wire::CurrentState],
 ) -> Result<()> {
-    use arkret_wire::{CurrentSelector as S, TypedCurrentRow as R};
+    use arkret_wire::{CurrentSelector as S, CurrentState as R};
     let reject = |message: &str| WireError::Protocol(message.into());
     for entry in entries {
         let R::Value {
@@ -785,8 +785,8 @@ pub fn validate_calendar_current_pairs(
 #[cfg(test)]
 mod calendar_current_pair_tests {
     use arkret_wire::{
-        ActorId, CalendarScheduleSourceValue, CommittedEventRef, CurrentSelector, EventId,
-        ScopeRef, StrandId, TypedCurrentRow,
+        ActorId, CalendarScheduleSourceValue, CommittedEventRef, CurrentSelector, CurrentState,
+        EventId, ScopeRef, StrandId,
     };
     use serde_json::json;
 
@@ -794,7 +794,7 @@ mod calendar_current_pair_tests {
     fn event(byte: u8) -> EventId {
         EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [byte; 32])
     }
-    fn rows() -> (RealmId, Vec<TypedCurrentRow>) {
+    fn rows() -> (RealmId, Vec<CurrentState>) {
         let realm = RealmId::from_event_id(&event(1));
         let id = StrandId::from_event_id(&event(2));
         let stream = CommitStreamRef::Realm {
@@ -829,7 +829,7 @@ mod calendar_current_pair_tests {
         (
             realm,
             vec![
-                TypedCurrentRow::Value {
+                CurrentState::Value {
                     selector: CurrentSelector::Strand {
                         strand_id: id.clone(),
                     },
@@ -837,7 +837,7 @@ mod calendar_current_pair_tests {
                     revision: revision.clone(),
                     value: serde_json::to_value(strand).unwrap(),
                 },
-                TypedCurrentRow::Value {
+                CurrentState::Value {
                     selector: CurrentSelector::CalendarScheduleSource { strand_id: id },
                     source_stream_ref: stream,
                     revision,
@@ -853,15 +853,15 @@ mod calendar_current_pair_tests {
         assert!(validate_calendar_current_pairs(&realm, &rows[..1]).is_err());
         assert!(validate_calendar_current_pairs(&realm, &rows[1..]).is_err());
         let mut bad = rows.clone();
-        let TypedCurrentRow::Value { revision, .. } = &mut bad[1];
+        let CurrentState::Value { revision, .. } = &mut bad[1];
         revision.stream_position += 1;
         assert!(validate_calendar_current_pairs(&realm, &bad).is_err());
         let mut bad = rows.clone();
-        let TypedCurrentRow::Value { value, .. } = &mut bad[1];
+        let CurrentState::Value { value, .. } = &mut bad[1];
         value["source"]["stream_position"] = json!(6);
         assert!(validate_calendar_current_pairs(&realm, &bad).is_err());
         let mut bad = rows;
-        let TypedCurrentRow::Value { value, .. } = &mut bad[1];
+        let CurrentState::Value { value, .. } = &mut bad[1];
         value["effective_scope"]["realm_id"] = json!(RealmId::from_event_id(&event(9)));
         assert!(validate_calendar_current_pairs(&realm, &bad).is_err());
     }
@@ -876,10 +876,10 @@ mod calendar_current_pair_tests {
                     arkret_models_crypto::EncryptedEnvelopeEncryptionContext::standard(1, event(4)),
                 ciphertext: "AQID".into(),
             };
-        let TypedCurrentRow::Value { value, .. } = &mut rows[0];
+        let CurrentState::Value { value, .. } = &mut rows[0];
         value.as_object_mut().unwrap().remove("metadata");
         value["encrypted_metadata"] = serde_json::to_value(&envelope).unwrap();
-        let TypedCurrentRow::Value { value, .. } = &mut rows[1];
+        let CurrentState::Value { value, .. } = &mut rows[1];
         value["metadata_context"] = json!({"source":value["source"],"event_kind":"ak.strand.update","signer_id":ActorId::service(arkret_wire::DidCoreId::new("ak:did_core:web:calendar.example").unwrap()),"payload_digest":envelope.payload_digest().unwrap()});
         validate_calendar_current_pairs(&realm, &rows).unwrap();
         for (field, replacement) in [
@@ -894,7 +894,7 @@ mod calendar_current_pair_tests {
             ),
         ] {
             let mut bad = rows.clone();
-            let TypedCurrentRow::Value { value, .. } = &mut bad[1];
+            let CurrentState::Value { value, .. } = &mut bad[1];
             value["metadata_context"][field] = replacement;
             assert!(validate_calendar_current_pairs(&realm, &bad).is_err());
         }
@@ -905,7 +905,7 @@ mod calendar_current_pair_tests {
     #[test]
     fn calendar_nullable_source_and_context_are_required_closed_members() {
         let (_, rows) = rows();
-        let TypedCurrentRow::Value { value, .. } = &rows[1];
+        let CurrentState::Value { value, .. } = &rows[1];
         for member in ["source", "metadata_context"] {
             let mut bad = value.clone();
             bad.as_object_mut().unwrap().remove(member);

@@ -262,7 +262,8 @@ fn verify_closure(
     let signer = &carrier.authenticated_signer_evidence;
     signer.validate()?;
     let binding = &state.authorization;
-    let arkret_wire::TypedCurrentRow::Value { value, .. } = &state.agent_lifecycle_witness.result;
+    let arkret_wire::CurrentState::Value { value, .. } =
+        &state.agent_lifecycle_witness.current_state;
     if signer.signer_kind != AuthenticatedSignerKind::Agent
         || signer.subject_id != account.principal_id
         || signer.verification_method != binding.verification_method
@@ -543,7 +544,7 @@ fn validate_accepted_payloads(state: &AgentAuthorityState, account: &AccountId) 
         }
         validate_controller_delegation(original, account)?;
     }
-    let arkret_wire::TypedCurrentRow::Value { value, .. } = &state.key_state_witness.result;
+    let arkret_wire::CurrentState::Value { value, .. } = &state.key_state_witness.current_state;
     let entries = value
         .get("authorizations")
         .and_then(serde_json::Value::as_array)
@@ -565,7 +566,7 @@ fn validate_accepted_payloads(state: &AgentAuthorityState, account: &AccountId) 
             .get("tag_id")
             .and_then(serde_json::Value::as_str)
             .ok_or_else(|| rejected(ErrorCode::SchemaViolation, "authorization dot has no tag"))?;
-        let dot: arkret_models_collaboration::exact_current_results::CanonicalEventDot =
+        let dot: arkret_models_collaboration::exact_current_state::CanonicalEventDot =
             serde_json::from_value(serde_json::Value::String(tag.to_owned()))?;
         if entry.as_object().is_none_or(|o| o.len() != 2)
             || previous.as_ref().is_some_and(|prior| prior >= &dot)

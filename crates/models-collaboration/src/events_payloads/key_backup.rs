@@ -7,7 +7,7 @@ use crate::internal_prelude::*;
 /// Counterpart for the closed current-generation device authorization binding.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct KeyBackupActiveSeriesAuthData {
+pub struct KeyBackupActiveSeriesSignatureProof {
     pub verification_method: DidUrl,
     pub signature_algorithm: KeyBackupSignatureAlgorithm,
     pub signature: Base64UrlString,
@@ -40,7 +40,7 @@ pub struct KeyBackupActiveSeries {
     pub source_commit_ref: KeyBackupActiveSeriesSourceCommitRef,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
-    pub auth_data: KeyBackupActiveSeriesAuthData,
+    pub signature_proof: KeyBackupActiveSeriesSignatureProof,
     #[serde(flatten)]
     pub extra: BTreeMap<String, Value>,
 }
@@ -61,7 +61,7 @@ pub struct UnsignedKeyBackupActiveSeries {
     source_commit_ref: KeyBackupActiveSeriesSourceCommitRef,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     issued_at: DateTime<Utc>,
-    auth_data: UnsignedKeyBackupActiveSeriesAuthData,
+    signature_proof: UnsignedKeyBackupActiveSeriesAuthData,
     #[serde(flatten)]
     extra: BTreeMap<String, Value>,
 }
@@ -119,7 +119,7 @@ impl UnsignedKeyBackupActiveSeries {
                 device_generation_ref: trust_anchor.generation_ref,
             },
             issued_at,
-            auth_data: UnsignedKeyBackupActiveSeriesAuthData {
+            signature_proof: UnsignedKeyBackupActiveSeriesAuthData {
                 verification_method,
                 signature_algorithm: KeyBackupSignatureAlgorithm::Ed25519,
                 device_authorize_event_id: trust_anchor.authorize_event_id,
@@ -130,7 +130,7 @@ impl UnsignedKeyBackupActiveSeries {
 
     /// Canonical bytes signed by active-series producers and verified by all
     /// receivers. The unsigned typestate serializes exactly like the signed
-    /// wire record except that `auth_data.signature` does not exist yet.
+    /// wire record except that `signature_proof.signature` does not exist yet.
     pub fn signing_payload_bytes(&self) -> Result<Vec<u8>> {
         Ok(canonical::canonical_json_bytes(self)?)
     }
@@ -145,11 +145,11 @@ impl UnsignedKeyBackupActiveSeries {
             previous_series_ids: self.previous_series_ids,
             source_commit_ref: self.source_commit_ref,
             issued_at: self.issued_at,
-            auth_data: KeyBackupActiveSeriesAuthData {
-                verification_method: self.auth_data.verification_method,
-                signature_algorithm: self.auth_data.signature_algorithm,
+            signature_proof: KeyBackupActiveSeriesSignatureProof {
+                verification_method: self.signature_proof.verification_method,
+                signature_algorithm: self.signature_proof.signature_algorithm,
                 signature,
-                device_authorize_event_id: self.auth_data.device_authorize_event_id,
+                device_authorize_event_id: self.signature_proof.device_authorize_event_id,
             },
             extra: self.extra,
         })
@@ -157,7 +157,7 @@ impl UnsignedKeyBackupActiveSeries {
 }
 
 impl KeyBackupActiveSeries {
-    /// Canonical bytes covered by `auth_data.signature`.
+    /// Canonical bytes covered by `signature_proof.signature`.
     ///
     /// The active-series schema excludes only the signature member itself
     /// from this transcript. Keeping that operation on the public model avoids
@@ -172,10 +172,10 @@ impl KeyBackupActiveSeries {
             previous_series_ids: self.previous_series_ids.clone(),
             source_commit_ref: self.source_commit_ref.clone(),
             issued_at: self.issued_at,
-            auth_data: UnsignedKeyBackupActiveSeriesAuthData {
-                verification_method: self.auth_data.verification_method.clone(),
-                signature_algorithm: self.auth_data.signature_algorithm,
-                device_authorize_event_id: self.auth_data.device_authorize_event_id.clone(),
+            signature_proof: UnsignedKeyBackupActiveSeriesAuthData {
+                verification_method: self.signature_proof.verification_method.clone(),
+                signature_algorithm: self.signature_proof.signature_algorithm,
+                device_authorize_event_id: self.signature_proof.device_authorize_event_id.clone(),
             },
             extra: self.extra.clone(),
         };
@@ -204,7 +204,7 @@ pub struct ControllerBackupTrustAnchor {
 impl ControllerBackupTrustAnchor {
     pub fn from_record(record: &KeyBackupActiveSeries) -> Self {
         Self {
-            authorize_event_id: record.auth_data.device_authorize_event_id.clone(),
+            authorize_event_id: record.signature_proof.device_authorize_event_id.clone(),
             generation_ref: record.source_commit_ref.device_generation_ref,
         }
     }
@@ -219,7 +219,7 @@ pub enum ControllerBackupTrustAnchorError {
 }
 
 pub fn resolve_controller_backup_trust_anchor(
-    outcome: &arkret_models_crypto::keys::KeysQueryOutcome,
+    outcome: &arkret_models_crypto::keys::KeysQueryResponseBody,
     account_id: &AccountId,
     device_id: &DeviceId,
 ) -> std::result::Result<ControllerBackupTrustAnchor, ControllerBackupTrustAnchorError> {
@@ -461,7 +461,7 @@ mod tests {
         );
         assert_eq!(unsigned["source_commit_ref"]["device_generation_ref"], 3);
         assert!(unsigned.get("source_ref").is_none());
-        assert!(unsigned["auth_data"].get("signature").is_none());
+        assert!(unsigned["signature_proof"].get("signature").is_none());
     }
 
     #[test]

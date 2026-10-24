@@ -52,7 +52,7 @@ pub struct AppletConfigurationIntent {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AppletConfigurationRequest {
+pub struct AppletConfigurationRequestBody {
     pub command: AppletConfigurationCommand,
     pub intent: AppletConfigurationIntent,
     #[serde(
@@ -69,9 +69,9 @@ pub struct AppletConfigurationRequest {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AppletConfigurationPeerRequest {
+pub struct AppletConfigurationPeerRequestBody {
     pub requester_account_id: arkret_wire::AccountId,
-    pub request: AppletConfigurationRequest,
+    pub request: AppletConfigurationRequestBody,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -82,6 +82,8 @@ pub struct AppletConfigurationExecutionIntent {
     pub applet_id: AppletId,
     pub service_id: DidCoreId,
     pub governance_station_id: DidCoreId,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub governance_generation: u64,
     pub effective_scope: ScopeRef,
     pub registration_ref: CommittedEventRef,
@@ -101,10 +103,12 @@ pub struct AppletConfigurationSignature {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AppletConfigurationExecutionRequest {
+pub struct AppletConfigurationExecutionRequestBody {
     pub command: AppletConfigurationCommand,
     pub intent: AppletConfigurationExecutionIntent,
     pub governance_station_id: DidCoreId,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub governance_generation: u64,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
@@ -128,7 +132,7 @@ pub enum AppletConfigurationExecutionStatus {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AppletConfigurationExecutionOutcome {
+pub struct AppletConfigurationExecutionResponseBody {
     pub request_id: RequestId,
     pub intent_digest: Hash,
     pub service_id: DidCoreId,
@@ -171,7 +175,7 @@ pub enum AppletConfigurationAdmissionStatus {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AppletConfigurationOutcome {
+pub struct AppletConfigurationResponseBody {
     pub request_id: RequestId,
     pub intent_digest: Hash,
     #[serde(
@@ -179,7 +183,7 @@ pub struct AppletConfigurationOutcome {
         skip_serializing_if = "Option::is_none",
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
-    pub source_outcome: Option<AppletConfigurationExecutionOutcome>,
+    pub source_response_body: Option<AppletConfigurationExecutionResponseBody>,
     pub admission_status: AppletConfigurationAdmissionStatus,
     #[serde(
         default,
@@ -225,7 +229,7 @@ impl AppletConfigurationIntent {
     }
 }
 
-impl AppletConfigurationRequest {
+impl AppletConfigurationRequestBody {
     pub fn validate(&self) -> Result<()> {
         self.intent.validate()?;
         if self
@@ -239,7 +243,7 @@ impl AppletConfigurationRequest {
     }
 }
 
-impl AppletConfigurationPeerRequest {
+impl AppletConfigurationPeerRequestBody {
     pub fn validate(&self) -> Result<()> {
         self.request.validate()?;
         bounded(self)
@@ -298,7 +302,7 @@ fn sign<T: Serialize, S: PayloadSigner + ?Sized>(
     })
 }
 
-impl AppletConfigurationExecutionRequest {
+impl AppletConfigurationExecutionRequestBody {
     pub const SIGNATURE_DOMAIN: &str = DomainSeparationId::APPLET_CONFIGURATION_COMMAND_V1;
 
     pub fn signature_payload(&self) -> Result<Vec<u8>> {
@@ -334,7 +338,7 @@ impl AppletConfigurationExecutionRequest {
     }
 }
 
-impl AppletConfigurationExecutionOutcome {
+impl AppletConfigurationExecutionResponseBody {
     pub const SIGNATURE_DOMAIN: &str = DomainSeparationId::APPLET_CONFIGURATION_OUTCOME_V1;
 
     pub fn signature_payload(&self) -> Result<Vec<u8>> {

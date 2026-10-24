@@ -168,7 +168,7 @@ pub enum InviteLocatorStatus {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct InviteLocatorIssueOutcome {
+pub struct InviteLocatorIssueResponseBody {
     pub locator_id: InviteLocatorId,
     pub locator_token: String,
     #[serde(with = "canonical_timestamp")]
@@ -179,7 +179,7 @@ pub struct InviteLocatorIssueOutcome {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct InviteLocatorRevokeOutcome {
+pub struct InviteLocatorRevokeResponseBody {
     pub locator_id: InviteLocatorId,
     pub status: InviteLocatorStatus,
     #[serde(with = "canonical_timestamp")]
@@ -538,7 +538,7 @@ pub enum InviteDeliveryOutcomeStatus {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct InviteDeliveryOutcome {
+pub struct InviteDeliveryResponseBody {
     pub status: InviteDeliveryOutcomeStatus,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub disclosed_outcome: Option<DisclosedOutcome>,

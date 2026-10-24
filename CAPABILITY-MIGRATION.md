@@ -52,14 +52,14 @@ below cites one of them.
 | Realm media service foci | `event-payload.schema.json#/$defs/media_service_focus`; `zh/crypto-media/media-service-binding.md` §2 | `crates/models-collaboration/src/events_payloads/realm.rs` (`MediaServiceFocus`, `RealmMediaServicePayload`) | `realm::tests` media-focus cases (7), including `focus_kind` fail-closed |
 | Applet managed-actor four-Event authoring unit | `zh/identity/key-management.md` §3.6.3, `zh/extensions/applet-integration.md` §9.1, `applet-managed-actor.schema.json`, `applet-install-authoring.schema.json` | `crates/sdk/src/managed_actor_authoring.rs` | `crates/sdk/tests/applet_managed_actor_authoring.rs` (8) |
 | Agent Realm-membership cascade | `agent-membership-cascade.schema.json`; `zh/models/actor.md` | `crates/models-collaboration/src/governance/agent_membership_cascade.rs` | `agent_membership_cascade::tests` (9) |
-| Realm join bootstrap assembly | `realm-join-intake.schema.json#/$defs/peer_bootstrap_outcome`; `zh/governance/join-policy.md` L36 | `crates/models-collaboration/src/governance/realm_join_bootstrap.rs` | `realm_join_bootstrap::tests` (4) |
+| Realm join bootstrap assembly | `realm-join-intake.schema.json#/$defs/peer_bootstrap_response_body`; `zh/governance/join-policy.md` L36 | `crates/models-collaboration/src/governance/realm_join_bootstrap.rs` | `realm_join_bootstrap::tests` (4) |
 | Read-cursor position + causal relation | `read-cursor.schema.json#/$defs/position`; `zh/discovery/read-receipts.md` §6.5 | `crates/models-collaboration/src/objects/read_receipts.rs` | `read_receipts::read_cursor_tests` (8) |
 | MIMI consent request / update | `mimi-operations.schema.json#/$defs/mimi_{request,update}_consent_request_body`; ops `ak.open.mimi.command.{request,update}_consent.v1`; proof contexts `ak.mimi_{request,update}_consent_request_proof.v1` | `crates/models-collaboration/src/mimi_operations.rs` | `mimi_operations::tests` (5) |
 | Recovery policy + recovery session | `recovery-policy.schema.json`, `recovery-session.schema.json`, `high-risk-authority-proof.schema.json` | `crates/models-crypto/src/{recovery_policy,recovery_session,high_risk_authority_proof,authority_set_policy}.rs` | 28 tests across those modules |
 | Agent Sidecar object, view state, exchange control/projection/binding, MLS context | `agent-sidecar*.schema.json`, `principal-operations.schema.json#/$defs/sidecar_*` | `crates/models-collaboration/src/agent_sidecar.rs`, rebuilt three-phase `sidecar_operations.rs` | 16 tests |
 | Event read rows, redacted / reference-locked views, projection rows and pages | `service-operation-dtos.schema.json#/$defs/{EventReadRow,RedactedEventView,ReferenceLockedEventStub,EventView,Projection*Row,Projection*List}` | `crates/models-collaboration/src/event_query.rs`, `.../objects/query_projection.rs` | `event_read_row_tests`, `event_view_tests`, `projection_list_tests` |
 | Event submit envelope + batch submission | `service-operation-dtos.schema.json#/$defs/{EventSubmitEnvelope,EventsSubmitBatchRequestBody}` | `crates/wire/src/event_submission.rs` | round-trip plus a test asserting a bare Event array is rejected |
-| Recovery / Agent-refresh session grant branches | `service-operation-dtos.schema.json#/$defs/{RecoverySessionGrantRequest,AgentSessionGrantRefreshRequest,AgentSessionRefreshProof}` | `crates/models-collaboration/src/session_grant_bodies.rs` | module tests |
+| Recovery / Agent-refresh session grant branches | `service-operation-dtos.schema.json#/$defs/{RecoverySessionGrantRequestBody,AgentSessionGrantRefreshRequestBody,AgentSessionRefreshProof}` | `crates/models-collaboration/src/session_grant_bodies.rs` | module tests |
 | `device_authorize_payload_digest` (single implementation) | `zh/crypto-media/device-lifecycle.md` §5.2/§5.4 | `crates/models-collaboration/src/events_payloads/device_identity.rs` | exercised through `principal_operations` and the PCR genesis relay |
 | `event_spec::DeviceAuthorize` typed draft binding | `event-kind-registry.json` `payload_schema_ref` for `ak.device.authorize` | `crates/event-draft/src/event_payload.rs` | `device_authorize_binds_its_typed_payload` (+1 negative) |
 | `derived_object_id_for_kind` | `zh/models/common-fields.md` §6.0; `id-kind-registry.json` `id_form=event_derived` | `crates/schema/src/derived_object_id.rs` | 3 tests including a 6-kind KAT |
@@ -127,8 +127,8 @@ Each entry is the whole unit, with no product type left inside it.
   `AuditReleaseId`, together with `RywFrontier`. No spec `$defs` remains for any
   of them; the stale registry rows are removed in `tools/schema_struct_registry.json`.
 - **Reducer profile negotiation.** `wire/src/generated/{reducer_managed_paths,
-  reducer_profiles}.rs`, `schema/src/generated/current_result_schemas.rs`,
-  `tools/generate-current-result-schemas.py`. Service discovery advertises
+  reducer_profiles}.rs`, `schema/src/generated/current_state_schemas.rs`,
+  `tools/generate-current-state-schemas.py`. Service discovery advertises
   concrete operations and schemas instead.
 - **Superseded, not lost:** `wire/src/security_transaction.rs` (now
   `models-crypto/src/security_transaction.rs`), `schema/src/prepared_event.rs`
@@ -158,7 +158,7 @@ Each entry is the whole unit, with no product type left inside it.
   `recovery-authority.schema.json#/$defs/recovery_completion_attestation`:
   `reanchor_ref` → `reanchor_event_ref`, `device_authorization_ref` →
   `device_authorization_event_ref`, declaration order moved to the schema's
-  `properties` order, and `IssueRecoveryCompletionGrantRequest` now carries
+  `properties` order, and `RecoveryCompletionGrantRequestBody` now carries
   `device_authorization_event_id` and checks the terminal receipt's
   `reanchor_event_id`.
 - **Event authoring keeps its domain builders and submits
@@ -258,7 +258,7 @@ type locally.
 - `agent-operations.schema.json#/$defs/agent_sidecar_view` requires
   `sidecar` / `desired_agent_ids` / `effective_agent_ids` / `mls_context` /
   `access_readiness` / `pending_access_reconciliations`; the `AgentSidecarView`
-  and `AgentSidecarList` in `agent_operations.rs` still carry the older
+  and `AgentSidecarPage` in `agent_operations.rs` still carry the older
   `sidecar_id` / `realm_id` / `sidecar_head` shape. Every type the spec shape
   needs now exists in `crates/models-collaboration/src/agent_sidecar.rs`.
 - `crates/wire/src/authority_commit.rs` `PcrGenesisUnit` and
@@ -268,7 +268,7 @@ type locally.
 - `crates/models-identity/src/agent_signer_state.rs` `StationSigningKey` carries
   `authorization_ref: CommittedEventRef` plus a `revision`, while
   `signer-key-operations.schema.json#/$defs/station_signing_key` is closed over
-  `actor` / `verification_method` / `public_key_b64u` / `authorization_ref:
+  `actor` / `verification_method` / `public_key_base64url` / `authorization_ref:
   event_id`. `crates/wire/src/signal.rs` holds a second `StationSigningKey` that
   does match the schema.
 - `tools/deny_unknown_inventory.json` still names 23 removed types and
@@ -350,8 +350,8 @@ it is deliberately deferred until arkret-spec stops moving.
 All seven predate this work (verified against `36f73eb0`) and every one of them
 is the name the spec itself gives the DTO, so renaming them in the SDK would
 introduce exactly the kind of local divergence this migration is removing:
-`TypedCurrentRow` and `StreamRow` (`crates/wire/src/authority_commit.rs`),
-`SignerKeyQueryOutcome` (`crates/models-identity/src/signer_key_operations.rs`),
+`CurrentState` and `StreamRow` (`crates/wire/src/authority_commit.rs`),
+`SignerKeyResolution` (`crates/models-identity/src/signer_key_operations.rs`),
 `DeviceMessageDeliveredResult` and `DeviceMessageUnknownResult`
 (`crates/models-collaboration/src/device_messages.rs`, both spec `$defs` names),
 `RealmJoinCandidate` (`crates/models-collaboration/src/governance/realm_join_intake.rs`)

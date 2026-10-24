@@ -2,22 +2,25 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/mimi-operations.schema.json
-// sha256=422257434de49b364de37d21546a829b240ae6ba53f655f83e299e49f96724c6
+// sha256=23bcdb30a0625be95b1f0ed7532962f5406840a9e7c8d81f182457129ce53eef
 //
 // Input: schemas/common-ids.schema.json
-// sha256=14226f0ac83e4d06639ad791cc0e52e0eb1c3b128cd4c8c12308a99b795141e4
+// sha256=0cc25a02fe0d9a94f6e41f2cf8f64e492ba36362f1e69a699cf1e684924837ee
+//
+// Input: schemas/decimal-integers.schema.json
+// sha256=7ea09c46f777e010c72a1fd069b7fbefc7d66924e7b3ad5a5961ce9914858987
 //
 // Input: schemas/account-operations.schema.json
-// sha256=5b7dba680c2083d0bebc26ad32e7d37293d150cece8f2298a40bf382e7f31405
+// sha256=78c6503698cd43571f2b25543013f9036927ef9bfd005e71377ad3006f4a64d4
 //
 // Input: schemas/time.schema.json
 // sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
 //
 // Input: schemas/service-operation-dtos.schema.json
-// sha256=3e3a36a140c4328b66c09fa32714d5b36acc9c9d64fabf0b961add6fa0567fe0
+// sha256=18415d05b61700be7b69081cf070ed3c41de10f8e43cabea16992ae94a0f37d9
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=d200bd3e6d76abd1b6154781fb5e54f11fbbc834638cdc29554f83590127fdfa
+// sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
 
 /// Counterpart: `mimi-operations.schema.json#/$defs/mimi_submit_message_request_body`.
 /// Counterpart for
@@ -38,23 +41,24 @@ pub struct MimiSubmitMessageRequestBody {
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
     pub mls_group_id: Option<MlsGroupId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_uint64_decimal")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
     pub epoch: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
     pub associated_data: Option<MimiOpaquePayload>,
 }
 
-/// Counterpart: `mimi-operations.schema.json#/$defs/mimi_submit_message_outcome`.
+/// Counterpart: `mimi-operations.schema.json#/$defs/mimi_submit_message_response_body`.
 /// Counterpart for
-/// `mimi-operations.schema.json#/$defs/mimi_submit_message_outcome`.
+/// `mimi-operations.schema.json#/$defs/mimi_submit_message_response_body`.
 ///
 /// `event_ref` is present only when the submission also produced an Arkret
 /// Event; a pure outbound relay reports delivery without one.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct MimiSubmitMessageOutcome {
+pub struct MimiSubmitMessageResponseBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
     pub event_ref: Option<EventId>,
@@ -63,9 +67,9 @@ pub struct MimiSubmitMessageOutcome {
     pub rejections: Vec<MimiFailure>,
 }
 
-/// Counterpart: `mimi-operations.schema.json#/$defs/mimi_identifier_query_outcome`.
+/// Counterpart: `mimi-operations.schema.json#/$defs/mimi_identifier_query_response_body`.
 /// Counterpart for
-/// `mimi-operations.schema.json#/$defs/mimi_identifier_query_outcome`.
+/// `mimi-operations.schema.json#/$defs/mimi_identifier_query_response_body`.
 ///
 /// The outcome is a proof-carrying object: its registered proof context is
 /// `ak.mimi_identifier_query_outcome_proof.v1`, and the signed transcript is
@@ -73,16 +77,16 @@ pub struct MimiSubmitMessageOutcome {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct MimiIdentifierQueryOutcome {
+pub struct MimiIdentifierQueryResponseBody {
     pub matches: Vec<MimiIdentifierMatch>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub proofs: Vec<PayloadProof>,
     pub has_more: bool,
 }
 
-/// Counterpart: `mimi-operations.schema.json#/$defs/mimi_proxy_download_outcome`.
+/// Counterpart: `mimi-operations.schema.json#/$defs/mimi_proxy_download_response_body`.
 /// Counterpart for
-/// `mimi-operations.schema.json#/$defs/mimi_proxy_download_outcome`.
+/// `mimi-operations.schema.json#/$defs/mimi_proxy_download_response_body`.
 ///
 /// Operation `ak.open.mimi.command.proxy_download.v1`. `download_ref` is the
 /// provider's own opaque handle; the SDK never interprets it as a URL or as a
@@ -90,10 +94,10 @@ pub struct MimiIdentifierQueryOutcome {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct MimiProxyDownloadOutcome {
+pub struct MimiProxyDownloadResponseBody {
     pub download_ref: NonEmptyString,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub headers: BTreeMap<String, NonEmptyString>,
+    pub download_request_headers: BTreeMap<String, NonEmptyString>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
@@ -112,7 +116,8 @@ pub struct MimiRoomUpdateRequestBody {
     pub mls_group_id: MlsGroupId,
     pub update: MimiRoomUpdate,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_uint64_decimal")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
     pub epoch: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
@@ -141,25 +146,25 @@ pub struct MimiNotifyRequestBody {
     pub routing: Option<MimiNotificationRouting>,
 }
 
-/// Counterpart: `mimi-operations.schema.json#/$defs/mimi_request_consent_outcome`.
-/// `mimi-operations.schema.json#/$defs/mimi_request_consent_outcome`.
+/// Counterpart: `mimi-operations.schema.json#/$defs/mimi_request_consent_response_body`.
+/// `mimi-operations.schema.json#/$defs/mimi_request_consent_response_body`.
 /// The old `status` mirror is not part of the closed outcome.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct MimiRequestConsentOutcome {
+pub struct MimiRequestConsentResponseBody {
     pub consent_id: ConsentId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
     pub challenge: Option<NonEmptyString>,
 }
 
-/// Counterpart: `mimi-operations.schema.json#/$defs/mimi_update_consent_outcome`.
-/// `mimi-operations.schema.json#/$defs/mimi_update_consent_outcome`.
+/// Counterpart: `mimi-operations.schema.json#/$defs/mimi_update_consent_response_body`.
+/// `mimi-operations.schema.json#/$defs/mimi_update_consent_response_body`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct MimiUpdateConsentOutcome {
+pub struct MimiUpdateConsentResponseBody {
     pub consent_id: ConsentId,
     pub decision: MimiConsentDecision,
     #[serde(with = "canonical_timestamp")]

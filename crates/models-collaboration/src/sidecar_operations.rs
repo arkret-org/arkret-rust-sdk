@@ -38,7 +38,7 @@ string_marker!(SidecarEnsureNewBranch, New, "new");
 string_marker!(SidecarEnsureExistingBranch, Existing, "existing");
 
 // Field declaration order is byte-for-byte the properties order of
-// principal-operations.schema.json#/$defs/sidecar_ensure_request (first
+// principal-operations.schema.json#/$defs/agent_sidecar_ensure_request_body (first
 // branch).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -53,7 +53,7 @@ pub struct SidecarEnsurePrepareRequestBody {
 }
 
 // Field declaration order is byte-for-byte the properties order of
-// principal-operations.schema.json#/$defs/sidecar_ensure_request (second
+// principal-operations.schema.json#/$defs/agent_sidecar_ensure_request_body (second
 // branch).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -70,7 +70,7 @@ pub struct SidecarEnsureCommitRequestBody {
 }
 
 // Field declaration order is byte-for-byte the properties order of
-// principal-operations.schema.json#/$defs/sidecar_ensure_request (third
+// principal-operations.schema.json#/$defs/agent_sidecar_ensure_request_body (third
 // branch).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -144,12 +144,12 @@ impl SidecarEnsureRequestBody {
 }
 
 // Field declaration order is byte-for-byte the properties order of
-// principal-operations.schema.json#/$defs/sidecar_ensure_outcome (first
+// principal-operations.schema.json#/$defs/sidecar_ensure_response_body (first
 // branch).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct SidecarEnsurePreparedNewOutcome {
+pub struct SidecarEnsurePreparedNewResponseBody {
     pub status: SidecarEnsurePreparedStatus,
     pub branch: SidecarEnsureNewBranch,
     pub operation_id: ProtocolOperationId,
@@ -161,12 +161,12 @@ pub struct SidecarEnsurePreparedNewOutcome {
 }
 
 // Field declaration order is byte-for-byte the properties order of
-// principal-operations.schema.json#/$defs/sidecar_ensure_outcome (second
+// principal-operations.schema.json#/$defs/sidecar_ensure_response_body (second
 // branch).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct SidecarEnsurePreparedExistingOutcome {
+pub struct SidecarEnsurePreparedExistingResponseBody {
     pub status: SidecarEnsurePreparedStatus,
     pub branch: SidecarEnsureExistingBranch,
     pub operation_id: ProtocolOperationId,
@@ -186,12 +186,12 @@ pub enum SidecarEnsureAcceptedPhase {
 }
 
 // Field declaration order is byte-for-byte the properties order of
-// principal-operations.schema.json#/$defs/sidecar_ensure_outcome (third
+// principal-operations.schema.json#/$defs/sidecar_ensure_response_body (third
 // branch).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct SidecarEnsureAcceptedOutcome {
+pub struct SidecarEnsureAcceptedResponseBody {
     pub status: SidecarEnsureAcceptedStatus,
     pub operation_id: ProtocolOperationId,
     pub accepted_phase: SidecarEnsureAcceptedPhase,
@@ -206,13 +206,13 @@ pub struct SidecarEnsureAcceptedOutcome {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum SidecarEnsureOutcome {
-    Accepted(SidecarEnsureAcceptedOutcome),
-    PreparedNew(SidecarEnsurePreparedNewOutcome),
-    PreparedExisting(SidecarEnsurePreparedExistingOutcome),
+pub enum SidecarEnsureResponseBody {
+    Accepted(SidecarEnsureAcceptedResponseBody),
+    PreparedNew(SidecarEnsurePreparedNewResponseBody),
+    PreparedExisting(SidecarEnsurePreparedExistingResponseBody),
 }
 
-impl SidecarEnsureOutcome {
+impl SidecarEnsureResponseBody {
     pub fn operation_id(&self) -> &ProtocolOperationId {
         match self {
             Self::Accepted(outcome) => &outcome.operation_id,
@@ -271,7 +271,7 @@ mod tests {
 
     fn prepared_event_draft() -> serde_json::Value {
         json!({
-            "unsigned_event_bytes": "dW5zaWduZWQtZXZlbnQtYnl0ZXM",
+            "unsigned_event_base64url": "dW5zaWduZWQtZXZlbnQtYnl0ZXM",
             "event_digest": format!("sha256:{}", "ab".repeat(32))
         })
     }
@@ -336,9 +336,9 @@ mod tests {
             "create_event_draft": prepared_event_draft(),
             "context_attach_event_draft": prepared_event_draft()
         });
-        let parsed: SidecarEnsureOutcome =
+        let parsed: SidecarEnsureResponseBody =
             serde_json::from_value(value.clone()).expect("closed prepared outcome");
-        assert!(matches!(parsed, SidecarEnsureOutcome::PreparedNew(_)));
+        assert!(matches!(parsed, SidecarEnsureResponseBody::PreparedNew(_)));
         assert!(parsed.sidecar_id().is_none());
         assert_eq!(serde_json::to_value(&parsed).unwrap(), value);
 
@@ -347,14 +347,14 @@ mod tests {
             .as_object_mut()
             .unwrap()
             .insert("sidecar_control_frontier".to_owned(), json!([]));
-        assert!(serde_json::from_value::<SidecarEnsureOutcome>(unknown).is_err());
+        assert!(serde_json::from_value::<SidecarEnsureResponseBody>(unknown).is_err());
 
         let mut missing = value;
         missing
             .as_object_mut()
             .unwrap()
             .remove("context_attach_event_draft");
-        assert!(serde_json::from_value::<SidecarEnsureOutcome>(missing).is_err());
+        assert!(serde_json::from_value::<SidecarEnsureResponseBody>(missing).is_err());
     }
 
     #[test]
@@ -368,9 +368,12 @@ mod tests {
             "sidecar_id": sidecar_id(),
             "context_attach_event_draft": prepared_event_draft()
         });
-        let parsed: SidecarEnsureOutcome =
+        let parsed: SidecarEnsureResponseBody =
             serde_json::from_value(value.clone()).expect("closed prepared outcome");
-        assert!(matches!(parsed, SidecarEnsureOutcome::PreparedExisting(_)));
+        assert!(matches!(
+            parsed,
+            SidecarEnsureResponseBody::PreparedExisting(_)
+        ));
         assert_eq!(parsed.sidecar_id(), Some(&sidecar_id()));
         assert_eq!(serde_json::to_value(&parsed).unwrap(), value);
     }
@@ -391,9 +394,9 @@ mod tests {
                 {"agent_id": AGENT_ID, "provisioning_phase": "mls_welcome"}
             ]
         });
-        let parsed: SidecarEnsureOutcome =
+        let parsed: SidecarEnsureResponseBody =
             serde_json::from_value(value.clone()).expect("closed accepted outcome");
-        assert!(matches!(parsed, SidecarEnsureOutcome::Accepted(_)));
+        assert!(matches!(parsed, SidecarEnsureResponseBody::Accepted(_)));
         assert_eq!(parsed.pending_agent_ids().len(), 1);
         assert_eq!(serde_json::to_value(&parsed).unwrap(), value);
 
@@ -402,11 +405,11 @@ mod tests {
             .as_object_mut()
             .unwrap()
             .insert("accepted_frontier".to_owned(), json!([]));
-        assert!(serde_json::from_value::<SidecarEnsureOutcome>(unknown).is_err());
+        assert!(serde_json::from_value::<SidecarEnsureResponseBody>(unknown).is_err());
 
         let mut missing = value;
         missing.as_object_mut().unwrap().remove("access_readiness");
-        assert!(serde_json::from_value::<SidecarEnsureOutcome>(missing).is_err());
+        assert!(serde_json::from_value::<SidecarEnsureResponseBody>(missing).is_err());
     }
 }
 

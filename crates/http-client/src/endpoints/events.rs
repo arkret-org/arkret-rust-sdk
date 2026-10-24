@@ -12,30 +12,30 @@
 
 use arkret_identity::VerifiedSubmission;
 use arkret_models_collaboration::authority_commit::{
-    SelfAuthoritySubmitOutcome, SelfAuthoritySubmitRequest,
+    SelfAuthoritySubmitRequestBody, SelfAuthoritySubmitResponseBody,
 };
 use arkret_models_collaboration::event_query::CommittedEventView;
-use arkret_models_collaboration::exact_current_results::{
-    ExactCurrentResultsReadOutcome, ExactCurrentResultsReadRequestBody,
+use arkret_models_collaboration::exact_current_state::{
+    ExactCurrentStateReadRequestBody, ExactCurrentStateReadResponseBody,
 };
 use arkret_models_collaboration::strand_watch_operations::{
-    StrandWatchCurrentOutcome, StrandWatchCurrentRequestBody,
+    StrandWatchCurrentRequestBody, StrandWatchCurrentResponseBody,
 };
 use arkret_models_collaboration::sync_frames::committed_event_subscribe::{
     CommittedEventStreamTrace, CommittedEventSubscribeFrame,
 };
 use arkret_wire::{
-    ActorId, ActorPrivateEventSubmitOutcome, ActorPrivateEventSubmitRequestBody,
-    AuthoritySubmitOutcome, CommitStreamRef, EventAdmissionSubmission, EventId,
-    MlsCommitSubmission, RealmId, RealmSnapshotId, RealmStateSnapshot, StreamScanOutcome,
-    StreamScanRequest,
+    ActorId, ActorPrivateEventSubmitRequestBody, ActorPrivateEventSubmitResponseBody,
+    AuthoritySubmitResponseBody, CommitStreamRef, EventAdmissionSubmission, EventId,
+    MlsCommitSubmission, RealmId, RealmSnapshotId, RealmStateSnapshot, StreamScanRequestBody,
+    StreamScanResponseBody,
 };
 use reqwest::header::CONTENT_TYPE;
 use reqwest::{Method, RequestBuilder, Response};
 
 use crate::{Client, ClientRequestOptions, Error, Result, reject_path_segment};
 
-/// Largest page one stream tail read may request (`stream_scan_request.limit`).
+/// Largest page one stream tail read may request (`stream_scan_request_body.limit`).
 pub const STREAM_SCAN_MAX_LIMIT: u16 = 1000;
 
 /// Largest selector cardinality `ak.self.committed_event.stream.subscribe.v1` accepts
@@ -229,9 +229,9 @@ impl Client {
     pub async fn submit_actor_private_event(
         &self,
         request: &VerifiedSubmission<ActorPrivateEventSubmitRequestBody>,
-    ) -> Result<ActorPrivateEventSubmitOutcome> {
+    ) -> Result<ActorPrivateEventSubmitResponseBody> {
         request.validate()?;
-        let outcome: ActorPrivateEventSubmitOutcome = self
+        let outcome: ActorPrivateEventSubmitResponseBody = self
             .post_protocol_replay_safe("/_arkret/self/actor-private-events", request)
             .await?;
         outcome.validate_for_request(request)?;
@@ -245,7 +245,7 @@ impl Client {
     pub async fn submit_event(
         &self,
         submission: &VerifiedSubmission<EventAdmissionSubmission>,
-    ) -> Result<AuthoritySubmitOutcome> {
+    ) -> Result<AuthoritySubmitResponseBody> {
         self.submit_event_with_options(submission, &ClientRequestOptions::default())
             .await
     }
@@ -254,11 +254,12 @@ impl Client {
         &self,
         submission: &VerifiedSubmission<EventAdmissionSubmission>,
         options: &ClientRequestOptions,
-    ) -> Result<AuthoritySubmitOutcome> {
-        let request =
-            submission.rebind(SelfAuthoritySubmitRequest::Event(submission.wire().clone()))?;
+    ) -> Result<AuthoritySubmitResponseBody> {
+        let request = submission.rebind(SelfAuthoritySubmitRequestBody::Event(
+            submission.wire().clone(),
+        ))?;
         match self.submit_to_realm_authority(&request, options).await? {
-            SelfAuthoritySubmitOutcome::Ordinary(outcome) => Ok(outcome),
+            SelfAuthoritySubmitResponseBody::Ordinary(outcome) => Ok(outcome),
             _ => Err(Error::Protocol(
                 "ordinary Event submission returned an aggregate outcome".to_owned(),
             )),
@@ -275,7 +276,7 @@ impl Client {
     pub async fn submit_mls_commit(
         &self,
         submission: &VerifiedSubmission<MlsCommitSubmission>,
-    ) -> Result<AuthoritySubmitOutcome> {
+    ) -> Result<AuthoritySubmitResponseBody> {
         self.submit_mls_commit_with_options(submission, &ClientRequestOptions::default())
             .await
     }
@@ -284,12 +285,12 @@ impl Client {
         &self,
         submission: &VerifiedSubmission<MlsCommitSubmission>,
         options: &ClientRequestOptions,
-    ) -> Result<AuthoritySubmitOutcome> {
-        let request = submission.rebind(SelfAuthoritySubmitRequest::MlsCommit(
+    ) -> Result<AuthoritySubmitResponseBody> {
+        let request = submission.rebind(SelfAuthoritySubmitRequestBody::MlsCommit(
             submission.wire().clone(),
         ))?;
         match self.submit_to_realm_authority(&request, options).await? {
-            SelfAuthoritySubmitOutcome::Ordinary(outcome) => Ok(outcome),
+            SelfAuthoritySubmitResponseBody::Ordinary(outcome) => Ok(outcome),
             _ => Err(Error::Protocol(
                 "ordinary MLS submission returned an aggregate outcome".to_owned(),
             )),
@@ -307,13 +308,13 @@ impl Client {
         stream_ref: CommitStreamRef,
         after_position: Option<u64>,
         limit: u16,
-    ) -> Result<StreamScanOutcome> {
+    ) -> Result<StreamScanResponseBody> {
         if !(1..=STREAM_SCAN_MAX_LIMIT).contains(&limit) {
             return Err(Error::Protocol(format!(
                 "stream tail limit must be 1..={STREAM_SCAN_MAX_LIMIT}"
             )));
         }
-        let request = StreamScanRequest {
+        let request = StreamScanRequestBody {
             realm_id,
             stream_ref,
             direction: arkret_wire::StreamScanDirection::After(after_position),
@@ -333,9 +334,9 @@ impl Client {
         stream_ref: CommitStreamRef,
         after_position: Option<u64>,
         page_limit: u16,
-    ) -> Result<StreamScanOutcome> {
+    ) -> Result<StreamScanResponseBody> {
         let mut cursor = after_position;
-        let mut collected = StreamScanOutcome {
+        let mut collected = StreamScanResponseBody {
             committed_events: Vec::new(),
             readable_floor: None,
             truncated: false,
@@ -480,9 +481,9 @@ impl Client {
     pub async fn strand_watch_current(
         &self,
         request: &StrandWatchCurrentRequestBody,
-    ) -> Result<StrandWatchCurrentOutcome> {
+    ) -> Result<StrandWatchCurrentResponseBody> {
         request.validate()?;
-        let outcome: StrandWatchCurrentOutcome = self
+        let outcome: StrandWatchCurrentResponseBody = self
             .post("/_arkret/self/strands/watch/current", request)
             .await?;
         outcome
@@ -493,22 +494,22 @@ impl Client {
 
     /// Read one exact Relation primary-domain or moderation-target current
     /// result from the governing Station's durable reducer cut.
-    pub async fn exact_current_result(
+    pub async fn exact_current_state(
         &self,
-        request: &ExactCurrentResultsReadRequestBody,
+        request: &ExactCurrentStateReadRequestBody,
         expected_governance_generation: u64,
-    ) -> Result<ExactCurrentResultsReadOutcome> {
+    ) -> Result<ExactCurrentStateReadResponseBody> {
         request
             .validate()
             .map_err(|error| Error::Protocol(error.to_string()))?;
-        let outcome: ExactCurrentResultsReadOutcome = self
-            .post("/_arkret/self/current-results/exact", request)
+        let outcome: ExactCurrentStateReadResponseBody = self
+            .post("/_arkret/self/current-state/exact", request)
             .await?;
         outcome
             .validate_for_request(request, expected_governance_generation)
             .map_err(|error| Error::Protocol(error.to_string()))?;
-        if let ExactCurrentResultsReadOutcome::Present {
-            entry: arkret_models_collaboration::exact_current_results::ExactCurrentResultEntry::AppletRegistration(row), ..
+        if let ExactCurrentStateReadResponseBody::Present {
+            entry: arkret_models_collaboration::exact_current_state::ExactCurrentStateEntry::AppletRegistration(row), ..
         } = &outcome {
             let _payload: arkret_models_integration::AppletRegistrationPayload = serde_json::from_value(row.value.clone())?;
         }
@@ -627,15 +628,16 @@ impl Client {
     pub async fn strand_watch_audit_read(
         &self,
         request: &VerifiedSubmission<
-            arkret_models_collaboration::strand_watch_operations::WatchAuditReadRequest,
+            arkret_models_collaboration::strand_watch_operations::WatchAuditReadRequestBody,
         >,
         expected_governance_generation: u64,
-    ) -> Result<arkret_models_collaboration::strand_watch_operations::WatchAuditReadOutcome> {
+    ) -> Result<arkret_models_collaboration::strand_watch_operations::WatchAuditReadResponseBody>
+    {
         use arkret_models_collaboration::strand_watch_operations::{
-            SELF_STRAND_WATCH_AUDIT_PATH, WatchAuditReadOutcome,
+            SELF_STRAND_WATCH_AUDIT_PATH, WatchAuditReadResponseBody,
         };
         request.validate()?;
-        let outcome: WatchAuditReadOutcome =
+        let outcome: WatchAuditReadResponseBody =
             self.post(SELF_STRAND_WATCH_AUDIT_PATH, request).await?;
         outcome.validate_for_request(request, expected_governance_generation)?;
         Ok(outcome)

@@ -2,19 +2,19 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/signal-presence.schema.json
-// sha256=66dd4ce1ca6772e8cdbc506ab9cc2054b973cae7c4deb0e9d9988718b0930689
+// sha256=564bb16a63b97cead164817cb9789d57c8ff86a2e92efb35a2d5a15030cbfce4
 //
 // Input: schemas/time.schema.json
 // sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
 //
 // Input: schemas/signal-typing.schema.json
-// sha256=bc3864e8e7f8997ce90c0abf16451ed4ba33bd128e6cd90a4e78b7c4fb07df81
+// sha256=d92f677628318c885606b06efe06ec636c7c9f0904974effe04c669d6a412545
 //
 // Input: schemas/read-receipt.schema.json
-// sha256=388e2980872d205b1137e790d0ae9e89c27d887be3a14d54edca2bbb59498f5e
+// sha256=989122536e827d56f7f2c0eaea5395316bcc3e4058f4b4a22b2eadbb3e40a632
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=d200bd3e6d76abd1b6154781fb5e54f11fbbc834638cdc29554f83590127fdfa
+// sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
 
 /// Counterpart: `signal-presence.schema.json`.
 /// Counterpart for `spec/v1/artifacts/schemas/signal-presence.schema.json`
@@ -23,6 +23,7 @@
 #[serde(deny_unknown_fields)]
 pub struct PresencePlaintext {
     pub kind: PresencePlaintextKind,
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub payload_sequence: u64,
     pub actor_id: ActorId,
     pub state: PresenceState,
@@ -46,6 +47,7 @@ pub struct PresencePlaintext {
 #[serde(deny_unknown_fields)]
 pub struct TypingPlaintext {
     pub kind: TypingPlaintextKind,
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub payload_sequence: u64,
     pub strand_id: StrandId,
     pub typing: bool,
@@ -69,6 +71,7 @@ pub struct TypingPlaintext {
 #[serde(deny_unknown_fields)]
 pub struct ReadReceipt {
     pub kind: ReadReceiptPlaintextKind,
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub payload_sequence: u64,
     pub actor_id: ActorId,
     pub event_id: EventId,

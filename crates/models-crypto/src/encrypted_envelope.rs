@@ -15,36 +15,6 @@ use serde_json::Value;
 /// Purpose fixed by `encryption-and-audit.md` §2.3 for RFC 9420 content.
 pub const EVENT_CONTENT_ENCRYPTION_PURPOSE: &str = "arkret_event_content";
 
-/// Canonical JSON numbers are bounded by encoding.md §1. Nonce byte width
-/// does not enlarge the integer range of the envelope's JSON carrier.
-pub const MAX_EVENT_CONTENT_INTEGER: u64 = 9_007_199_254_740_991;
-
-mod content_integer {
-    use super::*;
-    pub fn serialize<S: serde::Serializer>(
-        value: &u64,
-        serializer: S,
-    ) -> std::result::Result<S::Ok, S::Error> {
-        if *value > MAX_EVENT_CONTENT_INTEGER {
-            return Err(serde::ser::Error::custom(
-                "content integer exceeds the canonical JSON range",
-            ));
-        }
-        serializer.serialize_u64(*value)
-    }
-    pub fn deserialize<'de, D: serde::Deserializer<'de>>(
-        deserializer: D,
-    ) -> std::result::Result<u64, D::Error> {
-        let value = u64::deserialize(deserializer)?;
-        if value > MAX_EVENT_CONTENT_INTEGER {
-            return Err(serde::de::Error::custom(
-                "content integer exceeds the canonical JSON range",
-            ));
-        }
-        Ok(value)
-    }
-}
-
 /// Reaction-only routing fields carried by the minimal encrypted envelope.
 ///
 /// The reaction kind and hourly routing window are derived from the signed
@@ -86,6 +56,8 @@ pub struct EventContentPreEncryptionHeader {
     pub effective_scope: ScopeRef,
     pub event_kind: String,
     pub mls_group_id: MlsGroupId,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub epoch: u64,
     pub group_state_ref: EventId,
     pub sender_domain: String,
@@ -176,7 +148,8 @@ impl EventContentPreEncryptionHeader {
 #[serde(untagged, deny_unknown_fields)]
 pub enum EncryptedEnvelopeEncryptionContext {
     StandardMls {
-        #[serde(with = "content_integer")]
+        #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+        #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
         epoch: u64,
         group_state_ref: EventId,
         #[serde(
@@ -229,11 +202,6 @@ impl EncryptedEnvelopeEncryptionContext {
 impl EncryptedEnvelope {
     pub const SCHEMA: &'static str = SchemaId::ENCRYPTED_ENVELOPE_V1;
     pub fn validate(&self) -> Result<()> {
-        if self.encryption_context.epoch() > MAX_EVENT_CONTENT_INTEGER {
-            return Err(WireError::Protocol(
-                "content integer exceeds the canonical JSON range".to_owned(),
-            ));
-        }
         if self.version != "1.0" {
             return Err(WireError::Protocol(
                 "encrypted envelope version must equal 1.0".to_owned(),
@@ -380,6 +348,8 @@ pub struct EncryptedPayload {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
     pub scheme: EncryptedPayloadScheme,
     pub group_id: MlsGroupId,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub epoch: u64,
     pub content_type: String,
     pub ciphertext: String,

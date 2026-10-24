@@ -2,22 +2,22 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/identity-link.schema.json
-// sha256=d1636e81bcf6b2ac420070f731c1617a2125fd88041562fda66b346807392a5b
+// sha256=290ceb17aae10a0e049b79a8ae3d108b24cabc9f232d290dc1303634576b84e9
 //
 // Input: schemas/strand.schema.json
-// sha256=857a35af89123d63b0b4248701c9aafe70948538b05b93ba32f41e8c636ae894
+// sha256=6df510ee9e4a7c34c16c911cbd038b5c6f075e682853835bdb524b0f282b1c6a
 //
 // Input: schemas/common-ids.schema.json
-// sha256=14226f0ac83e4d06639ad791cc0e52e0eb1c3b128cd4c8c12308a99b795141e4
+// sha256=0cc25a02fe0d9a94f6e41f2cf8f64e492ba36362f1e69a699cf1e684924837ee
 //
 // Input: schemas/time.schema.json
 // sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
 //
 // Input: schemas/policy.schema.json
-// sha256=6c559727fa0aee139b5bcaaa693f163e205481b92cb712e56ae253a01e130f5d
+// sha256=c62cd7a01272cd4527562d61558b1dc8432ceeaada49397498199e87d4e93269
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=d200bd3e6d76abd1b6154781fb5e54f11fbbc834638cdc29554f83590127fdfa
+// sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
 
 /// Counterpart: `identity-link.schema.json`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -44,10 +44,11 @@ pub struct IdentityLink {
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
     pub mls_group_id: Option<String>,
     pub mls_leaf_index: u64,
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub mls_epoch: u64,
     pub response_signing_verification_method: DidUrl,
     pub response_signing_algorithm: IdentityLinkResponseSigningAlgorithm,
-    pub response_signing_public_key_b64u: Base64UrlString,
+    pub response_signing_public_key_base64url: Base64UrlString,
     pub response_signing_public_key_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub effective_at: DateTime<Utc>,

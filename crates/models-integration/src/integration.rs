@@ -10,7 +10,7 @@ use serde_json::Value;
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct IntegrationDescribeOutcome {
+pub struct IntegrationManifest {
     pub contract: String,
     pub version: String,
     pub service: String,
@@ -27,7 +27,7 @@ pub struct IntegrationDescribeOutcome {
     pub todos: Vec<String>,
 }
 
-impl IntegrationDescribeOutcome {
+impl IntegrationManifest {
     pub fn surface(&self, name: &str) -> Option<&IntegrationSurfaceDescriptor> {
         self.surfaces.iter().find(|surface| surface.name == name)
     }
@@ -87,7 +87,7 @@ mod tests {
             "examples": {"compose_strand": {"step_1": {"service": "coland"}}}
         });
 
-        let manifest: IntegrationDescribeOutcome =
+        let manifest: IntegrationManifest =
             serde_json::from_value(value).expect("integration manifest decodes");
         assert!(manifest.dependencies.is_empty());
         assert_eq!(manifest.surface("gateway_describe").unwrap().method, "GET");

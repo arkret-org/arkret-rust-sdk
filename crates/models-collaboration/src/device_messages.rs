@@ -238,17 +238,17 @@ pub enum DeviceMessageUnknownStatus {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct DeviceMessagesSendOutcome {
+pub struct DeviceMessagesSendResponseBody {
     pub delivered: BTreeMap<DidCoreId, BTreeMap<DeviceId, DeviceMessageDeliveredRow>>,
     pub unknown_devices: BTreeMap<DidCoreId, BTreeMap<DeviceId, DeviceMessageUnknownRow>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct DeviceMessagesGetOutcome {
+pub struct DeviceMessagesGetResponseBody {
     pub deliveries: Vec<RecipientDelivery>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub ack_token: Option<String>,
+    pub acknowledgement_token: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
     pub has_more: bool,
@@ -258,7 +258,7 @@ pub struct DeviceMessagesGetOutcome {
     pub lost: Option<bool>,
 }
 
-impl DeviceMessagesGetOutcome {
+impl DeviceMessagesGetResponseBody {
     /// Realm-managed Devices use this queue for Welcome only. This validates
     /// the closed recipient binding, not Welcome cryptography or current access.
     pub fn validate_realm_device_recipient(
@@ -314,13 +314,13 @@ pub enum RecipientDelivery {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct DeviceMessagesAckRequestBody {
-    pub ack_token: String,
+pub struct DeviceMessagesAcknowledgementRequestBody {
+    pub acknowledgement_token: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct DeviceMessagesAckOutcome {
+pub struct DeviceMessagesAcknowledgementResponseBody {
     pub pruned_count: u64,
 }
 
@@ -342,9 +342,9 @@ mod tests {
             .parse()
             .unwrap();
         let scope = arkret_wire::ScopeRef::Realm { realm_id: realm };
-        let mut outcome = DeviceMessagesGetOutcome {
+        let mut outcome = DeviceMessagesGetResponseBody {
             deliveries: Vec::new(),
-            ack_token: None,
+            acknowledgement_token: None,
             next_cursor: None,
             has_more: false,
             limited: None,

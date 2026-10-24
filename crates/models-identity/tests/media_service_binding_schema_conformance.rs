@@ -1,6 +1,6 @@
 //! Compare the client/server DTOs with the live closed protocol fragments.
 
-use arkret_models_identity::{MediaServiceBindingOutcome, MediaServiceBindingRequestBody};
+use arkret_models_identity::{MediaServiceBindingRequestBody, MediaServiceBindingResponseBody};
 use arkret_schema_conformance::{default_spec_artifacts_dir, schema_registry_from_spec_artifacts};
 use serde_json::{Value, json};
 
@@ -8,7 +8,8 @@ fn schema_accepts(fragment: &str, value: &Value) -> bool {
     let artifacts = default_spec_artifacts_dir().unwrap();
     let mut registry = schema_registry_from_spec_artifacts(&artifacts).unwrap();
     let schema: Value = serde_json::from_slice(
-        &std::fs::read(artifacts.join("schemas/media-service-binding-result.schema.json")).unwrap(),
+        &std::fs::read(artifacts.join("schemas/media-service-binding-operations.schema.json"))
+            .unwrap(),
     )
     .unwrap();
     registry
@@ -50,16 +51,16 @@ fn media_binding_uses_session_identity_and_exact_closed_response() {
         },
         "signing_keys": [{
             "verification_method": "did:web:media.example#issuer",
-            "public_key_b64u": arkret_canonical::base64url_encode([1u8;32])
+            "public_key_base64url": arkret_canonical::base64url_encode([1u8;32])
         }],
         "observed_at": "2026-10-15T00:00:00.000Z",
         "expires_at": "2026-10-15T00:05:00.000Z"
     });
     assert!(schema_accepts(
-        "#/$defs/media_service_binding_outcome",
+        "#/$defs/media_service_binding_response_body",
         &value
     ));
-    let outcome: MediaServiceBindingOutcome = serde_json::from_value(value.clone()).unwrap();
+    let outcome: MediaServiceBindingResponseBody = serde_json::from_value(value.clone()).unwrap();
     outcome.validate_for_request(&request, &service).unwrap();
     assert_eq!(serde_json::to_value(&outcome).unwrap(), value);
 
@@ -67,10 +68,10 @@ fn media_binding_uses_session_identity_and_exact_closed_response() {
         let mut extra = value.clone();
         extra[field] = json!({});
         assert!(!schema_accepts(
-            "#/$defs/media_service_binding_outcome",
+            "#/$defs/media_service_binding_response_body",
             &extra
         ));
-        assert!(serde_json::from_value::<MediaServiceBindingOutcome>(extra).is_err());
+        assert!(serde_json::from_value::<MediaServiceBindingResponseBody>(extra).is_err());
     }
     let mut foreign_account = query;
     foreign_account["account_id"] = json!({});

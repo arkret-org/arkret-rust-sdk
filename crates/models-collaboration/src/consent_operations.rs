@@ -1,6 +1,6 @@
 //! Holder-private consent self-management request/outcome DTOs.
 //!
-//! The consent state itself is a typed current result serialized by the current
+//! The consent state itself is a current state serialized by the current
 //! governance Station. Replacement carries one caller-signed Event through
 //! the single Event submission DTO; the Station submits those exact bytes and
 //! never co-signs, rebuilds or synthesizes the Event.
@@ -103,14 +103,14 @@ impl ConsentRequestRequestBody {
 /// Constant anti-enumeration response. Missing holder, denial, rate-limit drop
 /// and quarantine acceptance all return this exact shape.
 // Field declaration order is byte-for-byte the properties order of
-// consent-operations.schema.json#/$defs/consent_request_outcome.
+// consent-operations.schema.json#/$defs/consent_request_response_body.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ConsentRequestOutcome {
+pub struct ConsentRequestResponseBody {
     pub accepted_for_processing: bool,
 }
 
-impl ConsentRequestOutcome {
+impl ConsentRequestResponseBody {
     #[must_use]
     pub const fn accepted() -> Self {
         Self {
@@ -131,8 +131,8 @@ impl ConsentRequestOutcome {
 include!("generated/consent_operations_contracts.rs");
 
 pub use crate::call_invitation::{
-    ConsentCurrentReadOutcome, ConsentCurrentReadProof, ConsentCurrentReadRequestBody,
-    ConsentCurrentRow, ConsentCurrentSelector, ConsentCurrentSelectorKind, ConsentCurrentState,
+    ConsentCurrentReadProof, ConsentCurrentReadRequestBody, ConsentCurrentReadResponseBody,
+    ConsentCurrentReadState, ConsentCurrentSelector, ConsentCurrentSelectorKind, CurrentConsent,
 };
 
 impl ConsentValue {

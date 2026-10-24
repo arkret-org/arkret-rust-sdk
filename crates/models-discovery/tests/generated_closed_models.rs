@@ -1,7 +1,7 @@
 use arkret_canonical::canonical::canonical_json_bytes;
 use arkret_models_discovery::PublicRealmMetadata;
 use arkret_models_discovery::directory::{
-    DirectoryRealmSearchOutcome, DirectorySearchRealmsRequestBody,
+    DirectoryRealmSearchResponseBody, DirectorySearchRealmsRequestBody,
 };
 use arkret_models_discovery::presence::{
     ManualPresenceState, PresencePreference, PresenceVisibilityPreference,
@@ -80,7 +80,7 @@ fn closed_required_and_optional_non_null_members_follow_spec() {
         json!({"realms": [], "has_more": false, "next_cursor": null}),
         json!({"realms": [], "has_more": false, "extra": true}),
     ] {
-        assert!(serde_json::from_value::<DirectoryRealmSearchOutcome>(wire).is_err());
+        assert!(serde_json::from_value::<DirectoryRealmSearchResponseBody>(wire).is_err());
     }
     for wire in [
         json!({}),

@@ -51,14 +51,14 @@ pub struct HandleIssuerPolicyEntry {
 }
 
 /// Hook that resolves the holder's preferred handle from the subject DID
-/// Document `metadata.primary_handle` at a given `as_of`. Implementations
+/// Document `metadata.primary_handle` at a given `evaluated_at`. Implementations
 /// that resolve historical DID Document versions (e.g. `did:webvh`) MUST
-/// return the value effective at `as_of`.
+/// return the value effective at `evaluated_at`.
 pub trait DidDocumentSnapshotResolver {
     fn resolve_metadata_primary_handle(
         &self,
         subject: &DidCoreId,
-        as_of: &DateTime<Utc>,
+        evaluated_at: &DateTime<Utc>,
     ) -> Result<Option<String>>;
 }
 
@@ -165,8 +165,8 @@ fn candidate_passes_step0(c: &HandleClaim, input: &PrimaryHandleSelectInput<'_>)
         return false;
     }
     if c.status != HandleClaimStatus::Verified
-        || input.resolution_as_of < c.as_of
-        || input.resolution_as_of >= c.fresh_until
+        || input.resolution_as_of < c.evaluated_at
+        || input.resolution_as_of >= c.cache_expires_at
     {
         return false;
     }
@@ -403,7 +403,7 @@ mod tests {
         expires: DateTime<Utc>,
         audience: Option<&str>,
     ) -> HandleClaim {
-        let as_of = Utc::now();
+        let evaluated_at = Utc::now();
         let mut core = crate::HandleClaimCore {
             schema: crate::HandleClaimCore::SCHEMA.to_owned(),
             handle: Handle::parse(handle).unwrap(),
@@ -443,19 +443,19 @@ mod tests {
             schema: HandleClaim::SCHEMA.to_owned(),
             claim: core,
             status: HandleClaimStatus::Verified,
-            as_of,
+            evaluated_at,
             verifier_id: DidCoreId::new(issuer_did).unwrap(),
             verified_at: None,
             revocation: None,
-            fresh_until: as_of + chrono::Duration::minutes(5),
+            cache_expires_at: evaluated_at + chrono::Duration::minutes(5),
             status_proof: placeholder_payload_proof(
                 PayloadProofPurpose::StatusAttestation,
                 crate::HANDLE_CLAIM_STATUS_DOMAIN,
-                as_of,
+                evaluated_at,
                 audience,
             ),
         };
-        claim.verified_at = Some(as_of);
+        claim.verified_at = Some(evaluated_at);
         claim.status_proof.payload_digest = claim.status_digest().unwrap();
         claim
     }
@@ -575,8 +575,8 @@ mod tests {
             None,
         );
         let snapshot = vec![newer, matching];
-        // The status views are stamped `as_of` at construction time, and step 0
-        // rejects a resolution instant earlier than `as_of`. Read after the
+        // The status views are stamped `evaluated_at` at construction time, and step 0
+        // rejects a resolution instant earlier than `evaluated_at`. Read after the
         // snapshot exists rather than before it.
         let resolution_as_of = Utc::now();
         let input = PrimaryHandleSelectInput {

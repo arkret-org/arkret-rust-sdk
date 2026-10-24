@@ -1,9 +1,9 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-23;
-//! sha256=6552ac03bae32d141a4cfe33845c2a4855b57bb1aacd2947927e87868418cfa5 Input: reachable event
+//! Input: registry/contract-registry.json; version=2026-10-24.1;
+//! sha256=e79e94261c890e82a59726272e1d22118c7d3ba48720b3b9e810971299b09c0f Input: reachable event
 //! schema closure; version=aggregate;
-//! sha256=226ebcda03073aa474d9a252d93103d90c3030d421aece8fb8a0ea9dc46180d9
+//! sha256=8754c80c5380603c9247c79d0d4947ba3e5c5559a935895587a0810f52e948bb
 //! Entries: preimage_commitments=43
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -116,22 +116,22 @@ pub const PREIMAGE_COMMITMENT_FIELDS: &[PreimageCommitmentField] = &[
     },
     PreimageCommitmentField {
         schema_file: "schemas/event-payload.schema.json",
-        json_pointer: "/$defs/call_state_payload/properties/recording_transition/properties/result/properties/recording_start_event_id",
+        json_pointer: "/$defs/call_state_payload/properties/recording_transition/properties/capture_metadata/properties/recording_start_event_id",
         commitment: PreimageCommitment::FixedEvent,
     },
     PreimageCommitmentField {
         schema_file: "schemas/event-payload.schema.json",
-        json_pointer: "/$defs/call_state_payload/properties/recording_transition/properties/result/properties/recording_stop_event_id",
+        json_pointer: "/$defs/call_state_payload/properties/recording_transition/properties/capture_metadata/properties/recording_stop_event_id",
         commitment: PreimageCommitment::FixedEvent,
     },
     PreimageCommitmentField {
         schema_file: "schemas/event-payload.schema.json",
-        json_pointer: "/$defs/call_state_payload/properties/transcript_transition/properties/result/properties/transcript_start_event_id",
+        json_pointer: "/$defs/call_state_payload/properties/transcript_transition/properties/capture_metadata/properties/transcript_start_event_id",
         commitment: PreimageCommitment::FixedEvent,
     },
     PreimageCommitmentField {
         schema_file: "schemas/event-payload.schema.json",
-        json_pointer: "/$defs/call_state_payload/properties/transcript_transition/properties/result/properties/transcript_stop_event_id",
+        json_pointer: "/$defs/call_state_payload/properties/transcript_transition/properties/capture_metadata/properties/transcript_stop_event_id",
         commitment: PreimageCommitment::FixedEvent,
     },
     PreimageCommitmentField {
@@ -216,7 +216,7 @@ pub const PREIMAGE_COMMITMENT_FIELDS: &[PreimageCommitmentField] = &[
     },
     PreimageCommitmentField {
         schema_file: "schemas/key-backup-active-series.schema.json",
-        json_pointer: "/properties/auth_data/properties/device_authorize_event_id",
+        json_pointer: "/properties/signature_proof/properties/device_authorize_event_id",
         commitment: PreimageCommitment::FixedEvent,
     },
     PreimageCommitmentField {

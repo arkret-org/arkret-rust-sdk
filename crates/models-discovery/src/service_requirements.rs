@@ -217,7 +217,7 @@ mod tests {
 
     use super::*;
     use crate::service_description::{
-        AuthMetadata, DirectoryResourceKind, EgressNetworkPolicy, PlaintextVisibility,
+        AuthenticationMetadata, DirectoryResourceKind, EgressNetworkPolicy, PlaintextVisibility,
         RateLimitPolicy, ServerLimits, TransportBinding,
     };
 
@@ -245,7 +245,7 @@ mod tests {
                 base_url: "https://directory.example".to_owned(),
                 extension_profile_required: (),
             }],
-            auth_metadata: AuthMetadata::minimal(),
+            authentication_metadata: AuthenticationMetadata::minimal(),
             limits: ServerLimits::default(),
             plaintext_visibility: PlaintextVisibility::none(),
             receive_policy_constraints: None,

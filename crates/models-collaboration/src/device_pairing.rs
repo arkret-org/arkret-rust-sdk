@@ -274,7 +274,7 @@ pub(crate) fn device_pairing_target_proof_signing_input(
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DevicePairingStageRequestBody {
-    pub new_device_pubkey: PublicKey,
+    pub new_device_public_key: PublicKey,
     pub client_nonce: DevicePairingNonce,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_name: Option<NonEmptyString>,
@@ -285,7 +285,7 @@ pub struct DevicePairingStageRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct DevicePairingStageOutcome {
+pub struct DevicePairingStageResponseBody {
     pub device_pairing_request_id: DevicePairingRequestId,
     pub pairing_code: DevicePairingCode,
     pub gate_audience_uri: String,
@@ -301,7 +301,7 @@ pub struct DevicePairingBootstrap {
     pub arkret_base_url: String,
     pub device_pairing_request_id: DevicePairingRequestId,
     pub pairing_code: DevicePairingCode,
-    pub new_device_pubkey: PublicKey,
+    pub new_device_public_key: PublicKey,
     pub client_nonce: DevicePairingNonce,
     pub gate_audience_uri: String,
     pub server_nonce: DevicePairingNonce,
@@ -333,7 +333,7 @@ pub struct DevicePairingFinalizeRequestBody {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct DevicePairingFinalizeOutcome {
+pub struct DevicePairingFinalizeResponseBody {
     pub device_pairing_request_id: DevicePairingRequestId,
     pub state: DevicePairingState,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -354,7 +354,7 @@ pub struct DevicePairingCodeClaimRequestBody {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct DevicePairingCodeClaimOutcome {
+pub struct DevicePairingCodeClaimResponseBody {
     pub device_pairing_request_id: DevicePairingRequestId,
     pub bootstrap: DevicePairingBootstrap,
     pub target_proof: DevicePairingTargetProof,
@@ -370,7 +370,7 @@ pub struct DevicePairingStatusRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct DevicePairingStatusOutcome {
+pub struct DevicePairingStatusResponseBody {
     pub state: DevicePairingState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_id: Option<DeviceId>,
@@ -378,7 +378,7 @@ pub struct DevicePairingStatusOutcome {
     pub authorized_event_ref: Option<CommittedEventRef>,
 }
 
-impl DevicePairingStatusOutcome {
+impl DevicePairingStatusResponseBody {
     pub fn validate(&self) -> Result<()> {
         let authorized = self.state == DevicePairingState::Authorized;
         if authorized != self.device_id.is_some()
@@ -397,7 +397,7 @@ impl DevicePairingStatusOutcome {
 #[serde(deny_unknown_fields)]
 pub struct AccountDevicePairRequestBody {
     pub pairing_code: DevicePairingCode,
-    pub new_device_pubkey: PublicKey,
+    pub new_device_public_key: PublicKey,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub authorize_event: EventAdmissionSubmission,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -410,7 +410,7 @@ pub struct AccountDevicePairRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AccountDevicePairOutcome {
+pub struct AccountDevicePairResponseBody {
     pub device_id: DeviceId,
     pub authorized_event_ref: CommittedEventRef,
     #[serde(default, skip_serializing_if = "Option::is_none")]

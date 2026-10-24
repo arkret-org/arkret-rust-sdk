@@ -6,7 +6,7 @@ use arkret_wire::RealmId;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::objects::queries::SortSpec;
+use crate::objects::queries::SortSpecification;
 
 /// Counterpart for `spec/v1/artifacts/schemas/view.schema.json#/$defs/query`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -26,7 +26,7 @@ pub struct QueryValue {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub relation: Option<BTreeMap<String, Value>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub order_by: Option<Vec<SortSpec>>,
+    pub order_by: Option<Vec<SortSpecification>>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub extra: BTreeMap<String, Value>,
 }
@@ -48,6 +48,6 @@ pub struct DashboardWidget {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct DashboardConfig {
+pub struct DashboardConfiguration {
     pub widgets: Vec<DashboardWidget>,
 }

@@ -2,7 +2,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use arkret_models_discovery::ServiceDescribe;
-use arkret_models_integration::AppletPingOutcome;
+use arkret_models_integration::AppletPingResponseBody;
 use arkret_schema_conformance::spec_json_artifact;
 use arkret_wire::{Did, ServiceKind, ServiceOperationId, TrustDomainId};
 use serde_json::{Value, json};
@@ -52,7 +52,7 @@ fn classify_decode(carrier: &str, value: Value) -> &'static str {
         "service_describe" | "identity_service_describe" => {
             serde_json::from_value::<ServiceDescribe>(value).map(|_| ())
         }
-        "applet_ping" => serde_json::from_value::<AppletPingOutcome>(value).map(|_| ()),
+        "applet_ping" => serde_json::from_value::<AppletPingResponseBody>(value).map(|_| ()),
         other => panic!("unknown protocol-version fixture carrier {other}"),
     };
     match result {

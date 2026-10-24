@@ -444,7 +444,7 @@
         "PublicRealmMetadata",
         "PublicRealmDirectoryEntry",
         "DirectorySearchRealmsRequestBody",
-        "DirectoryRealmSearchOutcome",
+        "DirectoryRealmSearchResponseBody",
         "DirectoryResolveRealmRequestBody",
         "ManualPresenceState",
         "PresencePreference",
@@ -461,9 +461,9 @@
         "CallRefreshJoinKind",
         "CallInvitationEnvelope",
         "CallInvitationSendRequestBody",
-        "CallInvitationSendOutcome",
+        "CallInvitationSendResponseBody",
         "CallInvitationAdmissionRequestBody",
-        "CallInvitationAdmissionOutcome",
+        "CallInvitationAdmissionDecision",
         "CallInvitationDeliveryView",
         "CallInvitationJoinContext",
         "CallVoluntaryJoinContext",
@@ -471,10 +471,10 @@
         "CallMediaJoinContext",
         "ConsentCurrentSelectorKind",
         "ConsentCurrentSelector",
-        "ConsentCurrentRow",
+        "CurrentConsent",
         "ConsentCurrentReadProof",
         "ConsentCurrentReadRequestBody",
-        "ConsentCurrentReadOutcome"
+        "ConsentCurrentReadResponseBody"
       ]
     },
     {
@@ -556,14 +556,14 @@
       ],
       "provides": [
         "AgentProjection",
-        "AgentList",
+        "AgentPage",
         "AgentView",
         "KeyState",
         "AgentRuntimeApprovalControllerProjection",
         "AgentSidecarView",
-        "AgentSidecarList",
-        "AgentLifecycleOutcome",
-        "KeyStateCurrentSignerEvidence"
+        "AgentSidecarPage",
+        "KeyStateCurrentSignerEvidence",
+        "AgentOperationStatusView"
       ]
     },
     {
@@ -596,7 +596,7 @@
         "schemas/event-payload.schema.json",
         "schemas/string-profiles.schema.json",
         "schemas/time.schema.json",
-        "schemas/typed-current-result.schema.json"
+        "schemas/current-state.schema.json"
       ],
       "provides": [
         "AgentActionApprovePayload",
@@ -731,7 +731,7 @@
       "provides": [
         "PollAnswer",
         "PollBody",
-        "PollResponseBody",
+        "PollVote",
         "PollBlock",
         "PollResponseBlock"
       ]
@@ -760,11 +760,11 @@
       "mode": "closed-schema-model",
       "artifacts": [
         "schemas/event-payload.schema.json",
-        "schemas/typed-current-result.schema.json"
+        "schemas/current-state.schema.json"
       ],
       "provides": [
         "ReadReceiptPolicyPayload",
-        "ScopeReadReceiptPolicyCurrent"
+        "CurrentScopeReadReceiptPolicy"
       ]
     },
     {
@@ -799,7 +799,7 @@
       "mode": "closed-schema-model",
       "artifacts": [
         "schemas/event-payload.schema.json",
-        "schemas/typed-current-result.schema.json"
+        "schemas/current-state.schema.json"
       ],
       "provides": [
         "CrossObjectRedactionPayload",
@@ -937,7 +937,7 @@
         "schemas/agent-operations.schema.json"
       ],
       "provides": [
-        "AgentParticipationOutcome"
+        "AgentParticipationResponseBody"
       ]
     },
     {
@@ -984,7 +984,7 @@
         "schemas/common-ids.schema.json",
         "schemas/event-payload.schema.json",
         "schemas/policy.schema.json",
-        "schemas/typed-current-result.schema.json"
+        "schemas/current-state.schema.json"
       ],
       "provides": [
         "PolicyResourceSelector",
@@ -1092,7 +1092,7 @@
         "schemas/view.schema.json"
       ],
       "provides": [
-        "SortSpec"
+        "SortSpecification"
       ]
     },
     {
@@ -1231,7 +1231,7 @@
         "CapabilityConstraint",
         "DeniedScope",
         "E2eeEffect",
-        "EventSubmission",
+        "PlannedEvent",
         "NamespaceConflict",
         "WidgetEffect",
         "ExternalRef"
@@ -1286,9 +1286,9 @@
         "RecoveryPolicySummary",
         "RecoveryPolicySetPayload",
         "RecoveryAuthorityStreamHead",
-        "RecoveryPolicyActiveOutcome",
-        "RecoveryPolicyPublishOutcome",
-        "RecoveryPolicyAuthData"
+        "RecoveryPolicyStatusView",
+        "RecoveryPolicyPublishResponseBody",
+        "RecoveryPolicySignatureProof"
       ]
     },
     {
@@ -1320,7 +1320,7 @@
         "TrustedRecoveryServiceProofBody",
         "DidRootRecoveryTranscript",
         "RecoverySessionProofSubmitRequestBody",
-        "RecoverySessionProofSubmitOutcome",
+        "RecoverySessionProofSubmitResponseBody",
         "RecoverySession",
         "GenericRecoveryTranscript"
       ]
@@ -1340,7 +1340,7 @@
         "schemas/agent-sidecar-exchange-projection.schema.json",
         "schemas/agent-sidecar-view-state.schema.json",
         "schemas/common-ids.schema.json",
-        "schemas/typed-current-result.schema.json"
+        "schemas/current-state.schema.json"
       ],
       "provides": [
         "AgentSidecarViewState",
@@ -1373,15 +1373,15 @@
     {
       "generator": "closed-models",
       "outputs": [
-        "crates/models-collaboration/src/sync_frames/generated/current_results_contracts.rs"
+        "crates/models-collaboration/src/sync_frames/generated/current_state_contracts.rs"
       ],
       "owner": "arkret-models-collaboration",
       "mode": "closed-schema-model",
       "artifacts": [
-        "schemas/account-current-result.schema.json"
+        "schemas/account-state-view.schema.json"
       ],
       "provides": [
-        "AccountCurrentView",
+        "AccountStateView",
         "AccountCurrentCoverage"
       ]
     },
@@ -1425,8 +1425,8 @@
         "schemas/service-operation-dtos.schema.json"
       ],
       "provides": [
-        "RecoverySessionGrantRequest",
-        "AgentSessionGrantRefreshRequest",
+        "RecoverySessionGrantRequestBody",
+        "AgentSessionGrantRefreshRequestBody",
         "AgentSessionRefreshProof"
       ]
     },
@@ -1443,9 +1443,9 @@
         "schemas/service-operation-dtos.schema.json"
       ],
       "provides": [
-        "AgentSessionGrantRequest",
-        "HumanSessionGrantRequest",
-        "HumanSessionGrantRefreshRequest",
+        "AgentSessionGrantRequestBody",
+        "HumanSessionGrantRequestBody",
+        "HumanSessionGrantRefreshRequestBody",
         "AgentSessionGrantProof"
       ]
     },
@@ -1458,13 +1458,13 @@
       "mode": "closed-schema-model",
       "artifacts": [
         "schemas/agent-operations.schema.json",
-        "schemas/authz-operations.schema.json",
+        "schemas/authorization-operations.schema.json",
         "schemas/common-ids.schema.json",
         "schemas/contact-operations.schema.json",
         "schemas/string-profiles.schema.json"
       ],
       "provides": [
-        "ContactList",
+        "ContactPage",
         "ContactAgentProjection",
         "DirectConversationSummary",
         "ContactScopeUpdatePayload",
@@ -1520,13 +1520,13 @@
       ],
       "provides": [
         "MimiSubmitMessageRequestBody",
-        "MimiSubmitMessageOutcome",
-        "MimiIdentifierQueryOutcome",
-        "MimiProxyDownloadOutcome",
+        "MimiSubmitMessageResponseBody",
+        "MimiIdentifierQueryResponseBody",
+        "MimiProxyDownloadResponseBody",
         "MimiRoomUpdateRequestBody",
         "MimiNotifyRequestBody",
-        "MimiRequestConsentOutcome",
-        "MimiUpdateConsentOutcome"
+        "MimiRequestConsentResponseBody",
+        "MimiUpdateConsentResponseBody"
       ]
     },
     {
@@ -1538,7 +1538,7 @@
       "mode": "closed-schema-model",
       "artifacts": [
         "schemas/event-payload.schema.json",
-        "schemas/typed-current-result.schema.json"
+        "schemas/current-state.schema.json"
       ],
       "provides": [
         "DirectConversationBoundPayload",
@@ -1555,7 +1555,7 @@
       "artifacts": [
         "schemas/event-payload.schema.json",
         "schemas/time.schema.json",
-        "schemas/typed-current-result.schema.json"
+        "schemas/current-state.schema.json"
       ],
       "provides": [
         "ConsentValue"
@@ -1571,14 +1571,14 @@
       "artifacts": [
         "schemas/account-operations.schema.json",
         "schemas/agent-operations.schema.json",
-        "schemas/authz-operations.schema.json",
+        "schemas/authorization-operations.schema.json",
         "schemas/common-ids.schema.json",
         "schemas/keys-operations.schema.json",
         "schemas/time.schema.json"
       ],
       "provides": [
         "BackupActiveSeriesState",
-        "KeysBackupsList",
+        "KeysBackupsPage",
         "KeyBackupSummaryEncryption",
         "KeyBackupSummary"
       ]
@@ -1622,7 +1622,7 @@
       "mode": "closed-schema-model",
       "artifacts": [
         "schemas/agent-provision.schema.json",
-        "schemas/typed-current-result.schema.json"
+        "schemas/current-state.schema.json"
       ],
       "provides": [
         "AgentSelectorClaimValue"
@@ -1638,16 +1638,16 @@
       "artifacts": [
         "schemas/account-operations.schema.json",
         "schemas/authority-commit-operations.schema.json",
-        "schemas/authz-operations.schema.json",
+        "schemas/authorization-operations.schema.json",
         "schemas/realm-authority-handoff.schema.json",
         "schemas/realm-commit.schema.json",
         "schemas/realm-read-operations.schema.json",
         "schemas/service-operation-dtos.schema.json",
-        "schemas/typed-current-result.schema.json"
+        "schemas/current-state.schema.json"
       ],
       "provides": [
         "RealmStreamRow",
-        "RealmStreamList",
+        "RealmStreamPage",
         "ActorPrivateEventSubmitRequestBody",
         "RealmAuthorityRootValue",
         "RealmAuthorityHandoff",
@@ -1705,7 +1705,7 @@
         "schemas/agent-operations.schema.json",
         "schemas/common-ids.schema.json",
         "schemas/event-payload.schema.json",
-        "schemas/typed-current-result.schema.json"
+        "schemas/current-state.schema.json"
       ],
       "provides": [
         "InviteDirectedInviteeValue",
@@ -1758,8 +1758,8 @@
         "MlsGenesisMaterial",
         "AccountDeviceHistoricalSignerFact",
         "HistoricalProducerSignerFactEntry",
-        "PeerStreamScanOutcome",
-        "AuthorityHandoffRequest",
+        "PeerStreamScanResponseBody",
+        "AuthorityRealmAuthorityHandoffRequestBody",
         "CommittedEventSubmission",
         "PcrPrivateHandoffManifest",
         "ManagementPrivateHandoffManifest",
@@ -1780,13 +1780,13 @@
       "mode": "closed-schema-model",
       "artifacts": [
         "schemas/event-payload.schema.json",
-        "schemas/typed-current-result.schema.json"
+        "schemas/current-state.schema.json"
       ],
       "provides": [
         "AgentInteractionSetPayload",
         "AgentInteractionCurrentValue",
         "AgentInteractionExactCurrentSelector",
-        "AgentInteractionExactCurrentRow"
+        "CurrentAgentInteraction"
       ]
     },
     {
@@ -1799,7 +1799,7 @@
       "artifacts": [
         "schemas/encrypted-envelope.schema.json",
         "schemas/event-payload.schema.json",
-        "schemas/typed-current-result.schema.json"
+        "schemas/current-state.schema.json"
       ],
       "provides": [
         "ReactionAssertionEntry",
@@ -1849,7 +1849,7 @@
       "artifacts": [
         "schemas/call-recording-artifact.schema.json",
         "schemas/event-payload.schema.json",
-        "schemas/typed-current-result.schema.json",
+        "schemas/current-state.schema.json",
         "registry/contract-registry.json"
       ],
       "provides": [
@@ -1876,7 +1876,7 @@
         "schemas/push-operations.schema.json"
       ],
       "provides": [
-        "PushNotifyDeviceOutcome"
+        "PushGatewaySubmissionOutcome"
       ]
     },
     {
@@ -2084,23 +2084,23 @@
         "ConsentPrivateInviteReceivePolicyCell",
         "ConsentPrivateEffects",
         "ConsentPrivateListOutcomeKind",
-        "ConsentPrivateListOutcome",
+        "ConsentPrivateListResponseBody",
         "ConsentPrivateVersionOutcomeKind",
-        "ConsentPrivateVersionOutcome",
+        "ConsentPrivateVersionResponseBody",
         "ConsentPrivateEffectsOutcomeKind",
-        "ConsentPrivateEffectsOutcome",
+        "ConsentPrivateEffectsResponseBody",
         "ConsentPrivateInvitePolicyOutcomeKind",
-        "ConsentPrivateInvitePolicyOutcome",
+        "ConsentPrivateInvitePolicyResponseBody",
         "ConsentPrivateInviteDeliveryOutcomeKind",
-        "ConsentPrivateInviteDeliveryOutcome",
+        "ConsentPrivateInviteDeliveryResponseBody",
         "ConsentPrivateRequestOutcomeKind",
-        "ConsentPrivateRequestOutcome",
-        "ConsentPrivateCommandOutcome",
-        "ConsentPrivateProxyRequest",
-        "ConsentPrivateProxyOutcome",
+        "ConsentPrivateRequestResponseBody",
+        "ConsentPrivateCommandResponseBody",
+        "ConsentPrivateProxyRequestBody",
+        "ConsentPrivateProxyResponseBody",
         "ConsentPrivateEffectsPublishStatus",
-        "ConsentPrivateEffectsPublishRequest",
-        "ConsentPrivateEffectsPublishOutcome"
+        "ConsentPrivateEffectsPublishRequestBody",
+        "ConsentPrivateEffectsPublishResponseBody"
       ]
     },
     {
@@ -2124,7 +2124,7 @@
       "mode": "closed-schema-model",
       "artifacts": [
         "schemas/realm-actor.schema.json",
-        "schemas/typed-current-result.schema.json"
+        "schemas/current-state.schema.json"
       ],
       "provides": [
         "RealmActorGhostExternalTuple",
@@ -2174,11 +2174,11 @@
         "schemas/applet-authority-material.schema.json",
         "schemas/applet-edge-operations.schema.json",
         "schemas/applet-install-plan.schema.json",
-        "schemas/exact-current-results-read.schema.json"
+        "schemas/exact-current-state-read.schema.json"
       ],
       "provides": [
         "AppletAuthorityMaterialRequestBody",
-        "AppletAuthorityMaterialOutcome"
+        "AppletAuthorityMaterialResponseBody"
       ]
     }
   ]

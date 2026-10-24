@@ -41,7 +41,7 @@ impl DidRegistryReceipt {
     pub fn signed(
         receipt_id: arkret_wire::ReceiptId,
         did: Did,
-        seq: u64,
+        sequence: u64,
         accepted_entry_digest: Hash,
         registry_id: DidCoreId,
         witness_role: IdentityReceiptWitnessRole,
@@ -53,7 +53,7 @@ impl DidRegistryReceipt {
             schema: arkret_wire::SchemaId::IDENTITY_RECEIPT_V1.to_owned(),
             receipt_id,
             subject_did: did,
-            seq,
+            sequence,
             accepted_entry_digest,
             registry_id,
             witness_role,

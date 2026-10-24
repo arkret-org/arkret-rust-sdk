@@ -2,10 +2,10 @@
 //! Generator: tools/generate-closed-models.py
 //!
 //! Input: schemas/consent-private-operations.schema.json
-//! sha256=38706727f4972f923eae34811b49929664b7a6b98546c55d256f376b1fd85fdb
+//! sha256=3287e8cd6cf6fba95c82b87ec67eb4ed409e68e81afe14a57acbf2e208872627
 //!
 //! Bindings: tools/closed-model-bindings.json
-//! sha256=d200bd3e6d76abd1b6154781fb5e54f11fbbc834638cdc29554f83590127fdfa
+//! sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
 
 /// Counterpart:
 /// `consent-private-operations.schema.json#/$defs/holder_session_context/properties/kind`.
@@ -39,7 +39,8 @@ pub struct ConsentPrivateStationContext {
     pub actor_id: arkret_wire::ActorId,
 }
 
-/// Counterpart: `consent-private-operations.schema.json#/$defs/proxy_request/properties/context`.
+/// Counterpart:
+/// `consent-private-operations.schema.json#/$defs/proxy_request_body/properties/context`.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(untagged)]
 pub enum ConsentPrivateContext {
@@ -187,36 +188,40 @@ pub enum ConsentPrivateCommand {
 }
 
 /// Counterpart:
-/// `consent-private-operations.schema.json#/$defs/effects_outcome/properties/body/properties/
+/// `consent-private-operations.schema.json#/$defs/effects_response_body/properties/body/properties/
 /// holder_quarantine/oneOf/0`.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ConsentPrivateHolderQuarantineCell {
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub revision: u64,
     pub content: crate::governance::holder_quarantine::HolderQuarantine,
 }
 
 /// Counterpart:
-/// `consent-private-operations.schema.json#/$defs/effects_outcome/properties/body/properties/
+/// `consent-private-operations.schema.json#/$defs/effects_response_body/properties/body/properties/
 /// invite_delivery/oneOf/0`.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ConsentPrivateInviteDeliveryCell {
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub revision: u64,
     pub content: crate::governance::invite_addressing::InviteDelivery,
 }
 
 /// Counterpart:
-/// `consent-private-operations.schema.json#/$defs/effects_outcome/properties/body/properties/
+/// `consent-private-operations.schema.json#/$defs/effects_response_body/properties/body/properties/
 /// invite_receive_policy/oneOf/0`.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ConsentPrivateInviteReceivePolicyCell {
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub revision: u64,
     pub content: crate::governance::invite_addressing::InviteReceivePolicy,
 }
 
-/// Counterpart: `consent-private-operations.schema.json#/$defs/effects_outcome/properties/body`.
+/// Counterpart:
+/// `consent-private-operations.schema.json#/$defs/effects_response_body/properties/body`.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ConsentPrivateEffects {
@@ -228,116 +233,120 @@ pub struct ConsentPrivateEffects {
     pub invite_receive_policy: Option<ConsentPrivateInviteReceivePolicyCell>,
 }
 
-/// Counterpart: `consent-private-operations.schema.json#/$defs/list_outcome/properties/kind`.
+/// Counterpart: `consent-private-operations.schema.json#/$defs/list_response_body/properties/kind`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum ConsentPrivateListOutcomeKind {
     #[serde(rename = "list")]
     List,
 }
 
-/// Counterpart: `consent-private-operations.schema.json#/$defs/list_outcome`.
+/// Counterpart: `consent-private-operations.schema.json#/$defs/list_response_body`.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ConsentPrivateListOutcome {
+pub struct ConsentPrivateListResponseBody {
     pub kind: ConsentPrivateListOutcomeKind,
     pub body: crate::consent_operations::ConsentList,
 }
 
-/// Counterpart: `consent-private-operations.schema.json#/$defs/version_outcome/properties/kind`.
+/// Counterpart:
+/// `consent-private-operations.schema.json#/$defs/version_response_body/properties/kind`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum ConsentPrivateVersionOutcomeKind {
     #[serde(rename = "version")]
     Version,
 }
 
-/// Counterpart: `consent-private-operations.schema.json#/$defs/version_outcome`.
+/// Counterpart: `consent-private-operations.schema.json#/$defs/version_response_body`.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ConsentPrivateVersionOutcome {
+pub struct ConsentPrivateVersionResponseBody {
     pub kind: ConsentPrivateVersionOutcomeKind,
     pub body: crate::consent_operations::ConsentView,
 }
 
-/// Counterpart: `consent-private-operations.schema.json#/$defs/effects_outcome/properties/kind`.
+/// Counterpart:
+/// `consent-private-operations.schema.json#/$defs/effects_response_body/properties/kind`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum ConsentPrivateEffectsOutcomeKind {
     #[serde(rename = "effects")]
     Effects,
 }
 
-/// Counterpart: `consent-private-operations.schema.json#/$defs/effects_outcome`.
+/// Counterpart: `consent-private-operations.schema.json#/$defs/effects_response_body`.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ConsentPrivateEffectsOutcome {
+pub struct ConsentPrivateEffectsResponseBody {
     pub kind: ConsentPrivateEffectsOutcomeKind,
     pub body: ConsentPrivateEffects,
 }
 
 /// Counterpart:
-/// `consent-private-operations.schema.json#/$defs/invite_policy_outcome/properties/kind`.
+/// `consent-private-operations.schema.json#/$defs/invite_policy_response_body/properties/kind`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum ConsentPrivateInvitePolicyOutcomeKind {
     #[serde(rename = "invite_policy")]
     InvitePolicy,
 }
 
-/// Counterpart: `consent-private-operations.schema.json#/$defs/invite_policy_outcome`.
+/// Counterpart: `consent-private-operations.schema.json#/$defs/invite_policy_response_body`.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ConsentPrivateInvitePolicyOutcome {
+pub struct ConsentPrivateInvitePolicyResponseBody {
     pub kind: ConsentPrivateInvitePolicyOutcomeKind,
     pub body: ConsentPrivateInviteReceivePolicyCell,
 }
 
 /// Counterpart:
-/// `consent-private-operations.schema.json#/$defs/invite_delivery_outcome/properties/kind`.
+/// `consent-private-operations.schema.json#/$defs/invite_delivery_response_body/properties/kind`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum ConsentPrivateInviteDeliveryOutcomeKind {
     #[serde(rename = "invite_delivery")]
     InviteDelivery,
 }
 
-/// Counterpart: `consent-private-operations.schema.json#/$defs/invite_delivery_outcome`.
+/// Counterpart: `consent-private-operations.schema.json#/$defs/invite_delivery_response_body`.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ConsentPrivateInviteDeliveryOutcome {
+pub struct ConsentPrivateInviteDeliveryResponseBody {
     pub kind: ConsentPrivateInviteDeliveryOutcomeKind,
-    pub body: crate::governance::invite_addressing::InviteDeliveryOutcome,
+    pub body: crate::governance::invite_addressing::InviteDeliveryResponseBody,
 }
 
-/// Counterpart: `consent-private-operations.schema.json#/$defs/request_outcome/properties/kind`.
+/// Counterpart:
+/// `consent-private-operations.schema.json#/$defs/request_response_body/properties/kind`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum ConsentPrivateRequestOutcomeKind {
     #[serde(rename = "request")]
     Request,
 }
 
-/// Counterpart: `consent-private-operations.schema.json#/$defs/request_outcome`.
+/// Counterpart: `consent-private-operations.schema.json#/$defs/request_response_body`.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ConsentPrivateRequestOutcome {
+pub struct ConsentPrivateRequestResponseBody {
     pub kind: ConsentPrivateRequestOutcomeKind,
-    pub body: crate::consent_operations::ConsentRequestOutcome,
+    pub body: crate::consent_operations::ConsentRequestResponseBody,
 }
 
-/// Counterpart: `consent-private-operations.schema.json#/$defs/command_outcome`.
+/// Counterpart: `consent-private-operations.schema.json#/$defs/command_response_body`.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(untagged)]
-pub enum ConsentPrivateCommandOutcome {
-    List(ConsentPrivateListOutcome),
-    Version(ConsentPrivateVersionOutcome),
-    Effects(ConsentPrivateEffectsOutcome),
-    InvitePolicy(ConsentPrivateInvitePolicyOutcome),
-    InviteDelivery(ConsentPrivateInviteDeliveryOutcome),
-    Request(ConsentPrivateRequestOutcome),
+pub enum ConsentPrivateCommandResponseBody {
+    List(ConsentPrivateListResponseBody),
+    Version(ConsentPrivateVersionResponseBody),
+    Effects(ConsentPrivateEffectsResponseBody),
+    InvitePolicy(ConsentPrivateInvitePolicyResponseBody),
+    InviteDelivery(ConsentPrivateInviteDeliveryResponseBody),
+    Request(ConsentPrivateRequestResponseBody),
 }
 
-/// Counterpart: `consent-private-operations.schema.json#/$defs/proxy_request`.
+/// Counterpart: `consent-private-operations.schema.json#/$defs/proxy_request_body`.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ConsentPrivateProxyRequest {
+pub struct ConsentPrivateProxyRequestBody {
     pub holder_account_id: arkret_wire::AccountId,
     pub realm_id: arkret_wire::RealmId,
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub governance_generation: u64,
     pub nonce: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -346,23 +355,24 @@ pub struct ConsentPrivateProxyRequest {
     pub command: ConsentPrivateCommand,
 }
 
-/// Counterpart: `consent-private-operations.schema.json#/$defs/proxy_outcome`.
+/// Counterpart: `consent-private-operations.schema.json#/$defs/proxy_response_body`.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ConsentPrivateProxyOutcome {
+pub struct ConsentPrivateProxyResponseBody {
     pub request_digest: String,
     pub realm_id: arkret_wire::RealmId,
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub governance_generation: u64,
     pub effective_stream_head: arkret_wire::CommitStreamHead,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub evaluated_at: chrono::DateTime<chrono::Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: chrono::DateTime<chrono::Utc>,
-    pub outcome: ConsentPrivateCommandOutcome,
+    pub response_body: ConsentPrivateCommandResponseBody,
 }
 
 /// Counterpart:
-/// `consent-private-operations.schema.json#/$defs/effects_publish_outcome/properties/status`.
+/// `consent-private-operations.schema.json#/$defs/effects_publish_response_body/properties/status`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum ConsentPrivateEffectsPublishStatus {
     #[serde(rename = "applied")]
@@ -371,12 +381,13 @@ pub enum ConsentPrivateEffectsPublishStatus {
     Duplicate,
 }
 
-/// Counterpart: `consent-private-operations.schema.json#/$defs/effects_publish_request`.
+/// Counterpart: `consent-private-operations.schema.json#/$defs/effects_publish_request_body`.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ConsentPrivateEffectsPublishRequest {
+pub struct ConsentPrivateEffectsPublishRequestBody {
     pub holder_account_id: arkret_wire::AccountId,
     pub realm_id: arkret_wire::RealmId,
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub governance_generation: u64,
     pub nonce: String,
     pub effective_stream_head: arkret_wire::CommitStreamHead,
@@ -387,10 +398,10 @@ pub struct ConsentPrivateEffectsPublishRequest {
     pub effects: ConsentPrivateEffects,
 }
 
-/// Counterpart: `consent-private-operations.schema.json#/$defs/effects_publish_outcome`.
+/// Counterpart: `consent-private-operations.schema.json#/$defs/effects_publish_response_body`.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ConsentPrivateEffectsPublishOutcome {
+pub struct ConsentPrivateEffectsPublishResponseBody {
     pub request_digest: String,
     pub status: ConsentPrivateEffectsPublishStatus,
 }

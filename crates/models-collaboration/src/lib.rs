@@ -30,7 +30,7 @@ pub mod direct_conversation;
 pub mod event_query;
 pub mod event_sync;
 pub mod events_payloads;
-pub mod exact_current_results;
+pub mod exact_current_state;
 pub mod governance;
 mod internal_prelude;
 pub mod mention_composer;

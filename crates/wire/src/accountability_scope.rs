@@ -1,7 +1,7 @@
 //! Closed accountability scope values and their normalized exact set.
 //!
 //! `zh/models/actor.md` section 3.3.1 fixes the `identity_accountability`
-//! typed current result subject as `(Realm, issuer principal, subject
+//! current state subject as `(Realm, issuer principal, subject
 //! principal, normalized exact scope set)`. The scope component is
 //! `string_set_digest(accountability_scope, ak.accountability_scope_set.v1)`,
 //! so a wire singleton string and its one-element array address one result.

@@ -52,24 +52,24 @@ pub enum StrandWatchSelectorKind {
 /// A written watch cell has a revision even when it was cleared to `null`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct StrandWatchCurrentRow {
+pub struct CurrentStrandWatch {
     pub selector: StrandWatchCurrentSelector,
     /// Exact stream of the covering RealmCommit named by `revision.commit_id`.
     pub source_stream_ref: CommitStreamRef,
     pub revision: CurrentRevision,
     /// Required on the wire, including when explicitly cleared to JSON `null`.
-    pub value: StrandWatchCurrentValue,
+    pub value: StrandWatchValue,
 }
 
 /// Unlike `Option<T>`, this field does not silently accept an omitted `value`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum StrandWatchCurrentValue {
+pub enum StrandWatchValue {
     Set(StrandWatchExpectedValue),
     Cleared(()),
 }
 
-impl StrandWatchCurrentValue {
+impl StrandWatchValue {
     pub const fn as_option(&self) -> Option<&StrandWatchExpectedValue> {
         match self {
             Self::Set(value) => Some(value),
@@ -82,22 +82,24 @@ impl StrandWatchCurrentValue {
 /// missing snapshot entry or local raw Event order.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
-pub enum StrandWatchCurrentOutcome {
+pub enum StrandWatchCurrentResponseBody {
     NeverWritten {
         realm_id: RealmId,
+        #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
         governance_generation: u64,
         stream_head: CommitStreamHead,
         selector: StrandWatchCurrentSelector,
     },
     Current {
         realm_id: RealmId,
+        #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
         governance_generation: u64,
         stream_head: CommitStreamHead,
-        result: StrandWatchCurrentRow,
+        current_state: CurrentStrandWatch,
     },
 }
 
-impl StrandWatchCurrentOutcome {
+impl StrandWatchCurrentResponseBody {
     pub const fn governance_generation(&self) -> u64 {
         match self {
             Self::NeverWritten {
@@ -147,13 +149,13 @@ impl StrandWatchCurrentOutcome {
             Self::Current {
                 realm_id,
                 stream_head,
-                result,
+                current_state,
                 ..
             } => (
                 realm_id,
                 stream_head,
-                &result.selector,
-                Some((&result.source_stream_ref, &result.revision)),
+                &current_state.selector,
+                Some((&current_state.source_stream_ref, &current_state.revision)),
             ),
         };
         if !matches!(
@@ -194,11 +196,11 @@ pub const PEER_STRAND_WATCH_AUDIT_PATH: &str = "/_arkret/peer/strands/watch/audi
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct WatchAuditReadRequest {
+pub struct WatchAuditReadRequestBody {
     pub audit_submission: arkret_wire::EventAdmissionSubmission,
 }
 
-impl WatchAuditReadRequest {
+impl WatchAuditReadRequestBody {
     pub fn validate(&self) -> arkret_wire::Result<()> {
         use crate::events_payloads::audit::{AuditAccessedKind, AuditAccessedPayload};
         let event = &self.audit_submission.event;
@@ -249,7 +251,7 @@ impl WatchAuditReadRequest {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PeerWatchAuditReadRequest {
+pub struct PeerWatchAuditReadRequestBody {
     pub audit_submission: arkret_wire::EventAdmissionSubmission,
     #[serde(
         default,
@@ -266,7 +268,7 @@ pub struct PeerWatchAuditReadRequest {
     pub producer_agent_evidence: Option<arkret_models_identity::AgentProducerEvidence>,
 }
 
-impl PeerWatchAuditReadRequest {
+impl PeerWatchAuditReadRequestBody {
     pub fn validate_carrier_shape(&self) -> arkret_wire::Result<()> {
         if self.producer_device_evidence.is_some() == self.producer_agent_evidence.is_some() {
             return Err(arkret_wire::WireError::ProtocolCode {
@@ -276,8 +278,8 @@ impl PeerWatchAuditReadRequest {
         }
         validate_audit_budget(self)
     }
-    pub fn logical_request(&self) -> WatchAuditReadRequest {
-        WatchAuditReadRequest {
+    pub fn logical_request(&self) -> WatchAuditReadRequestBody {
+        WatchAuditReadRequestBody {
             audit_submission: self.audit_submission.clone(),
         }
     }
@@ -317,15 +319,15 @@ impl PeerWatchAuditReadRequest {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct WatchAuditReadOutcome {
+pub struct WatchAuditReadResponseBody {
     pub audit_commit: arkret_wire::RealmCommit,
-    pub current: StrandWatchCurrentOutcome,
+    pub current: StrandWatchCurrentResponseBody,
 }
 
-impl WatchAuditReadOutcome {
+impl WatchAuditReadResponseBody {
     pub fn validate_for_request(
         &self,
-        request: &WatchAuditReadRequest,
+        request: &WatchAuditReadRequestBody,
         generation: u64,
     ) -> arkret_wire::Result<()> {
         request.validate()?;
@@ -341,8 +343,8 @@ impl WatchAuditReadOutcome {
             .validate_for_generation(&request.selector()?, generation)
             .map_err(|detail| arkret_wire::WireError::Protocol(detail.to_owned()))?;
         let head = match &self.current {
-            StrandWatchCurrentOutcome::NeverWritten { stream_head, .. }
-            | StrandWatchCurrentOutcome::Current { stream_head, .. } => stream_head,
+            StrandWatchCurrentResponseBody::NeverWritten { stream_head, .. }
+            | StrandWatchCurrentResponseBody::Current { stream_head, .. } => stream_head,
         };
         if self.audit_commit.governance_generation != generation
             || head.commit_id != self.audit_commit.commit_id

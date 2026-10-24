@@ -1,14 +1,16 @@
 //! Typed provider interoperability using the registered MIMI signature scene.
 use arkret_models_collaboration::mimi_operations::{
-    MimiIdentifierQueryOutcome, MimiIdentifierQueryRequestBody, MimiNotifyOutcome,
-    MimiNotifyRequestBody, MimiProxyDownloadOutcome, MimiProxyDownloadRequestBody,
-    MimiReportAbuseOutcome, MimiReportAbuseRequestBody, MimiRequestConsentOutcome,
-    MimiRequestConsentRequestBody, MimiRoomUpdateOutcome, MimiRoomUpdateRequestBody,
-    MimiSubmitMessageOutcome, MimiSubmitMessageRequestBody, MimiUpdateConsentOutcome,
-    MimiUpdateConsentRequestBody,
+    MimiIdentifierQueryRequestBody, MimiIdentifierQueryResponseBody, MimiNotifyRequestBody,
+    MimiNotifyResponseBody, MimiProxyDownloadRequestBody, MimiProxyDownloadResponseBody,
+    MimiReportAbuseRequestBody, MimiReportAbuseResponseBody, MimiRequestConsentRequestBody,
+    MimiRequestConsentResponseBody, MimiRoomUpdateRequestBody, MimiRoomUpdateResponseBody,
+    MimiSubmitMessageRequestBody, MimiSubmitMessageResponseBody, MimiUpdateConsentRequestBody,
+    MimiUpdateConsentResponseBody,
 };
 use arkret_models_collaboration::objects::interop::ProviderDirectory;
-use arkret_models_crypto::{PeerKeyPackagesClaimQueryOutcome, PeerKeyPackagesClaimRequestBody};
+use arkret_models_crypto::{
+    PeerKeyPackagesClaimQueryResponseBody, PeerKeyPackagesClaimRequestBody,
+};
 use arkret_signatures::http_signature::HttpSignatureScenario;
 use arkret_wire::{DidCoreId, MimiRoomUri, MimiUri};
 use reqwest::Method;
@@ -92,7 +94,7 @@ impl Client {
     pub async fn mimi_request_consent(
         &self,
         request: &MimiRequestConsentRequestBody,
-    ) -> Result<MimiRequestConsentOutcome> {
+    ) -> Result<MimiRequestConsentResponseBody> {
         request.validate()?;
         for proof in &request.proofs {
             request.proof_binding_bytes(proof)?;
@@ -105,10 +107,10 @@ impl Client {
     pub async fn mimi_update_consent(
         &self,
         request: &MimiUpdateConsentRequestBody,
-    ) -> Result<MimiUpdateConsentOutcome> {
+    ) -> Result<MimiUpdateConsentResponseBody> {
         request.validate_consent_event()?;
         request.signature_binding_bytes()?;
-        let outcome: MimiUpdateConsentOutcome = self
+        let outcome: MimiUpdateConsentResponseBody = self
             .mimi_post("/_arkret/open/mimi/consent/update", request, false, true)
             .await?;
         if outcome.consent_id != request.consent_id
@@ -129,7 +131,7 @@ impl Client {
         request: &PeerKeyPackagesClaimRequestBody,
         source_trust_domain: &arkret_wire::TrustDomainId,
         destination_trust_domain: &arkret_wire::TrustDomainId,
-    ) -> Result<PeerKeyPackagesClaimQueryOutcome> {
+    ) -> Result<PeerKeyPackagesClaimQueryResponseBody> {
         request
             .validate_shape()
             .map_err(|error| Error::Protocol(error.to_string()))?;
@@ -177,7 +179,7 @@ impl Client {
                 "Destination-Trust-Domain",
                 destination_trust_domain.as_str(),
             );
-        let outcome: PeerKeyPackagesClaimQueryOutcome = self
+        let outcome: PeerKeyPackagesClaimQueryResponseBody = self
             .send_json_protocol_replay_safe_for_scenario(
                 builder,
                 HttpSignatureScenario::MimiProviderV1,
@@ -209,10 +211,10 @@ impl Client {
         &self,
         room_id: &str,
         request: &MimiRoomUpdateRequestBody,
-    ) -> Result<MimiRoomUpdateOutcome> {
+    ) -> Result<MimiRoomUpdateResponseBody> {
         crate::reject_path_segment(room_id)?;
         request.validate()?;
-        let outcome: MimiRoomUpdateOutcome = self
+        let outcome: MimiRoomUpdateResponseBody = self
             .mimi_post(
                 &format!("/_arkret/open/mimi/strands/{room_id}/update"),
                 request,
@@ -238,7 +240,7 @@ impl Client {
         &self,
         room_id: &str,
         request: &MimiNotifyRequestBody,
-    ) -> Result<MimiNotifyOutcome> {
+    ) -> Result<MimiNotifyResponseBody> {
         crate::reject_path_segment(room_id)?;
         self.mimi_post(
             &format!("/_arkret/open/mimi/strands/{room_id}/notify"),
@@ -252,9 +254,9 @@ impl Client {
     pub async fn mimi_identifier_query(
         &self,
         request: &MimiIdentifierQueryRequestBody,
-    ) -> Result<MimiIdentifierQueryOutcome> {
+    ) -> Result<MimiIdentifierQueryResponseBody> {
         request.validate()?;
-        let outcome: MimiIdentifierQueryOutcome = self
+        let outcome: MimiIdentifierQueryResponseBody = self
             .mimi_post(
                 "/_arkret/open/mimi/identifiers/query",
                 request,
@@ -292,9 +294,9 @@ impl Client {
         &self,
         strand_id: &str,
         request: &MimiSubmitMessageRequestBody,
-    ) -> Result<MimiSubmitMessageOutcome> {
+    ) -> Result<MimiSubmitMessageResponseBody> {
         crate::reject_path_segment(strand_id)?;
-        let outcome: MimiSubmitMessageOutcome = self
+        let outcome: MimiSubmitMessageResponseBody = self
             .mimi_post(
                 &format!("/_arkret/open/mimi/strands/{strand_id}/messages"),
                 request,
@@ -309,7 +311,7 @@ impl Client {
     pub async fn mimi_proxy_download(
         &self,
         request: &MimiProxyDownloadRequestBody,
-    ) -> Result<MimiProxyDownloadOutcome> {
+    ) -> Result<MimiProxyDownloadResponseBody> {
         self.mimi_post("/_arkret/open/mimi/proxy-download", request, false, false)
             .await
     }
@@ -366,7 +368,7 @@ impl Client {
     pub async fn mimi_report_abuse(
         &self,
         request: &MimiReportAbuseRequestBody,
-    ) -> Result<MimiReportAbuseOutcome> {
+    ) -> Result<MimiReportAbuseResponseBody> {
         request.validate()?;
         self.mimi_post("/_arkret/open/mimi/report-abuse", request, false, true)
             .await

@@ -88,7 +88,7 @@ fn accepted(document: &DidDocument) -> AcceptedDidBinding {
             evidence_dependencies: receipt.evidence_dependencies().expect("dependencies"),
             policy_digest: hash(0x44),
             verified_at: protocol_now(),
-            refresh_after: None,
+            refresh_at: None,
             expires_at: None,
             status: DidBindingStatus::Active,
         },
@@ -1061,7 +1061,9 @@ fn authority_checks_the_registered_p256_and_mldsa_public_key_encodings() {
         )
         .unwrap();
     let p256 = &fixture["vectors"][1]["did_document_fragment"]["publicKeyJwk"];
-    let mldsa_public = fixture["vectors"][2]["public_key_b64u"].as_str().unwrap();
+    let mldsa_public = fixture["vectors"][2]["public_key_base64url"]
+        .as_str()
+        .unwrap();
     let materials = [
         (
             serde_json::json!({"kty":"EC", "crv":"P-256", "x":p256["x"], "y":p256["y"]})
@@ -1224,7 +1226,7 @@ fn a_store_hit_keeps_its_evidence_and_never_reaches_the_resolver_again() {
 }
 
 /// The freshness profile is the single source of the reuse threshold,
-/// `refresh_after` and `expires_at`.
+/// `refresh_at` and `expires_at`.
 #[test]
 fn the_freshness_profile_drives_every_window() {
     let resolver = OneShotResolver::new(document(&format!("{}#key-1", did())));
@@ -1235,9 +1237,9 @@ fn the_freshness_profile_drives_every_window() {
 
     assert_eq!(accepted.binding().verified_at(), now);
     assert_eq!(
-        accepted.binding().refresh_after(),
+        accepted.binding().refresh_at(),
         Some(now + Duration::hours(1)),
-        "refresh_after is verified_at + fresh_for_seconds"
+        "refresh_at is verified_at + fresh_for_seconds"
     );
     assert_eq!(
         accepted.binding().expires_at(),

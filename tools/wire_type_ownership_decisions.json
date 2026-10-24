@@ -22,8 +22,8 @@
     {
       "repository": "garth",
       "path_glob": "src/**/*.rs",
-      "pattern": "(?:struct|enum)\\s+(?:CommittedEventView|StreamScanOutcome|StreamScanRequest)\\b",
-      "owner": "arkret_wire::{CommittedEventView, StreamScanOutcome, StreamScanRequest}",
+      "pattern": "(?:struct|enum)\\s+(?:CommittedEventView|StreamScanResponseBody|StreamScanRequestBody)\\b",
+      "owner": "arkret_wire::{CommittedEventView, StreamScanResponseBody, StreamScanRequestBody}",
       "rationale": "Current replicas and own-Station scan pages embed SDK-owned commit-stream carriers. Moving or adding a source must not recreate these wire DTOs locally."
     },
     {

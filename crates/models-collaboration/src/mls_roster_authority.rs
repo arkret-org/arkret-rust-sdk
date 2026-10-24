@@ -3,7 +3,7 @@
 use std::collections::HashSet;
 
 use arkret_models_crypto::{
-    KeyOperationSignature, PeerKeyPackageClaimReceipt, PeerKeyPackagesClaimOutcome,
+    KeyOperationSignature, PeerKeyPackageClaimReceipt, PeerKeyPackagesClaimResponseBody,
 };
 use arkret_models_identity::AuthenticatedServiceResolution;
 use arkret_wire::{
@@ -51,13 +51,14 @@ pub struct MlsAddAuthorityAttestation {
     pub genesis_event_ref: EventId,
     pub commit_event_ref: EventId,
     pub commit_stream_position: u64,
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub epoch: u64,
     pub welcome_id: MlsWelcomeDeliveryId,
     pub claim_id: KeypackageClaimId,
     pub actor_id: ActorId,
     pub endpoint: MlsWelcomeRecipientEndpoint,
     pub authorization_event_ref: EventId,
-    pub leaf_signature_key_b64u: Base64UrlString,
+    pub leaf_signature_key_base64url: Base64UrlString,
     pub claim_record_digest: Hash,
     pub claim_receipt: PeerKeyPackageClaimReceipt,
     #[serde(
@@ -118,7 +119,7 @@ impl MlsAddAuthorityAttestation {
                 "Account/Agent Add authority must retain its fixed Station".into(),
             ));
         }
-        validate_leaf_key(&self.leaf_signature_key_b64u)
+        validate_leaf_key(&self.leaf_signature_key_base64url)
     }
 
     pub fn signing_bytes(&self) -> Result<Vec<u8>> {
@@ -130,7 +131,7 @@ impl MlsAddAuthorityAttestation {
 #[serde(deny_unknown_fields)]
 pub struct MlsAttestAddRequestBody {
     pub attestation: MlsAddAuthorityAttestation,
-    pub claim_outcome: PeerKeyPackagesClaimOutcome,
+    pub claim_outcome: PeerKeyPackagesClaimResponseBody,
 }
 
 impl MlsAttestAddRequestBody {
@@ -210,7 +211,7 @@ impl MlsAttestAddRequestBody {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct MlsAttestAddOutcome {
+pub struct MlsAttestAddResponseBody {
     pub status: MlsAttestAddStatus,
     pub attestation_digest: Hash,
 }
@@ -231,6 +232,7 @@ pub struct MlsMemberRosterAuthorityReadRequestBody {
     pub effective_scope: ScopeRef,
     pub mls_group_id: MlsGroupId,
     pub target_commit_event_ref: EventId,
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub target_epoch: u64,
     pub caller_actor_id: ActorId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -283,6 +285,7 @@ pub struct MlsRosterAuthorityReadRequestBody {
     pub mls_group_id: MlsGroupId,
     pub genesis_event_ref: EventId,
     pub target_commit_event_ref: EventId,
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub target_epoch: u64,
     pub caller_actor_id: ActorId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -320,7 +323,7 @@ pub enum MlsRosterRecord {
     Genesis {
         genesis_event_ref: EventId,
         actor_id: ActorId,
-        leaf_signature_key_b64u: Base64UrlString,
+        leaf_signature_key_base64url: Base64UrlString,
         endpoint: MlsWelcomeRecipientEndpoint,
         authorization_event_ref: EventId,
     },
@@ -328,7 +331,7 @@ pub enum MlsRosterRecord {
         commit_event_ref: EventId,
         consumed_proposal_ordinal: u64,
         sender_actor_id: ActorId,
-        proposal_wire_b64u: Base64UrlString,
+        proposal_wire_base64url: Base64UrlString,
         attestation: MlsAddAuthorityAttestation,
         #[serde(
             default,
@@ -343,7 +346,7 @@ pub enum MlsRosterRecord {
 impl MlsRosterRecord {
     pub fn validate_shape(&self) -> Result<()> {
         if let Self::Add {
-            proposal_wire_b64u,
+            proposal_wire_base64url,
             attestation,
             claim_issuer_resolution,
             attestor_resolution,
@@ -371,13 +374,13 @@ impl MlsRosterRecord {
                 ));
             }
             let proposal =
-                arkret_canonical::base64url::base64url_decode(proposal_wire_b64u.as_str())
+                arkret_canonical::base64url::base64url_decode(proposal_wire_base64url.as_str())
                     .map_err(|_| {
                         WireError::Protocol("MLS roster Proposal is not base64url".to_owned())
                     })?;
             if proposal.is_empty()
                 || arkret_canonical::base64url::base64url_encode(&proposal)
-                    != proposal_wire_b64u.as_str()
+                    != proposal_wire_base64url.as_str()
             {
                 return Err(WireError::Protocol(
                     "MLS roster Proposal is not canonical TLS bytes".to_owned(),
@@ -400,10 +403,11 @@ pub struct MlsRosterAuthorityManifest {
     pub group_info_ref: BlobRef,
     pub ratchet_tree_ref: BlobRef,
     pub target_commit_event_ref: EventId,
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub target_epoch: u64,
     pub authority_head_commit_event_ref: EventId,
     pub caller_actor_id: ActorId,
-    pub total_records: u64,
+    pub total_record_count: u64,
     pub page_count: u64,
     pub records_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -435,9 +439,9 @@ impl MlsRosterAuthorityManifest {
             || self.target_commit_event_ref != request.target_commit_event_ref
             || self.target_epoch != request.target_epoch
             || self.caller_actor_id != request.caller_actor_id
-            || self.total_records == 0
-            || self.page_count < self.total_records.div_ceil(8)
-            || self.page_count > self.total_records
+            || self.total_record_count == 0
+            || self.page_count < self.total_record_count.div_ceil(8)
+            || self.page_count > self.total_record_count
             || (self.target_epoch == 0
                 && (self.target_commit_event_ref != self.genesis_event_ref
                     || self.authority_head_commit_event_ref != self.genesis_event_ref))
@@ -453,7 +457,7 @@ impl MlsRosterAuthorityManifest {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct MlsRosterAuthorityReadOutcome {
+pub struct MlsRosterAuthorityReadResponseBody {
     pub manifest: MlsRosterAuthorityManifest,
     pub page_index: u64,
     pub records: Vec<MlsRosterRecord>,
@@ -465,7 +469,7 @@ pub struct MlsRosterAuthorityReadOutcome {
 #[serde(deny_unknown_fields)]
 pub struct MlsRosterSigningKey {
     pub verification_method: arkret_wire::DidUrl,
-    pub public_key_b64u: Base64UrlString,
+    pub public_key_base64url: Base64UrlString,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -479,8 +483,8 @@ pub struct MlsRosterAddSigningKeys {
 /// Exact non-portable key result from the authenticated own Account Station.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct MlsSelfRosterAuthorityReadOutcome {
-    pub roster: MlsRosterAuthorityReadOutcome,
+pub struct MlsSelfRosterAuthorityReadResponseBody {
+    pub roster: MlsRosterAuthorityReadResponseBody,
     pub manifest_signing_key: MlsRosterSigningKey,
     pub add_signing_keys: Vec<MlsRosterAddSigningKeys>,
 }

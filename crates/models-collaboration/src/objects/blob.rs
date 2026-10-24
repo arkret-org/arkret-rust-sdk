@@ -122,7 +122,7 @@ pub struct BlobUploadMetadata {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct BlobUploadOutcome {
+pub struct BlobUploadResponseBody {
     pub blob_ref: BlobRef,
     /// Spec rename (head 37ce729): `size` → `size_bytes` on blob/media metadata.
     pub size_bytes: u64,
@@ -148,7 +148,7 @@ pub struct BlobPresignRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct BlobPresignOutcome {
+pub struct BlobPresignResponseBody {
     pub url: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,

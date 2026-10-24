@@ -116,6 +116,7 @@ impl WindowStartRealmMetadata {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct WindowStartE2eeEpoch {
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub epoch: u64,
     pub key_ref: String,
 }
@@ -184,6 +185,7 @@ pub struct StreamWindowStartBasis {
     pub anchor_position: u64,
     pub anchor_commit_ref: RealmCommitId,
     pub snapshot_ref: RealmSnapshotId,
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub governance_generation: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub accepted_dependency_refs: Option<Vec<CommittedEventRef>>,
