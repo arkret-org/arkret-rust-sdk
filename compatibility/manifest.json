@@ -32,7 +32,7 @@
     },
     "arkret-rust-sdk": {
       "repository": "arkret-org/arkret-rust-sdk",
-      "commit": "0221174b9c382087f677925c185d9d4a0132be74",
+      "commit": "95a49f17b25851e8f71412debf64583fa47e929f",
       "checkout_path": "arkret-rust-sdk",
       "roles": [
         "public-models",
@@ -50,7 +50,7 @@
     },
     "coland": {
       "repository": "arkret-org/coland",
-      "commit": "134966f16b17ea7d442148a2babca53a4bf73274",
+      "commit": "2b3141318deb16ebda1a8bc9ab1e8d5c77832539",
       "checkout_path": "coland",
       "roles": [
         "protocol-producer",
@@ -59,7 +59,7 @@
     },
     "coauth": {
       "repository": "arkret-org/coauth",
-      "commit": "93b3dbca0e9469b2c9fd1cbf26e0fed809746a3b",
+      "commit": "775a8e194e2118f72f195e0d8708b0c1877e2076",
       "checkout_path": "coauth",
       "roles": [
         "identity-producer",
@@ -68,7 +68,7 @@
     },
     "garth": {
       "repository": "arkret-org/garth",
-      "commit": "bf1dc4eaf66834451391a30f5c10e6367f638673",
+      "commit": "0628eac092d2bc89734f238e4fcb97346a9e41f4",
       "checkout_path": "garth",
       "roles": [
         "runtime-consumer"
@@ -84,7 +84,7 @@
     },
     "inkson": {
       "repository": "arkret-org/inkson",
-      "commit": "eae6d0d837e7f4c3c5322b83d719517c30285408",
+      "commit": "44a02f000eee13eba4d3f947c1a713f27651f53e",
       "checkout_path": "inkson",
       "roles": [
         "application-consumer"
@@ -92,7 +92,7 @@
     },
     "cotest": {
       "repository": "arkret-org/cotest",
-      "commit": "66ff74b17e64033a36323f603602b3e4e8aac894",
+      "commit": "1cc9392ba3cf8d208fe79a5c029a88143a29d1cf",
       "checkout_path": "cotest",
       "roles": [
         "joint-contract-tests",
@@ -117,7 +117,7 @@
     },
     "savfox": {
       "repository": "savfox-ai/savfox",
-      "commit": "f6b0e77f3725df018b1cceda13a0cc47b1ea10bb",
+      "commit": "359c77706542a71d7c22d32a54a124c623dd1622",
       "checkout_path": "../savfox-ai/savfox",
       "roles": [
         "coland-native-agent-build-dependency"
@@ -125,7 +125,7 @@
     },
     "codmin": {
       "repository": "arkret-org/codmin",
-      "commit": "6a05086c534804d2daffda5886eb9a0b6c916ef2",
+      "commit": "41d96bb19793af4b1d17563f700013cdef9e4026",
       "checkout_path": "codmin",
       "roles": [
         "admin-consumer",
@@ -1221,6 +1221,37 @@
         "--target",
         "wasm32-unknown-unknown",
         "--locked"
+      ]
+    },
+    {
+      "id": "cotest.generated-wire-types",
+      "repository": "cotest",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "TypeScript mirrors of canonical schema members"
+      },
+      "working_directory": "cotest",
+      "command": [
+        "node",
+        "e2e/scripts/generate-wire-types.mjs",
+        "--check",
+        "--require-spec"
+      ]
+    },
+    {
+      "id": "cotest.wire-type-gate-regression",
+      "repository": "cotest",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "TypeScript Row name and missing-Spec rejection regressions"
+      },
+      "working_directory": "cotest",
+      "command": [
+        "node",
+        "--test",
+        "e2e/scripts/wire-schema-generation.test.mjs"
       ]
     }
   ],
