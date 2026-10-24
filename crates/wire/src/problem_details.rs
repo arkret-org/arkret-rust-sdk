@@ -7,11 +7,11 @@ use serde_json::Value;
 
 /// Account stale-prefix continuation, not a newly installable checkpoint.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-pub struct AccountRevisionStaleProblem {
+pub struct AccountRevisionStaleProblemExtensions {
     continuation_cursor: String,
 }
 
-impl AccountRevisionStaleProblem {
+impl AccountRevisionStaleProblemExtensions {
     pub fn new(continuation_cursor: impl Into<String>) -> crate::Result<Self> {
         let continuation_cursor = continuation_cursor.into();
         let suffix = continuation_cursor
@@ -48,7 +48,7 @@ impl AccountRevisionStaleProblem {
     }
 }
 
-impl<'de> Deserialize<'de> for AccountRevisionStaleProblem {
+impl<'de> Deserialize<'de> for AccountRevisionStaleProblemExtensions {
     fn deserialize<D>(deserializer: D) -> StdResult<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -491,7 +491,7 @@ impl Problem {
     /// Producer helper for the registered Account operation branch only.
     pub fn account_revision_stale(
         detail: impl Into<String>,
-        details: AccountRevisionStaleProblem,
+        details: AccountRevisionStaleProblemExtensions,
     ) -> Self {
         Self::from_code(crate::error_codes::ErrorCode::REVISION_STALE, detail).with_extension(
             "continuation_cursor",
@@ -504,7 +504,7 @@ impl Problem {
     /// material is not a command to reset or to install a new checkpoint.
     pub fn account_revision_stale_details(
         &self,
-    ) -> crate::Result<Option<AccountRevisionStaleProblem>> {
+    ) -> crate::Result<Option<AccountRevisionStaleProblemExtensions>> {
         if self.error_code() != Some(crate::error_codes::ErrorCode::RevisionStale) {
             return Ok(None);
         }
@@ -520,7 +520,7 @@ impl Problem {
             .ok_or_else(|| {
                 crate::WireError::Protocol("Account revision_stale lacks its continuation".into())
             })?;
-        AccountRevisionStaleProblem::new(cursor).map(Some)
+        AccountRevisionStaleProblemExtensions::new(cursor).map(Some)
     }
 
     /// Set (or clear) the retry hint carried as the `retry_after_ms` extension.
@@ -732,7 +732,7 @@ mod tests {
         let after = "ak:cursor:account-backfill";
         let problem = Problem::account_revision_stale(
             "recoverable lag",
-            AccountRevisionStaleProblem::new(after).unwrap(),
+            AccountRevisionStaleProblemExtensions::new(after).unwrap(),
         )
         .with_extension("future_hint", json!(true));
         let details = problem.account_revision_stale_details().unwrap().unwrap();
@@ -761,10 +761,11 @@ mod tests {
             "ak:cursor:with space",
             "ak:cursor:with+plus",
         ] {
-            assert!(AccountRevisionStaleProblem::new(token).is_err());
+            assert!(AccountRevisionStaleProblemExtensions::new(token).is_err());
         }
         assert!(
-            AccountRevisionStaleProblem::new(format!("ak:cursor:{}", "a".repeat(2029))).is_err()
+            AccountRevisionStaleProblemExtensions::new(format!("ak:cursor:{}", "a".repeat(2029)))
+                .is_err()
         );
     }
 

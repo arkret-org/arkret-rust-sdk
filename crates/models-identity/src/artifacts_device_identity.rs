@@ -22,6 +22,26 @@ fn verification_method_controller_core(verification_method: &DidUrl) -> Result<D
     project_did_to_core_id(&Did::new(controller)?).map_err(Into::into)
 }
 
+/// Issuer role in the DID registry consensus group.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum IdentityReceiptWitnessRole {
+    Writer,
+    Witness,
+    Replica,
+}
+
+impl IdentityReceiptWitnessRole {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Writer => "writer",
+            Self::Witness => "witness",
+            Self::Replica => "replica",
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct IdentityReceipt {
@@ -31,12 +51,52 @@ pub struct IdentityReceipt {
     pub sequence: u64,
     pub accepted_entry_digest: Hash,
     pub registry_id: DidCoreId,
-    pub witness_role: String,
+    pub witness_role: IdentityReceiptWitnessRole,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub audience: Option<String>,
     #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     pub signature: PayloadProof,
+}
+
+/// Shared signing input for the canonical registry receipt and its unsigned proof.
+pub fn identity_receipt_proof_binding_bytes(
+    registry_id: &DidCoreId,
+    subject_did: &Did,
+    proof: &arkret_wire::UnsignedPayloadProof,
+) -> Result<Vec<u8>> {
+    let mut object = serde_json::Map::new();
+    object.insert(
+        "context".to_owned(),
+        Value::String(IDENTITY_RECEIPT_PROOF_BINDING_CONTEXT.to_owned()),
+    );
+    object.insert(
+        "payload_digest".to_owned(),
+        Value::String(proof.payload_digest.as_str().to_owned()),
+    );
+    object.insert(
+        "registry_id".to_owned(),
+        Value::String(registry_id.as_str().to_owned()),
+    );
+    object.insert(
+        "subject_did".to_owned(),
+        Value::String(subject_did.as_str().to_owned()),
+    );
+    object.insert(
+        "verification_method".to_owned(),
+        Value::String(proof.verification_method.as_str().to_owned()),
+    );
+    object.insert(
+        "created_at".to_owned(),
+        Value::String(canonical::format_timestamp_canonical(proof.created_at)),
+    );
+    if let Some(domain) = &proof.domain {
+        object.insert("domain".to_owned(), Value::String(domain.clone()));
+    }
+    if let Some(audience) = &proof.audience {
+        object.insert("audience".to_owned(), serde_json::to_value(audience)?);
+    }
+    canonical::canonical_json_value_bytes(&Value::Object(object)).map_err(Into::into)
 }
 
 impl IdentityReceipt {
@@ -68,40 +128,11 @@ impl IdentityReceipt {
     /// Canonical detached-JWS binding bytes defined by `identity-did.md`
     /// section 4.3.
     pub fn proof_binding_bytes(&self) -> Result<Vec<u8>> {
-        let mut object = serde_json::Map::new();
-        object.insert(
-            "context".to_owned(),
-            Value::String(IDENTITY_RECEIPT_PROOF_BINDING_CONTEXT.to_owned()),
-        );
-        object.insert(
-            "payload_digest".to_owned(),
-            Value::String(self.signature.payload_digest.as_str().to_owned()),
-        );
-        object.insert(
-            "registry_id".to_owned(),
-            Value::String(self.registry_id.as_str().to_owned()),
-        );
-        object.insert(
-            "subject_did".to_owned(),
-            Value::String(self.subject_did.as_str().to_owned()),
-        );
-        object.insert(
-            "verification_method".to_owned(),
-            Value::String(self.signature.verification_method.as_str().to_owned()),
-        );
-        object.insert(
-            "created_at".to_owned(),
-            Value::String(canonical::format_timestamp_canonical(
-                self.signature.created_at,
-            )),
-        );
-        if let Some(domain) = &self.signature.domain {
-            object.insert("domain".to_owned(), Value::String(domain.clone()));
-        }
-        if let Some(audience) = &self.signature.audience {
-            object.insert("audience".to_owned(), serde_json::to_value(audience)?);
-        }
-        canonical::canonical_json_value_bytes(&Value::Object(object)).map_err(Into::into)
+        identity_receipt_proof_binding_bytes(
+            &self.registry_id,
+            &self.subject_did,
+            &self.signature.unsigned(),
+        )
     }
 
     /// Validate the receipt body and the plaintext proof bindings before JWS
@@ -175,7 +206,7 @@ pub struct DidWebvhWitnessReceipt {
     #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
     pub observed_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub source: Option<String>,
+    pub source_url: Option<String>,
     pub issuer_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub trust_domain: Option<TrustDomainId>,
@@ -286,7 +317,7 @@ impl DidWebvhWitnessReceipt {
                     .to_owned(),
             ));
         }
-        if let Some(source) = &self.source {
+        if let Some(source) = &self.source_url {
             url::Url::parse(source).map_err(|error| {
                 WireError::Protocol(format!(
                     "did:webvh witness receipt source must be an absolute URI: {error}"
@@ -396,7 +427,7 @@ mod tests {
             witness_verification_method: DidUrl::new("did:key:z6Mkrv5Cm2XCLumMPTqooLTCw6YDf421d7VdTziwrZ8vNf4L#z6Mkrv5Cm2XCLumMPTqooLTCw6YDf421d7VdTziwrZ8vNf4L").unwrap(),
             controlling_organization_did: Did::new("did:web:org.example").unwrap(),
             observed_at: created_at,
-            source: Some("https://subject.example/.well-known/did-witness.json".to_owned()),
+            source_url: Some("https://subject.example/.well-known/did-witness.json".to_owned()),
             issuer_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
             trust_domain: Some(TrustDomainId::new("ak:trust_domain:example").unwrap()),
             audience: None,

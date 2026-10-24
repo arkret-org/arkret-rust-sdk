@@ -4,9 +4,8 @@ use arkret_identity::{
 };
 use arkret_models_identity::service_identity::{CanonicalServiceUrl, ServiceRegistrationKey};
 use arkret_models_identity::{
-    AuthenticatedServiceResolution, DidDocument, ResolutionDidBindingEvidenceKind,
-    ResolutionDidBindingEvidenceReceipt, ResolutionMethodEvidenceBoundary,
-    ResolutionMethodHistoryEvidence, ServiceMethodState,
+    AuthenticatedServiceResolution, DidBindingEvidenceKind, DidBindingEvidenceReceipt, DidDocument,
+    ResolutionMethodEvidenceBoundary, ResolutionMethodHistoryEvidence, ServiceMethodState,
 };
 use arkret_signatures::webvh::{
     ServiceRegistrationInceptionInput, ServiceRotationInput,
@@ -113,13 +112,12 @@ fn current(resolution: &AuthenticatedServiceResolution) -> arkret_identity::Reso
         ResolutionMethodHistoryEvidence::WebvhLog {
             boundary, evidence, ..
         } => arkret_identity::MethodEvidence {
-            proofs: vec![arkret_identity::MethodEvidenceProof::WebvhLog(
-                arkret_identity::WebvhLogEvidence {
-                    history_head: boundary.to_version_id.clone(),
-                    witnesses: vec![],
-                    witness_proofs_digest: evidence.method_proofs[0].witness_proofs_digest.clone(),
-                },
-            )],
+            proofs: vec![arkret_identity::DidBindingMethodProof {
+                kind: arkret_identity::DidBindingMethodProofKind::WebvhLog,
+                history_head: boundary.to_version_id.clone(),
+                witnesses: vec![],
+                witness_proofs_digest: evidence.method_proofs[0].witness_proofs_digest.clone(),
+            }],
             history_head: Some(boundary.to_version_id.clone()),
             version_id: Some(boundary.to_version_id.clone()),
         },
@@ -206,8 +204,8 @@ fn web_resolution(endpoint: &str) -> AuthenticatedServiceResolution {
                 from_version_id: version.clone(),
                 to_version_id: version,
             },
-            evidence: ResolutionDidBindingEvidenceReceipt {
-                kind: ResolutionDidBindingEvidenceKind::AkDidBindingEvidenceV1,
+            evidence: DidBindingEvidenceReceipt {
+                kind: DidBindingEvidenceKind::AkDidBindingEvidenceV1,
                 method: "web".to_owned(),
                 document_digest: digest,
                 method_proofs: vec![],

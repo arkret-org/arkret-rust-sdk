@@ -8,6 +8,72 @@ from tools.wire_value_audit import SchemaResolver
 
 
 class SchemaStructGateTests(unittest.TestCase):
+    def representation_fixture(self, source, mapping, properties, **schema_keywords):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            path = root / 'crates/models/src/lib.rs'
+            path.parent.mkdir(parents=True)
+            path.write_text(source, encoding='utf-8')
+            schemas = root / 'schemas'
+            schemas.mkdir()
+            (schemas / 'example.schema.json').write_text(json.dumps({
+                'type': 'object', 'properties': properties, **schema_keywords,
+            }), encoding='utf-8')
+            registry = root / 'registry.json'
+            registry.write_text(json.dumps({'version': 1, 'mappings': [{
+                'rust_type': 'crates/models/src/lib.rs::Payload',
+                'schema': 'example.schema.json#', **mapping,
+            }], 'exemptions': []}), encoding='utf-8')
+            return validate(registry, schemas, root)
+
+    def test_private_wire_adapter_is_checked_instead_of_domain_members(self):
+        source = '''#[derive(Serialize, Deserialize)]
+#[serde(try_from = "PayloadWire")]
+// An ordinary comment must not hide the attached serde representation.
+pub struct Payload { #[serde(flatten)] pub branch: Branch }
+#[derive(Deserialize)]
+struct PayloadWire { member: String }
+'''
+        mapping = {'wire_adapter': 'crates/models/src/lib.rs::PayloadWire'}
+        self.assertEqual(self.representation_fixture(source, mapping, {'member': {}}), [])
+        errors = self.representation_fixture(source.replace('member:', 'stale:'), mapping, {'member': {}})
+        self.assertTrue(any('field mismatch' in error for error in errors), errors)
+        errors = self.representation_fixture(source.replace('PayloadWire")', 'OtherWire")'), mapping, {'member': {}})
+        self.assertTrue(any('actual validating decode' in error for error in errors), errors)
+
+    def test_manual_map_uses_emitted_names_and_requires_open_dynamic_contract(self):
+        source = '''pub struct Payload { pub internal: String }
+impl Serialize for Payload { fn serialize() {
+    let mut map = serializer.serialize_map(None)?;
+    map.serialize_entry("member", &self.internal)?;
+    map.end()
+} }
+'''
+        self.assertEqual(self.representation_fixture(source, {'manual_map': True}, {'member': {}}), [])
+        bad = source.replace('"member"', '"stale"')
+        errors = self.representation_fixture(bad, {'manual_map': True}, {'member': {}})
+        self.assertTrue(any('unregistered members' in error for error in errors), errors)
+        dynamic = source.replace('map.end()', 'map.serialize_entry(key, value)?; map.end()')
+        errors = self.representation_fixture(dynamic, {'manual_map': True}, {'member': {}}, additionalProperties=False)
+        self.assertTrue(any('explicit open extension contract' in error for error in errors), errors)
+        self.assertEqual(self.representation_fixture(dynamic, {'manual_map': True}, {'member': {}}, additionalProperties=True), [])
+
+    def test_same_name_object_cannot_omit_its_schema_pointer_to_escape_coverage(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / 'crates/models/src/lib.rs'
+            source.parent.mkdir(parents=True)
+            source.write_text('#[derive(Serialize)]\npub struct ReadView { pub stale: String }', encoding='utf-8')
+            schemas = root / 'schemas'
+            schemas.mkdir()
+            (schemas / 'example.schema.json').write_text(json.dumps({'$defs': {
+                'read_view': {'type': 'object', 'properties': {'canonical': {'type': 'string'}}}
+            }}), encoding='utf-8')
+            registry = root / 'registry.json'
+            registry.write_text(json.dumps({'version': 1, 'mappings': [], 'exemptions': []}), encoding='utf-8')
+            self.assertTrue(any('unregistered named object' in error
+                                for error in validate(registry, schemas, root)))
+
     def test_full_width_coordinate_cannot_fall_back_to_json_number(self) -> None:
         for helper in ('', '#[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]'):
             with self.subTest(helper=helper), tempfile.TemporaryDirectory() as temporary:

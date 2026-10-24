@@ -71,7 +71,7 @@ impl AgentControllerMembershipBinding {
 /// together with the complete `agent_transition_event_ids` means completed,
 /// and an incomplete record is overdue only against an observation time.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum AgentCleanupStatusView {
+pub enum AgentCleanupStatus {
     Pending,
     Completed,
     Overdue,
@@ -121,13 +121,13 @@ pub struct AgentCleanupRecord {
 }
 
 impl AgentCleanupRecord {
-    pub fn cleanup_status(&self, now: DateTime<Utc>) -> AgentCleanupStatusView {
+    pub fn cleanup_status(&self, now: DateTime<Utc>) -> AgentCleanupStatus {
         if self.completed_at.is_some() {
-            AgentCleanupStatusView::Completed
+            AgentCleanupStatus::Completed
         } else if self.cleanup_due_at <= now {
-            AgentCleanupStatusView::Overdue
+            AgentCleanupStatus::Overdue
         } else {
-            AgentCleanupStatusView::Pending
+            AgentCleanupStatus::Pending
         }
     }
 
@@ -236,54 +236,6 @@ impl AgentMembershipCascadeSubmission {
                 .map(|submission| &submission.event),
             self.cleanup_intent_digest.as_ref(),
         )
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum AgentMembershipCascadeOutcomeStatus {
-    CleanupCompleted,
-    TerminalAppliedCleanupPending,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AgentMembershipCascadeOutcome {
-    pub status: AgentMembershipCascadeOutcomeStatus,
-    pub controller_transition_event_id: EventId,
-    pub agent_transition_event_ids: Vec<EventId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cleanup_intent_digest: Option<Hash>,
-}
-
-impl AgentMembershipCascadeOutcome {
-    pub fn validate(&self) -> Result<()> {
-        validate_unique_event_ids(&self.agent_transition_event_ids)?;
-        match self.status {
-            AgentMembershipCascadeOutcomeStatus::TerminalAppliedCleanupPending => {
-                if !self.agent_transition_event_ids.is_empty()
-                    || self.cleanup_intent_digest.is_none()
-                {
-                    return Err(WireError::Protocol(
-                        "terminal-applied cleanup-pending outcome requires an intent digest and no Agent Event ids"
-                            .to_owned(),
-                    ));
-                }
-            }
-            AgentMembershipCascadeOutcomeStatus::CleanupCompleted => {
-                if self.agent_transition_event_ids.is_empty()
-                    || self.cleanup_intent_digest.is_some()
-                {
-                    return Err(WireError::Protocol(
-                        "completed agent cleanup requires Agent Event ids and forbids an intent digest"
-                            .to_owned(),
-                    ));
-                }
-            }
-        }
-        Ok(())
     }
 }
 
@@ -576,11 +528,11 @@ mod tests {
         let mut record = record();
         assert_eq!(
             record.cleanup_status(record.accepted_at + chrono::Duration::minutes(30)),
-            AgentCleanupStatusView::Pending
+            AgentCleanupStatus::Pending
         );
         assert_eq!(
             record.cleanup_status(record.accepted_at + chrono::Duration::hours(2)),
-            AgentCleanupStatusView::Overdue
+            AgentCleanupStatus::Overdue
         );
         record.completed_at = Some(record.accepted_at + chrono::Duration::minutes(1));
         assert!(
@@ -591,7 +543,7 @@ mod tests {
         record.validate().unwrap();
         assert_eq!(
             record.cleanup_status(record.accepted_at + chrono::Duration::hours(2)),
-            AgentCleanupStatusView::Completed
+            AgentCleanupStatus::Completed
         );
     }
 
@@ -663,31 +615,5 @@ mod tests {
         );
         unbound.membership_cause = Some(MembershipLifecycleCause::ControllerMembershipEnded);
         assert!(unbound.to_value().is_err());
-    }
-
-    #[test]
-    fn cascade_outcome_distinguishes_pending_from_completed() {
-        let mut outcome = AgentMembershipCascadeOutcome {
-            status: AgentMembershipCascadeOutcomeStatus::TerminalAppliedCleanupPending,
-            controller_transition_event_id: event_id(0xa1),
-            agent_transition_event_ids: Vec::new(),
-            cleanup_intent_digest: Some(hash('1')),
-        };
-        outcome.validate().unwrap();
-        outcome.status = AgentMembershipCascadeOutcomeStatus::CleanupCompleted;
-        assert!(outcome.validate().is_err());
-        outcome.cleanup_intent_digest = None;
-        outcome.agent_transition_event_ids = vec![event_id(0xb2)];
-        outcome.validate().unwrap();
-
-        let mut value = serde_json::to_value(&outcome).unwrap();
-        let decoded: AgentMembershipCascadeOutcome = serde_json::from_value(value.clone()).unwrap();
-        assert_eq!(decoded, outcome);
-        value["cleanup_status"] = json!("completed");
-        assert!(serde_json::from_value::<AgentMembershipCascadeOutcome>(value).is_err());
-
-        let mut missing = serde_json::to_value(&outcome).unwrap();
-        missing.as_object_mut().unwrap().remove("status");
-        assert!(serde_json::from_value::<AgentMembershipCascadeOutcome>(missing).is_err());
     }
 }

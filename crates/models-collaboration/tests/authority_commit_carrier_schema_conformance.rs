@@ -14,10 +14,9 @@ use arkret_models_crypto::{
     ForwardDeviceProjectionAttestationCore,
 };
 use arkret_models_identity::{
-    AuthenticatedServiceResolution, DidDocument, ForwardAccountDeviceSignerEvidence,
-    ResolutionDidBindingEvidenceKind, ResolutionDidBindingEvidenceReceipt,
-    ResolutionMethodEvidenceBoundary, ResolutionMethodHistoryEvidence,
-    normalized_did_document_digest,
+    AuthenticatedServiceResolution, DidBindingEvidenceKind, DidBindingEvidenceReceipt, DidDocument,
+    ForwardAccountDeviceSignerEvidence, ResolutionMethodEvidenceBoundary,
+    ResolutionMethodHistoryEvidence, normalized_did_document_digest,
 };
 use arkret_schema::ProtocolSchemaRegistry;
 use arkret_schema_conformance::schema_registry_from_spec_artifacts;
@@ -546,8 +545,8 @@ fn producer_device_evidence() -> ForwardAccountDeviceSignerEvidence {
                     from_version_id: version.clone(),
                     to_version_id: version,
                 },
-                evidence: ResolutionDidBindingEvidenceReceipt {
-                    kind: ResolutionDidBindingEvidenceKind::AkDidBindingEvidenceV1,
+                evidence: DidBindingEvidenceReceipt {
+                    kind: DidBindingEvidenceKind::AkDidBindingEvidenceV1,
                     method: "web".to_owned(),
                     document_digest: digest,
                     method_proofs: vec![],

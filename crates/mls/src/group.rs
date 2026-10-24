@@ -257,13 +257,13 @@ pub struct ArkretMlsGroup {
 }
 
 #[derive(Clone, Debug)]
-pub struct MlsAddMemberResult {
+pub struct MlsMemberAdditionArtifacts {
     pub commit: MlsCommitEnvelope,
     pub welcome: MlsWelcomeDraft,
 }
 
 #[derive(Clone, Debug)]
-pub struct MlsAddMembersResult {
+pub struct MlsMemberBatchAdditionArtifacts {
     pub commit: MlsCommitEnvelope,
     pub welcomes: Vec<MlsWelcomeDraft>,
 }
@@ -279,13 +279,13 @@ pub struct MlsWelcomeDraft {
 
 /// Result of removing one or more leaves from an MLS group.
 ///
-/// Unlike `MlsAddMemberResult`, Remove never produces a Welcome — surviving
+/// Unlike `MlsMemberAdditionArtifacts`, Remove never produces a Welcome — surviving
 /// members simply apply the commit to advance the epoch. The list of
 /// `removed_leaves` makes the audit trail explicit so callers can correlate
 /// the result with the originating `ak.device.revoke` / `ak.member.state`
 /// events.
 #[derive(Clone, Debug)]
-pub struct MlsRemoveMemberResult {
+pub struct MlsMemberRemovalArtifacts {
     pub commit: MlsCommitEnvelope,
     /// Raw OpenMLS leaf indices that were removed by this commit, in the
     /// order they appeared in the original group state.
@@ -308,10 +308,10 @@ pub struct MlsVerifiedLeafBinding {
     pub device_authorize_event_id: Option<EventId>,
 }
 
-// NOTE: `MlsRemoveMemberResult` / `MlsAddMemberResult` / `MlsAddMembersResult`
-// no longer carry `commit_operation` / `welcome_device_message_target`
-// projections. The envelope -> local scheduler draft and envelope ->
-// `DeviceMessageTarget` bindings live in `arkret-event-draft`
+// NOTE: `MlsMemberRemovalArtifacts` / `MlsMemberAdditionArtifacts` /
+// `MlsMemberBatchAdditionArtifacts` no longer carry `commit_operation` /
+// `welcome_device_message_target` projections. The envelope -> local scheduler draft and envelope
+// -> `DeviceMessageTarget` bindings live in `arkret-event-draft`
 // (`MlsEnvelopeOperationExt`, `MlsWelcomeTargetExt`) so this OpenMLS-isolation
 // layer never depends on the drafting / collaboration crates.
 
@@ -1148,7 +1148,7 @@ impl ArkretMlsGroup {
     pub fn add_member(
         &mut self,
         member_key_package: &MlsKeyPackageRecord,
-    ) -> Result<MlsAddMemberResult> {
+    ) -> Result<MlsMemberAdditionArtifacts> {
         self.add_member_with_optional_governance_binding(member_key_package, None)
     }
 
@@ -1156,7 +1156,7 @@ impl ArkretMlsGroup {
         &mut self,
         member_key_package: &MlsKeyPackageRecord,
         governance_binding: &MlsGovernanceBindingPayload,
-    ) -> Result<MlsAddMemberResult> {
+    ) -> Result<MlsMemberAdditionArtifacts> {
         self.add_member_with_optional_governance_binding(
             member_key_package,
             Some(governance_binding),
@@ -1167,7 +1167,7 @@ impl ArkretMlsGroup {
         &mut self,
         member_key_package: &MlsKeyPackageRecord,
         governance_binding: Option<&MlsGovernanceBindingPayload>,
-    ) -> Result<MlsAddMemberResult> {
+    ) -> Result<MlsMemberAdditionArtifacts> {
         let result = self.add_members_with_optional_governance_binding(
             std::slice::from_ref(member_key_package),
             governance_binding,
@@ -1178,7 +1178,7 @@ impl ArkretMlsGroup {
             .into_iter()
             .next()
             .ok_or_else(|| Error::Protocol("MLS add_member returned no Welcome".to_owned()))?;
-        Ok(MlsAddMemberResult {
+        Ok(MlsMemberAdditionArtifacts {
             commit: result.commit,
             welcome,
         })
@@ -1187,7 +1187,7 @@ impl ArkretMlsGroup {
     pub fn add_members(
         &mut self,
         member_key_packages: &[MlsKeyPackageRecord],
-    ) -> Result<MlsAddMembersResult> {
+    ) -> Result<MlsMemberBatchAdditionArtifacts> {
         self.add_members_with_optional_governance_binding(member_key_packages, None, &[])
     }
 
@@ -1196,7 +1196,7 @@ impl ArkretMlsGroup {
         &mut self,
         member_key_packages: &[MlsKeyPackageRecord],
         governance_binding: &MlsGovernanceBindingPayload,
-    ) -> Result<MlsAddMembersResult> {
+    ) -> Result<MlsMemberBatchAdditionArtifacts> {
         self.add_members_with_optional_governance_binding(
             member_key_packages,
             Some(governance_binding),
@@ -1224,7 +1224,7 @@ impl ArkretMlsGroup {
         package: &MlsKeyPackageRecord,
         actor: &ActorId,
         binding: Option<&MlsGovernanceBindingPayload>,
-    ) -> Result<MlsAddMemberResult> {
+    ) -> Result<MlsMemberAdditionArtifacts> {
         if self
             .member_endpoint_replacement_actor(&package.endpoint, actor)?
             .is_none()
@@ -1239,7 +1239,7 @@ impl ArkretMlsGroup {
             binding,
             std::slice::from_ref(actor),
         )?;
-        Ok(MlsAddMemberResult {
+        Ok(MlsMemberAdditionArtifacts {
             commit: result.commit,
             welcome: result.welcomes.into_iter().next().ok_or_else(|| {
                 Error::Protocol("endpoint replacement produced no Welcome".to_owned())
@@ -1252,7 +1252,7 @@ impl ArkretMlsGroup {
         member_key_packages: &[MlsKeyPackageRecord],
         governance_binding: Option<&MlsGovernanceBindingPayload>,
         replace_actors: &[ActorId],
-    ) -> Result<MlsAddMembersResult> {
+    ) -> Result<MlsMemberBatchAdditionArtifacts> {
         if member_key_packages.is_empty() {
             return Err(Error::Protocol(
                 "refusing to add an empty MLS KeyPackage batch".to_owned(),
@@ -1363,7 +1363,7 @@ impl ArkretMlsGroup {
             .collect::<Result<Vec<_>>>()?;
         self.own_pending_commit_digest = Some(commit_digest.clone());
 
-        Ok(MlsAddMembersResult {
+        Ok(MlsMemberBatchAdditionArtifacts {
             commit: MlsCommitEnvelope {
                 group_id,
                 epoch,
@@ -1386,7 +1386,7 @@ impl ArkretMlsGroup {
     pub fn remove_members_by_actor(
         &mut self,
         targets: &[ActorId],
-    ) -> Result<MlsRemoveMemberResult> {
+    ) -> Result<MlsMemberRemovalArtifacts> {
         self.remove_members_by_actor_with_optional_governance_binding(targets, None)
     }
 
@@ -1394,7 +1394,7 @@ impl ArkretMlsGroup {
         &mut self,
         targets: &[ActorId],
         governance_binding: &MlsGovernanceBindingPayload,
-    ) -> Result<MlsRemoveMemberResult> {
+    ) -> Result<MlsMemberRemovalArtifacts> {
         self.remove_members_by_actor_with_optional_governance_binding(
             targets,
             Some(governance_binding),
@@ -1405,7 +1405,7 @@ impl ArkretMlsGroup {
         &mut self,
         targets: &[ActorId],
         governance_binding: Option<&MlsGovernanceBindingPayload>,
-    ) -> Result<MlsRemoveMemberResult> {
+    ) -> Result<MlsMemberRemovalArtifacts> {
         if targets.is_empty() {
             return Err(Error::Protocol(
                 "remove_members_by_actor requires at least one target".to_owned(),
@@ -1449,14 +1449,14 @@ impl ArkretMlsGroup {
         &mut self,
         leaf_indices: &[u32],
         governance_binding: &MlsGovernanceBindingPayload,
-    ) -> Result<MlsRemoveMemberResult> {
+    ) -> Result<MlsMemberRemovalArtifacts> {
         self.remove_members_by_leaf_indices_internal(leaf_indices, Some(governance_binding))
     }
 
     pub fn remove_members_by_leaf_indices(
         &mut self,
         leaf_indices: &[u32],
-    ) -> Result<MlsRemoveMemberResult> {
+    ) -> Result<MlsMemberRemovalArtifacts> {
         self.remove_members_by_leaf_indices_internal(leaf_indices, None)
     }
 
@@ -1464,7 +1464,7 @@ impl ArkretMlsGroup {
         &mut self,
         leaf_indices: &[u32],
         governance_binding: Option<&MlsGovernanceBindingPayload>,
-    ) -> Result<MlsRemoveMemberResult> {
+    ) -> Result<MlsMemberRemovalArtifacts> {
         if leaf_indices.is_empty()
             || leaf_indices.len() > 65_536
             || leaf_indices.windows(2).any(|pair| pair[0] >= pair[1])
@@ -1486,7 +1486,7 @@ impl ArkretMlsGroup {
         &mut self,
         leaves: &[LeafNodeIndex],
         governance_binding: Option<&MlsGovernanceBindingPayload>,
-    ) -> Result<MlsRemoveMemberResult> {
+    ) -> Result<MlsMemberRemovalArtifacts> {
         let governance_extensions = governance_binding
             .map(|binding| {
                 self.verify_governance_binding_for_next_epoch(binding)
@@ -1555,7 +1555,7 @@ impl ArkretMlsGroup {
         let commit_digest = Hash::new(canonical::sha256_digest(&commit_bytes))?;
         self.own_pending_commit_digest = Some(commit_digest.clone());
 
-        Ok(MlsRemoveMemberResult {
+        Ok(MlsMemberRemovalArtifacts {
             commit: MlsCommitEnvelope {
                 group_id: self.group_id(),
                 epoch: base_epoch

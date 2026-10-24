@@ -188,10 +188,6 @@ pub struct RealmAssetPrivacyPolicyValue {
 #[serde(deny_unknown_fields)]
 pub struct RealmAssetPrivacyPolicyPayload {
     pub value: RealmAssetPrivacyPolicyValue,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub state: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -222,10 +218,6 @@ pub struct RealmSchemaValue {
 #[serde(deny_unknown_fields)]
 pub struct RealmSchemaPayload {
     pub value: RealmSchemaValue,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub state: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
 }
 
 impl Default for RealmArchivePayload {

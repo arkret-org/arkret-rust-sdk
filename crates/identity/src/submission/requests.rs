@@ -286,7 +286,12 @@ request!(
     self,
     self.identity_creation
         .as_ref()
-        .map(|creation| creation.pcr_genesis_unit.events.iter().collect())
+        .map(|creation| &creation.pcr_genesis_unit)
+        .or_else(|| self
+            .published_identity
+            .as_ref()
+            .map(|published| &published.pcr_genesis_unit))
+        .map(|unit| unit.events.iter().collect())
         .unwrap_or_default(),
     self.validate()
 );

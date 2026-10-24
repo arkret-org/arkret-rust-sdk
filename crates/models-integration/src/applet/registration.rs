@@ -2,8 +2,7 @@ use std::collections::BTreeMap;
 
 use arkret_models_identity::did_document::DidDocument;
 use arkret_models_identity::{
-    ResolutionDidBindingEvidenceReceipt, ResolutionMethodEvidenceBoundary,
-    ResolutionMethodHistoryEvidence,
+    DidBindingEvidenceReceipt, ResolutionMethodEvidenceBoundary, ResolutionMethodHistoryEvidence,
 };
 use arkret_wire::{
     AppletId, Did, DidCoreId, DidUrl, EventKind, Hash, PayloadSigner, ProfileId, Result, SchemaId,
@@ -37,7 +36,7 @@ impl AppletManagedActorMethodHistoryEvidence {
     }
 
     #[must_use]
-    pub fn webvh_material(&self) -> (&ResolutionDidBindingEvidenceReceipt, &[Value], &[Value]) {
+    pub fn webvh_material(&self) -> (&DidBindingEvidenceReceipt, &[Value], &[Value]) {
         let ResolutionMethodHistoryEvidence::WebvhLog {
             evidence,
             log_entries,

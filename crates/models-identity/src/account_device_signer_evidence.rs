@@ -143,7 +143,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        DidDocument, ResolutionDidBindingEvidenceKind, ResolutionDidBindingEvidenceReceipt,
+        DidBindingEvidenceKind, DidBindingEvidenceReceipt, DidDocument,
         ResolutionMethodEvidenceBoundary, ResolutionMethodHistoryEvidence,
         normalized_did_document_digest,
     };
@@ -210,8 +210,8 @@ mod tests {
                         from_version_id: version.clone(),
                         to_version_id: version,
                     },
-                    evidence: ResolutionDidBindingEvidenceReceipt {
-                        kind: ResolutionDidBindingEvidenceKind::AkDidBindingEvidenceV1,
+                    evidence: DidBindingEvidenceReceipt {
+                        kind: DidBindingEvidenceKind::AkDidBindingEvidenceV1,
                         method: "web".to_owned(),
                         document_digest: digest,
                         method_proofs: vec![],

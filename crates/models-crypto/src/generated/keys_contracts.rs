@@ -2,10 +2,10 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/keys-operations.schema.json
-// sha256=6a6d75cafdfdf31a3799e91801801469d6895a108d853e2b022b7a17480337e0
+// sha256=d2645beeab92e67cca8924e10310364580de299c04cd12034896ffe43c7c1607
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=dc92c416f466a595bc16d56fbbae216e8c660c38914459081d8340c5b55ebb2d
+// sha256=7ef2bac74ff32b9de78cac5bb9318e8c3d600fb7d2d320e1f3fd2fa3d5a5493c
 
 /// Counterpart:
 /// `keys-operations.schema.json#/$defs/device_projection_attestation_core/properties/
@@ -82,7 +82,7 @@ pub struct VerifiedDeviceProjection {
     pub authorization_window: DeviceAuthorizationWindow,
 }
 
-/// Counterpart: `keys-operations.schema.json#/$defs/query_device_record`.
+/// Counterpart: `keys-operations.schema.json#/$defs/device_key_view`.
 /// Per-`(account_id, device_id)` entry in [`KeysQueryResponseBody::device_keys`],
 /// the client-facing self surface.
 ///
@@ -91,21 +91,21 @@ pub struct VerifiedDeviceProjection {
 /// `device_keys` or reported through the non-enumerating `failures` shape, so
 /// an incomplete row can never be mistaken for a usable one. `account_id` and
 /// `device_id` are the map keys, not row fields. This is deliberately a
-/// different type from [`PeerQueryDeviceRecord`]: the client's Station already
+/// different type from [`PeerDeviceKeyView`]: the client's Station already
 /// verified the origin attestation, so the client gets the restricted
 /// projection and never the origin proof. Mirrors
-/// `keys-operations.schema.json#/$defs/query_device_record`.
+/// `keys-operations.schema.json#/$defs/device_key_view`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct QueryDeviceRecord {
+pub struct DeviceKeyView {
     pub signer_evidence_ref: arkret_wire::SignerEvidenceRef,
-    pub algorithms: AlgorithmKeyRecords,
+    pub algorithms: AlgorithmPrekeys,
     pub trust_algorithms: Vec<NonEmptyString>,
     pub device_projection: VerifiedDeviceProjection,
 }
 
-/// Counterpart: `keys-operations.schema.json#/$defs/peer_query_device_record`.
+/// Counterpart: `keys-operations.schema.json#/$defs/peer_device_key_view`.
 /// Per-`(account_id, device_id)` entry in
 /// [`PeerKeysQueryResponseBody::device_keys`], the Station-to-Station surface.
 ///
@@ -113,13 +113,13 @@ pub struct QueryDeviceRecord {
 /// exact projection, so the requesting Station can verify the row itself. A
 /// Station MUST NOT turn an unverified peer row into a client result by
 /// dropping its proof. Mirrors
-/// `keys-operations.schema.json#/$defs/peer_query_device_record`.
+/// `keys-operations.schema.json#/$defs/peer_device_key_view`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PeerQueryDeviceRecord {
+pub struct PeerDeviceKeyView {
     pub signer_evidence_ref: arkret_wire::SignerEvidenceRef,
-    pub algorithms: AlgorithmKeyRecords,
+    pub algorithms: AlgorithmPrekeys,
     pub trust_algorithms: Vec<NonEmptyString>,
     pub device_projection_attestation: DeviceProjectionAttestation,
 }
@@ -132,7 +132,7 @@ pub struct PeerQueryDeviceRecord {
 #[serde(deny_unknown_fields)]
 pub struct QueryAccountDeviceEntry {
     pub account_id: AccountId,
-    pub device_keys: QueryDeviceKeys,
+    pub device_keys: DeviceKeyViews,
 }
 
 /// Counterpart: `keys-operations.schema.json#/$defs/peer_query_account_device_entries/items`.
@@ -143,7 +143,7 @@ pub struct QueryAccountDeviceEntry {
 #[serde(deny_unknown_fields)]
 pub struct PeerQueryAccountDeviceEntry {
     pub account_id: AccountId,
-    pub device_keys: PeerQueryDeviceKeys,
+    pub device_keys: PeerDeviceKeyViews,
 }
 
 /// Counterpart: `keys-operations.schema.json#/$defs/account_device_event_authorization`.

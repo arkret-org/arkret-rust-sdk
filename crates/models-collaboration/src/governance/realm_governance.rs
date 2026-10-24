@@ -189,6 +189,16 @@ pub struct RealmLinkPayload {
     /// transcript). Free-form per spec.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub commitment: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub counterpart_event_ref: Option<arkret_wire::EventId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub edge_nonce: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub edge_digest_commitment: Option<arkret_wire::Hash>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub evidence_refs: Option<Vec<arkret_wire::EventId>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
 }
 
 /// A Realm Link write and the canonical bytes needed to distinguish an exact
@@ -202,7 +212,7 @@ pub struct RealmLinkTransitionCandidate<'a> {
 
 /// Canonical outcome of evaluating a Realm Link write.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum RealmLinkTransitionOutcome {
+pub enum RealmLinkTransitionDecision {
     Apply,
     IdempotentReplay,
     Rejected,
@@ -247,21 +257,21 @@ pub fn evaluate_realm_link_transition(
     source_realm_id: &RealmId,
     current: Option<RealmLinkTransitionCandidate<'_>>,
     candidate: RealmLinkTransitionCandidate<'_>,
-) -> std::result::Result<RealmLinkTransitionOutcome, RealmLinkTransitionError> {
+) -> std::result::Result<RealmLinkTransitionDecision, RealmLinkTransitionError> {
     if source_realm_id == &candidate.payload.target_realm_id {
         return Err(RealmLinkTransitionError::SelfReference);
     }
 
     let Some(current) = current else {
         debug_assert!(candidate.payload.status.is_initial());
-        return Ok(RealmLinkTransitionOutcome::Apply);
+        return Ok(RealmLinkTransitionDecision::Apply);
     };
 
     if current.canonical_basis_bytes == candidate.canonical_basis_bytes {
         return if current.canonical_event_bytes == candidate.canonical_event_bytes {
-            Ok(RealmLinkTransitionOutcome::IdempotentReplay)
+            Ok(RealmLinkTransitionDecision::IdempotentReplay)
         } else {
-            Ok(RealmLinkTransitionOutcome::Rejected)
+            Ok(RealmLinkTransitionDecision::Rejected)
         };
     }
 
@@ -271,7 +281,7 @@ pub fn evaluate_realm_link_transition(
         return Err(RealmLinkTransitionError::InvalidTransition { from, to });
     }
 
-    Ok(RealmLinkTransitionOutcome::Apply)
+    Ok(RealmLinkTransitionDecision::Apply)
 }
 
 /// Direction filter used by the realm-link query API to scope the
@@ -303,7 +313,7 @@ impl RealmLinkDirection {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct RealmLinkEntry {
+pub struct RealmLinkView {
     pub realm_id: RealmId,
     pub target_realm_id: RealmId,
     pub link_kind: RealmLinkKind,

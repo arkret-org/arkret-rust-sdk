@@ -207,7 +207,7 @@ event_payload_accessors! {
     event_spec::RealmHistoryAccess => (as_realm_history_access, HistoryAccessPayload, HistoryAccessPayload::validate),
     event_spec::RealmDiscovery => (as_realm_discovery, RealmDiscoveryPayload),
     event_spec::RealmPreviewPolicy => (as_realm_preview_policy, PreviewPolicyPayload),
-    event_spec::RealmSearchPolicy => (as_realm_search_policy, RealmSearchPolicyPayload),
+    event_spec::RealmSearchPolicy => (as_realm_search_policy, SearchPolicy),
     event_spec::RealmSetDefaultStrand => (as_realm_set_default_strand, RealmSetDefaultStrandPayload),
     event_spec::RealmPolicyBundle => (as_realm_policy_bundle, RealmPolicyBundlePayload),
     event_spec::RealmAssetPrivacyPolicy => (as_realm_asset_privacy_policy, RealmAssetPrivacyPolicyPayload),

@@ -5,16 +5,16 @@
 // sha256=d1611974b0c00d6bd347ff52e1842366ec13eea38b8b81a0ce533ab0e9c5fffd
 //
 // Input: schemas/account-operations.schema.json
-// sha256=78c6503698cd43571f2b25543013f9036927ef9bfd005e71377ad3006f4a64d4
+// sha256=09a9261669e5c9730cf71fb0ac935cd8bcb4d6d937273778151f9a58495bf5f6
 //
 // Input: schemas/recovery-policy.schema.json
 // sha256=64ee8fa0a54cb044195141e91cfb8989320d304f2ebef750eaa857ef712a4b05
 //
 // Input: schemas/recovery-authority.schema.json
-// sha256=ef16f627ed7099bb47c7641250230cbca051c3f9fd131a66fe674296363d8353
+// sha256=6386cc9e6bc7aab507d81d9e7d20e082c748ce4451fcee5e830e5e72a96a32ea
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=dc92c416f466a595bc16d56fbbae216e8c660c38914459081d8340c5b55ebb2d
+// sha256=7ef2bac74ff32b9de78cac5bb9318e8c3d600fb7d2d320e1f3fd2fa3d5a5493c
 
 /// Counterpart: `recovery-session.schema.json#/$defs/proof_summary`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

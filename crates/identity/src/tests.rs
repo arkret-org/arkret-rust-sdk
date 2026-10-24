@@ -908,7 +908,7 @@ fn did_registry_receipt_verifies_detached_jws_binding() {
         .unwrap();
 
     let alice = did("alice");
-    let receipt = DidRegistryReceipt::signed(
+    let receipt = IdentityReceipt::signed(
         arkret_wire::ReceiptId::new("ak:receipt:01904100-0000-7000-8000-000000000001").unwrap(),
         alice,
         7,
@@ -940,73 +940,65 @@ fn did_registry_receipt_verifies_detached_jws_binding() {
 }
 
 #[test]
-fn did_registry_receipt_binds_current_assertion_authority_and_explicit_controller() {
+fn identity_receipt_requires_registry_did_component_and_current_assertion_controller() {
     let registry = did_web("registry-authority");
     let registry_id = project_did_to_core_id(&registry).unwrap();
-    let delegate = did_web("registry-delegate");
     let host = did_web("registry-host");
-    let delegate_key = SigningKey::from_bytes(&[35u8; 32]);
-    let delegate_method = DidUrl::new(format!("{delegate}#receipt-key")).unwrap();
-    let host_method = DidUrl::new(format!("{host}#replacement-key")).unwrap();
-    let receipt = DidRegistryReceipt::signed(
-        arkret_wire::ReceiptId::new("ak:receipt:01904100-0000-7000-8000-000000000002").unwrap(),
+    let key = SigningKey::from_bytes(&[35u8; 32]);
+    let receipt_id =
+        || arkret_wire::ReceiptId::new("ak:receipt:01904100-0000-7000-8000-000000000002").unwrap();
+    let digest = || Hash::new(format!("sha256:{}", "cd".repeat(32))).unwrap();
+    for other in [did_web("registry-delegate"), host.clone()] {
+        let method = DidUrl::new(format!("{other}#receipt-key")).unwrap();
+        assert!(
+            IdentityReceipt::signed(
+                receipt_id(),
+                did("alice"),
+                8,
+                digest(),
+                registry_id.clone(),
+                IdentityReceiptWitnessRole::Witness,
+                &key,
+                &method
+            )
+            .is_err()
+        );
+    }
+    let method = DidUrl::new(format!("{registry}#receipt-key")).unwrap();
+    let receipt = IdentityReceipt::signed(
+        receipt_id(),
         did("alice"),
         8,
-        Hash::new(format!("sha256:{}", "cd".repeat(32))).unwrap(),
-        registry_id.clone(),
+        digest(),
+        registry_id,
         IdentityReceiptWitnessRole::Witness,
-        &delegate_key,
-        &delegate_method,
+        &key,
+        &method,
     )
     .unwrap();
-    let delegated_document: DidDocument = serde_json::from_value(json!({
+    let document: DidDocument = serde_json::from_value(json!({
         "id": registry,
-        "verificationMethod": [{
-            "id": delegate_method,
-            "type": "Multikey",
-            "controller": registry,
-            "publicKeyMultibase": vector_update_key(&delegate_key)
-        }],
-        "assertionMethod": [delegate_method]
+        "verificationMethod": [{"id": method, "type": "Multikey", "controller": registry,
+            "publicKeyMultibase": vector_update_key(&key)}],
+        "assertionMethod": [method]
     }))
     .unwrap();
     receipt
-        .verify_with_document(&delegated_document)
-        .expect("an assertion method explicitly controlled by the registry is valid");
-
-    let replacement_receipt = DidRegistryReceipt::signed(
-        arkret_wire::ReceiptId::new("ak:receipt:01904100-0000-7000-8000-000000000003").unwrap(),
-        did("alice"),
-        9,
-        Hash::new(format!("sha256:{}", "ef".repeat(32))).unwrap(),
-        registry_id,
-        IdentityReceiptWitnessRole::Writer,
-        &delegate_key,
-        &host_method,
-    )
-    .unwrap();
-    let host_controlled_document: DidDocument = serde_json::from_value(json!({
-        "id": registry,
-        "verificationMethod": [{
-            "id": host_method,
-            "type": "Multikey",
-            "controller": host,
-            "publicKeyMultibase": vector_update_key(&delegate_key)
-        }],
-        "assertionMethod": [host_method]
-    }))
-    .unwrap();
-    replacement_receipt
-        .verify_with_document(&host_controlled_document)
-        .expect_err("a registry host replacement key is not registry authority");
-
-    let mut removed = delegated_document;
+        .verify_with_document(&document)
+        .expect("registry-owned current assertion method");
+    let mut host_controlled = serde_json::to_value(&document).unwrap();
+    host_controlled["verificationMethod"][0]["controller"] = json!(host);
+    let host_controlled: DidDocument = serde_json::from_value(host_controlled).unwrap();
+    receipt
+        .verify_with_document(&host_controlled)
+        .expect_err("host controller is not registry authority");
+    let mut removed = document;
     removed
         .raw_properties
         .insert("assertionMethod".to_owned(), json!([]));
     receipt
         .verify_with_document(&removed)
-        .expect_err("a removed assertion method must fail closed");
+        .expect_err("removed assertion method must fail closed");
 }
 
 // ── did:webvh URL derivation reports why, not just "unsupported" ──

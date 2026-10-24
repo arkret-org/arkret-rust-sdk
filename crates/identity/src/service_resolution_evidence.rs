@@ -1,10 +1,9 @@
 //! Complete method-native verification for retained service signer evidence.
 
 use arkret_models_identity::{
-    AuthenticatedServiceResolution, DidDocument, PublicPrincipalResolution,
-    ResolutionDidBindingEvidenceKind, ResolutionDidBindingEvidenceReceipt,
-    ResolutionDidBindingMethodProof, ResolutionDidBindingMethodProofKind,
-    ResolutionDidBindingWitness, ResolutionMethodEvidenceBoundary, ResolutionMethodHistoryEvidence,
+    AuthenticatedServiceResolution, DidBindingEvidenceKind, DidBindingEvidenceReceipt,
+    DidBindingMethodProof, DidBindingMethodProofKind, DidBindingWitness, DidDocument,
+    PublicPrincipalResolution, ResolutionMethodEvidenceBoundary, ResolutionMethodHistoryEvidence,
     ServiceMethodState, ServiceResolutionProjection,
 };
 use arkret_wire::{Did, DidCoreId, Hash, WireError, project_did_to_core_id};
@@ -65,12 +64,12 @@ pub fn build_authenticated_webvh_service_resolution(
                 to_method_history_head: last_history_head.clone(),
                 to_version_id: last_version,
             },
-            evidence: ResolutionDidBindingEvidenceReceipt {
-                kind: ResolutionDidBindingEvidenceKind::AkDidBindingEvidenceV1,
+            evidence: DidBindingEvidenceReceipt {
+                kind: DidBindingEvidenceKind::AkDidBindingEvidenceV1,
                 method: "webvh".to_owned(),
                 document_digest,
-                method_proofs: vec![ResolutionDidBindingMethodProof {
-                    kind: ResolutionDidBindingMethodProofKind::WebvhLog,
+                method_proofs: vec![DidBindingMethodProof {
+                    kind: DidBindingMethodProofKind::WebvhLog,
                     history_head: last_history_head,
                     witnesses,
                     witness_proofs_digest,
@@ -115,8 +114,8 @@ pub fn build_authenticated_did_key_service_resolution(
                 to_method_history_head: head,
                 to_version_id: version,
             },
-            evidence: ResolutionDidBindingEvidenceReceipt {
-                kind: ResolutionDidBindingEvidenceKind::AkDidBindingEvidenceV1,
+            evidence: DidBindingEvidenceReceipt {
+                kind: DidBindingEvidenceKind::AkDidBindingEvidenceV1,
                 method: "key".to_owned(),
                 document_digest: arkret_models_identity::normalized_did_document_digest(&document)
                     .map_err(wire)?,
@@ -157,8 +156,8 @@ pub fn build_authenticated_did_web_service_resolution(
                 to_method_history_head: digest.to_string(),
                 to_version_id: version,
             },
-            evidence: ResolutionDidBindingEvidenceReceipt {
-                kind: ResolutionDidBindingEvidenceKind::AkDidBindingEvidenceV1,
+            evidence: DidBindingEvidenceReceipt {
+                kind: DidBindingEvidenceKind::AkDidBindingEvidenceV1,
                 method: "web".to_owned(),
                 document_digest: digest,
                 method_proofs: Vec::new(),
@@ -466,7 +465,7 @@ pub(crate) fn verify_webvh_history(
     did: &Did,
     document: &DidDocument,
     boundary: &ResolutionMethodEvidenceBoundary,
-    evidence: &ResolutionDidBindingEvidenceReceipt,
+    evidence: &DidBindingEvidenceReceipt,
     log_entries: &[Value],
     witness_records: &[Value],
     expected_history_head: &str,
@@ -535,7 +534,7 @@ pub(crate) fn verify_webvh_history(
         || expected_history_head != last_history_head
         || expected_version_id != last_version
         || evidence.method != "webvh"
-        || method_proof.kind != ResolutionDidBindingMethodProofKind::WebvhLog
+        || method_proof.kind != DidBindingMethodProofKind::WebvhLog
         || method_proof.history_head != last_history_head
         || method_proof.witnesses != expected_witnesses
         || method_proof.witness_proofs_digest != witness_digest
@@ -551,7 +550,7 @@ pub(crate) fn verify_webvh_history(
     require_same_document(&head_document, document)
 }
 
-fn terminal_witnesses(log_entries: &[Value]) -> Result<Vec<ResolutionDidBindingWitness>> {
+fn terminal_witnesses(log_entries: &[Value]) -> Result<Vec<DidBindingWitness>> {
     let mut policy = None;
     for entry in log_entries {
         let parameters = entry.get("parameters").ok_or_else(|| {
@@ -570,7 +569,7 @@ fn terminal_witnesses(log_entries: &[Value]) -> Result<Vec<ResolutionDidBindingW
         .map(|id| {
             let witness_did =
                 Did::new(id).map_err(|error| IdentityError::Protocol(error.to_string()))?;
-            Ok(ResolutionDidBindingWitness {
+            Ok(DidBindingWitness {
                 controlling_organization_did: witness_did.clone(),
                 witness_did,
             })
@@ -666,11 +665,7 @@ pub fn verify_current_service_resolution(
                 .method_evidence
                 .proofs
                 .iter()
-                .all(|proof| match proof {
-                    crate::MethodEvidenceProof::WebvhLog(proof) => {
-                        proof.history_head == boundary.to_version_id
-                    }
-                })
+                .all(|proof| proof.history_head == boundary.to_version_id)
         {
             return Err(IdentityError::Protocol(
                 "service native history is not the independently resolved current state".to_owned(),

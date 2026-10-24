@@ -36,13 +36,13 @@ fn invalid(error: impl ToString) -> ContactAuthorizationError {
 /// An exact open interval, or its authenticated closing transition. Fields are
 /// immutable and instances are produced only from verified source evidence.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ContactScopeInterval {
+pub struct VerifiedContactScopeInterval {
     scope: ContactScope,
     authorization_event_id: EventId,
     generation_event_id: EventId,
     closed_by: Option<EventId>,
 }
-impl ContactScopeInterval {
+impl VerifiedContactScopeInterval {
     pub fn scope(&self) -> ContactScope {
         self.scope
     }
@@ -69,7 +69,7 @@ pub struct VerifiedContactDirection {
     head: EventId,
     current_from: DateTime<Utc>,
     cache_expires_at: DateTime<Utc>,
-    intervals: Vec<ContactScopeInterval>,
+    intervals: Vec<VerifiedContactScopeInterval>,
 }
 impl VerifiedContactDirection {
     pub fn issuer(&self) -> &ContactPeer {
@@ -84,13 +84,13 @@ impl VerifiedContactDirection {
     pub fn head_event_id(&self) -> &EventId {
         &self.head
     }
-    pub fn intervals(&self) -> &[ContactScopeInterval] {
+    pub fn intervals(&self) -> &[VerifiedContactScopeInterval] {
         &self.intervals
     }
     /// Scope still open in the authenticated source history. This has no TTL
     /// check: freshness is not revocation. Later verified narrowing/terminal
     /// evidence and ordinary-history cuts must independently fence publication.
-    pub fn open_interval(&self, scope: ContactScope) -> Option<&ContactScopeInterval> {
+    pub fn open_interval(&self, scope: ContactScope) -> Option<&VerifiedContactScopeInterval> {
         self.intervals
             .iter()
             .find(|interval| interval.scope == scope && interval.closed_by.is_none())
@@ -809,7 +809,7 @@ fn verify_current_material_inner(
             .as_ref()
             .filter(|c| Some(&c.round) == proof.contact_round_id.as_ref())
             .map(|c| c.event_id.clone());
-        intervals.push(ContactScopeInterval {
+        intervals.push(VerifiedContactScopeInterval {
             scope: instance.contact_scope,
             authorization_event_id: grant.event().event_id.clone(),
             generation_event_id: grant.event().event_id.clone(),

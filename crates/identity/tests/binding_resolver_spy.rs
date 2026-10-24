@@ -14,7 +14,7 @@ use arkret_identity::binding::{
     DidBindingPurpose, DidBindingStatus, DidFreshnessRiskTier, FreshnessProfile, LimitedTrust,
     StaleBehavior, VerifiedDidBinding, VerifiedDidBindingDocumentInput,
 };
-use arkret_identity::binding_digest::{EvidenceReceipt, MethodEvidence};
+use arkret_identity::binding_digest::{DidBindingEvidenceReceipt, MethodEvidence};
 use arkret_identity::binding_store::{
     AcceptedDidBinding, BindingInvalidation, InMemoryVerifiedDidBindingStore,
     VerifiedDidBindingStore,
@@ -164,7 +164,7 @@ fn request() -> BindingResolveRequest {
 
 fn accepted_without_resolver(now: DateTime<Utc>) -> AcceptedDidBinding {
     let document = document();
-    let receipt = EvidenceReceipt::new(
+    let receipt = DidBindingEvidenceReceipt::new(
         did().method(),
         document_canonical_digest(&document).expect("digest"),
         &MethodEvidence::none(),
@@ -436,3 +436,5 @@ fn did_key_wrong_selector_and_substituted_material_never_install_a_binding() {
     assert!(resolve_and_verify_binding(&SubstitutedResolver, &store, &request(), now).is_err());
     assert!(store.snapshot().is_empty());
 }
+
+use arkret_identity::DidBindingEvidenceReceiptExt;

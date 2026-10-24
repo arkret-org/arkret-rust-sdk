@@ -181,7 +181,6 @@ pub struct InviteLocatorIssueResponseBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct InviteLocatorRevokeResponseBody {
     pub locator_id: InviteLocatorId,
-    pub status: InviteLocatorStatus,
     #[serde(with = "canonical_timestamp")]
     pub revoked_at: DateTime<Utc>,
 }
@@ -541,7 +540,7 @@ pub enum InviteDeliveryOutcomeStatus {
 pub struct InviteDeliveryResponseBody {
     pub status: InviteDeliveryOutcomeStatus,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub disclosed_outcome: Option<DisclosedOutcome>,
+    pub disclosed_outcome: Option<DisclosedInviteDeliveryOutcome>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
@@ -555,7 +554,7 @@ pub struct InviteDeliveryResponseBody {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum DisclosedOutcome {
+pub enum DisclosedInviteDeliveryOutcome {
     Delivered,
     Blocked,
 }

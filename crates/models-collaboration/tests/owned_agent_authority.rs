@@ -61,14 +61,15 @@ fn exact_owned_grant_outcome_binds_value_and_disallows_never_written() {
     let value = serde_json::json!({
         "status":"present", "realm_id":grant["realm_id"], "governance_generation":"0",
         "effective_stream_head":{"stream_ref":{"kind":"realm","realm_id":grant["realm_id"]}, "commit_id":commit,"stream_position":9},
-        "entry":{"selector":request.selector,"source_stream_ref":{"kind":"realm","realm_id":grant["realm_id"]},"revision":{"commit_id":commit,"stream_position":9},"value":grant}
+        "current_state":{"selector":request.selector,"source_stream_ref":{"kind":"realm","realm_id":grant["realm_id"]},"revision":{"commit_id":commit,"stream_position":9},"value":grant}
     });
     let outcome: ExactCurrentStateReadResponseBody = serde_json::from_value(value.clone()).unwrap();
     outcome.validate_for_request(&request, 0).unwrap();
     let mut mismatch = value.clone();
-    mismatch["entry"]["value"]["id"] = serde_json::json!(arkret_wire::GrantId::from_event_id(
-        &arkret_wire::EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [33; 32])
-    ));
+    mismatch["current_state"]["value"]["id"] =
+        serde_json::json!(arkret_wire::GrantId::from_event_id(
+            &arkret_wire::EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [33; 32])
+        ));
     assert!(
         serde_json::from_value::<ExactCurrentStateReadResponseBody>(mismatch)
             .unwrap()
@@ -77,7 +78,7 @@ fn exact_owned_grant_outcome_binds_value_and_disallows_never_written() {
     );
     let mut absence = value;
     absence["status"] = serde_json::json!("never_written");
-    absence.as_object_mut().unwrap().remove("entry");
+    absence.as_object_mut().unwrap().remove("current_state");
     absence["selector"] = serde_json::to_value(&request.selector).unwrap();
     assert!(serde_json::from_value::<ExactCurrentStateReadResponseBody>(absence).is_err());
 }

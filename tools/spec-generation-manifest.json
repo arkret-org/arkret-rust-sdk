@@ -527,20 +527,6 @@
     {
       "generator": "closed-models",
       "outputs": [
-        "crates/identity/src/generated/records_contracts.rs"
-      ],
-      "owner": "arkret-identity",
-      "mode": "closed-schema-model",
-      "artifacts": [
-        "schemas/identity-receipt.schema.json"
-      ],
-      "provides": [
-        "DidRegistryReceipt"
-      ]
-    },
-    {
-      "generator": "closed-models",
-      "outputs": [
         "crates/models-collaboration/src/generated/agent_operations_contracts.rs"
       ],
       "owner": "arkret-models-collaboration",
@@ -664,8 +650,8 @@
         "schemas/time.schema.json"
       ],
       "provides": [
-        "ConsentReplacePayload",
-        "ConsentPermission"
+        "ConsentPermission",
+        "ConsentReplacePayload"
       ]
     },
     {
@@ -784,7 +770,6 @@
         "RealmOwnerTransferPayload",
         "RealmCreatePayload",
         "RealmFreezePayload",
-        "RealmSearchPolicyPayload",
         "RealmOrganizationPayload",
         "RealmAuthorityResetPayload",
         "RealmOrganizationAuthorization"
@@ -921,7 +906,7 @@
         "schemas/time.schema.json"
       ],
       "provides": [
-        "GrantSnapshot",
+        "AgentGrantView",
         "AgentKeyAuthorizationState",
         "PublicKey"
       ]
@@ -1059,7 +1044,6 @@
       ],
       "provides": [
         "Ciphertext",
-        "GroupInfo",
         "Identifier"
       ]
     },
@@ -1157,8 +1141,8 @@
         "DeviceAuthorizationWindow",
         "DeviceProjectionAttestationCore",
         "VerifiedDeviceProjection",
-        "QueryDeviceRecord",
-        "PeerQueryDeviceRecord",
+        "DeviceKeyView",
+        "PeerDeviceKeyView",
         "QueryAccountDeviceEntry",
         "PeerQueryAccountDeviceEntry",
         "AccountDeviceEventAuthorization",
@@ -1228,7 +1212,6 @@
         "AppletEventRejection",
         "E2eePolicy",
         "ScopeGrant",
-        "CapabilityConstraint",
         "DeniedScope",
         "E2eeEffect",
         "PlannedEvent",
@@ -1466,9 +1449,7 @@
       "provides": [
         "ContactPage",
         "ContactAgentProjection",
-        "DirectConversationSummary",
-        "ContactScopeUpdatePayload",
-        "RequestAcceptanceReceiptCore"
+        "DirectConversationSummary"
       ]
     },
     {
@@ -1500,7 +1481,8 @@
         "schemas/event-payload.schema.json"
       ],
       "provides": [
-        "DeviceRevokePayload"
+        "DeviceRevokePayload",
+        "AppletManagedDeviceScope"
       ]
     },
     {
@@ -2127,7 +2109,6 @@
         "schemas/current-state.schema.json"
       ],
       "provides": [
-        "RealmActorGhostExternalTuple",
         "RealmActorControlScopeKind",
         "RealmActorControlScope",
         "RealmActorCreatePayloadActorRole",
@@ -2159,7 +2140,6 @@
         "RealmActorControlValue",
         "RealmActorManagerValue",
         "RealmActorRecoveryValue",
-        "RealmActorDeviceGenerationValue",
         "RealmActorDeviceAuthorizationValue"
       ]
     },

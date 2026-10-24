@@ -1,7 +1,7 @@
 use arkret_wire::{
-    DetachedSignatureAlgorithm, DeviceId, DeviceRevocationGateRecord, Did, DidCoreId, DidUrl,
-    EventId, Hash, PayloadProof, PcrGenesisUnit, RealmId, ReasonCode, RequestId, Result, SchemaId,
-    ServiceOperationId, SessionGrantId, TrustDomainId, WebOrigin, WireError, canonical,
+    AccountDeviceRevocationGateRecord, DetachedSignatureAlgorithm, DeviceId, Did, DidCoreId,
+    DidUrl, EventId, Hash, PayloadProof, PcrGenesisUnit, RealmId, ReasonCode, RequestId, Result,
+    SchemaId, ServiceOperationId, SessionGrantId, TrustDomainId, WebOrigin, WireError, canonical,
     project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
@@ -283,7 +283,7 @@ pub struct AccountDeviceSummary {
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub revoked_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub revocation_states: Option<Vec<DeviceRevocationGateRecord>>,
+    pub revocation_states: Option<Vec<AccountDeviceRevocationGateRecord>>,
 }
 
 impl AccountDeviceSummary {
@@ -540,6 +540,7 @@ pub const ACCOUNT_HANDOFF_ALLOWED_OPERATIONS: [AccountHandoffAllowedOperation; 7
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ReservedIdentityCreation {
+    pub binding_kind: AccountBindingKind,
     pub principal_id: DidCoreId,
     pub did: Did,
     pub registration_anchor_digest: Hash,
@@ -553,6 +554,7 @@ impl ReservedIdentityCreation {
         let principal_id = project_did_to_core_id(&did)?;
         let registration_anchor_digest = principal_registration_anchor.canonical_digest()?;
         Ok(Self {
+            binding_kind: AccountBindingKind::IdentityCreation,
             principal_id,
             did,
             registration_anchor_digest,
@@ -919,6 +921,7 @@ impl IdentityAbandonmentRequestBody {
 pub struct IdentityAbandonmentResponseBody {
     pub request_id: RequestId,
     pub account_subject: Hash,
+    pub binding_kind: AccountBindingKind,
     pub principal_id: DidCoreId,
     pub did_version_id: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -968,7 +971,6 @@ pub enum AccountRequestErasureStatus {
 #[serde(deny_unknown_fields)]
 pub struct AccountRequestErasureResponseBody {
     pub request_id: RequestId,
-    pub status: AccountRequestErasureStatus,
     pub principal_id: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub recorded_at: DateTime<Utc>,
@@ -1036,8 +1038,15 @@ pub enum IdentityBindingPurpose {
 #[serde(deny_unknown_fields)]
 pub struct DidBindingChallengeRequestBody {
     pub request_id: RequestId,
+    pub identity_creation_lease_id: String,
+    pub lease_fence: u64,
     pub principal_id: DidCoreId,
     pub did: Did,
+    pub principal_registration_anchor: PrincipalRegistrationAnchor,
+    pub pcr_realm_id: RealmId,
+    pub realm_create_payload_digest: Hash,
+    pub founding_authorize_payload_digest: Hash,
+    pub initial_session_request_digest: Hash,
 }
 
 impl DidBindingChallengeRequestBody {
@@ -1074,8 +1083,6 @@ pub struct DidBindingChallengeResponseBody {
     pub did: Did,
     pub did_version_id: String,
     pub control_key_digest: Hash,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub witness_evidence: Option<String>,
     pub dpop_jkt: String,
     pub audience_id: DidCoreId,
     pub origin: WebOrigin,
@@ -1125,6 +1132,14 @@ pub struct AccountRegistrationControlProof {
     pub did: Did,
     pub did_version_id: String,
     pub control_key_digest: Hash,
+    pub registration_anchor_digest: Hash,
+    pub pcr_realm_id: RealmId,
+    pub realm_create_payload_digest: Hash,
+    pub founding_authorize_payload_digest: Hash,
+    pub initial_session_request_digest: Hash,
+    pub genesis_unit_kinds: [PcrGenesisUnitKind; 2],
+    pub identity_creation_lease_id: String,
+    pub lease_fence: u64,
     pub dpop_jkt: String,
     pub audience_id: DidCoreId,
     pub origin: WebOrigin,
@@ -1134,8 +1149,7 @@ pub struct AccountRegistrationControlProof {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub verification_method: DidUrl,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub witness_evidence: Option<String>,
+    pub signature_algorithm: DetachedSignatureAlgorithm,
     pub signature: String,
 }
 
@@ -1146,7 +1160,11 @@ impl AccountRegistrationControlProof {
             .as_str()
             .split_once('#')
             .map(|(value, _)| value);
-        if self.challenge.len() < 22
+        if self.identity_creation_lease_id.is_empty()
+            || self.lease_fence == 0
+            || self.genesis_unit_kinds != PCR_GENESIS_UNIT_KINDS
+            || self.signature_algorithm != DetachedSignatureAlgorithm::Ed25519
+            || self.challenge.len() < 22
             || self.did_version_id.is_empty()
             || self.dpop_jkt.is_empty()
             || self.signature.is_empty()
@@ -1591,6 +1609,87 @@ impl IdentityCreationRegistration {
         Ok(())
     }
 }
+/// Complete account initialization material for an already-published DID.
+/// The outer control proof and the Account Authority's live lease checks remain
+/// separate obligations; this object never publishes or hosts a DID operation.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PublishedIdentityRegistration {
+    pub identity_creation_lease_id: String,
+    pub lease_fence: u64,
+    pub did: Did,
+    pub principal_registration_anchor: PrincipalRegistrationAnchor,
+    pub registration_did_evidence_draft: arkret_wire::RegistrationDidEvidenceDraft,
+    pub pcr_genesis_unit: PcrGenesisUnit,
+    pub initial_session: InitialSessionGrantIntent,
+}
+
+impl PublishedIdentityRegistration {
+    pub fn validate_against(&self, proof: &AccountRegistrationControlProof) -> Result<()> {
+        proof.validate_shape()?;
+        self.principal_registration_anchor.validate()?;
+        self.registration_did_evidence_draft.validate_shape()?;
+        self.pcr_genesis_unit.validate_ordered_envelopes()?;
+        self.initial_session.validate()?;
+        if self.initial_session.canonical_request_digest()? != proof.initial_session_request_digest
+            || self
+                .initial_session
+                .session_public_key
+                .thumbprint_sha256()?
+                != proof.dpop_jkt
+            || self.identity_creation_lease_id != proof.identity_creation_lease_id
+            || self.lease_fence != proof.lease_fence
+            || &self.did != self.principal_registration_anchor.did()
+            || self.did != proof.did
+            || self.registration_did_evidence_draft.principal_id != proof.principal_id
+            || self.registration_did_evidence_draft.did != self.did
+            || self.registration_did_evidence_draft.version_id != proof.did_version_id
+            || self.registration_did_evidence_draft.method_history_head
+                != self
+                    .principal_registration_anchor
+                    .declared_method_history_head()?
+                    .as_str()
+            || self.registration_did_evidence_draft.control_key_digest != proof.control_key_digest
+            || project_did_to_core_id(&self.did)?.as_str() != proof.principal_id.as_str()
+            || self.principal_registration_anchor.canonical_digest()?
+                != proof.registration_anchor_digest
+            || self
+                .pcr_genesis_unit
+                .create()
+                .actor_id
+                .signing_principal_id()
+                != &proof.principal_id
+            || self.pcr_genesis_unit.create().realm_id != proof.pcr_realm_id
+            || Hash::new(canonical::canonical_sha256(
+                &self.pcr_genesis_unit.create().payload,
+            )?)? != proof.realm_create_payload_digest
+            || Hash::new(canonical::canonical_sha256(
+                &self.pcr_genesis_unit.founding_authorize().payload,
+            )?)? != proof.founding_authorize_payload_digest
+        {
+            return Err(WireError::Protocol(
+                "published account initialization does not match its control proof".to_owned(),
+            ));
+        }
+        let descriptor_device_id = self
+            .pcr_genesis_unit
+            .create()
+            .payload
+            .get("object")
+            .and_then(Value::as_object)
+            .and_then(|object| object.get("founding_device_descriptor"))
+            .and_then(Value::as_object)
+            .and_then(|descriptor| descriptor.get("device_id"))
+            .and_then(Value::as_str);
+        if descriptor_device_id != Some(self.initial_session.device_id.as_str()) {
+            return Err(WireError::Protocol(
+                "initial session device_id does not match founding device descriptor".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -1793,8 +1892,6 @@ pub struct AccountCursorRevokeResponseBody {
     pub revoked: bool,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub revoke_scope_effective: Option<CursorRevokeScope>,
 }
 
 fn default_cursor_revoke_scope() -> CursorRevokeScope {
@@ -2151,7 +2248,6 @@ mod account_handoff_tests {
     fn acceptance_outcome_round_trips_without_a_withdrawal_window() {
         let outcome = AccountRequestErasureResponseBody {
             request_id: RequestId::new("ak:request:0196419b-0000-7000-8000-00000000000a").unwrap(),
-            status: AccountRequestErasureStatus::Accepted,
             principal_id: DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
             // Canonical timestamps carry millisecond precision, so the
             // fixture is pinned to a whole millisecond: a `now()` with
@@ -2174,7 +2270,6 @@ mod account_handoff_tests {
         let recorded_at = DateTime::from_timestamp_millis(1_775_000_000_000).unwrap();
         let outcome = AccountRequestErasureResponseBody {
             request_id: RequestId::new("ak:request:0196419b-0000-7000-8000-00000000000b").unwrap(),
-            status: AccountRequestErasureStatus::Accepted,
             principal_id: DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
             recorded_at,
             withdrawal_window_ends_at: Some(recorded_at),

@@ -3,8 +3,8 @@
 use std::fmt;
 
 use arkret_wire::{
-    AccountId, CommittedEventRef, Did, DidCoreId, Hash, InviteId, PayloadProof, ProofContextId,
-    RealmId, RequestId, Result, ServiceOperationId, WireError,
+    AccountId, Did, DidCoreId, Hash, InviteId, PayloadProof, ProofContextId, RealmId, RequestId,
+    Result, ServiceOperationId, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -589,7 +589,6 @@ pub struct ThirdPartyInviteAcceptanceAttestation {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub invite_expires_at: DateTime<Utc>,
     pub invite_state: ThirdPartyInviteAttestedState,
-    pub accepted_commit_ref: CommittedEventRef,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub observed_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]

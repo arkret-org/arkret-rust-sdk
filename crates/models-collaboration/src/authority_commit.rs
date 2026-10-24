@@ -626,7 +626,7 @@ pub struct MembershipCompensationDelegationCore {
     pub verification_method: DidUrl,
     pub resource_realm_id: RealmId,
     #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
-    pub deadline: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
     pub action: MembershipCompensationAction,
 }
 

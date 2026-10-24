@@ -3,9 +3,8 @@ use arkret_models_crypto::{
     KeyOperationSignature, PeerKeyPackageClaimReceipt, PeerKeyPackagesClaimFields,
 };
 use arkret_models_identity::{
-    AuthenticatedServiceResolution, ResolutionDidBindingEvidenceKind,
-    ResolutionDidBindingEvidenceReceipt, ResolutionMethodEvidenceBoundary,
-    ResolutionMethodHistoryEvidence,
+    AuthenticatedServiceResolution, DidBindingEvidenceKind, DidBindingEvidenceReceipt,
+    ResolutionMethodEvidenceBoundary, ResolutionMethodHistoryEvidence,
 };
 use arkret_wire::{
     ActorId, Base64UrlString, BlobRef, Did, EventId, Hash, KeypackageClaimId, MlsGroupId,
@@ -30,7 +29,7 @@ fn terminal_claim_signature_binds_original_result_and_actual_station_history() {
         claim_request_id: attestation.claim_receipt.claim_request_id.clone(),
         request_digest: attestation.claim_receipt.request_digest.clone(),
         terminal_state: KeyPackageClaimTerminalState::NeverClaimed,
-        key_package_refs: None,
+        keypackage_refs: None,
         source_id: attestation.claim_receipt.source_id.clone(),
         destination_id: resolution.service_id.clone(),
         terminal_at: attestation.attested_at,
@@ -118,7 +117,7 @@ fn realm_consume_uses_accepting_governor_without_rewriting_original_claim_issuer
     let mut durable = RecipientMlsDurableReceipt {
         domain: NonEmptyString::new(DomainSeparationId::MLS_RECIPIENT_DURABLE_RECEIPT_V1).unwrap(),
         claim_request_id: attestation.claim_receipt.claim_request_id.clone(),
-        key_package_ref: NonEmptyString::new(arkret_canonical::sha256_digest(b"package")).unwrap(),
+        keypackage_ref: NonEmptyString::new(arkret_canonical::sha256_digest(b"package")).unwrap(),
         recipient: RecipientMlsDurableSigner::RealmDevice {
             recipient_actor_id: actor.clone(),
             recipient_device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001")
@@ -223,8 +222,8 @@ fn roster_station_signatures_require_historical_assertion_method() {
                 from_version_id: version.clone(),
                 to_version_id: version,
             },
-            evidence: ResolutionDidBindingEvidenceReceipt {
-                kind: ResolutionDidBindingEvidenceKind::AkDidBindingEvidenceV1,
+            evidence: DidBindingEvidenceReceipt {
+                kind: DidBindingEvidenceKind::AkDidBindingEvidenceV1,
                 method: "key".to_owned(),
                 document_digest: arkret_models_identity::normalized_did_document_digest(&document)
                     .unwrap(),
@@ -414,8 +413,8 @@ fn signed_two_page_roster() -> (
                 from_version_id: version.clone(),
                 to_version_id: version,
             },
-            evidence: ResolutionDidBindingEvidenceReceipt {
-                kind: ResolutionDidBindingEvidenceKind::AkDidBindingEvidenceV1,
+            evidence: DidBindingEvidenceReceipt {
+                kind: DidBindingEvidenceKind::AkDidBindingEvidenceV1,
                 method: "key".to_owned(),
                 document_digest: arkret_models_identity::normalized_did_document_digest(&document)
                     .unwrap(),

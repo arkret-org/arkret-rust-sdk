@@ -1489,7 +1489,7 @@ impl AccountSyncRoundBudget {
 }
 
 #[derive(Clone, Debug)]
-pub enum AccountSubscribeSnapshotResult {
+pub enum AccountSubscribeReadAction {
     Batch(AccountSubscribeBatch),
     ReconnectAfter {
         reconnect_after_ms: u64,

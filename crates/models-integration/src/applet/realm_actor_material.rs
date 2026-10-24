@@ -62,7 +62,7 @@ pub enum RealmActorMaterialPurpose {
 #[allow(clippy::large_enum_variant)]
 pub enum RealmActorMaterialCurrentEntry {
     Present {
-        row: CurrentState,
+        current_state: CurrentState,
         source_ref: CommittedEventRef,
     },
     NeverWritten {
@@ -329,7 +329,7 @@ impl RealmActorMaterialResponseBody {
                 for entry in entries {
                     let selector = match entry {
                         RealmActorMaterialCurrentEntry::Present {
-                            row:
+                            current_state:
                                 CurrentState::Value {
                                     selector,
                                     source_stream_ref,
@@ -464,7 +464,7 @@ impl RealmActorMaterialResponseBody {
                     || selectors.iter().zip(entries).any(|(requested, returned)| {
                         let actual = match returned {
                             RealmActorMaterialCurrentEntry::Present {
-                                row: CurrentState::Value { selector, .. },
+                                current_state: CurrentState::Value { selector, .. },
                                 ..
                             }
                             | RealmActorMaterialCurrentEntry::NeverWritten { selector } => selector,

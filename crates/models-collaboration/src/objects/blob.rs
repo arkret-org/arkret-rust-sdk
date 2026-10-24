@@ -154,10 +154,6 @@ pub struct BlobPresignResponseBody {
     pub expires_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub purpose: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub realm_id: Option<RealmId>,
-    pub nonce: String,
-    pub access_scope: BlobPresignAccessScope,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

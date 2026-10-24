@@ -10,7 +10,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::artifacts_keys::{
-    AccountDeviceAlgorithmEntry, AccountDeviceKeyEntry, AlgorithmCounts, AlgorithmKeyRecords,
+    AccountDeviceAlgorithmEntry, AccountDeviceKeyEntry, AlgorithmCounts, AlgorithmPrekeys,
     KeyOperationSignature, QueryAccountDeviceSelector,
 };
 
@@ -21,9 +21,9 @@ pub struct KeysUploadRequestBody {
     pub device_id: DeviceId,
     pub device_signature: KeyOperationSignature,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub one_time_keys: AlgorithmKeyRecords,
+    pub one_time_keys: AlgorithmPrekeys,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub fallback_keys: AlgorithmKeyRecords,
+    pub fallback_keys: AlgorithmPrekeys,
 }
 
 /// Canonical unsigned projection for `keys/upload`.
@@ -35,8 +35,8 @@ pub struct KeysUploadRequestBody {
 #[serde(deny_unknown_fields)]
 pub struct KeysUploadFields {
     pub device_id: DeviceId,
-    pub one_time_keys: AlgorithmKeyRecords,
-    pub fallback_keys: AlgorithmKeyRecords,
+    pub one_time_keys: AlgorithmPrekeys,
+    pub fallback_keys: AlgorithmPrekeys,
 }
 
 impl KeysUploadRequestBody {
@@ -79,7 +79,7 @@ pub fn keys_upload_signing_input(unsigned: &KeysUploadFields) -> arkret_canonica
 pub struct KeysUploadResponseBody {
     pub one_time_key_counts: AlgorithmCounts,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub fallback_keys: AlgorithmKeyRecords,
+    pub fallback_keys: AlgorithmPrekeys,
 }
 
 /// At most 16 accounts per directory read, local and cross-Station alike
@@ -233,7 +233,7 @@ impl ForwardDeviceProjectionAttestation {
     }
 }
 
-impl QueryDeviceRecord {
+impl DeviceKeyView {
     /// Return whether this device is usable in the reducer's current accepted
     /// generation.
     ///
@@ -275,7 +275,7 @@ impl QueryDeviceRecord {
     }
 }
 
-impl PeerQueryDeviceRecord {
+impl PeerDeviceKeyView {
     /// Return whether this device is usable in the reducer's current accepted
     /// generation.
     ///
@@ -333,10 +333,10 @@ impl PeerQueryDeviceRecord {
         &self,
         account_id: &AccountId,
         device_id: &DeviceId,
-    ) -> arkret_wire::Result<QueryDeviceRecord> {
+    ) -> arkret_wire::Result<DeviceKeyView> {
         self.validate_attestation_binding(account_id, device_id)?;
         let core = &self.device_projection_attestation.attestation;
-        Ok(QueryDeviceRecord {
+        Ok(DeviceKeyView {
             signer_evidence_ref: self.signer_evidence_ref.clone(),
             algorithms: self.algorithms.clone(),
             trust_algorithms: self.trust_algorithms.clone(),
@@ -432,10 +432,10 @@ pub struct KeysQueryResponseBody {
 }
 
 /// `keys-operations.schema.json#/$defs/query_device_keys`.
-pub type QueryDeviceKeys = BTreeMap<DeviceId, QueryDeviceRecord>;
+pub type DeviceKeyViews = BTreeMap<DeviceId, DeviceKeyView>;
 
 /// `keys-operations.schema.json#/$defs/peer_query_device_keys`.
-pub type PeerQueryDeviceKeys = BTreeMap<DeviceId, PeerQueryDeviceRecord>;
+pub type PeerDeviceKeyViews = BTreeMap<DeviceId, PeerDeviceKeyView>;
 
 impl arkret_wire::CanonicalIdentityEntry for QueryAccountDeviceEntry {
     type Identity = AccountId;
@@ -484,7 +484,7 @@ impl KeysQueryResponseBody {
         validate_keys_query_bytes(self, false)
     }
 
-    pub fn devices_for(&self, account_id: &AccountId) -> Option<&QueryDeviceKeys> {
+    pub fn devices_for(&self, account_id: &AccountId) -> Option<&DeviceKeyViews> {
         self.device_keys
             .iter()
             .find(|entry| &entry.account_id == account_id)
@@ -856,14 +856,14 @@ mod device_generation_tests {
         let generation = DeviceGenerationState {
             current_device_generation_ref: 7,
         };
-        let record: QueryDeviceRecord = serde_json::from_value(self_row(7)).unwrap();
+        let record: DeviceKeyView = serde_json::from_value(self_row(7)).unwrap();
         assert!(record.is_usable_in_generation(Some(&generation)));
         assert!(!record.is_usable_in_generation(None));
 
-        let stale: QueryDeviceRecord = serde_json::from_value(self_row(6)).unwrap();
+        let stale: DeviceKeyView = serde_json::from_value(self_row(6)).unwrap();
         assert!(!stale.is_usable_in_generation(Some(&generation)));
 
-        let peer: PeerQueryDeviceRecord = serde_json::from_value(peer_row(7)).unwrap();
+        let peer: PeerDeviceKeyView = serde_json::from_value(peer_row(7)).unwrap();
         assert!(peer.is_usable_in_generation(Some(&generation)));
     }
 
@@ -874,14 +874,14 @@ mod device_generation_tests {
             .as_object_mut()
             .unwrap()
             .remove("device_projection_attestation");
-        assert!(serde_json::from_value::<PeerQueryDeviceRecord>(without_attestation).is_err());
+        assert!(serde_json::from_value::<PeerDeviceKeyView>(without_attestation).is_err());
 
         let mut without_projection = self_row(7);
         without_projection
             .as_object_mut()
             .unwrap()
             .remove("device_projection");
-        assert!(serde_json::from_value::<QueryDeviceRecord>(without_projection).is_err());
+        assert!(serde_json::from_value::<DeviceKeyView>(without_projection).is_err());
     }
 
     /// The two surfaces are different types on purpose. A client row can never
@@ -889,14 +889,14 @@ mod device_generation_tests {
     /// row by dropping one.
     #[test]
     fn self_and_peer_rows_are_not_interchangeable() {
-        assert!(serde_json::from_value::<QueryDeviceRecord>(peer_row(7)).is_err());
-        assert!(serde_json::from_value::<PeerQueryDeviceRecord>(self_row(7)).is_err());
+        assert!(serde_json::from_value::<DeviceKeyView>(peer_row(7)).is_err());
+        assert!(serde_json::from_value::<PeerDeviceKeyView>(self_row(7)).is_err());
 
         let mut smuggled = self_row(7);
         smuggled["device_projection_attestation"] =
             peer_row(7)["device_projection_attestation"].clone();
         assert!(
-            serde_json::from_value::<QueryDeviceRecord>(smuggled).is_err(),
+            serde_json::from_value::<DeviceKeyView>(smuggled).is_err(),
             "the self row is closed: it carries no origin attestation"
         );
 
@@ -913,7 +913,7 @@ mod device_generation_tests {
     /// `DeviceProjectionAttestation`.
     #[test]
     fn a_self_row_offers_no_signed_evidence_to_reconstruct() {
-        let record: QueryDeviceRecord = serde_json::from_value(self_row(7)).unwrap();
+        let record: DeviceKeyView = serde_json::from_value(self_row(7)).unwrap();
         record.validate_projection().unwrap();
         let value = serde_json::to_value(&record).unwrap();
         assert_eq!(
@@ -936,7 +936,7 @@ mod device_generation_tests {
             arkret_wire::DidCoreId::new(STATION_ID).unwrap(),
         );
         let device = DeviceId::new(DEVICE_ID).unwrap();
-        let record: PeerQueryDeviceRecord = serde_json::from_value(peer_row(7)).unwrap();
+        let record: PeerDeviceKeyView = serde_json::from_value(peer_row(7)).unwrap();
         record
             .validate_attestation_binding(&principal, &device)
             .expect("attestation covers this row");
@@ -956,7 +956,7 @@ mod device_generation_tests {
         let projected = record.project_verified_row(&principal, &device).unwrap();
         assert_eq!(projected.device_projection.authorized_generation_ref, 7);
 
-        let mut edited: PeerQueryDeviceRecord = serde_json::from_value(peer_row(7)).unwrap();
+        let mut edited: PeerDeviceKeyView = serde_json::from_value(peer_row(7)).unwrap();
         edited.device_projection_attestation.attestation.device_id = other_device;
         assert!(
             edited
@@ -971,7 +971,7 @@ mod device_generation_tests {
     /// one of its devices.
     #[test]
     fn attestation_transcript_carries_its_own_context() {
-        let record: PeerQueryDeviceRecord = serde_json::from_value(peer_row(7)).unwrap();
+        let record: PeerDeviceKeyView = serde_json::from_value(peer_row(7)).unwrap();
         let bytes = record
             .device_projection_attestation
             .proof_signing_bytes()
@@ -1060,7 +1060,7 @@ mod device_generation_tests {
 
     #[test]
     fn attestation_transcript_uses_one_complete_account_id() {
-        let record: PeerQueryDeviceRecord = serde_json::from_value(peer_row(7)).unwrap();
+        let record: PeerDeviceKeyView = serde_json::from_value(peer_row(7)).unwrap();
         let bytes = record
             .device_projection_attestation
             .proof_signing_bytes()

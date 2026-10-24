@@ -2,10 +2,10 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/did-binding-contracts.schema.json
-// sha256=fa20734c177646bef543831d5e8611fbe2d6743bfab11c992154ba2700543abb
+// sha256=24ce65b5dac11e00aba03d5d059426386fd0a4f2bab2e3cf30d2a86eb8dee2d6
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=dc92c416f466a595bc16d56fbbae216e8c660c38914459081d8340c5b55ebb2d
+// sha256=7ef2bac74ff32b9de78cac5bb9318e8c3d600fb7d2d320e1f3fd2fa3d5a5493c
 
 /// Counterpart: `did-binding-contracts.schema.json#/$defs/evidence_dependencies`.
 /// The structured dependency record a binding carries so witness-level

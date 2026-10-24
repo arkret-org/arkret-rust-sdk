@@ -14,7 +14,7 @@ use ed25519_dalek::SigningKey;
 
 use super::*;
 use crate::binding::{FreshnessProfile, VerifiedDidBindingDocumentInput};
-use crate::binding_digest::{EvidenceReceipt, MethodEvidence};
+use crate::binding_digest::{DidBindingEvidenceReceipt, MethodEvidence};
 use crate::binding_store::InMemoryVerifiedDidBindingStore;
 
 fn hash(seed: u8) -> Hash {
@@ -70,7 +70,7 @@ fn verification_method() -> DidUrl {
 }
 
 fn accepted(document: &DidDocument) -> AcceptedDidBinding {
-    let receipt = EvidenceReceipt::new(
+    let receipt = DidBindingEvidenceReceipt::new(
         did().method(),
         document_canonical_digest(document).expect("digest"),
         &MethodEvidence::none(),
@@ -1103,20 +1103,19 @@ fn authority_checks_the_registered_p256_and_mldsa_public_key_encodings() {
 
 fn webvh_evidence() -> MethodEvidence {
     MethodEvidence {
-        proofs: vec![crate::MethodEvidenceProof::WebvhLog(
-            crate::WebvhLogEvidence {
-                history_head: "3-QmFixtureHead".to_owned(),
-                witnesses: vec![crate::WebvhWitnessIdentity {
-                    witness_did: Did::new("did:webvh:z6mkfixture:witness.example".to_owned())
-                        .expect("valid did"),
-                    controlling_organization_did: Did::new(
-                        "did:webvh:z6mkfixture:witness-org.example".to_owned(),
-                    )
+        proofs: vec![crate::DidBindingMethodProof {
+            kind: crate::DidBindingMethodProofKind::WebvhLog,
+            history_head: "3-QmFixtureHead".to_owned(),
+            witnesses: vec![crate::DidBindingWitness {
+                witness_did: Did::new("did:webvh:z6mkfixture:witness.example".to_owned())
                     .expect("valid did"),
-                }],
-                witness_proofs_digest: hash(0x77),
-            },
-        )],
+                controlling_organization_did: Did::new(
+                    "did:webvh:z6mkfixture:witness-org.example".to_owned(),
+                )
+                .expect("valid did"),
+            }],
+            witness_proofs_digest: hash(0x77),
+        }],
         history_head: Some("3-QmFixtureHead".to_owned()),
         version_id: Some("3-QmFixtureHead".to_owned()),
     }
@@ -1253,3 +1252,5 @@ fn the_freshness_profile_drives_every_window() {
     assert_eq!(store.len(), 1);
     assert!(store.get(&request.key(), now).is_some());
 }
+
+use crate::binding_digest::DidBindingEvidenceReceiptExt;

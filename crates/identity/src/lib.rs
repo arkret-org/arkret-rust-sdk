@@ -70,10 +70,10 @@ pub use binding::{
     document_canonical_digest,
 };
 pub use binding_digest::{
-    BASE_RESOLVER_POLICY_PROFILE, DigestError, EVIDENCE_RECEIPT_KIND, EvidenceDependencies,
-    EvidenceReceipt, MethodEvidence, MethodEvidenceProof, RESOLVER_POLICY_SNAPSHOT_KIND,
-    ResolverPolicyProfile, ResolverPolicySnapshot, WebvhLogEvidence, WebvhWitnessIdentity,
-    normalize_did_method_prefix, policy_digest,
+    BASE_RESOLVER_POLICY_PROFILE, DidBindingEvidenceReceipt, DidBindingEvidenceReceiptExt,
+    DidBindingMethodProof, DidBindingMethodProofKind, DidBindingWitness, DigestError,
+    EVIDENCE_RECEIPT_KIND, EvidenceDependencies, MethodEvidence, RESOLVER_POLICY_SNAPSHOT_KIND,
+    ResolverPolicyProfile, ResolverPolicySnapshot, normalize_did_method_prefix, policy_digest,
 };
 pub use binding_store::{
     AcceptedDidBinding, BindingFreshness, BindingInvalidation, BindingStoreError,

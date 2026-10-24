@@ -8,7 +8,7 @@
 // sha256=952900cbdbafc71f26a703a9cf423fa07fc67d9741e833df9ad949fce0db9508
 //
 // Input: schemas/agent-operations.schema.json
-// sha256=f43b1500107a166134dea8fe97289450aedc12da8db65302be386fe1d4ed2e6a
+// sha256=57acbc5881e4ce66c0742968ae383fe5bda77fe0461abc395560e10fcdca637a
 //
 // Input: schemas/common-ids.schema.json
 // sha256=0cc25a02fe0d9a94f6e41f2cf8f64e492ba36362f1e69a699cf1e684924837ee
@@ -17,10 +17,10 @@
 // sha256=7ea09c46f777e010c72a1fd069b7fbefc7d66924e7b3ad5a5961ce9914858987
 //
 // Input: schemas/account-operations.schema.json
-// sha256=78c6503698cd43571f2b25543013f9036927ef9bfd005e71377ad3006f4a64d4
+// sha256=09a9261669e5c9730cf71fb0ac935cd8bcb4d6d937273778151f9a58495bf5f6
 //
 // Input: schemas/current-state.schema.json
-// sha256=feba0ff19e227c276a3792aaed506b6534bf9ff8ce6c2e91a0ab36c04777785f
+// sha256=7f7c4f2664ee79f2bda622abea13f8bbb119a2387d89cbe4eeb9af4f3c087428
 //
 // Input: schemas/agent-sidecar-exchange-control.schema.json
 // sha256=0c1ecd7521ba0c11819ccefe10ce224c13cd432e2da463bf1cb2548132603b38
@@ -29,7 +29,7 @@
 // sha256=6652f814405afb672ebc20ca69bdd58f47a3847606d5f5b890b3306b5949d947
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=dc92c416f466a595bc16d56fbbae216e8c660c38914459081d8340c5b55ebb2d
+// sha256=7ef2bac74ff32b9de78cac5bb9318e8c3d600fb7d2d320e1f3fd2fa3d5a5493c
 
 /// Counterpart: `agent-sidecar-view-state.schema.json`.
 /// Controller-private encrypted account-data plaintext for one hosted Sidecar

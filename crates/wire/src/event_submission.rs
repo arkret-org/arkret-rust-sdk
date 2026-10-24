@@ -25,7 +25,7 @@ pub const EVENTS_SUBMIT_BATCH_MAX_EVENTS: usize = 500;
 /// actor-supplied `effective_scope` wherever that name is reserved for a
 /// read-only materialized object projection.
 // Field declaration order is byte-for-byte the properties order of
-// service-operation-dtos.schema.json#/$defs/EventSubmitEnvelope (a `$ref` to
+// event-envelope.schema.json (a `$ref` to
 // the complete event-envelope.schema.json document).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]

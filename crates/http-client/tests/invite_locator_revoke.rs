@@ -46,7 +46,7 @@ async fn revoke_posts_typed_body_with_dpop_and_rejects_another_locator() {
                     break;
                 }
             }
-            let body = serde_json::json!({"locator_id":returned_id,"status":"revoked","revoked_at":"2026-10-20T00:00:00.000Z"}).to_string();
+            let body = serde_json::json!({"locator_id":returned_id,"revoked_at":"2026-10-20T00:00:00.000Z"}).to_string();
             write!(socket,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",body.len()).unwrap();
         });
         let client = Client::builder(url::Url::parse(&format!("http://{address}/")).unwrap())

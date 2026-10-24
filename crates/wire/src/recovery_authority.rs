@@ -370,7 +370,7 @@ impl RecoveryCompletionGrantRequestBody {
 #[serde(deny_unknown_fields)]
 pub struct IssueRecoveryCompletionGrantResponseBody {
     pub transaction_id: TransactionId,
-    pub session_grant_outcome: Value,
+    pub issued_session: Value,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
 }

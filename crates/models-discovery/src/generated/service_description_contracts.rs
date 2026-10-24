@@ -5,7 +5,7 @@
 // sha256=14c5de3a662aa569c6beebb80532495b22ea7fe8b46dcfecc9b05630a3bfd622
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=dc92c416f466a595bc16d56fbbae216e8c660c38914459081d8340c5b55ebb2d
+// sha256=7ef2bac74ff32b9de78cac5bb9318e8c3d600fb7d2d320e1f3fd2fa3d5a5493c
 
 /// Counterpart: `service-describe.schema.json#/properties/interop_surfaces/items`.
 /// Wire-level entry in

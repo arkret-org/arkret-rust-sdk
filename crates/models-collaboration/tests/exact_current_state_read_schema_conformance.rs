@@ -36,7 +36,7 @@ fn schema_accepts(fragment: &str, value: &Value) -> bool {
 fn moderation_request(outcome: &Value) -> Value {
     json!({
         "realm_id": outcome["realm_id"].clone(),
-        "selector": outcome["entry"]["selector"].clone()
+        "selector": outcome["current_state"]["selector"].clone()
     })
 }
 
@@ -53,8 +53,8 @@ fn moderation_outcome(fixture: &Value) -> Value {
 fn policy_outcome() -> Value {
     let mut value = moderation_outcome(&fixture());
     let policy = "ak:policy:0198ff00-0000-7000-8000-000000000001";
-    value["entry"]["selector"] = json!({"kind":"policy", "policy_id":policy});
-    value["entry"]["value"] = json!({
+    value["current_state"]["selector"] = json!({"kind":"policy", "policy_id":policy});
+    value["current_state"]["value"] = json!({
         "schema":"ak.schema.policy.v1", "id":policy, "realm_id":value["realm_id"],
         "policy_kind":"agent", "default_effect":"deny",
         "rules":[{"rule_id":"owned_join", "kind":"agent", "effect":"allow",
@@ -72,7 +72,7 @@ fn managed_policy_current_is_the_whole_document_in_its_realm_or_circle_stream() 
         if circle {
             let stream = json!({"kind":"circle", "realm_id":value["realm_id"],
                 "circle_id":"ak:circle:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9"});
-            value["entry"]["source_stream_ref"] = stream.clone();
+            value["current_state"]["source_stream_ref"] = stream.clone();
             value["effective_stream_head"]["stream_ref"] = stream;
         }
         assert!(schema_accepts(
@@ -91,9 +91,9 @@ fn managed_policy_current_is_the_whole_document_in_its_realm_or_circle_stream() 
 fn policy_current_rejects_submit_payload_wrappers_and_other_policy_identity() {
     let value = policy_outcome();
     let mut wrapped = value.clone();
-    wrapped["entry"]["value"] = json!({
-        "policy_id":value["entry"]["selector"]["policy_id"],
-        "expected_revision":null, "value":value["entry"]["value"]
+    wrapped["current_state"]["value"] = json!({
+        "policy_id":value["current_state"]["selector"]["policy_id"],
+        "expected_revision":null, "value":value["current_state"]["value"]
     });
     assert!(!schema_accepts(
         "#/$defs/exact_current_state_read_response_body",
@@ -102,7 +102,8 @@ fn policy_current_rejects_submit_payload_wrappers_and_other_policy_identity() {
     assert!(serde_json::from_value::<ExactCurrentStateReadResponseBody>(wrapped).is_err());
     let request = serde_json::from_value(moderation_request(&value)).unwrap();
     let mut wrong_id = value;
-    wrong_id["entry"]["value"]["id"] = json!("ak:policy:0198ff00-0000-7000-8000-000000000002");
+    wrong_id["current_state"]["value"]["id"] =
+        json!("ak:policy:0198ff00-0000-7000-8000-000000000002");
     let outcome: ExactCurrentStateReadResponseBody = serde_json::from_value(wrong_id).unwrap();
     assert!(outcome.validate_for_request(&request, 4).is_err());
 }
@@ -158,7 +159,7 @@ fn moderation_never_written_is_rejected_by_schema_and_sdk() {
 fn missing_source_stream_is_rejected_by_schema_and_sdk() {
     let fixture = fixture();
     let mut value = moderation_outcome(&fixture);
-    value["entry"]
+    value["current_state"]
         .as_object_mut()
         .unwrap()
         .remove("source_stream_ref");
@@ -180,20 +181,20 @@ fn stale_or_mismatched_same_cut_response_fails_closed() {
     assert!(outcome.validate_for_request(&request, 5).is_err());
 
     let mut wrong_selector = value.clone();
-    wrong_selector["entry"]["selector"]["target_ref"] =
+    wrong_selector["current_state"]["selector"]["target_ref"] =
         json!("ak:message:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9");
     let outcome: ExactCurrentStateReadResponseBody =
         serde_json::from_value(wrong_selector).unwrap();
     assert!(outcome.validate_for_request(&request, 4).is_err());
 
     let mut future_revision = value.clone();
-    future_revision["entry"]["revision"]["stream_position"] = json!(13);
+    future_revision["current_state"]["revision"]["stream_position"] = json!(13);
     let outcome: ExactCurrentStateReadResponseBody =
         serde_json::from_value(future_revision).unwrap();
     assert!(outcome.validate_for_request(&request, 4).is_err());
 
     let mut other_stream = value.clone();
-    other_stream["entry"]["source_stream_ref"] = json!({
+    other_stream["current_state"]["source_stream_ref"] = json!({
         "kind": "circle",
         "realm_id": value["realm_id"].clone(),
         "circle_id": "ak:circle:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9"
@@ -223,12 +224,12 @@ fn target_and_event_dot_are_validated_without_raw_json_carriers() {
     assert!(serde_json::from_value::<ExactCurrentStateReadRequestBody>(bad_target).is_err());
 
     let mut bare_event = value.clone();
-    bare_event["entry"]["value"]["assertions"][0]["tag_id"] =
+    bare_event["current_state"]["value"]["assertions"][0]["tag_id"] =
         json!("ak:event:AQJmSg1s9QyzppFeJL40dN92YVHZeLdBBt3UWHa9XNOD");
     assert!(serde_json::from_value::<ExactCurrentStateReadResponseBody>(bare_event).is_err());
 
     let mut leading_zero = value;
-    leading_zero["entry"]["value"]["assertions"][0]["tag_id"] =
+    leading_zero["current_state"]["value"]["assertions"][0]["tag_id"] =
         json!("ak:event:AQJmSg1s9QyzppFeJL40dN92YVHZeLdBBt3UWHa9XNOD:00");
     assert!(serde_json::from_value::<ExactCurrentStateReadResponseBody>(leading_zero).is_err());
 }

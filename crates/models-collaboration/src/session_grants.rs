@@ -704,7 +704,7 @@ impl SessionGrantValidationMetadata {
                 }
                 if let Some(participations) = details.get("participations") {
                     serde_json::from_value::<
-                        Vec<crate::governance::agent_participation::AgentParticipationEntry>,
+                        Vec<crate::governance::agent_participation::AgentParticipationView>,
                     >(participations.clone())
                     .map_err(|error| invalid(error.to_string()))?;
                 }

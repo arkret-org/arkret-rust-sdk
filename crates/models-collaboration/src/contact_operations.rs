@@ -1525,7 +1525,7 @@ pub enum ContactOperationRejectReason {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum ContactResultKind {
+pub enum ContactOperationKind {
     Request,
     Response,
     Reject,
@@ -1639,7 +1639,7 @@ pub enum ContactAcceptedResponseBody {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ContactFailedResponseBody {
-    pub operation_kind: ContactResultKind,
+    pub operation_kind: ContactOperationKind,
     pub operation_id: ProtocolOperationId,
     pub reason: ContactOperationRejectReason,
 }
@@ -1877,7 +1877,7 @@ pub struct PeerContactControlReceipt {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct PeerContactEventSubmitResponseBody {
-    pub operation_kind: ContactResultKind,
+    pub operation_kind: ContactOperationKind,
     pub status: PeerContactAdmissionAttemptOutcome,
     pub mirror_receipt: PeerContactMirrorReceipt,
     #[serde(

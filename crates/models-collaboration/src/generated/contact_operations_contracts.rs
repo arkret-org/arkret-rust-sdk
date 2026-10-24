@@ -2,7 +2,7 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/contact-operations.schema.json
-// sha256=98c85f43cb673980e70d3e5bdeb7d5a025dc7411569ad1ac483cbfc86bb23741
+// sha256=5396876b9db1b4d695f0dcbfe32713c2353f72d300bfb60ed6de92f21a988524
 //
 // Input: schemas/authorization-operations.schema.json
 // sha256=b367d60aeb13aa9e524c5201cc1857d8ac9defd5c78293f696a4f4c0a5d4450b
@@ -11,13 +11,13 @@
 // sha256=aa4422be011e02a256a0cfdc072c66b15534eb8de23b76e31329982702e06e26
 //
 // Input: schemas/agent-operations.schema.json
-// sha256=f43b1500107a166134dea8fe97289450aedc12da8db65302be386fe1d4ed2e6a
+// sha256=57acbc5881e4ce66c0742968ae383fe5bda77fe0461abc395560e10fcdca637a
 //
 // Input: schemas/common-ids.schema.json
 // sha256=0cc25a02fe0d9a94f6e41f2cf8f64e492ba36362f1e69a699cf1e684924837ee
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=dc92c416f466a595bc16d56fbbae216e8c660c38914459081d8340c5b55ebb2d
+// sha256=7ef2bac74ff32b9de78cac5bb9318e8c3d600fb7d2d320e1f3fd2fa3d5a5493c
 
 /// Counterpart: `contact-operations.schema.json#/$defs/contact_page`.
 /// Viewer-specific current Contact rows.

@@ -238,9 +238,8 @@ mod participation_expected_version_decimal {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AgentParticipationEntry {
-    #[serde(rename = "target_scope")]
-    pub scope: ParticipationScope,
+pub struct AgentParticipationView {
+    pub target_scope: ParticipationScope,
     pub selection: ParticipationBits,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
     #[serde(with = "arkret_canonical::serde_helpers::nonnegative_int64_decimal")]
@@ -249,7 +248,7 @@ pub struct AgentParticipationEntry {
     pub next_replace_input: Option<ParticipationNextReplaceInput>,
 }
 
-impl AgentParticipationEntry {
+impl AgentParticipationView {
     pub fn validate(&self) -> Result<(), String> {
         if self.version == 0 || self.version > i64::MAX as u64 {
             return Err(
@@ -275,9 +274,8 @@ impl AgentParticipationEntry {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct AgentParticipationEntryWire {
-    #[serde(rename = "target_scope")]
-    scope: ParticipationScope,
+struct AgentParticipationViewWire {
+    target_scope: ParticipationScope,
     selection: ParticipationBits,
     #[serde(with = "arkret_canonical::serde_helpers::nonnegative_int64_decimal")]
     version: u64,
@@ -288,14 +286,14 @@ struct AgentParticipationEntryWire {
     next_replace_input: Option<ParticipationNextReplaceInput>,
 }
 
-impl<'de> Deserialize<'de> for AgentParticipationEntry {
+impl<'de> Deserialize<'de> for AgentParticipationView {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        let wire = AgentParticipationEntryWire::deserialize(deserializer)?;
+        let wire = AgentParticipationViewWire::deserialize(deserializer)?;
         let entry = Self {
-            scope: wire.scope,
+            target_scope: wire.target_scope,
             selection: wire.selection,
             version: wire.version,
             next_replace_input: wire.next_replace_input,
@@ -317,7 +315,7 @@ pub struct AgentParticipationObservation {
     pub session_id: String,
     pub observed_at: chrono::DateTime<chrono::Utc>,
     pub expires_at: chrono::DateTime<chrono::Utc>,
-    pub entries: Vec<AgentParticipationEntry>,
+    pub entries: Vec<AgentParticipationView>,
 }
 
 impl AgentParticipationObservation {
@@ -350,7 +348,7 @@ impl AgentParticipationObservation {
                 .clone(),
         )
         .map_err(|e| e.to_string())?;
-        let entries: Vec<AgentParticipationEntry> = serde_json::from_value(
+        let entries: Vec<AgentParticipationView> = serde_json::from_value(
             details
                 .get("participations")
                 .ok_or("Agent session has no participation observation")?
@@ -360,7 +358,7 @@ impl AgentParticipationObservation {
         let mut scopes = std::collections::BTreeSet::new();
         for entry in &entries {
             entry.validate()?;
-            if !scopes.insert(entry.scope.scope_key()) {
+            if !scopes.insert(entry.target_scope.scope_key()) {
                 return Err("duplicate participation target scope".into());
             }
         }
@@ -389,7 +387,7 @@ impl AgentParticipationObservation {
         scopes.iter().rev().find_map(|scope| {
             self.entries
                 .iter()
-                .find(|entry| &entry.scope == scope)
+                .find(|entry| &entry.target_scope == scope)
                 .map(|entry| entry.selection)
         })
     }
@@ -404,7 +402,10 @@ impl AgentParticipationObservation {
             return Err("participation observation changed owner or moved backwards".into());
         }
         for entry in &next.entries {
-            if let Some(old) = self.entries.iter().find(|old| old.scope == entry.scope)
+            if let Some(old) = self
+                .entries
+                .iter()
+                .find(|old| old.target_scope == entry.target_scope)
                 && (entry.version < old.version
                     || (entry.version == old.version && entry.selection != old.selection))
             {
@@ -442,8 +443,8 @@ mod observation_tests {
             session_id: "session".into(),
             observed_at: "2026-10-05T00:00:00.000Z".parse().unwrap(),
             expires_at: "2026-10-05T00:05:00.000Z".parse().unwrap(),
-            entries: vec![AgentParticipationEntry {
-                scope,
+            entries: vec![AgentParticipationView {
+                target_scope: scope,
                 selection: ParticipationBits::ALL,
                 version: 2,
                 next_replace_input: Some(ParticipationNextReplaceInput {
@@ -462,7 +463,7 @@ mod observation_tests {
         let wire = serde_json::to_value(&entry).unwrap();
         assert_eq!(wire["version"], maximum.to_string());
         assert!(wire.get("next_replace_input").is_none());
-        assert!(serde_json::from_value::<AgentParticipationEntry>(wire).is_ok());
+        assert!(serde_json::from_value::<AgentParticipationView>(wire).is_ok());
         let exhausted = serde_json::json!({"expected_version": maximum.to_string()});
         assert!(serde_json::from_value::<ParticipationNextReplaceInput>(exhausted).is_err());
         assert!(
@@ -539,7 +540,7 @@ mod observation_tests {
             .expected_version = 3;
         old.validate_successor(&next).unwrap();
         assert_eq!(
-            next.observed_selection_for_scopes(&[next.entries[0].scope.clone()]),
+            next.observed_selection_for_scopes(&[next.entries[0].target_scope.clone()]),
             Some(ParticipationBits::NONE)
         );
         next.controller_account.station_id = "ak:did_core:web:another.example".parse().unwrap();

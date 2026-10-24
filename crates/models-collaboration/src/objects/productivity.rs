@@ -184,7 +184,7 @@ pub struct CalendarLocation {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub geo_uri: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub url: Option<String>,
+    pub uri: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -505,7 +505,7 @@ impl CalendarLocation {
             ("title", self.title.as_deref()),
             ("address", self.address.as_deref()),
             ("geo_uri", self.geo_uri.as_deref()),
-            ("url", self.url.as_deref()),
+            ("uri", self.uri.as_deref()),
         ];
         if fields.iter().all(|(_, value)| value.is_none()) {
             return Err(WireError::Protocol(

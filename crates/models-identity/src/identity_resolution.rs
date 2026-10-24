@@ -281,18 +281,20 @@ pub struct PrincipalResolutionAuditEvidence {
     pub account_id: AccountId,
     pub principal_control_realm_id: RealmId,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub principal_genesis_commit: RealmCommit,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub principal_genesis_event: Event,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub founding_device_authorize_event: Event,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Vec<serde_json::Value>)))]
+    pub genesis_commits: [RealmCommit; 2],
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub current_resolution_event: Event,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub predecessor_resolution_events: Vec<Event>,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = Vec<serde_json::Value>)))]
     pub predecessor_resolution_commits: Vec<RealmCommit>,
-    pub history_complete: bool,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub current_resolution_commit: RealmCommit,
+    pub accepted_commit: RealmCommit,
+    pub history_complete: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub next_audit_cursor: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -302,19 +304,26 @@ pub struct PrincipalResolutionAuditEvidence {
 impl PrincipalResolutionAuditEvidence {
     pub fn validate(&self) -> arkret_wire::Result<()> {
         self.validate_history_continuation()?;
-        self.principal_genesis_commit.validate_shape()?;
-        self.current_resolution_commit.validate_shape()?;
-        if self.predecessor_resolution_events.len() != self.predecessor_resolution_commits.len()
-            || self.principal_genesis_commit.event_ref != self.principal_genesis_event.event_id
-            || self.current_resolution_commit.event_ref != self.current_resolution_event.event_id
-            || self.principal_genesis_commit.realm_id != self.principal_control_realm_id
-            || self.principal_genesis_commit.stream_position != 0
-            || self.current_resolution_commit.realm_id != self.principal_control_realm_id
-            || self.principal_genesis_commit.stream_ref
+        arkret_wire::PcrGenesisUnit::new(
+            self.principal_genesis_event.clone(),
+            self.founding_device_authorize_event.clone(),
+        )?
+        .validate_ordered_envelopes()?;
+        self.genesis_commits[0].validate_shape()?;
+        self.genesis_commits[1].validate_successor_of(&self.genesis_commits[0])?;
+        self.accepted_commit.validate_shape()?;
+        if self.genesis_commits[1].event_ref != self.founding_device_authorize_event.event_id
+            || self.predecessor_resolution_events.len() != self.predecessor_resolution_commits.len()
+            || self.genesis_commits[0].event_ref != self.principal_genesis_event.event_id
+            || self.accepted_commit.event_ref != self.current_resolution_event.event_id
+            || self.genesis_commits[0].realm_id != self.principal_control_realm_id
+            || self.genesis_commits[0].stream_position != 0
+            || self.accepted_commit.realm_id != self.principal_control_realm_id
+            || self.genesis_commits[0].stream_ref
                 != (arkret_wire::CommitStreamRef::Realm {
                     realm_id: self.principal_control_realm_id.clone(),
                 })
-            || self.current_resolution_commit.stream_ref != self.principal_genesis_commit.stream_ref
+            || self.accepted_commit.stream_ref != self.genesis_commits[0].stream_ref
             || self.principal_genesis_event.realm_id != self.principal_control_realm_id
             || self.principal_genesis_event.kind != arkret_wire::EventKind::RealmCreate
             || self.current_resolution_event.realm_id != self.principal_control_realm_id
@@ -332,11 +341,11 @@ impl PrincipalResolutionAuditEvidence {
         {
             commit.validate_shape()?;
             if commit.realm_id != self.principal_control_realm_id
-                || commit.stream_ref != self.principal_genesis_commit.stream_ref
+                || commit.stream_ref != self.genesis_commits[0].stream_ref
                 || commit.event_ref != event.event_id
                 || event.realm_id != self.principal_control_realm_id
-                || previous_position.is_some_and(|position| position >= commit.stream_position)
-                || commit.stream_position >= self.current_resolution_commit.stream_position
+                || previous_position.is_some_and(|position| position <= commit.stream_position)
+                || commit.stream_position >= self.accepted_commit.stream_position
             {
                 return Err(arkret_wire::WireError::Protocol(
                     "principal resolution predecessor is not an ordered committed Event in the PCR Realm stream".to_owned(),
@@ -375,48 +384,6 @@ pub struct ResolutionMethodEvidenceBoundary {
     pub to_version_id: String,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum ResolutionDidBindingEvidenceKind {
-    #[serde(rename = "ak.did.binding_evidence.v1")]
-    AkDidBindingEvidenceV1,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum ResolutionDidBindingMethodProofKind {
-    WebvhLog,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ResolutionDidBindingWitness {
-    pub witness_did: Did,
-    pub controlling_organization_did: Did,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ResolutionDidBindingMethodProof {
-    pub kind: ResolutionDidBindingMethodProofKind,
-    pub history_head: String,
-    pub witnesses: Vec<ResolutionDidBindingWitness>,
-    pub witness_proofs_digest: Hash,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ResolutionDidBindingEvidenceReceipt {
-    pub kind: ResolutionDidBindingEvidenceKind,
-    pub method: String,
-    pub document_digest: Hash,
-    pub method_proofs: Vec<ResolutionDidBindingMethodProof>,
-}
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "evidence_kind", rename_all = "snake_case", deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -429,17 +396,17 @@ pub struct ResolutionDidBindingEvidenceReceipt {
 pub enum ResolutionMethodHistoryEvidence {
     WebvhLog {
         boundary: ResolutionMethodEvidenceBoundary,
-        evidence: ResolutionDidBindingEvidenceReceipt,
+        evidence: DidBindingEvidenceReceipt,
         log_entries: Vec<serde_json::Value>,
         witness_records: Vec<serde_json::Value>,
     },
     DidWebDocument {
         boundary: ResolutionMethodEvidenceBoundary,
-        evidence: ResolutionDidBindingEvidenceReceipt,
+        evidence: DidBindingEvidenceReceipt,
     },
     DidKeyExpansion {
         boundary: ResolutionMethodEvidenceBoundary,
-        evidence: ResolutionDidBindingEvidenceReceipt,
+        evidence: DidBindingEvidenceReceipt,
     },
 }
 
@@ -472,7 +439,7 @@ impl ResolutionMethodHistoryEvidence {
     }
 
     #[must_use]
-    pub fn evidence(&self) -> &ResolutionDidBindingEvidenceReceipt {
+    pub fn evidence(&self) -> &DidBindingEvidenceReceipt {
         match self {
             Self::WebvhLog { evidence, .. }
             | Self::DidWebDocument { evidence, .. }
@@ -501,7 +468,7 @@ impl ResolutionMethodHistoryEvidence {
             || (expected_method == "webvh" && proof_count != 1)
             || (expected_method != "webvh" && proof_count != 0)
             || self.evidence().method_proofs.iter().any(|proof| {
-                proof.kind != ResolutionDidBindingMethodProofKind::WebvhLog
+                proof.kind != DidBindingMethodProofKind::WebvhLog
                     || proof.history_head.is_empty()
                     || proof
                         .witnesses
@@ -957,3 +924,8 @@ mod current_principal_tests {
 }
 
 include!("generated/identity_resolution_contracts.rs");
+
+pub use arkret_wire::{
+    DidBindingEvidenceKind, DidBindingEvidenceReceipt, DidBindingMethodProof,
+    DidBindingMethodProofKind, DidBindingWitness,
+};

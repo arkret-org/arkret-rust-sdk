@@ -27,8 +27,6 @@ pub struct Realm {
     pub security_class: Option<SecurityClass>,
     pub trust_domain: TrustDomainId,
     pub governance_station_id: DidCoreId,
-    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
-    pub governance_generation: u64,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub owning_organization_ids: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -61,6 +59,11 @@ pub struct Realm {
         with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
     )]
     pub updated_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_participation:
+        Option<crate::governance::agent_participation::AgentParticipationPolicy>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_authority_lifetime_ms: Option<u64>,
 }
 
 impl Realm {
@@ -92,7 +95,8 @@ impl Realm {
             security_class: None,
             trust_domain,
             governance_station_id,
-            governance_generation: 0,
+            agent_participation: None,
+            max_authority_lifetime_ms: None,
             owning_organization_ids: Vec::new(),
             schema_refs: Vec::new(),
             fields: BTreeMap::new(),

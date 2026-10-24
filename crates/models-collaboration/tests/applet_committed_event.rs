@@ -4,10 +4,9 @@
 
 use arkret_models_collaboration::applet_installation_authority::AppletCommittedEvent;
 use arkret_models_identity::{
-    AccountDeviceSignerEvidence, AuthenticatedServiceResolution, DidDocument,
-    ResolutionDidBindingEvidenceKind, ResolutionDidBindingEvidenceReceipt,
-    ResolutionMethodEvidenceBoundary, ResolutionMethodHistoryEvidence,
-    normalized_did_document_digest,
+    AccountDeviceSignerEvidence, AuthenticatedServiceResolution, DidBindingEvidenceKind,
+    DidBindingEvidenceReceipt, DidDocument, ResolutionMethodEvidenceBoundary,
+    ResolutionMethodHistoryEvidence, normalized_did_document_digest,
 };
 use arkret_wire::{ActorId, DeviceId, Did, DidCoreId};
 use serde_json::{Value, json};
@@ -77,8 +76,8 @@ fn original_device_pair() -> AppletCommittedEvent {
                 from_version_id: "structural-fixture".into(),
                 to_version_id: "structural-fixture".into(),
             },
-            evidence: ResolutionDidBindingEvidenceReceipt {
-                kind: ResolutionDidBindingEvidenceKind::AkDidBindingEvidenceV1,
+            evidence: DidBindingEvidenceReceipt {
+                kind: DidBindingEvidenceKind::AkDidBindingEvidenceV1,
                 method: "webvh".into(),
                 document_digest: normalized_did_document_digest(&document).unwrap(),
                 method_proofs: vec![],
@@ -98,6 +97,8 @@ fn original_device_pair() -> AppletCommittedEvent {
             device_projection_attestation: attestation,
             service_resolution: resolution,
         }),
+
+        producer_signer_fact: None,
     }
 }
 
@@ -188,4 +189,81 @@ fn another_account_device_or_origin_station_is_not_a_matching_root() {
         .service_resolution
         .service_kind = "applet".into();
     assert!(changed.validate_shape().is_err());
+}
+
+#[test]
+fn realm_device_delivery_retains_the_exact_original_fact_and_acceptance_cut() {
+    use arkret_models_collaboration::authority_commit::{
+        RealmDeviceHistoricalSignerFact, RealmDeviceHistoricalSignerFactKind,
+    };
+    use arkret_signatures::{Ed25519PayloadSigner, SignEventOptions, sign_event};
+    use arkret_wire::{AuthoredEvent, Base64UrlString, DidUrl, RealmActorId, RealmCommitId};
+
+    let mut pair = original_device_pair();
+    let did = Did::new("did:webvh:zRealmActorFixture:realm.example").unwrap();
+    let principal = arkret_wire::project_did_to_core_id(&did).unwrap();
+    let device = DeviceId::new("ak:device:0196419b-0000-7000-8000-000000000007").unwrap();
+    let method = DidUrl::new(format!("{did}#{device}")).unwrap();
+    let key = ed25519_dalek::SigningKey::from_bytes(&[0x72; 32]);
+    pair.event.actor_id = ActorId::realm(RealmActorId::new(pair.event.realm_id.clone(), principal));
+    pair.event.producer_proof = None;
+    let mut authored = AuthoredEvent::finalize_with_digest_suite(
+        pair.event,
+        arkret_canonical::DigestSuite::Sha256,
+    )
+    .unwrap();
+    sign_event(
+        &mut authored,
+        &Ed25519PayloadSigner::new(key.clone(), did, method.clone()),
+        SignEventOptions::new().with_created_at(pair.commit.committed_at),
+    )
+    .unwrap();
+    pair.event = authored.into_event();
+    pair.producer_device_evidence = None;
+    let fact = RealmDeviceHistoricalSignerFact {
+        kind: RealmDeviceHistoricalSignerFactKind::RealmDevice,
+        event_id: pair.event.event_id.clone(),
+        actor_id: pair.event.actor_id.clone(),
+        verification_method: method,
+        public_key_base64url: Base64UrlString::new(arkret_canonical::base64url_encode(
+            key.verifying_key().as_bytes(),
+        ))
+        .unwrap(),
+        accepted_at: pair.commit.committed_at,
+        device_id: device,
+        authorization_event_id: pair.commit.event_ref.clone(),
+        authorized_generation_ref: 1,
+    };
+    pair.commit.event_ref = pair.event.event_id.clone();
+    pair.commit.producer_signer_fact_digest = Some(fact.digest().unwrap());
+    pair.commit.commit_id = RealmCommitId::from_digest(arkret_canonical::sha256_bytes(
+        &pair.commit.canonical_id_bytes().unwrap(),
+    ));
+    let unsigned = arkret_canonical::unsigned_value(&pair.commit, &["signature"]).unwrap();
+    pair.commit.signature = arkret_signatures::detached_object::sign_detached_object(
+        &unsigned,
+        arkret_wire::DetachedSignatureContext::RealmCommit,
+        pair.commit.signature.verification_method.clone(),
+        pair.commit.committed_at,
+        &ed25519_dalek::SigningKey::from_bytes(&[0x73; 32]),
+    )
+    .unwrap();
+    pair.producer_signer_fact = Some(fact);
+    pair.validate_structural().unwrap();
+    let value = serde_json::to_value(&pair).unwrap();
+    let restored: AppletCommittedEvent = serde_json::from_value(value.clone()).unwrap();
+    assert_eq!(restored, pair);
+    let mut missing = value.clone();
+    missing
+        .as_object_mut()
+        .unwrap()
+        .remove("producer_signer_fact");
+    assert!(serde_json::from_value::<AppletCommittedEvent>(missing).is_err());
+    let mut null = value;
+    null["producer_signer_fact"] = Value::Null;
+    assert!(serde_json::from_value::<AppletCommittedEvent>(null).is_err());
+    let fact = pair.producer_signer_fact.as_mut().unwrap();
+    fact.accepted_at += chrono::Duration::milliseconds(1);
+    pair.commit.producer_signer_fact_digest = Some(fact.digest().unwrap());
+    assert!(pair.validate_structural().is_err());
 }

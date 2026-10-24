@@ -12,6 +12,15 @@ spec.loader.exec_module(module)
 
 
 class ClosedModelsTests(unittest.TestCase):
+    def test_manifest_provides_match_actual_generated_declarations(self):
+        entry = {'generator': 'closed-models', 'outputs': ['out.rs'], 'provides': ['Example']}
+        module.validate_manifest_provides(self.bindings, {'entries': [entry]})
+        for declared in ([], ['RetiredAlias'], ['Example', 'RetiredAlias'], ['Example', 'Example']):
+            with self.assertRaisesRegex(ValueError, 'provides differ'):
+                module.validate_manifest_provides(self.bindings, {'entries': [{**entry, 'provides': declared}]})
+        with self.assertRaisesRegex(ValueError, 'no output'):
+            module.validate_manifest_provides(self.bindings, {'entries': [{**entry, 'outputs': []}]})
+
     def test_two_schema_types_cannot_collapse_to_one_rust_name(self):
         self.bindings['families'][0]['types'].append({
             'name': 'Example', 'schema': 'another.schema.json'})

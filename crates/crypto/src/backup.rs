@@ -586,9 +586,14 @@ pub fn decrypt_key_backup_envelope(
             "decrypted key backup is not ak.schema.key_backup_plaintext.v1: {error}"
         ))
     })?;
-    if keybag.backup_kind != envelope.backup_kind {
+    if keybag.schema != arkret_wire::SchemaId::KeyBackupPlaintextV1
+        || keybag.backup_id != envelope.backup_id
+        || keybag.backup_kind != envelope.backup_kind
+        || keybag.series_id != envelope.series_id
+        || keybag.series_sequence != envelope.series_sequence
+    {
         return Err(KeyBackupError::InvalidInput(
-            "decrypted keybag backup_kind differs from its envelope".to_owned(),
+            "decrypted keybag identity or series coordinates differ from its envelope".to_owned(),
         ));
     }
     keybag
@@ -857,7 +862,14 @@ fn build_key_backup_envelope_in_series(
             })
         })
         .collect::<Result<Vec<_>>>()?;
-    let plaintext = KeyBackupPlaintext { backup_kind, items };
+    let plaintext = KeyBackupPlaintext {
+        schema: arkret_wire::SchemaId::KeyBackupPlaintextV1,
+        backup_id: backup_id.clone(),
+        backup_kind,
+        series_id: series_id.clone(),
+        series_sequence,
+        items,
+    };
     plaintext
         .validate_against(&contents)
         .map_err(|error| KeyBackupError::InvalidInput(error.to_string()))?;

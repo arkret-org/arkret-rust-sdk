@@ -74,7 +74,7 @@ use crate::binding::{
     LimitedTrust, VerifiedDidBinding, VerifiedDidBindingDocumentInput, VerifiedDidBindingKey,
     document_canonical_digest,
 };
-use crate::binding_digest::{DigestError, EvidenceReceipt};
+use crate::binding_digest::{DidBindingEvidenceReceipt, DigestError};
 use crate::binding_store::{
     AcceptedDidBinding, BindingFreshness, BindingInvalidation, BindingStoreError,
     VerifiedDidBindingStore,
@@ -971,7 +971,8 @@ where
         source,
     };
     let document_digest = document_canonical_digest(&document)?;
-    let receipt = EvidenceReceipt::new(document.id.method(), document_digest, &method_evidence);
+    let receipt =
+        DidBindingEvidenceReceipt::new(document.id.method(), document_digest, &method_evidence);
     let evidence_digest = receipt.digest().map_err(evidence)?;
     let evidence_dependencies = receipt.evidence_dependencies().map_err(evidence)?;
 
@@ -1025,3 +1026,5 @@ fn freshness_satisfies(observed: &BindingFreshness, required: &FreshnessRequirem
 #[cfg(test)]
 #[path = "verifier/tests.rs"]
 mod tests;
+
+use crate::binding_digest::DidBindingEvidenceReceiptExt;

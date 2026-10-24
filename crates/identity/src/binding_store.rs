@@ -37,7 +37,7 @@ use crate::binding::{
     DidBindingPurpose, DidBindingStatus, VerifiedDidBinding, VerifiedDidBindingKey,
     document_canonical_digest,
 };
-use crate::binding_digest::EvidenceReceipt;
+use crate::binding_digest::DidBindingEvidenceReceipt;
 
 // ============================================================================
 // Errors
@@ -82,7 +82,7 @@ pub enum BindingStoreError {
 pub struct AcceptedDidBinding {
     binding: VerifiedDidBinding,
     document: DidDocument,
-    evidence_receipt: EvidenceReceipt,
+    evidence_receipt: DidBindingEvidenceReceipt,
 }
 
 /// Wire shape of [`AcceptedDidBinding`]. Kept separate so `Deserialize` is
@@ -92,7 +92,7 @@ pub struct AcceptedDidBinding {
 struct AcceptedDidBindingWire {
     binding: VerifiedDidBinding,
     document: DidDocument,
-    evidence_receipt: EvidenceReceipt,
+    evidence_receipt: DidBindingEvidenceReceipt,
 }
 
 impl<'de> Deserialize<'de> for AcceptedDidBinding {
@@ -122,7 +122,7 @@ impl AcceptedDidBinding {
     pub fn new(
         binding: VerifiedDidBinding,
         document: DidDocument,
-        evidence_receipt: EvidenceReceipt,
+        evidence_receipt: DidBindingEvidenceReceipt,
     ) -> Result<Self, BindingStoreError> {
         if &document.id != binding.did() {
             return Err(BindingStoreError::DocumentIdMismatch {
@@ -166,7 +166,7 @@ impl AcceptedDidBinding {
 
     /// The retained canonical evidence receipt an auditor recomputes the
     /// binding's `evidence_digest` from.
-    pub fn evidence_receipt(&self) -> &EvidenceReceipt {
+    pub fn evidence_receipt(&self) -> &DidBindingEvidenceReceipt {
         &self.evidence_receipt
     }
 
@@ -640,7 +640,7 @@ mod tests {
             // derives the digest from it rather than picking a literal: a
             // hand-written `evidence_digest` is precisely what the store now
             // refuses.
-            let receipt = EvidenceReceipt::new(
+            let receipt = DidBindingEvidenceReceipt::new(
                 self.did.method(),
                 document_canonical_digest(&document).expect("digest"),
                 &MethodEvidence::none(),
@@ -1039,3 +1039,5 @@ mod tests {
         );
     }
 }
+
+use crate::binding_digest::DidBindingEvidenceReceiptExt;

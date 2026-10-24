@@ -6,7 +6,7 @@ use arkret_models_collaboration::applet_installation_authority::{
 };
 use arkret_models_collaboration::exact_current_state::{
     CapabilityGrantExactCurrentSelector, CapabilityGrantExactCurrentSelectorKind,
-    CurrentCapabilityGrant, ExactCurrentStateEntry, ExactCurrentStateReadResponseBody,
+    CurrentCapabilityGrant, ExactCurrentState, ExactCurrentStateReadResponseBody,
 };
 use arkret_models_collaboration::governance::grant_constraint::GrantConstraint;
 use arkret_test_kit::SignedEventFixtureBuilder;
@@ -100,7 +100,7 @@ fn fixture() -> (
             stream_position: 1,
             commit_id: grant_commit.commit_id.clone(),
         },
-        entry: ExactCurrentStateEntry::CapabilityGrant(CurrentCapabilityGrant {
+        current_state: ExactCurrentState::CapabilityGrant(CurrentCapabilityGrant {
             selector: CapabilityGrantExactCurrentSelector {
                 kind: CapabilityGrantExactCurrentSelectorKind::CapabilityGrant,
                 grant_id: id.clone(),
@@ -121,11 +121,15 @@ fn fixture() -> (
             event: registration,
             commit: registration_commit,
             producer_device_evidence: None,
+
+            producer_signer_fact: None,
         },
         grant_events: vec![AppletCommittedEvent {
             event: grant,
             commit: grant_commit,
             producer_device_evidence: None,
+
+            producer_signer_fact: None,
         }],
         current_states: vec![current],
         current_binding: AppletInstallationCurrentBinding::Inactive,
@@ -153,7 +157,7 @@ fn material_read_matches_exact_requested_grants_without_requiring_an_active_inst
                 .push(changed.current_states[0].clone()),
             2 => {
                 if let ExactCurrentStateReadResponseBody::Present {
-                    entry: ExactCurrentStateEntry::CapabilityGrant(row),
+                    current_state: ExactCurrentState::CapabilityGrant(row),
                     ..
                 } = &mut changed.current_states[0]
                 {
@@ -162,7 +166,7 @@ fn material_read_matches_exact_requested_grants_without_requiring_an_active_inst
             }
             3 => {
                 if let ExactCurrentStateReadResponseBody::Present {
-                    entry: ExactCurrentStateEntry::CapabilityGrant(row),
+                    current_state: ExactCurrentState::CapabilityGrant(row),
                     ..
                 } = &mut changed.current_states[0]
                 {

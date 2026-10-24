@@ -1131,7 +1131,7 @@ fn relation_current_carrier_reuses_the_exact_primary_domain_and_closed_value() {
         .unwrap()
         .iter()
         .find(|case| case["name"] == "authorized_relation_present_snapshot_carrier")
-        .unwrap()["value"]["entry"]
+        .unwrap()["value"]["current_state"]
         .clone();
     let row: CurrentState = serde_json::from_value(entry.clone()).unwrap();
     assert_eq!(serde_json::to_value(&row).unwrap(), entry);

@@ -8,7 +8,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::events_payloads::{DeviceAuthorizationBindingKind, SignatureMaterial};
-use crate::governance::agent_artifacts::{DeviceMetadata, GrantSnapshot, PublicKey};
+use crate::governance::agent_artifacts::{AgentGrantView, DeviceMetadata, PublicKey};
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -414,7 +414,7 @@ pub struct AccountDevicePairResponseBody {
     pub device_id: DeviceId,
     pub authorized_event_ref: CommittedEventRef,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub device_grant: Option<GrantSnapshot>,
+    pub device_grant: Option<AgentGrantView>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub key_backup_hint: Option<serde_json::Map<String, serde_json::Value>>,
 }

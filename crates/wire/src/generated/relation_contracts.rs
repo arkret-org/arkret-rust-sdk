@@ -8,10 +8,10 @@
 // sha256=0cc25a02fe0d9a94f6e41f2cf8f64e492ba36362f1e69a699cf1e684924837ee
 //
 // Input: schemas/event-envelope.schema.json
-// sha256=4ddb02094d953f0a1d96ed17d777d649cadaaa39a417665a4ff5623f9d68a9a2
+// sha256=4fdba7df81f8f6eb6d336e11d3126d4966eb8bfd80b8404c9d1474a90f9c8c1f
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=dc92c416f466a595bc16d56fbbae216e8c660c38914459081d8340c5b55ebb2d
+// sha256=7ef2bac74ff32b9de78cac5bb9318e8c3d600fb7d2d320e1f3fd2fa3d5a5493c
 
 /// Counterpart: `relation.schema.json#/$defs/relation_definition`.
 /// Closed authoring input for `ak.relation.create`.

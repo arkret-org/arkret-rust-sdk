@@ -1,44 +1,45 @@
+//! Signing and native DID verification for the sole canonical IdentityReceipt.
+
 use arkret_canonical::serde_helpers::canonical_timestamp;
-use arkret_models_identity::DetachedPayloadProof;
-use arkret_wire::{Did, DidCoreId, project_did_to_core_id};
+pub use arkret_models_identity::{IdentityReceipt, IdentityReceiptWitnessRole};
+use arkret_wire::{Did, DidCoreId, UnsignedPayloadProof, project_did_to_core_id};
 
 use super::*;
 use crate::verification_method_did;
 
-fn constant_time_digest_eq(a: &Hash, b: &Hash) -> bool {
-    constant_time_eq(a.as_str(), b.as_str())
+#[derive(Serialize)]
+struct IdentityReceiptSigningFields<'a> {
+    schema: &'a str,
+    receipt_id: &'a str,
+    subject_did: &'a Did,
+    sequence: u64,
+    accepted_entry_digest: &'a Hash,
+    registry_id: &'a DidCoreId,
+    witness_role: IdentityReceiptWitnessRole,
+    #[serde(with = "canonical_timestamp")]
+    created_at: DateTime<Utc>,
 }
 
-/// Constant-time string comparison backed by the audited `subtle` crate.
-///
-/// Both inputs are reduced to a fixed-length SHA-256 digest first so the
-/// comparison loop bound never depends on the secret's length, then compared
-/// with `subtle::ConstantTimeEq`.
-fn constant_time_eq(left: &str, right: &str) -> bool {
-    use subtle::ConstantTimeEq;
-    let left = arkret_canonical::canonical::sha256_bytes(left.as_bytes());
-    let right = arkret_canonical::canonical::sha256_bytes(right.as_bytes());
-    left.ct_eq(&right).into()
-}
-
-fn placeholder_digest() -> Hash {
-    Hash::new(format!("sha256:{}", "0".repeat(64))).expect("static digest literal is valid")
-}
-
-/// Issuer role inside the DID registry consensus group
-/// (`identity-receipt.schema.json` `witness_role` enum).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum IdentityReceiptWitnessRole {
-    Writer,
-    Witness,
-    Replica,
-}
-
-impl DidRegistryReceipt {
-    /// Build and sign a receipt with the **registry's** Ed25519 key.
+pub trait IdentityReceiptExt {
     #[allow(clippy::too_many_arguments)]
-    pub fn signed(
+    fn signed(
+        receipt_id: arkret_wire::ReceiptId,
+        did: Did,
+        sequence: u64,
+        accepted_entry_digest: Hash,
+        registry_id: DidCoreId,
+        witness_role: IdentityReceiptWitnessRole,
+        signing_key: &ed25519_dalek::SigningKey,
+        verification_method: &DidUrl,
+    ) -> Result<Self>
+    where
+        Self: Sized;
+    fn verify(&self, resolver: &dyn DidResolver) -> Result<()>;
+    fn verify_with_document(&self, document: &DidDocument) -> Result<()>;
+}
+
+impl IdentityReceiptExt for IdentityReceipt {
+    fn signed(
         receipt_id: arkret_wire::ReceiptId,
         did: Did,
         sequence: u64,
@@ -49,7 +50,34 @@ impl DidRegistryReceipt {
         verification_method: &DidUrl,
     ) -> Result<Self> {
         let created_at = Utc::now();
-        let mut receipt = Self {
+        let receipt_id = receipt_id.to_string();
+        let fields = IdentityReceiptSigningFields {
+            schema: arkret_wire::SchemaId::IDENTITY_RECEIPT_V1,
+            receipt_id: &receipt_id,
+            subject_did: &did,
+            sequence,
+            accepted_entry_digest: &accepted_entry_digest,
+            registry_id: &registry_id,
+            witness_role,
+            created_at,
+        };
+        let proof = UnsignedPayloadProof {
+            kind: "detached_jws".to_owned(),
+            verification_method: verification_method.clone(),
+            payload_digest: Hash::new(arkret_canonical::canonical::canonical_sha256(&fields)?)?,
+            created_at,
+            domain: None,
+            audience: None,
+            proof_purpose: None,
+        };
+        let binding = arkret_models_identity::identity_receipt_proof_binding_bytes(
+            &registry_id,
+            &did,
+            &proof,
+        )?;
+        let jws = arkret_signatures::jws::sign_jws_ed25519(&binding, signing_key)
+            .map_err(IdentityError::Protocol)?;
+        let receipt = Self {
             schema: arkret_wire::SchemaId::IDENTITY_RECEIPT_V1.to_owned(),
             receipt_id,
             subject_did: did,
@@ -59,158 +87,46 @@ impl DidRegistryReceipt {
             witness_role,
             audience: None,
             created_at,
-            signature: DetachedPayloadProof {
-                kind: "detached_jws".to_owned(),
-                verification_method: verification_method.clone(),
-                payload_digest: placeholder_digest(),
-                created_at,
-                domain: None,
-                audience: None,
-                jws: String::new(),
-            },
+            signature: proof.finalize(jws)?,
         };
-        receipt.signature.payload_digest = receipt.payload_digest()?;
-        let binding_bytes = receipt.binding_bytes()?;
-        receipt.signature.jws =
-            arkret_signatures::jws::sign_jws_ed25519(&binding_bytes, signing_key)
-                .map_err(IdentityError::Protocol)?;
+        receipt.validate_proof_binding()?;
         Ok(receipt)
     }
 
-    /// `canonical_digest(receipt without signature)`.
-    pub fn payload_digest(&self) -> Result<Hash> {
-        let value = arkret_canonical::canonical::unsigned_value(self, &["signature"])?;
-        let bytes = arkret_canonical::canonical::canonical_json_bytes(&value)?;
-        Ok(Hash::new(arkret_canonical::canonical::sha256_digest(
-            &bytes,
-        ))?)
-    }
-
-    fn binding_bytes(&self) -> Result<Vec<u8>> {
-        let mut object = serde_json::Map::new();
-        object.insert(
-            "context".to_owned(),
-            Value::String(
-                arkret_models_identity::IDENTITY_RECEIPT_PROOF_BINDING_CONTEXT.to_owned(),
-            ),
-        );
-        object.insert(
-            "payload_digest".to_owned(),
-            Value::String(self.signature.payload_digest.as_str().to_owned()),
-        );
-        object.insert(
-            "registry_id".to_owned(),
-            Value::String(self.registry_id.as_str().to_owned()),
-        );
-        object.insert(
-            "subject_did".to_owned(),
-            Value::String(self.subject_did.as_str().to_owned()),
-        );
-        object.insert(
-            "verification_method".to_owned(),
-            Value::String(self.signature.verification_method.as_str().to_owned()),
-        );
-        object.insert(
-            "created_at".to_owned(),
-            Value::String(arkret_canonical::canonical::format_timestamp_canonical(
-                self.signature.created_at,
-            )),
-        );
-        if let Some(domain) = &self.signature.domain {
-            object.insert("domain".to_owned(), Value::String(domain.clone()));
-        }
-        if let Some(audience) = &self.signature.audience {
-            object.insert("audience".to_owned(), serde_json::to_value(audience)?);
-        }
-        Ok(arkret_canonical::canonical::canonical_json_bytes(
-            &Value::Object(object),
-        )?)
-    }
-
-    /// Resolve the registry authority document, then verify the receipt against
-    /// its current `assertionMethod` relationship.
-    pub fn verify(&self, resolver: &dyn DidResolver) -> Result<()> {
+    fn verify(&self, resolver: &dyn DidResolver) -> Result<()> {
         let registry_did = verification_method_did(self.signature.verification_method.as_str())?;
-        let projected = project_did_to_core_id(&registry_did)?;
-        if projected.as_str() != self.registry_id.as_str() {
+        if project_did_to_core_id(&registry_did)? != self.registry_id {
             return Err(IdentityError::Protocol(
                 "identity receipt registry_id does not match proof controller".to_owned(),
             ));
         }
         let document = resolver.resolve_did_document(&registry_did)?;
-        self.verify_with_document_and_did(&document, &registry_did)
+        verify_receipt_with_document(self, &document, &registry_did)
     }
 
-    /// Verify against an already-pinned current registry authority document.
-    ///
-    /// The method must be active in `assertionMethod`. An externally-named
-    /// method is accepted only when its verification-method object explicitly
-    /// declares `controller == registry_id`.
-    pub fn verify_with_document(&self, document: &DidDocument) -> Result<()> {
-        let registry_did = document.id.clone();
-        self.verify_with_document_and_did(document, &registry_did)
-    }
-
-    fn verify_with_document_and_did(
-        &self,
-        document: &DidDocument,
-        registry_did: &Did,
-    ) -> Result<()> {
-        if !self.accepted_entry_digest.as_str().starts_with("sha256:") {
-            return Err(IdentityError::Protocol(
-                "accepted entry commitment requires SHA-256".to_owned(),
-            ));
-        }
-        if project_did_to_core_id(registry_did)?.as_str() != self.registry_id.as_str() {
-            return Err(IdentityError::Protocol(
-                "identity receipt registry_id does not match proof controller".to_owned(),
-            ));
-        }
-        if self.schema != arkret_wire::SchemaId::IDENTITY_RECEIPT_V1 {
-            return Err(IdentityError::Protocol(format!(
-                "identity receipt schema '{}' is not {}",
-                self.schema,
-                arkret_wire::SchemaId::IDENTITY_RECEIPT_V1
-            )));
-        }
-        if self.signature.kind != "detached_jws" {
-            return Err(IdentityError::Protocol(
-                "identity receipt proof kind must be detached_jws".to_owned(),
-            ));
-        }
-        if self.signature.created_at != self.created_at {
-            return Err(IdentityError::Protocol(
-                "identity receipt proof created_at must equal receipt created_at".to_owned(),
-            ));
-        }
-        match (&self.audience, &self.signature.audience) {
-            (None, None) => {}
-            (Some(expected), Some(arkret_wire::Audience::Single(actual))) if expected == actual => {
-            }
-            _ => {
-                return Err(IdentityError::Protocol(
-                    "identity receipt and proof audience must be the same single value".to_owned(),
-                ));
-            }
-        }
-        let recomputed = self.payload_digest()?;
-        if !constant_time_digest_eq(&recomputed, &self.signature.payload_digest) {
-            return Err(IdentityError::Protocol(
-                "identity receipt payload_digest does not match the canonical receipt bytes"
-                    .to_owned(),
-            ));
-        }
-        let binding_bytes = self.binding_bytes()?;
-        verify_jws_with_document_relationship(
-            &binding_bytes,
-            &self.signature.jws,
-            &self.signature.verification_method,
-            registry_did,
-            document,
-            DidVerificationRelationship::AssertionMethod,
-        )
-        .map_err(|err| IdentityError::Protocol(err.to_string()))
+    fn verify_with_document(&self, document: &DidDocument) -> Result<()> {
+        verify_receipt_with_document(self, document, &document.id)
     }
 }
 
-include!("generated/records_contracts.rs");
+fn verify_receipt_with_document(
+    receipt: &IdentityReceipt,
+    document: &DidDocument,
+    registry_did: &Did,
+) -> Result<()> {
+    receipt.validate_proof_binding()?;
+    if project_did_to_core_id(registry_did)? != receipt.registry_id {
+        return Err(IdentityError::Protocol(
+            "identity receipt registry_id does not match proof controller".to_owned(),
+        ));
+    }
+    verify_jws_with_document_relationship(
+        &receipt.proof_binding_bytes()?,
+        &receipt.signature.jws,
+        &receipt.signature.verification_method,
+        registry_did,
+        document,
+        DidVerificationRelationship::AssertionMethod,
+    )
+    .map_err(|err| IdentityError::Protocol(err.to_string()))
+}

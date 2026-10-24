@@ -555,9 +555,9 @@ pub use http_did_resolver::{
 };
 pub use identity::{
     AuthorityDidHistoryResolver, AuthorityHistoryUnavailable, AuthorityHistoryVerificationError,
-    CompositeDidResolver, DID_WEB_MAX_DOCUMENT_BYTES, DidDocument,
-    DidDocumentVerificationMethodResolver, DidKeriResolver, DidKeyResolver, DidRegistryReceipt,
-    DidResolver, DidWebDocumentHttpResponse, DidWebResolver, HandleAttestation,
+    CompositeDidResolver, DID_WEB_MAX_DOCUMENT_BYTES, DidBindingEvidenceReceiptExt, DidDocument,
+    DidDocumentVerificationMethodResolver, DidKeriResolver, DidKeyResolver, DidResolver,
+    DidWebDocumentHttpResponse, DidWebResolver, HandleAttestation, IdentityReceiptExt,
     IdentityReceiptWitnessRole, ResolvedDid, ResolvedVerificationMethodKey,
     VerifiedAccountBindingReceipt, event_proof_verification_context_with_digest_suite,
     resolve_verification_method_key, resolve_verification_method_key_from_document,

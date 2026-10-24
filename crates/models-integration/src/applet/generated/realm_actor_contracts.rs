@@ -5,19 +5,10 @@
 //! sha256=3e94b6c387b6fa1d895c5c5d5d56d86d7dbeeda40e4e513afb23c904e25f1592
 //!
 //! Input: schemas/current-state.schema.json
-//! sha256=feba0ff19e227c276a3792aaed506b6534bf9ff8ce6c2e91a0ab36c04777785f
+//! sha256=7f7c4f2664ee79f2bda622abea13f8bbb119a2387d89cbe4eeb9af4f3c087428
 //!
 //! Bindings: tools/closed-model-bindings.json
-//! sha256=dc92c416f466a595bc16d56fbbae216e8c660c38914459081d8340c5b55ebb2d
-
-/// Counterpart: `realm-actor.schema.json#/$defs/ghost_external_tuple`.
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmActorGhostExternalTuple {
-    pub protocol: String,
-    pub instance_id: String,
-    pub external_id: String,
-}
+//! sha256=7ef2bac74ff32b9de78cac5bb9318e8c3d600fb7d2d320e1f3fd2fa3d5a5493c
 
 /// Counterpart: `realm-actor.schema.json#/$defs/control_scope/properties/kind`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -82,7 +73,7 @@ pub struct RealmActorCreatePayload {
         skip_serializing_if = "Option::is_none",
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
-    pub external_ref: Option<RealmActorGhostExternalTuple>,
+    pub external_ref: Option<crate::GhostExternalTuple>,
     pub control_signature: arkret_wire::DetachedObjectSignature,
     pub recovery: RealmActorCreatePayloadRecovery,
 }
@@ -135,7 +126,7 @@ pub struct RealmActorCreationTranscript {
         skip_serializing_if = "Option::is_none",
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
-    pub external_ref: Option<RealmActorGhostExternalTuple>,
+    pub external_ref: Option<crate::GhostExternalTuple>,
     pub recovery: RealmActorCreationTranscriptRecovery,
 }
 
@@ -385,13 +376,6 @@ pub struct RealmActorRecoveryValue {
     pub enabled: bool,
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_required_nullable")]
     pub pending: Option<RealmActorRecoveryIntent>,
-}
-
-/// Counterpart: `current-state.schema.json#/$defs/realm_actor_device_generation_value`.
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmActorDeviceGenerationValue {
-    pub current_device_generation_ref: u64,
 }
 
 /// Counterpart: `current-state.schema.json#/$defs/realm_actor_device_authorization_value`.

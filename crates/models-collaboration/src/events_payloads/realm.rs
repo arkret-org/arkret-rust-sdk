@@ -107,6 +107,8 @@ pub struct RealmPreauthPolicy {
 pub struct RealmPolicyBundlePayload {
     pub policy_revision: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_authority_lifetime_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub federation_policy: Option<FederationPolicy>,
     /// Whether a media service listed in `plaintext_visible_services` may
     /// decrypt call media. Absent means `false`. One of three conditions that
@@ -138,6 +140,7 @@ impl RealmPolicyBundlePayload {
     pub fn new(policy_revision: u64) -> Self {
         Self {
             policy_revision,
+            max_authority_lifetime_ms: None,
             federation_policy: None,
             media_service_decryption_allowed: None,
             join_policy: None,
@@ -980,3 +983,5 @@ mod media_service_tests {
 }
 
 include!("generated/realm_contracts.rs");
+
+pub use crate::objects::productivity::SearchPolicy;

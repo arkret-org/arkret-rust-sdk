@@ -15,6 +15,8 @@ pub struct AppletCommittedEvent {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub event: Event,
     pub producer_device_evidence: Option<arkret_models_identity::AccountDeviceSignerEvidence>,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub producer_signer_fact: Option<crate::authority_commit::RealmDeviceHistoricalSignerFact>,
 }
 
 /// Exact decoder for `applet-edge-operations.schema.json#/$defs/applet_committed_event`.
@@ -25,6 +27,11 @@ struct AppletCommittedEventCarrier {
     event: Event,
     #[serde(default, deserialize_with = "deserialize_device_evidence")]
     producer_device_evidence: Option<arkret_models_identity::AccountDeviceSignerEvidence>,
+    #[serde(
+        default,
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    producer_signer_fact: Option<crate::authority_commit::RealmDeviceHistoricalSignerFact>,
 }
 
 fn deserialize_device_evidence<'de, D>(
@@ -46,6 +53,28 @@ impl AppletCommittedEvent {
             event: self.event.clone(),
         }
         .validate_shape()?;
+        let realm_device = self.event.executed_by.is_none()
+            && self.event.actor_id.as_realm_actor_id().is_some()
+            && matches!(
+                self.event.scope_ref,
+                arkret_wire::ScopeRef::Realm { .. } | arkret_wire::ScopeRef::Circle { .. }
+            );
+        if realm_device != self.producer_signer_fact.is_some() {
+            return Err(WireError::Protocol(
+                "Applet Realm Device producer requires exactly its original signer fact".into(),
+            ));
+        }
+        if let Some(fact) = &self.producer_signer_fact {
+            let suite = self.event.event_id.event_digest().digest_suite()?;
+            fact.validate_event_binding(&self.event, suite)?;
+            if self.commit.producer_signer_fact_digest.as_ref() != Some(&fact.digest()?)
+                || self.commit.committed_at != fact.accepted_at
+            {
+                return Err(WireError::Protocol(
+                    "Applet producer fact differs from the original covering Commit".into(),
+                ));
+            }
+        }
         let producer = self.event.account_device_producer()?;
         match (producer, self.producer_device_evidence.as_ref()) {
             (Some(producer), Some(evidence)) => {
@@ -77,6 +106,7 @@ impl<'de> Deserialize<'de> for AppletCommittedEvent {
             commit: carrier.commit,
             event: carrier.event,
             producer_device_evidence: carrier.producer_device_evidence,
+            producer_signer_fact: carrier.producer_signer_fact,
         };
         value
             .validate_structural()
@@ -94,16 +124,16 @@ impl Serialize for AppletCommittedEvent {
             .map_err(serde::ser::Error::custom)?;
         let mut carrier = serializer.serialize_struct(
             "AppletCommittedEvent",
-            if self.producer_device_evidence.is_some() {
-                3
-            } else {
-                2
-            },
+            2 + usize::from(self.producer_device_evidence.is_some())
+                + usize::from(self.producer_signer_fact.is_some()),
         )?;
         carrier.serialize_field("commit", &self.commit)?;
         carrier.serialize_field("event", &self.event)?;
         if let Some(evidence) = &self.producer_device_evidence {
             carrier.serialize_field("producer_device_evidence", evidence)?;
+        }
+        if let Some(fact) = &self.producer_signer_fact {
+            carrier.serialize_field("producer_signer_fact", fact)?;
         }
         carrier.end()
     }
@@ -249,7 +279,7 @@ impl AppletAuthorityMaterialResponseBody {
         use crate::events_payloads::capability::{
             CapabilityGrantCreateBody, CapabilityGrantPayload,
         };
-        use crate::exact_current_state::ExactCurrentStateEntry;
+        use crate::exact_current_state::ExactCurrentState;
         use crate::governance::grant_constraint::{
             CapabilitySubject, GrantConstraintKind, GrantConstraintSubkind,
         };
@@ -293,7 +323,7 @@ impl AppletAuthorityMaterialResponseBody {
         let mut registration_seen = false;
         for result in &self.current_states {
             if let ExactCurrentStateReadResponseBody::Present {
-                entry: ExactCurrentStateEntry::AppletRegistration(row),
+                current_state: ExactCurrentState::AppletRegistration(row),
                 ..
             } = result
             {
@@ -332,7 +362,7 @@ impl AppletAuthorityMaterialResponseBody {
                 continue;
             }
             let ExactCurrentStateReadResponseBody::Present {
-                entry: ExactCurrentStateEntry::CapabilityGrant(row),
+                current_state: ExactCurrentState::CapabilityGrant(row),
                 ..
             } = result
             else {
@@ -494,7 +524,7 @@ fn validate_present_current_states_for_scope(
             realm_id,
             governance_generation,
             effective_stream_head,
-            entry,
+            current_state: entry,
         } = result
         else {
             unreachable!("present results validated above")
@@ -517,7 +547,7 @@ fn validate_present_current_states_for_scope(
             ));
         }
         heads.push(effective_stream_head);
-        if let crate::exact_current_state::ExactCurrentStateEntry::CapabilityGrant(grant) = entry
+        if let crate::exact_current_state::ExactCurrentState::CapabilityGrant(grant) = entry
             && (grant.value.id != grant.selector.grant_id
                 || grant.value.realm_id.as_ref() != Some(realm)
                 || grant.source_stream_ref != grant_stream)
@@ -660,7 +690,7 @@ mod authority_material_current_tests {
         assert!(decode(&json!([formal_outcome("never_written")])).is_err());
         let present = formal_outcome("present");
         // The previous DTO accepted this bare entry and discarded its cut.
-        assert!(decode(&json!([present["entry"]])).is_err());
+        assert!(decode(&json!([present["current_state"]])).is_err());
         for field in ["realm_id", "governance_generation", "effective_stream_head"] {
             let mut missing = present.clone();
             missing.as_object_mut().unwrap().remove(field);
@@ -738,7 +768,7 @@ mod authority_material_current_tests {
             .is_err()
         );
         let mut future = present.clone();
-        future["entry"]["revision"]["stream_position"] = json!(
+        future["current_state"]["revision"]["stream_position"] = json!(
             future["effective_stream_head"]["stream_position"]
                 .as_u64()
                 .unwrap()
@@ -830,7 +860,7 @@ mod authority_material_current_tests {
         let value = json!({
             "status":"present", "realm_id":realm, "governance_generation":"0",
             "effective_stream_head":{"stream_ref":stream, "commit_id":commit,"stream_position":9},
-            "entry":{"selector":{"kind":"capability_grant","grant_id":grant_id},
+            "current_state":{"selector":{"kind":"capability_grant","grant_id":grant_id},
                 "source_stream_ref":stream,"revision":{"commit_id":commit,"stream_position":9},"value":grant}
         });
         let scope = arkret_wire::ScopeRef::Realm {
@@ -854,7 +884,7 @@ mod authority_material_current_tests {
         );
         let mut circle_value = value.clone();
         let circle_stream = arkret_wire::CommitStreamRef::from_scope(&circle_scope, None).unwrap();
-        circle_value["entry"]["source_stream_ref"] = json!(circle_stream);
+        circle_value["current_state"]["source_stream_ref"] = json!(circle_stream);
         circle_value["effective_stream_head"]["stream_ref"] = json!(circle_stream);
         validate_present_current_states_for_scope(
             &circle_scope,
@@ -869,7 +899,7 @@ mod authority_material_current_tests {
             .is_err()
         );
         let mut wrong_id = value;
-        wrong_id["entry"]["value"]["id"] = json!(arkret_wire::GrantId::from_event_id(
+        wrong_id["current_state"]["value"]["id"] = json!(arkret_wire::GrantId::from_event_id(
             &arkret_wire::EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [84; 32],)
         ));
         assert!(

@@ -8,7 +8,7 @@
 
 pub use arkret_models_collaboration::sync_frames::account_subscribe::{
     AccountSubscribeBatch, AccountSubscribeFrame, AccountSubscribeFrameKind,
-    AccountSubscribeReconnectAfter, AccountSubscribeSnapshotResult,
+    AccountSubscribeReadAction, AccountSubscribeReconnectAfter,
     DEFAULT_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS, MAX_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS,
 };
 use arkret_models_collaboration::sync_frames::account_subscribe::{
@@ -24,7 +24,7 @@ fn clamp_reconnect_after_ms(raw: Option<u64>) -> u64 {
 
 pub struct AccountSubscribeFolder {
     frames: Vec<AccountSubscribeFrame>,
-    done: Option<AccountSubscribeSnapshotResult>,
+    done: Option<AccountSubscribeReadAction>,
     failed: bool,
     trace: StreamTraceValidator,
     round_budget: AccountSyncRoundBudget,
@@ -58,7 +58,7 @@ impl AccountSubscribeFolder {
         self.failed = false;
         match frame.kind {
             AccountSubscribeFrameKind::ResyncRequired | AccountSubscribeFrameKind::Unauthorized => {
-                self.done = Some(AccountSubscribeSnapshotResult::ReconnectAfter {
+                self.done = Some(AccountSubscribeReadAction::ReconnectAfter {
                     reconnect_after_ms: clamp_reconnect_after_ms(frame.reconnect_after_ms()),
                     reconnect_cursor: self.trace.reconnect_cursor().map(ToOwned::to_owned),
                     reason: None,
@@ -67,7 +67,7 @@ impl AccountSubscribeFolder {
                 return Ok(true);
             }
             AccountSubscribeFrameKind::Dropped => {
-                self.done = Some(AccountSubscribeSnapshotResult::ReconnectAfter {
+                self.done = Some(AccountSubscribeReadAction::ReconnectAfter {
                     reconnect_after_ms: clamp_reconnect_after_ms(frame.reconnect_after_ms()),
                     reconnect_cursor: self.trace.reconnect_cursor().map(ToOwned::to_owned),
                     reason: None,
@@ -84,7 +84,7 @@ impl AccountSubscribeFolder {
         Ok(false)
     }
 
-    pub fn finish(mut self) -> Result<AccountSubscribeSnapshotResult> {
+    pub fn finish(mut self) -> Result<AccountSubscribeReadAction> {
         if self.failed {
             return Err(Error::Protocol(
                 "account subscribe folder was rejected".to_owned(),
@@ -99,12 +99,10 @@ impl AccountSubscribeFolder {
             .reconnect_cursor()
             .ok_or_else(|| Error::Protocol("account subscribe batch has no cursor".to_owned()))?
             .to_owned();
-        Ok(AccountSubscribeSnapshotResult::Batch(
-            AccountSubscribeBatch {
-                frames: self.frames,
-                cursor,
-            },
-        ))
+        Ok(AccountSubscribeReadAction::Batch(AccountSubscribeBatch {
+            frames: self.frames,
+            cursor,
+        }))
     }
 
     pub fn reconnect_cursor(&self) -> Option<&str> {
@@ -194,7 +192,7 @@ mod tests {
                 .unwrap()
         );
 
-        let AccountSubscribeSnapshotResult::Batch(batch) = folder.finish().unwrap() else {
+        let AccountSubscribeReadAction::Batch(batch) = folder.finish().unwrap() else {
             panic!("expected frame batch");
         };
         assert_eq!(batch.cursor, "ak:cursor:complete");
@@ -222,7 +220,7 @@ mod tests {
                 .unwrap()
         );
 
-        let AccountSubscribeSnapshotResult::Batch(batch) = folder.finish().unwrap() else {
+        let AccountSubscribeReadAction::Batch(batch) = folder.finish().unwrap() else {
             panic!("expected empty projection batch");
         };
         assert!(batch.frames.is_empty());
@@ -262,7 +260,7 @@ mod tests {
             })))
             .unwrap();
 
-        let AccountSubscribeSnapshotResult::Batch(batch) = folder.finish().unwrap() else {
+        let AccountSubscribeReadAction::Batch(batch) = folder.finish().unwrap() else {
             panic!("expected frame batch");
         };
         assert_eq!(batch.frames.len(), 2);
@@ -300,7 +298,7 @@ mod tests {
                 })))
                 .unwrap()
         );
-        let AccountSubscribeSnapshotResult::ReconnectAfter {
+        let AccountSubscribeReadAction::ReconnectAfter {
             reconnect_cursor,
             reset_cursor,
             ..

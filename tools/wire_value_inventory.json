@@ -60,7 +60,7 @@
       "models-collaboration": 72,
       "models-crypto": 2,
       "models-discovery": 4,
-      "models-identity": 12,
+      "models-identity": 13,
       "models-integration": 6,
       "runtime": 5,
       "schema": 1,
@@ -75,23 +75,23 @@
     "by_category": {
       "closed_dispatch": 3,
       "json_authoring": 118,
-      "json_path_mutation": 69,
+      "json_path_mutation": 68,
       "paired_api": 13,
-      "public_value_field": 336
+      "public_value_field": 337
     },
     "by_classification": {
       "independent": 14,
       "internal_or_fixture": 18,
-      "open_json": 75,
-      "polymorphic_boundary": 432
+      "open_json": 76,
+      "polymorphic_boundary": 431
     },
     "by_lifecycle": {
       "retained_boundary": 539
     },
     "by_decision": {
       "independent": 17,
-      "open": 75,
-      "raw": 447
+      "open": 76,
+      "raw": 446
     },
     "by_owner_repository": {
       "arkret-rust-sdk": 183,
@@ -108,8 +108,8 @@
       "closed": 9,
       "open_json": 3,
       "open_json_container": 18,
-      "open_map": 51,
-      "unknown": 458
+      "open_map": 52,
+      "unknown": 457
     }
   },
   "entries": [
@@ -2364,15 +2364,15 @@
       "evidence": "public Value field"
     },
     {
-      "finding": "coland/crates/http/src/wire.rs::HealthOutcome.checks",
+      "finding": "coland/crates/http/src/wire.rs::HealthReport.checks",
       "category": "public_value_field",
-      "rust_field": "coland/crates/http/src/wire.rs::HealthOutcome.checks",
+      "rust_field": "coland/crates/http/src/wire.rs::HealthReport.checks",
       "crate": "http",
       "file": "coland/crates/http/src/wire.rs",
       "path": "coland/crates/http/src/wire.rs",
-      "owner": "HealthOutcome",
+      "owner": "HealthReport",
       "owner_repository": "coland",
-      "symbol": "HealthOutcome.checks",
+      "symbol": "HealthReport.checks",
       "field": "checks",
       "discriminator": null,
       "data_field": "checks",
@@ -5126,7 +5126,7 @@
       "field": "applied_constraints",
       "discriminator": null,
       "data_field": "applied_constraints",
-      "rust_type": "Vec<Value>",
+      "rust_type": "Vec<serde_json::Map<String, Value>>",
       "spec_pointer": "service-operation-dtos.schema.json#/$defs/AuthorizationCheckResponseBody/properties/applied_constraints",
       "schema_shape": "open_json_container",
       "classification": "open_json",
@@ -5136,7 +5136,7 @@
       "action": "Retain only at the exact schema-declared open JSON boundary.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
-      "evidence": "public Vec<Value> field"
+      "evidence": "public Vec<serde_json::Map<String, Value>> field"
     },
     {
       "finding": "crates/models-collaboration/src/governance/authorization.rs::AuthorizationCheckResponseBody.checkpoint",
@@ -5176,7 +5176,7 @@
       "field": "matched_grants",
       "discriminator": null,
       "data_field": "matched_grants",
-      "rust_type": "Vec<Value>",
+      "rust_type": "Vec<serde_json::Map<String, Value>>",
       "spec_pointer": "service-operation-dtos.schema.json#/$defs/AuthorizationCheckResponseBody/properties/matched_grants",
       "schema_shape": "open_json_container",
       "classification": "open_json",
@@ -5186,7 +5186,7 @@
       "action": "Retain only at the exact schema-declared open JSON boundary.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
-      "evidence": "public Vec<Value> field"
+      "evidence": "public Vec<serde_json::Map<String, Value>> field"
     },
     {
       "finding": "crates/models-collaboration/src/governance/authorization.rs::AuthorizationCheckResponseBody.missing_proofs",
@@ -5201,7 +5201,7 @@
       "field": "missing_proofs",
       "discriminator": null,
       "data_field": "missing_proofs",
-      "rust_type": "Vec<Value>",
+      "rust_type": "Vec<serde_json::Map<String, Value>>",
       "spec_pointer": "service-operation-dtos.schema.json#/$defs/AuthorizationCheckResponseBody/properties/missing_proofs",
       "schema_shape": "open_json_container",
       "classification": "open_json",
@@ -5211,7 +5211,7 @@
       "action": "Retain only at the exact schema-declared open JSON boundary.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
-      "evidence": "public Vec<Value> field"
+      "evidence": "public Vec<serde_json::Map<String, Value>> field"
     },
     {
       "finding": "crates/models-collaboration/src/governance/authorization.rs::AuthorizationCheckResponseBody.obligations",
@@ -5226,7 +5226,7 @@
       "field": "obligations",
       "discriminator": null,
       "data_field": "obligations",
-      "rust_type": "Vec<Value>",
+      "rust_type": "Vec<serde_json::Map<String, Value>>",
       "spec_pointer": "service-operation-dtos.schema.json#/$defs/AuthorizationCheckResponseBody/properties/obligations",
       "schema_shape": "open_json_container",
       "classification": "open_json",
@@ -5236,32 +5236,32 @@
       "action": "Retain only at the exact schema-declared open JSON boundary.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
-      "evidence": "public Vec<Value> field"
+      "evidence": "public Vec<serde_json::Map<String, Value>> field"
     },
     {
-      "finding": "crates/models-collaboration/src/governance/authorization.rs::AuthorizationCheckResponseBody.policy_results",
+      "finding": "crates/models-collaboration/src/governance/authorization.rs::AuthorizationCheckResponseBody.policy_evaluations",
       "category": "public_value_field",
-      "rust_field": "crates/models-collaboration/src/governance/authorization.rs::AuthorizationCheckResponseBody.policy_results",
+      "rust_field": "crates/models-collaboration/src/governance/authorization.rs::AuthorizationCheckResponseBody.policy_evaluations",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/governance/authorization.rs",
       "path": "crates/models-collaboration/src/governance/authorization.rs",
       "owner": "AuthorizationCheckResponseBody",
       "owner_repository": "arkret-rust-sdk",
-      "symbol": "AuthorizationCheckResponseBody.policy_results",
-      "field": "policy_results",
+      "symbol": "AuthorizationCheckResponseBody.policy_evaluations",
+      "field": "policy_evaluations",
       "discriminator": null,
-      "data_field": "policy_results",
-      "rust_type": "Vec<Value>",
-      "spec_pointer": "service-operation-dtos.schema.json#/$defs/AuthorizationCheckResponseBody/properties/policy_results",
+      "data_field": "policy_evaluations",
+      "rust_type": "Vec<serde_json::Map<String, Value>>",
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/AuthorizationCheckResponseBody/properties/policy_evaluations",
       "schema_shape": "open_json_container",
       "classification": "open_json",
       "lifecycle": "retained_boundary",
       "decision": "open",
-      "authority": "service-operation-dtos.schema.json#/$defs/AuthorizationCheckResponseBody/properties/policy_results",
+      "authority": "service-operation-dtos.schema.json#/$defs/AuthorizationCheckResponseBody/properties/policy_evaluations",
       "action": "Retain only at the exact schema-declared open JSON boundary.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
-      "evidence": "public Vec<Value> field"
+      "evidence": "public Vec<serde_json::Map<String, Value>> field"
     },
     {
       "finding": "crates/models-collaboration/src/governance/erasure.rs::ErasureReceiptProof.extra",
@@ -6789,6 +6789,31 @@
       "evidence": "public BTreeMap<String, Value> field"
     },
     {
+      "finding": "crates/models-identity/src/identity.rs::IdentityDocumentView.normalized_view",
+      "category": "public_value_field",
+      "rust_field": "crates/models-identity/src/identity.rs::IdentityDocumentView.normalized_view",
+      "crate": "models-identity",
+      "file": "crates/models-identity/src/identity.rs",
+      "path": "crates/models-identity/src/identity.rs",
+      "owner": "IdentityDocumentView",
+      "owner_repository": "arkret-rust-sdk",
+      "symbol": "IdentityDocumentView.normalized_view",
+      "field": "normalized_view",
+      "discriminator": null,
+      "data_field": "normalized_view",
+      "rust_type": "Option<BTreeMap<String, Value>>",
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/IdentityDocumentView/properties/normalized_view",
+      "schema_shape": "open_map",
+      "classification": "open_json",
+      "lifecycle": "retained_boundary",
+      "decision": "open",
+      "authority": "service-operation-dtos.schema.json#/$defs/IdentityDocumentView/properties/normalized_view",
+      "action": "Retain only at the exact schema-declared open JSON boundary.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
+      "evidence": "public Option<BTreeMap<String, Value>> field"
+    },
+    {
       "finding": "crates/models-identity/src/identity.rs::IdentityLogListResponseBody.entries",
       "category": "public_value_field",
       "rust_field": "crates/models-identity/src/identity.rs::IdentityLogListResponseBody.entries",
@@ -7939,25 +7964,25 @@
       "evidence": "public BTreeMap<String, Value> field"
     },
     {
-      "finding": "crates/wire/src/recovery_authority.rs::IssueRecoveryCompletionGrantResponseBody.session_grant_outcome",
+      "finding": "crates/wire/src/recovery_authority.rs::IssueRecoveryCompletionGrantResponseBody.issued_session",
       "category": "public_value_field",
-      "rust_field": "crates/wire/src/recovery_authority.rs::IssueRecoveryCompletionGrantResponseBody.session_grant_outcome",
+      "rust_field": "crates/wire/src/recovery_authority.rs::IssueRecoveryCompletionGrantResponseBody.issued_session",
       "crate": "wire",
       "file": "crates/wire/src/recovery_authority.rs",
       "path": "crates/wire/src/recovery_authority.rs",
       "owner": "IssueRecoveryCompletionGrantResponseBody",
       "owner_repository": "arkret-rust-sdk",
-      "symbol": "IssueRecoveryCompletionGrantResponseBody.session_grant_outcome",
-      "field": "session_grant_outcome",
+      "symbol": "IssueRecoveryCompletionGrantResponseBody.issued_session",
+      "field": "issued_session",
       "discriminator": null,
-      "data_field": "session_grant_outcome",
+      "data_field": "issued_session",
       "rust_type": "Value",
-      "spec_pointer": "recovery-authority.schema.json#/$defs/issue_recovery_completion_grant_response_body/properties/session_grant_outcome",
+      "spec_pointer": "recovery-authority.schema.json#/$defs/issue_recovery_completion_grant_response_body/properties/issued_session",
       "schema_shape": "closed",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
-      "authority": "recovery-authority.schema.json#/$defs/issue_recovery_completion_grant_response_body/properties/session_grant_outcome",
+      "authority": "recovery-authority.schema.json#/$defs/issue_recovery_completion_grant_response_body/properties/issued_session",
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic.",
@@ -12212,31 +12237,6 @@
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated.",
       "evidence": "object.insert("
-    },
-    {
-      "finding": "json_path_mutation:crates/identity/src/binding_digest.rs::canonical_value:c64473850a49f55d",
-      "category": "json_path_mutation",
-      "rust_field": null,
-      "crate": null,
-      "file": "crates/identity/src/binding_digest.rs",
-      "path": "crates/identity/src/binding_digest.rs",
-      "owner": "canonical_value",
-      "owner_repository": "arkret-rust-sdk",
-      "symbol": "canonical_value",
-      "field": "kind",
-      "discriminator": null,
-      "data_field": "kind",
-      "rust_type": null,
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec protocol schema owning kind",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated.",
-      "evidence": "object.insert(\"kind\".to_owned(), Value::String(\"webvh_log\".to_owned()));"
     },
     {
       "finding": "json_path_mutation:crates/models-collaboration/src/contact_operations.rs::canonical_signing_bytes_without_signature:fa751b582c4c97b1",

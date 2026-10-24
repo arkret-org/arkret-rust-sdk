@@ -2,13 +2,13 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/erasure-receipt.schema.json
-// sha256=7fb4c44b04070f87bb21646aecc119037aea425affaa47945c368d51383bf5bd
+// sha256=08eddb4648dd9b05e0442a12af61f84a511f507cb8f3e182eaa6e567807a23c1
 //
 // Input: schemas/time.schema.json
 // sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=dc92c416f466a595bc16d56fbbae216e8c660c38914459081d8340c5b55ebb2d
+// sha256=7ef2bac74ff32b9de78cac5bb9318e8c3d600fb7d2d320e1f3fd2fa3d5a5493c
 
 /// Counterpart: `erasure-receipt.schema.json#/properties/peer_receipts/items`.
 /// One per-peer fanout acknowledgement record maintained by the issuing server

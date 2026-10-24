@@ -376,6 +376,20 @@ class Generator:
         return outputs
 
 
+def validate_manifest_provides(bindings, manifest):
+    by_output = {family['output']: [row['name'] for row in family['types']]
+                 for family in bindings['families']}
+    for entry in manifest['entries']:
+        if entry['generator'] != 'closed-models':
+            continue
+        if not entry['outputs']:
+            raise ValueError('closed-model generation entry has no output')
+        expected = [name for path in entry['outputs'] for name in by_output[path]]
+        declared = entry.get('provides', [])
+        if len(declared) != len(set(declared)) or set(declared) != set(expected):
+            raise ValueError('closed-model provides differ from actual generated declarations')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--artifacts-dir", required=True, type=Path)
@@ -389,6 +403,7 @@ def main():
     selected = [family["output"] for family in bindings["families"]]
     if len(set(selected)) != len(selected) or sorted(selected) != sorted(declared):
         raise ValueError("closed model bindings and generation manifest output sets differ")
+    validate_manifest_provides(bindings, manifest)
     selected_outputs = set(args.output) or None
     if selected_outputs is not None and not selected_outputs.issubset(declared):
         raise ValueError("selected output is not declared in the closed-model generation manifest")

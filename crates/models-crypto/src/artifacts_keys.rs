@@ -16,7 +16,11 @@ use crate::{SecretStorageContentIndex, SecretStorageItemKind};
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyBackupPlaintext {
+    pub schema: arkret_wire::SchemaId,
+    pub backup_id: arkret_wire::BackupId,
     pub backup_kind: crate::BackupKind,
+    pub series_id: arkret_wire::BackupSeriesId,
+    pub series_sequence: u64,
     pub items: Vec<SecretStorageSecret>,
 }
 
@@ -353,14 +357,14 @@ where
 }
 
 pub type AlgorithmCounts = BTreeMap<NonEmptyString, u64>;
-pub type AlgorithmKeyRecords = BTreeMap<NonEmptyString, KeyRecord>;
+pub type AlgorithmPrekeys = BTreeMap<NonEmptyString, SignedPrekey>;
 pub type DeviceAlgorithmMap = BTreeMap<DeviceId, NonEmptyString>;
-pub type DeviceKeyRecords = BTreeMap<DeviceId, AlgorithmKeyRecords>;
+pub type DevicePrekeys = BTreeMap<DeviceId, AlgorithmPrekeys>;
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct KeyRecord {
+pub struct SignedPrekey {
     pub key: Base64UrlString,
     pub algorithm: NonEmptyString,
     pub signature: KeyOperationSignature,
@@ -392,7 +396,7 @@ pub struct AccountDeviceAlgorithmEntry {
 #[serde(deny_unknown_fields)]
 pub struct AccountDeviceKeyEntry {
     pub account_id: AccountId,
-    pub device_keys: DeviceKeyRecords,
+    pub device_keys: DevicePrekeys,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

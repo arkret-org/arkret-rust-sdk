@@ -20,7 +20,7 @@ import argparse
 import json
 import re
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -45,7 +45,7 @@ RENAME_ALL_RE = re.compile(r'\brename_all\s*=\s*"([^"]+)"')
 SKIP_RE = re.compile(r"\b(?:skip|skip_serializing)\b")
 FLATTEN_RE = re.compile(r"\bflatten\b")
 NAMED_FIELD_RE = re.compile(
-    r"^\s*(?:pub(?:\s*\([^)]*\))?\s+)?(?:r#)?([A-Za-z_][A-Za-z0-9_]*)\s*:(?!:)\s*(.+)\Z",
+    r"(?:^|(?<=\]))\s*(?:pub(?:\s*\([^)]*\))?\s+)?(?:r#)?([A-Za-z_][A-Za-z0-9_]*)\s*:(?!:)\s*(.+)\Z",
     re.DOTALL | re.MULTILINE,
 )
 STRUCT_TRANSFORM_RE = re.compile(r"\b(?:transparent|into|try_into)\b")
@@ -62,35 +62,39 @@ class RustStruct:
     pointer: str | None
     unsupported_reason: str | None
     scalar_fields: dict[str, tuple[str, str]]
+    serializable: bool = False
 
 
-def direct_docs(source: str, start: int) -> str:
-    """Return only rustdoc attached to this declaration, never an outer type."""
-    lines = source[:start].splitlines()
-    index = len(lines) - 1
-    while index >= 0 and (
-        not lines[index].strip() or lines[index].lstrip().startswith("#")
-    ):
-        index -= 1
-    selected: list[str] = []
-    while index >= 0 and lines[index].lstrip().startswith("///"):
-        selected.append(lines[index].strip())
-        index -= 1
-    return "\n".join(reversed(selected))
+def attached_prefix(source: str, start: int, masked_source: str | None = None) -> str:
+    """Read attached attributes and trivia, including multiline attributes."""
+    masked = masked_source[:start] if masked_source is not None else mask_non_code(source[:start])
+    cursor = len(masked)
+    while True:
+        cursor = len(masked[:cursor].rstrip())
+        if cursor == 0 or masked[cursor - 1] != ']':
+            return source[cursor:start]
+        closing = cursor
+        depth = 1
+        cursor -= 1
+        while cursor and depth:
+            cursor -= 1
+            if masked[cursor] == ']':
+                depth += 1
+            elif masked[cursor] == '[':
+                depth -= 1
+        preceding = masked[:cursor].rstrip()
+        if not preceding.endswith('#'):
+            return source[closing:start]
+        cursor = len(preceding) - 1
 
 
-def preceding_attributes(source: str, start: int) -> str:
-    lines = source[:start].splitlines()
-    selected: list[str] = []
-    index = len(lines) - 1
-    while index >= 0:
-        stripped = lines[index].strip()
-        if stripped.startswith("#[") or stripped.startswith("///") or not stripped:
-            selected.append(lines[index])
-            index -= 1
-            continue
-        break
-    return "\n".join(reversed(selected))
+def direct_docs(source: str, start: int, masked_source: str | None = None) -> str:
+    return '\n'.join(line.strip() for line in attached_prefix(source, start, masked_source).splitlines()
+                     if line.lstrip().startswith('///'))
+
+
+def preceding_attributes(source: str, start: int, masked_source: str | None = None) -> str:
+    return attached_prefix(source, start, masked_source)
 
 
 def rename_field(name: str, style: str | None) -> str:
@@ -120,7 +124,7 @@ def parse_struct(
     closing = matching_brace(masked, opening)
     body = source[opening + 1 : closing]
     masked_body = masked[opening + 1 : closing]
-    attributes = preceding_attributes(source, match.start())
+    attributes = preceding_attributes(source, match.start(), masked)
     serde_attributes = " ".join(SERDE_RE.findall(attributes))
     rename_all_match = RENAME_ALL_RE.search(serde_attributes)
     rename_all = rename_all_match.group(1) if rename_all_match else None
@@ -148,7 +152,7 @@ def parse_struct(
         field_name = rename_match.group(1) if rename_match else rename_field(field_match.group(1), rename_all)
         fields.add(field_name)
         scalar_fields[field_name] = (field_match.group(2), field_attributes)
-    docs = direct_docs(source, match.start())
+    docs = direct_docs(source, match.start(), masked)
     pointer_match = POINTER_RE.search(docs)
     pointer = normalize_pointer(pointer_match.group(1)) if pointer_match else None
     relative = path.relative_to(root).as_posix()
@@ -162,6 +166,9 @@ def parse_struct(
         pointer=pointer,
         unsupported_reason=unsupported_reason,
         scalar_fields=scalar_fields,
+        serializable=(bool(re.search(r'\bderive\s*\([^)]*\bSerialize\b', mask_non_code(attributes))) or bool(re.search(
+            r'\bimpl(?:\s*<[^{};]*>)?\s+(?:serde::)?Serialize\s+for\s+' + re.escape(name) + r'\b',
+            masked))),
     )
 
 
@@ -295,6 +302,64 @@ def load_registry(path: Path) -> dict[str, Any]:
     return document
 
 
+def named_object_candidates(spec_root: Path) -> dict[str, set[str]]:
+    """Find explicit definition names and conventional root names for review.
+
+    A name match requires an explicit binding; it never chooses that binding.
+    For example DndSchedule binds to the nested schedule, not the document root.
+    """
+    resolver = SchemaResolver(spec_root)
+    candidates: dict[str, set[str]] = {}
+    for path in sorted(spec_root.glob("*.schema.json")):
+        document = json.loads(path.read_text(encoding="utf-8"))
+        root_name = path.name.removesuffix(".schema.json").replace("-", "_")
+        declarations = [(root_name, document, path.name)]
+        declarations.extend((name, node, path.name + "#/$defs/" + name)
+                            for name, node in document.get("$defs", {}).items())
+        for name, node, pointer in declarations:
+            name = "".join(word[:1].upper() + word[1:] for word in name.split("_"))
+            if isinstance(node, dict) and schema_property_names(resolver, path, node):
+                candidates.setdefault(name, set()).add(pointer)
+    return candidates
+
+
+def custom_serializer(item: RustStruct, source_root: Path) -> str | None:
+    source = (source_root / item.file).read_text(encoding='utf-8')
+    masked = mask_non_code(source)
+    match = re.search(r'\bimpl\s+(?:serde::)?Serialize\s+for\s+' + re.escape(item.name) + r'\b', masked)
+    if not match:
+        return None
+    opening = masked.index('{', match.end())
+    return source[opening + 1:matching_brace(masked, opening)]
+
+
+def serializer_members(body: str) -> tuple[set[str], bool]:
+    calls = re.findall(r'\.serialize_(?:entry|field)\s*\(\s*([^,]+),', body)
+    fields = {match[1] for value in calls
+              if (match := re.fullmatch(r'\s*"([^"]+)"\s*', value))}
+    return fields, any(re.fullmatch(r'\s*"[^"]+"\s*', value) is None for value in calls)
+
+
+def adapter_struct(adapter: str, item: RustStruct, source_root: Path) -> RustStruct:
+    file_name, separator, name = adapter.rpartition('::')
+    if not separator or file_name != item.file:
+        raise ValueError('wire_adapter must be one named private carrier in the same source file')
+    path = source_root / file_name
+    source = path.read_text(encoding='utf-8')
+    masked = mask_non_code(source)
+    matches = list(re.finditer(r'\bstruct\s+(' + re.escape(name) + r')\s*\{', masked))
+    if len(matches) != 1:
+        raise ValueError('wire_adapter must resolve to exactly one declaration')
+    if item.has_flatten:
+        public = re.search(r'\bpub\s+struct\s+' + re.escape(item.name) + r'\b', masked)
+        attributes = preceding_attributes(source, public.start(), masked) if public else ''
+        if not re.search(r'\btry_from\s*=\s*"' + re.escape(name) + '"', attributes):
+            raise ValueError('flattened wire_adapter must be the actual validating decode representation')
+    elif name not in (custom_serializer(item, source_root) or ''):
+        raise ValueError('custom serializer must use its declared wire_adapter')
+    return parse_struct(path, matches[0], source, masked, source_root)
+
+
 def validate(
     registry_path: Path = DEFAULT_REGISTRY,
     spec_root: Path = DEFAULT_SPEC_ROOT,
@@ -321,6 +386,13 @@ def validate(
                 f"unregistered schema counterpart {rust_type} ({item.pointer}); "
                 "add an exact mapping or explained exemption"
             )
+    candidates = named_object_candidates(spec_root)
+    for rust_type, item in structs.items():
+        if item.serializable and item.name in candidates and rust_type not in registered:
+            errors.append(
+                f"unregistered named object {rust_type}; explicitly bind its canonical "
+                "schema or its checked wire representation (name equality is not identity)"
+            )
     resolver = SchemaResolver(spec_root)
     for entry in mappings:
         rust_type = entry.get("rust_type")
@@ -331,6 +403,22 @@ def validate(
         if item is None:
             errors.append(f"registered Rust struct no longer exists: {rust_type}")
             continue
+        serializer = custom_serializer(item, source_root)
+        if 'wire_adapter' in entry:
+            try:
+                item = adapter_struct(entry['wire_adapter'], item, source_root)
+            except (ValueError, KeyError) as error:
+                errors.append(f'wire representation for {rust_type}: {error}')
+                continue
+        if entry.get('manual_map') is True:
+            if serializer is None or 'serialize_map' not in serializer:
+                errors.append(f'manual_map for {rust_type} requires its actual map serializer')
+                continue
+            fields, _dynamic = serializer_members(serializer)
+            if not fields:
+                errors.append(f'manual_map for {rust_type} has no statically named members')
+                continue
+            item = replace(item, fields=frozenset(fields))
         if not isinstance(pointer, str):
             errors.append(f"mapping for {rust_type} has no schema pointer")
             continue
@@ -363,6 +451,12 @@ def validate(
                 raise ValueError(f"unknown schema_field_set {field_set!r}")
             schema_fields = schema_property_names(resolver, schema_path, node, accepted=field_set == "accepted")
             decimal_formats = decimal_property_formats(resolver, schema_path, node)
+            if serializer is not None:
+                emitted, dynamic = serializer_members(serializer)
+                if emitted and not emitted <= schema_fields:
+                    errors.append(f'custom serializer for {rust_type} emits unregistered members: {sorted(emitted - schema_fields)}')
+                if entry.get('manual_map') is True and dynamic and node.get('additionalProperties') is not True:
+                    errors.append(f'custom map serializer for {rust_type} needs an explicit open extension contract')
         except (FileNotFoundError, KeyError, ValueError, json.JSONDecodeError) as error:
             errors.append(f"cannot resolve {pointer} for {rust_type}: {error}")
             continue
@@ -466,7 +560,7 @@ def main() -> int:
     registry = load_registry(args.registry)
     print(
         "schema struct gate passed "
-        f"({len(registry['mappings'])} exact mappings, {len(registry['exemptions'])} exemptions)"
+        f"({len(registry['mappings'])} registered mappings, {len(registry['exemptions'])} exemptions)"
     )
     return 0
 

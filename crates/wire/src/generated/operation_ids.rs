@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-24.4;
-//! sha256=41ba0124d0722954caf755d55e28b1ed4faa05f014c2a8e02549035eda4a76e6 Entries: registered=225
+//! Input: registry/contract-registry.json; version=2026-10-24.5;
+//! sha256=8032fa87b7a51d8ae5098b6c16de960b45704022744148e422daa523cea67870 Entries: registered=225
 
 use serde::{Deserialize, Serialize};
 
@@ -2191,7 +2191,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         retry_safe: None,
         request_schema_ref: None,
         response_schema_ref: Some(
-            "schemas/applet-edge-operations.schema.json#/$defs/applet_third_party_location_lookup_response_body",
+            "schemas/applet-edge-operations.schema.json#/$defs/applet_realm_view",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -3597,7 +3597,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("idempotency_key"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/erasure-receipt-operations.schema.json#/$defs/erasure_receipt_submit_request_body",
+            "schemas/erasure-receipt-operations.schema.json#/$defs/erasure_receipt_package",
         ),
         response_schema_ref: Some(
             "schemas/erasure-receipt-operations.schema.json#/$defs/erasure_receipt_submit_response_body",
@@ -3625,7 +3625,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         retry_safe: None,
         request_schema_ref: None,
         response_schema_ref: Some(
-            "schemas/erasure-receipt-operations.schema.json#/$defs/erasure_receipt_resource",
+            "schemas/erasure-receipt-operations.schema.json#/$defs/erasure_receipt_package",
         ),
         uncertain_outcome: None,
         durable_effect: None,

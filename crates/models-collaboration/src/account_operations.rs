@@ -3,7 +3,7 @@
 use arkret_models_identity::{
     AccountBindingReceipt, AccountDeviceSummary, AccountMaterializedProfile,
     AccountRegistrationAudit, AccountRegistrationControlProof, AccountRegistrationPolicyEvidence,
-    HandleClaim, IdentityCreationRegistration,
+    HandleClaim, IdentityCreationRegistration, PublishedIdentityRegistration,
 };
 use arkret_wire::{
     Did, DidCoreId, EventAdmissionSubmission, EventKind, Hash, RealmCommit, Result, WireError,
@@ -41,7 +41,7 @@ pub struct AccountRegisterRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub device_id: Option<arkret_wire::DeviceId>,
+    pub published_identity: Option<PublishedIdentityRegistration>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proof: Option<AccountRegistrationControlProof>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -52,10 +52,33 @@ pub struct AccountRegisterRequestBody {
 
 impl AccountRegisterRequestBody {
     pub fn validate(&self) -> Result<()> {
-        if self.proof.is_some() == self.identity_creation.is_some() {
-            return Err(WireError::Protocol(
-                "account register requires exactly one registration authority branch".into(),
-            ));
+        match (
+            &self.identity_creation,
+            &self.published_identity,
+            &self.proof,
+        ) {
+            (Some(creation), None, None) => {
+                creation.validate()?;
+                if creation.did != self.did {
+                    return Err(WireError::Protocol(
+                        "account registration identity creation DID differs".into(),
+                    ));
+                }
+            }
+            (None, Some(published), Some(proof)) => {
+                published.validate_against(proof)?;
+                if published.did != self.did {
+                    return Err(WireError::Protocol(
+                        "account registration published DID differs".into(),
+                    ));
+                }
+            }
+            _ => {
+                return Err(WireError::Protocol(
+                    "account register requires identity_creation or proof with published_identity"
+                        .into(),
+                ));
+            }
         }
         if project_did_to_core_id(&self.did)? != self.principal_id {
             return Err(WireError::Protocol(
@@ -84,10 +107,8 @@ pub struct AccountRegisterResponseBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub registration_audit: Option<AccountRegistrationAudit>,
     pub binding_receipt: AccountBindingReceipt,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub pcr_genesis_commits: Option<[RealmCommit; 2]>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub session_grant_outcome: Option<SessionGrantResponseBody>,
+    pub pcr_genesis_commits: [RealmCommit; 2],
+    pub issued_session: SessionGrantResponseBody,
 }
 
 impl AccountRegisterResponseBody {
@@ -102,10 +123,9 @@ impl AccountRegisterResponseBody {
             ));
         }
         self.binding_receipt.validate_shape()?;
-        if let Some([create, authorize]) = &self.pcr_genesis_commits {
-            create.validate_shape()?;
-            authorize.validate_successor_of(create)?;
-        }
+        let [create, authorize] = &self.pcr_genesis_commits;
+        create.validate_shape()?;
+        authorize.validate_successor_of(create)?;
         Ok(())
     }
 }

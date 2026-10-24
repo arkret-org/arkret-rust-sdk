@@ -136,16 +136,27 @@ mod identity_resolve_tests {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct IdentityDocumentView {
     pub did_document: BTreeMap<String, Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub sequence: Option<u64>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    #[cfg_attr(
-        feature = "openapi",
-        salvo(schema(value_type = Vec<serde_json::Value>))
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
-    pub receipts: Vec<IdentityReceipt>,
+    pub normalized_view: Option<BTreeMap<String, Value>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub method_evidence: Option<crate::identity_resolution::ResolutionMethodHistoryEvidence>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
+    )]
+    pub cached_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -346,5 +357,32 @@ mod did_operation_tests {
         let mut value = serde_json::to_value(native_request()).unwrap();
         value["policy_context"] = serde_json::json!({"purpose": "did_update"});
         assert!(serde_json::from_value::<DidOperationSubmitRequestBody>(value).is_err());
+    }
+}
+
+#[cfg(test)]
+mod document_view_contract_tests {
+    use serde_json::json;
+
+    use super::IdentityDocumentView;
+
+    #[test]
+    fn document_view_matches_the_closed_read_projection() {
+        let value = json!({"did_document":{"id":"did:web:example.com"},"normalized_view":{"principal_id":"example"},"cached_at":"2026-10-24T00:00:00.000Z"});
+        let view: IdentityDocumentView = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(serde_json::to_value(view).unwrap(), value);
+        for (name, extra) in [
+            ("sequence", json!(1)),
+            ("receipts", json!([])),
+            ("normalized_view", json!(null)),
+            ("method_evidence", json!(null)),
+        ] {
+            let mut changed = value.clone();
+            changed[name] = extra;
+            assert!(
+                serde_json::from_value::<IdentityDocumentView>(changed).is_err(),
+                "{name}"
+            );
+        }
     }
 }

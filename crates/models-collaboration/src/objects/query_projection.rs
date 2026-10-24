@@ -516,7 +516,7 @@ mod projection_row_tests {
 pub struct MorphPage {
     pub realm_id: RealmId,
     pub morphs: Vec<MorphView>,
-    pub total: u64,
+    pub total_count: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<Cursor>,
     pub has_more: bool,
@@ -526,7 +526,7 @@ impl MorphPage {
     pub fn validate(&self) -> Result<()> {
         validate_projection_page(
             self.morphs.len(),
-            self.total,
+            self.total_count,
             self.has_more,
             self.next_cursor.is_some(),
         )?;
@@ -551,7 +551,7 @@ impl MorphPage {
 pub struct SpacePage {
     pub realm_id: RealmId,
     pub spaces: Vec<SpaceView>,
-    pub total: u64,
+    pub total_count: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<Cursor>,
     pub has_more: bool,
@@ -561,7 +561,7 @@ impl SpacePage {
     pub fn validate(&self) -> Result<()> {
         validate_projection_page(
             self.spaces.len(),
-            self.total,
+            self.total_count,
             self.has_more,
             self.next_cursor.is_some(),
         )?;
@@ -585,7 +585,7 @@ impl SpacePage {
 pub struct StrandPage {
     pub realm_id: RealmId,
     pub strands: Vec<StrandView>,
-    pub total: u64,
+    pub total_count: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<Cursor>,
     pub has_more: bool,
@@ -595,7 +595,7 @@ impl StrandPage {
     pub fn validate(&self) -> Result<()> {
         validate_projection_page(
             self.strands.len(),
-            self.total,
+            self.total_count,
             self.has_more,
             self.next_cursor.is_some(),
         )?;
@@ -648,7 +648,7 @@ mod projection_list_tests {
         json!({
             "realm_id": "ak:realm:ARQRpvtCGBgQfVQzTK4_Hgbg0D0HSnc3gPCvXOQUICir",
             rows_field: [],
-            "total": 0,
+            "total_count": 0,
             "has_more": false
         })
     }
@@ -677,7 +677,7 @@ mod projection_list_tests {
 
     #[test]
     fn projection_lists_require_every_schema_member() {
-        for required in ["realm_id", "morphs", "total", "has_more"] {
+        for required in ["realm_id", "morphs", "total_count", "has_more"] {
             let mut missing = empty_list_value("morphs");
             missing.as_object_mut().unwrap().remove(required);
             assert!(
@@ -704,7 +704,7 @@ mod projection_list_tests {
         undercounts
             .as_object_mut()
             .unwrap()
-            .insert("total".to_owned(), json!(3));
+            .insert("total_count".to_owned(), json!(3));
         let parsed: MorphPage = serde_json::from_value(undercounts).expect("closed morph list");
         assert!(
             parsed.validate().is_err(),

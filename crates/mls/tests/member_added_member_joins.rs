@@ -2,7 +2,7 @@
 //! seals carries the ratchet tree the added member joins with
 //! (encryption-and-audit.md §2.2, RFC 9420 §12.4.3.3).
 
-use arkret_mls::{ArkretMlsGroup, ArkretMlsIdentity, ArkretMlsSigner, MlsAddMemberResult};
+use arkret_mls::{ArkretMlsGroup, ArkretMlsIdentity, ArkretMlsSigner, MlsMemberAdditionArtifacts};
 use arkret_models_crypto::{MlsCommitPayload, MlsGovernanceBindingPayload, MlsKeyPackageState};
 use arkret_wire::{
     AccountId, ActorId, CommitStreamRef, CommittedEventFullView, DetachedObjectSignature,
@@ -122,7 +122,7 @@ fn signature(context: DetachedSignatureContext) -> DetachedObjectSignature {
 fn accepted(
     committer: &ActorId,
     base: &EventId,
-    add: &MlsAddMemberResult,
+    add: &MlsMemberAdditionArtifacts,
     binding: MlsGovernanceBindingPayload,
     position: u64,
 ) -> CommittedEventFullView {
@@ -170,7 +170,7 @@ fn delivery(
     view: &CommittedEventFullView,
     recipient: &ActorId,
     endpoint: &DeviceId,
-    add: &MlsAddMemberResult,
+    add: &MlsMemberAdditionArtifacts,
 ) -> MlsWelcomeDelivery {
     MlsWelcomeDelivery {
         welcome_id: MlsWelcomeDeliveryId::new(

@@ -2,19 +2,19 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/event-payload.schema.json
-// sha256=74e26ef25ba5846ba74149c301a7ff5c7f1afc507f2cfd207cfe0edc060507bf
+// sha256=6e557b3350ecfe34a8c4836bb00abf61dce039fa6a5fbbc58b07ec74dbaaba7f
 //
 // Input: schemas/time.schema.json
 // sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
 //
 // Input: schemas/account-operations.schema.json
-// sha256=78c6503698cd43571f2b25543013f9036927ef9bfd005e71377ad3006f4a64d4
+// sha256=09a9261669e5c9730cf71fb0ac935cd8bcb4d6d937273778151f9a58495bf5f6
 //
 // Input: schemas/common-ids.schema.json
 // sha256=0cc25a02fe0d9a94f6e41f2cf8f64e492ba36362f1e69a699cf1e684924837ee
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=dc92c416f466a595bc16d56fbbae216e8c660c38914459081d8340c5b55ebb2d
+// sha256=7ef2bac74ff32b9de78cac5bb9318e8c3d600fb7d2d320e1f3fd2fa3d5a5493c
 
 /// Counterpart: `event-payload.schema.json#/$defs/realm_owner_transfer_payload`.
 /// Counterpart for
@@ -47,29 +47,6 @@ pub struct RealmFreezePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
     pub reason: Option<String>,
-}
-
-/// Counterpart: `event-payload.schema.json#/$defs/realm_search_policy_payload`.
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_search_policy_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmSearchPolicyPayload {
-    pub enabled_profile_refs: Vec<String>,
-    pub allowed_service_ids: Vec<DidCoreId>,
-    pub data_classes: Vec<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
-    pub index_retention_ms: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
-    pub revocation_behavior: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
-    pub leakage_class: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
-    pub token_rotation_cadence_ms: Option<u64>,
 }
 
 /// Counterpart: `event-payload.schema.json#/$defs/realm_organization_payload`.

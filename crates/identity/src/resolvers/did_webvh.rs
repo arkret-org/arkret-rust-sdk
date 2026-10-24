@@ -305,7 +305,7 @@ impl DidWebvhResolver {
         for id in policy.map(|policy| policy.witnesses).unwrap_or_default() {
             let witness_did =
                 Did::new(id).map_err(|error| IdentityError::Protocol(error.to_string()))?;
-            witnesses.push(WebvhWitnessIdentity {
+            witnesses.push(DidBindingWitness {
                 controlling_organization_did: witness_did.clone(),
                 witness_did,
             });
@@ -317,11 +317,12 @@ impl DidWebvhResolver {
         ))
         .map_err(|error| IdentityError::Protocol(error.to_string()))?;
         Ok(MethodEvidence {
-            proofs: vec![MethodEvidenceProof::WebvhLog(WebvhLogEvidence {
+            proofs: vec![DidBindingMethodProof {
+                kind: DidBindingMethodProofKind::WebvhLog,
                 history_head: head.version_id.clone(),
                 witnesses,
                 witness_proofs_digest,
-            })],
+            }],
             history_head: Some(head.version_id.clone()),
             version_id: Some(head.version_id.clone()),
         })

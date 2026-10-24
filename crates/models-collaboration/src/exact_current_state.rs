@@ -381,7 +381,7 @@ pub struct CurrentModerationState {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ExactCurrentStateEntry {
+pub enum ExactCurrentState {
     Relation(CurrentRelation),
     ModerationState(CurrentModerationState),
     AgentInteraction(CurrentAgentInteraction),
@@ -391,7 +391,7 @@ pub enum ExactCurrentStateEntry {
     CalendarScheduleSource(CurrentCalendarScheduleSource),
 }
 
-impl ExactCurrentStateEntry {
+impl ExactCurrentState {
     /// Structural cut binding shared by exact reads and Applet material supply.
     /// This does not grant either read authority or authenticate the head.
     pub(crate) fn validate_covering_head(
@@ -642,7 +642,7 @@ pub enum ExactCurrentStateReadResponseBody {
         #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
         governance_generation: u64,
         effective_stream_head: CommitStreamHead,
-        entry: ExactCurrentStateEntry,
+        current_state: ExactCurrentState,
     },
     NeverWritten {
         realm_id: RealmId,
@@ -715,7 +715,10 @@ impl ExactCurrentStateReadResponseBody {
                     ));
                 }
             }
-            Self::Present { entry, .. } => {
+            Self::Present {
+                current_state: entry,
+                ..
+            } => {
                 if !entry.matches_selector(&request.selector) {
                     return Err(WireError::Protocol(
                         "exact-current present selector differs from request".to_owned(),

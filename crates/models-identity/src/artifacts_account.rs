@@ -3,7 +3,7 @@
 //! The account-subscribe sync frame containers stay in the `arkret` umbrella
 //! (`models/artifacts/account_sync.rs`).
 
-use arkret_wire::{DeviceId, DeviceRevocationGateRecord, EventId, Result, WireError};
+use arkret_wire::{AccountDeviceRevocationGateRecord, DeviceId, EventId, Result, WireError};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -60,7 +60,7 @@ pub fn validate_device_summary_evidence(
     verification_state: DeviceSummaryVerificationState,
     verification_source: Option<DeviceSummaryVerificationSource>,
     authorized_event_ref: Option<&EventId>,
-    revocation_states: Option<&[DeviceRevocationGateRecord]>,
+    revocation_states: Option<&[AccountDeviceRevocationGateRecord]>,
 ) -> Result<()> {
     // `device-lifecycle.md` §10.1: the provenance is present exactly when a
     // checkpoint exists. `stale` keeps the source of the checkpoint it used to

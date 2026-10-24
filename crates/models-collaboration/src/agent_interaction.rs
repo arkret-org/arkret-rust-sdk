@@ -46,7 +46,7 @@ pub fn agent_interaction_from_verified_exact_read(
             Ok((AgentInteractionMode::Private, None))
         }
         ExactCurrentStateReadResponseBody::Present {
-            entry: ExactCurrentStateEntry::AgentInteraction(entry),
+            current_state: ExactCurrentState::AgentInteraction(entry),
             ..
         } if &entry.value.controller_account_id == controller => {
             Ok((entry.value.interaction_mode, Some(entry.revision.clone())))

@@ -29,16 +29,17 @@ pub struct AuthorizationCheckRequestBody {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct AuthorizationCheckResponseBody {
     pub decision: AuthorizationDecision,
     #[serde(default)]
-    pub matched_grants: Vec<Value>,
+    pub matched_grants: Vec<serde_json::Map<String, Value>>,
     #[serde(default)]
-    pub applied_constraints: Vec<Value>,
+    pub applied_constraints: Vec<serde_json::Map<String, Value>>,
     #[serde(default)]
-    pub policy_results: Vec<Value>,
+    pub policy_evaluations: Vec<serde_json::Map<String, Value>>,
     #[serde(default)]
-    pub missing_proofs: Vec<Value>,
+    pub missing_proofs: Vec<serde_json::Map<String, Value>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub checkpoint: Option<BTreeMap<String, Value>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -56,7 +57,7 @@ pub struct AuthorizationCheckResponseBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retry_after_ms: Option<u64>,
     #[serde(default)]
-    pub obligations: Vec<Value>,
+    pub obligations: Vec<serde_json::Map<String, Value>>,
 }
 
 /// One active effective grant and the exact revision of the same
@@ -124,4 +125,36 @@ pub struct AuthorizationInvitePage {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
     pub has_more: bool,
+}
+
+#[cfg(test)]
+mod diagnostic_member_contract_tests {
+    use serde_json::json;
+
+    use super::AuthorizationCheckResponseBody;
+
+    #[test]
+    fn diagnostics_preserve_open_objects_and_reject_non_objects() {
+        for name in [
+            "matched_grants",
+            "applied_constraints",
+            "policy_evaluations",
+            "missing_proofs",
+            "obligations",
+        ] {
+            let mut value = json!({"decision":"allow"});
+            value[name] = json!([{"profile_specific_detail":42}]);
+            let typed: AuthorizationCheckResponseBody =
+                serde_json::from_value(value.clone()).unwrap();
+            assert_eq!(serde_json::to_value(typed).unwrap()[name], value[name]);
+            for invalid in [json!([null]), json!([1]), json!(["text"]), json!([[]])] {
+                value[name] = invalid;
+                assert!(
+                    serde_json::from_value::<AuthorizationCheckResponseBody>(value.clone())
+                        .is_err(),
+                    "{name}"
+                );
+            }
+        }
+    }
 }

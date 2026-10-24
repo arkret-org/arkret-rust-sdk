@@ -32,7 +32,8 @@ pub struct ResolverPolicy {
 
 /// Behavior when DID resolution fails (network outage, signature
 /// mismatch, etc.).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ResolverFailMode {
     /// Refuse to use any cached state. Safest default.
     #[default]

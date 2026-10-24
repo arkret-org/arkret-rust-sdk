@@ -84,12 +84,12 @@ fn candidate() -> (RealmActorCreatePayload, Ed25519PayloadSigner) {
             to_method_history_head: head.clone(),
             to_version_id: inception.version_id.clone(),
         },
-        evidence: ResolutionDidBindingEvidenceReceipt {
-            kind: ResolutionDidBindingEvidenceKind::AkDidBindingEvidenceV1,
+        evidence: DidBindingEvidenceReceipt {
+            kind: DidBindingEvidenceKind::AkDidBindingEvidenceV1,
             method: "webvh".into(),
             document_digest: normalized_did_document_digest(&document).unwrap(),
-            method_proofs: vec![ResolutionDidBindingMethodProof {
-                kind: ResolutionDidBindingMethodProofKind::WebvhLog,
+            method_proofs: vec![DidBindingMethodProof {
+                kind: DidBindingMethodProofKind::WebvhLog,
                 history_head: head.clone(),
                 witnesses: vec![],
                 witness_proofs_digest: Hash::new(
@@ -224,12 +224,12 @@ fn manager_handover_requires_two_native_rotations_new_control_and_service_accept
                 to_method_history_head: head.clone(),
                 to_version_id: terminal["versionId"].as_str().unwrap().into(),
             },
-            evidence: ResolutionDidBindingEvidenceReceipt {
-                kind: ResolutionDidBindingEvidenceKind::AkDidBindingEvidenceV1,
+            evidence: DidBindingEvidenceReceipt {
+                kind: DidBindingEvidenceKind::AkDidBindingEvidenceV1,
                 method: "webvh".into(),
                 document_digest: normalized_did_document_digest(&document).unwrap(),
-                method_proofs: vec![ResolutionDidBindingMethodProof {
-                    kind: ResolutionDidBindingMethodProofKind::WebvhLog,
+                method_proofs: vec![DidBindingMethodProof {
+                    kind: DidBindingMethodProofKind::WebvhLog,
                     history_head: head.clone(),
                     witnesses: vec![],
                     witness_proofs_digest: Hash::new(
@@ -613,12 +613,12 @@ fn recovery_plan() -> (
             to_method_history_head: head.clone(),
             to_version_id: update.version_id,
         },
-        evidence: ResolutionDidBindingEvidenceReceipt {
-            kind: ResolutionDidBindingEvidenceKind::AkDidBindingEvidenceV1,
+        evidence: DidBindingEvidenceReceipt {
+            kind: DidBindingEvidenceKind::AkDidBindingEvidenceV1,
             method: "webvh".into(),
             document_digest: normalized_did_document_digest(&document).unwrap(),
-            method_proofs: vec![ResolutionDidBindingMethodProof {
-                kind: ResolutionDidBindingMethodProofKind::WebvhLog,
+            method_proofs: vec![DidBindingMethodProof {
+                kind: DidBindingMethodProofKind::WebvhLog,
                 history_head: head,
                 witnesses: vec![],
                 witness_proofs_digest: Hash::new(

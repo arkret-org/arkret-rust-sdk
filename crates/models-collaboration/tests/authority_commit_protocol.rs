@@ -46,7 +46,7 @@ fn join_locator_is_only_a_bounded_https_hint() {
 }
 
 #[test]
-fn realm_projection_exposes_current_authority_coordinates() {
+fn realm_projection_exposes_station_without_an_unregistered_tenure() {
     let realm = Realm::new(
         realm_id(),
         "Example",
@@ -54,10 +54,12 @@ fn realm_projection_exposes_current_authority_coordinates() {
         TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         station_id(),
     );
-    let value = serde_json::to_value(realm).unwrap();
+    let mut value = serde_json::to_value(realm).unwrap();
     assert_eq!(
         value["governance_station_id"],
         "ak:did_core:web:station.example"
     );
-    assert_eq!(value["governance_generation"], "0");
+    assert!(value.get("governance_generation").is_none());
+    value["governance_generation"] = serde_json::json!("0");
+    assert!(serde_json::from_value::<Realm>(value).is_err());
 }

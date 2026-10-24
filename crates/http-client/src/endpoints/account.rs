@@ -41,7 +41,7 @@ use arkret_models_collaboration::session_grants::{
 };
 use arkret_models_collaboration::sync_frames::account_subscribe::{
     AccountSubscribeBatch, AccountSubscribeFrame, AccountSubscribeFrameKind,
-    AccountSubscribeParameters, AccountSubscribeSnapshotResult, AccountSyncRoundBudget,
+    AccountSubscribeParameters, AccountSubscribeReadAction, AccountSyncRoundBudget,
     StreamTraceValidator,
 };
 use arkret_models_discovery::ServiceDescribe;
@@ -478,8 +478,8 @@ impl Client {
 
         fn finish_folder(folder: AccountSubscribeFolder) -> Result<AccountSubscribeBatch> {
             match folder.finish()? {
-                AccountSubscribeSnapshotResult::Batch(batch) => Ok(batch),
-                AccountSubscribeSnapshotResult::ReconnectAfter { .. } => Err(Error::Protocol(
+                AccountSubscribeReadAction::Batch(batch) => Ok(batch),
+                AccountSubscribeReadAction::ReconnectAfter { .. } => Err(Error::Protocol(
                     "account subscribe terminated before a delta snapshot".to_owned(),
                 )),
             }

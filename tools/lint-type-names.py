@@ -26,8 +26,6 @@ EXCEPTIONS = {
         "Domain artifact: a produced call recording, not an endpoint result wrapper.",
     ("models-collaboration/src/events_payloads/call.rs", "CallTranscriptMetadata"):
         "Domain artifact: a produced call transcript, not an endpoint result wrapper.",
-    ("models-collaboration/src/sync_frames/account_subscribe.rs", "AccountSubscribeSnapshotResult"):
-        "Non-wire SDK orchestration result; no serialization or schema component.",
     ("models-collaboration/src/governance/generated/moderation_queue_contracts.rs", "ModerationQueueItem"):
         "First-class moderation queue object with its own registered identifier and schema.",
     ("models-collaboration/src/governance/realm_governance.rs", "RealmLinkTransitionCandidate"):

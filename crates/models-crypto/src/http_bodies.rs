@@ -371,12 +371,11 @@ pub struct KeyPackagesUploadResponseBody {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub rejections: Vec<Failure>,
     #[serde(
-        rename = "keypackage_refs",
         default,
         skip_serializing_if = "Vec::is_empty",
         deserialize_with = "deserialize_keypackage_string_list"
     )]
-    pub key_package_refs: Vec<String>,
+    pub keypackage_refs: Vec<String>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -1024,12 +1023,11 @@ pub struct KeyPackageClaimTerminalReceipt {
     pub request_digest: Hash,
     pub terminal_state: KeyPackageClaimTerminalState,
     #[serde(
-        rename = "keypackage_refs",
         default,
         skip_serializing_if = "Option::is_none",
         deserialize_with = "deserialize_keypackage_optional_string_list"
     )]
-    pub key_package_refs: Option<Vec<String>>,
+    pub keypackage_refs: Option<Vec<String>>,
     pub source_id: DidCoreId,
     pub destination_id: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -1049,7 +1047,7 @@ impl KeyPackageClaimTerminalReceipt {
         {
             return Err(PeerKeyPackageClaimShapeError::InvalidQueryOutcome);
         }
-        match (self.terminal_state, self.key_package_refs.as_ref()) {
+        match (self.terminal_state, self.keypackage_refs.as_ref()) {
             (KeyPackageClaimTerminalState::NeverClaimed, None) => Ok(()),
             (
                 KeyPackageClaimTerminalState::Expired | KeyPackageClaimTerminalState::Revoked,
@@ -1604,7 +1602,7 @@ pub fn peer_keypackage_claim_receipt_signing_bytes(
 pub struct RecipientMlsDurableReceipt {
     pub domain: NonEmptyString,
     pub claim_request_id: Base64UrlString,
-    pub key_package_ref: NonEmptyString,
+    pub keypackage_ref: NonEmptyString,
     pub recipient: RecipientMlsDurableSigner,
     pub recipient_id: DidCoreId,
     pub realm_id: RealmId,
@@ -1645,8 +1643,8 @@ pub enum RecipientMlsDurableSigner {
 struct RecipientMlsDurableReceiptWire {
     domain: NonEmptyString,
     claim_request_id: Base64UrlString,
-    #[serde(rename = "keypackage_ref")]
-    key_package_ref: NonEmptyString,
+
+    keypackage_ref: NonEmptyString,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
@@ -1758,7 +1756,7 @@ impl Serialize for RecipientMlsDurableReceipt {
         RecipientMlsDurableReceiptWire {
             domain: self.domain.clone(),
             claim_request_id: self.claim_request_id.clone(),
-            key_package_ref: self.key_package_ref.clone(),
+            keypackage_ref: self.keypackage_ref.clone(),
             recipient_account_id,
             recipient_actor_id,
             recipient_device_id,
@@ -1824,7 +1822,7 @@ impl<'de> Deserialize<'de> for RecipientMlsDurableReceipt {
         let receipt = Self {
             domain: wire.domain,
             claim_request_id: wire.claim_request_id,
-            key_package_ref: wire.key_package_ref,
+            keypackage_ref: wire.keypackage_ref,
             recipient,
             recipient_id: wire.recipient_id,
             realm_id: wire.realm_id,
@@ -2035,11 +2033,8 @@ pub struct KeyPackagesConsumeResponseBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyPackagesRevokeRequestBody {
-    #[serde(
-        rename = "keypackage_refs",
-        deserialize_with = "deserialize_keypackage_string_list"
-    )]
-    pub key_package_refs: Vec<String>,
+    #[serde(deserialize_with = "deserialize_keypackage_string_list")]
+    pub keypackage_refs: Vec<String>,
     pub device_id: DeviceId,
     pub signature: KeyOperationSignature,
     #[serde(
@@ -2054,11 +2049,8 @@ pub struct KeyPackagesRevokeRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyPackagesRevokeFields {
-    #[serde(
-        rename = "keypackage_refs",
-        deserialize_with = "deserialize_keypackage_string_list"
-    )]
-    pub key_package_refs: Vec<String>,
+    #[serde(deserialize_with = "deserialize_keypackage_string_list")]
+    pub keypackage_refs: Vec<String>,
     pub device_id: DeviceId,
     #[serde(
         default,
@@ -2072,7 +2064,7 @@ impl KeyPackagesRevokeRequestBody {
     #[must_use]
     pub fn unsigned(&self) -> KeyPackagesRevokeFields {
         KeyPackagesRevokeFields {
-            key_package_refs: self.key_package_refs.clone(),
+            keypackage_refs: self.keypackage_refs.clone(),
             device_id: self.device_id.clone(),
             reason: self.reason.clone(),
         }
@@ -2083,7 +2075,7 @@ impl KeyPackagesRevokeFields {
     #[must_use]
     pub fn into_signed(self, signature: KeyOperationSignature) -> KeyPackagesRevokeRequestBody {
         KeyPackagesRevokeRequestBody {
-            key_package_refs: self.key_package_refs,
+            keypackage_refs: self.keypackage_refs,
             device_id: self.device_id,
             signature,
             reason: self.reason,

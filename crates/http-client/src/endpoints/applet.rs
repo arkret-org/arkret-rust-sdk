@@ -254,7 +254,7 @@ impl Client {
         }
         for result in &material.current_states {
             if let arkret_models_collaboration::exact_current_state::ExactCurrentStateReadResponseBody::Present {
-                entry: arkret_models_collaboration::exact_current_state::ExactCurrentStateEntry::AppletRegistration(row), ..
+                current_state: arkret_models_collaboration::exact_current_state::ExactCurrentState::AppletRegistration(row), ..
             } = result {
                 let _: arkret_models_integration::AppletRegistrationPayload =
                     serde_json::from_value(row.value.clone())?;

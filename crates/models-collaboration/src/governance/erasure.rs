@@ -73,13 +73,6 @@ impl ErasureReceiptPackage {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[serde(deny_unknown_fields)]
-pub struct ErasureReceiptSubmitRequestBody {
-    pub package: ErasureReceiptPackage,
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
@@ -150,13 +143,6 @@ pub enum ErasureReceiptSubmitResponseBody {
     Rejected(ErasureReceiptRejection),
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[serde(deny_unknown_fields)]
-pub struct ErasureReceiptResource {
-    pub package: ErasureReceiptPackage,
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
@@ -187,7 +173,7 @@ pub enum ErasureStorageBoundary {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
-pub enum ErasureOutcome {
+pub enum ErasureAttemptOutcome {
     Completed,
     PartiallyCompleted,
     BlockedByLegalHold,
@@ -288,7 +274,7 @@ pub struct ErasureReceipt {
     pub issuer_id: DidCoreId,
     pub subject: ErasureSubject,
     pub scope: ErasureScope,
-    pub outcome: ErasureOutcome,
+    pub outcome: ErasureAttemptOutcome,
     pub erased_classes: Vec<ErasedClass>,
     pub retained_stub_digest: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -352,7 +338,7 @@ impl ErasureReceipt {
                 "erasure receipt proofs must not be empty".to_owned(),
             ));
         }
-        if matches!(self.outcome, ErasureOutcome::BlockedByLegalHold)
+        if matches!(self.outcome, ErasureAttemptOutcome::BlockedByLegalHold)
             && self.legal_hold_ref.is_none()
         {
             return Err(WireError::Protocol(
@@ -472,7 +458,7 @@ mod tests {
                 retention_policy_id: None,
                 service_scope: Some("schema verification".into()),
             },
-            outcome: ErasureOutcome::PartiallyCompleted,
+            outcome: ErasureAttemptOutcome::PartiallyCompleted,
             erased_classes: Vec::new(),
             retained_stub_digest: Hash::new(arkret_canonical::sha256_digest(
                 b"schema-only stub identity",
