@@ -603,7 +603,7 @@
     },
     {
       "rust_type": "crates/models-integration/src/generated/artifacts_applet_contracts.rs::AppletEventRejection",
-      "schema": "applet-edge-operations.schema.json#/$defs/rejected_event_row"
+      "schema": "applet-edge-operations.schema.json#/$defs/applet_event_rejection"
     },
     {
       "rust_type": "crates/models-integration/src/generated/artifacts_applet_contracts.rs::E2eePolicy",
@@ -847,7 +847,7 @@
     },
     {
       "rust_type": "crates/models-collaboration/src/generated/agent_sidecar_contracts.rs::PendingSidecarAccessReconciliation",
-      "schema": "agent-operations.schema.json#/$defs/pending_sidecar_access_reconciliation_row"
+      "schema": "agent-operations.schema.json#/$defs/pending_sidecar_access_reconciliation"
     },
     {
       "rust_type": "crates/models-collaboration/src/generated/sidecar_operations_contracts.rs::SidecarStreamHead",
@@ -938,8 +938,8 @@
       "schema": "contact-operations.schema.json#/$defs/contact_page"
     },
     {
-      "rust_type": "crates/models-collaboration/src/contact_operations.rs::ContactListRow",
-      "schema": "contact-operations.schema.json#/$defs/contact_list_row"
+      "rust_type": "crates/models-collaboration/src/contact_operations.rs::ContactView",
+      "schema": "contact-operations.schema.json#/$defs/contact_view"
     },
     {
       "rust_type": "crates/models-collaboration/src/generated/contact_operations_contracts.rs::ContactAgentProjection",
@@ -1060,8 +1060,8 @@
       "schema": "current-state.schema.json#/$defs/agent_pcr_genesis_declaration_value"
     },
     {
-      "rust_type": "crates/wire/src/generated/authority_commit_contracts.rs::RealmStreamRow",
-      "schema": "realm-read-operations.schema.json#/$defs/realm_stream_row"
+      "rust_type": "crates/wire/src/generated/authority_commit_contracts.rs::RealmStreamView",
+      "schema": "realm-read-operations.schema.json#/$defs/realm_stream_view"
     },
     {
       "rust_type": "crates/wire/src/generated/authority_commit_contracts.rs::RealmStreamPage",
@@ -1719,6 +1719,22 @@
     {
       "rust_type": "crates/models-crypto/src/mls_payloads.rs::MlsGovernanceBindingPayload",
       "schema": "event-payload.schema.json#/$defs/mls_governance_binding"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/mimi.rs::CurrentMimiRoomBinding",
+      "schema": "current-state.schema.json#/$defs/current_mimi_room_binding"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/mimi.rs::MimiRoomBindingSelector",
+      "schema": "current-state.schema.json#/$defs/current_mimi_room_binding/properties/selector"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/exact_current_state.rs::CurrentCalendarScheduleSource",
+      "schema": "current-state.schema.json#/$defs/current_calendar_schedule_source"
+    },
+    {
+      "rust_type": "crates/identity/src/binding_digest.rs::WebvhWitnessIdentity",
+      "schema": "did-binding-contracts.schema.json#/$defs/webvh_log_evidence/properties/witnesses/items"
     }
   ],
   "exemptions": [

@@ -146,7 +146,7 @@ fn string_array(values: &[String]) -> Value {
 /// a witness revocation names a `witness_did`, never a digest.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct WebvhWitnessRow {
+pub struct WebvhWitnessIdentity {
     pub witness_did: Did,
     pub controlling_organization_did: Did,
 }
@@ -164,7 +164,7 @@ pub struct WebvhLogEvidence {
     /// pinned.
     pub history_head: String,
     /// Sorted by `witness_did` in UTF-8 byte order; duplicates are rejected.
-    pub witnesses: Vec<WebvhWitnessRow>,
+    pub witnesses: Vec<WebvhWitnessIdentity>,
     pub witness_proofs_digest: Hash,
 }
 
@@ -197,7 +197,7 @@ impl MethodEvidenceProof {
                         .iter()
                         .map(|row| row.witness_did.as_str().to_owned()),
                 )?;
-                let mut rows: Vec<&WebvhWitnessRow> = evidence.witnesses.iter().collect();
+                let mut rows: Vec<&WebvhWitnessIdentity> = evidence.witnesses.iter().collect();
                 rows.sort_by(|left, right| {
                     left.witness_did.as_str().cmp(right.witness_did.as_str())
                 });
@@ -608,11 +608,11 @@ mod tests {
             proofs: vec![MethodEvidenceProof::WebvhLog(WebvhLogEvidence {
                 history_head: "3-QmFixtureHead".to_owned(),
                 witnesses: vec![
-                    WebvhWitnessRow {
+                    WebvhWitnessIdentity {
                         witness_did: did("witness-b"),
                         controlling_organization_did: did("org-2"),
                     },
-                    WebvhWitnessRow {
+                    WebvhWitnessIdentity {
                         witness_did: did("witness-a"),
                         controlling_organization_did: did("org-1"),
                     },

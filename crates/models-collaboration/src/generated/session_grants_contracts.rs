@@ -2,7 +2,7 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/service-operation-dtos.schema.json
-// sha256=18415d05b61700be7b69081cf070ed3c41de10f8e43cabea16992ae94a0f37d9
+// sha256=32d523d2ce78c43bf47a897d97a4dab2e7d0ae38a392c38d96200ae946dfdd4e
 //
 // Input: schemas/agent-requested-scope-disclosure.schema.json
 // sha256=d463d06dcb5b56f44e628a8acb13a156e83d830d2899552f608e59230d4f6c3f
@@ -11,7 +11,7 @@
 // sha256=0cc25a02fe0d9a94f6e41f2cf8f64e492ba36362f1e69a699cf1e684924837ee
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
+// sha256=dc92c416f466a595bc16d56fbbae216e8c660c38914459081d8340c5b55ebb2d
 
 /// Counterpart: `service-operation-dtos.schema.json#/$defs/AgentSessionGrantRequestBody`.
 #[derive(Clone, Debug, Serialize, Deserialize)]

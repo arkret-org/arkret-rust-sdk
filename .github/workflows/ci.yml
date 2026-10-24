@@ -51,6 +51,7 @@ jobs:
       - name: Run manifest SDK structure, time and Event checks
         run: >-
           python tools/compatibility_gate.py run --workspace-root .. --category static
+          --check sdk.protocol-type-names --check sdk.protocol-type-names-regression
           --check sdk.layering-regression --check sdk.layering
           --check sdk.test-layout-regression --check sdk.test-layout
           --check sdk.time-representations

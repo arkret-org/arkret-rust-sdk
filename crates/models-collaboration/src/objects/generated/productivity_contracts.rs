@@ -17,7 +17,7 @@
 // sha256=a0f5bb09fcb5ae9612cd3a27c533f4bf7dfa29f0b19aa178443af54fa4817c10
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
+// sha256=dc92c416f466a595bc16d56fbbae216e8c660c38914459081d8340c5b55ebb2d
 
 /// Counterpart: `account-blocklist.schema.json`.
 /// Decrypted plaintext value of the holder-private `ak.account.blocklist`

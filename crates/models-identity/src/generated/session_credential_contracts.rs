@@ -2,10 +2,10 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/service-operation-dtos.schema.json
-// sha256=18415d05b61700be7b69081cf070ed3c41de10f8e43cabea16992ae94a0f37d9
+// sha256=32d523d2ce78c43bf47a897d97a4dab2e7d0ae38a392c38d96200ae946dfdd4e
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
+// sha256=dc92c416f466a595bc16d56fbbae216e8c660c38914459081d8340c5b55ebb2d
 
 /// Counterpart: `service-operation-dtos.schema.json#/$defs/SessionGrantDeviceBinding`.
 /// Authorization state committed into a standard human-device grant.

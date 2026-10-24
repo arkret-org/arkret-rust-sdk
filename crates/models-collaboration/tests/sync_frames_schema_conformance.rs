@@ -34,8 +34,8 @@ use arkret_models_collaboration::sync_frames::current_states::{
     AccountCurrentCoverage, AccountStateView,
 };
 use arkret_models_collaboration::sync_frames::demand_sync::{
-    AccountBaselineSegment, RealmDetailUnavailable, RealmInvalidation, RealmListChanges,
-    RealmListPage, RealmListRemoval, RealmListRow,
+    AccountBaselineSegment, AccountRealmView, RealmDetailUnavailable, RealmInvalidation,
+    RealmListChanges, RealmListPage, RealmListRemoval,
 };
 use arkret_models_collaboration::sync_frames::websocket::{
     WebSocketAccountOpenParameters, WebSocketClientFrame, WebSocketConnectionDrainPayload,
@@ -319,7 +319,7 @@ fn realm_stream_head(realm: &str) -> Value {
     })
 }
 
-fn realm_list_row(realm: &str) -> Value {
+fn account_realm_view(realm: &str) -> Value {
     json!({
         "realm_id": realm,
         "revision": 9,
@@ -405,13 +405,13 @@ fn pending_intent_consumed() -> Value {
 
 #[test]
 fn realm_list_item_matches_its_schema_shape_and_order() {
-    let item: RealmListRow = round_trip(
+    let item: AccountRealmView = round_trip(
         ACCOUNT_FRAME,
-        "#/$defs/realm_list_row",
-        realm_list_row(REALM_A),
+        "#/$defs/account_realm_view",
+        account_realm_view(REALM_A),
     );
     item.validate().unwrap();
-    assert_field_order(&item, ACCOUNT_FRAME, &["$defs", "realm_list_row"]);
+    assert_field_order(&item, ACCOUNT_FRAME, &["$defs", "account_realm_view"]);
 }
 
 #[test]
@@ -422,7 +422,7 @@ fn realm_list_page_matches_its_schema_shape_and_order() {
         json!({
             "snapshot_cursor": "ak:cursor:abc",
             "snapshot_revision": 31,
-            "items": [realm_list_row(REALM_A)],
+            "items": [account_realm_view(REALM_A)],
             "next_cursor": "ak:cursor:def",
         }),
     );
@@ -443,7 +443,7 @@ fn realm_list_changes_and_removal_match_their_schema_shapes() {
         ACCOUNT_FRAME,
         "#/$defs/realm_list_changes",
         json!({
-            "upserts": [realm_list_row(REALM_A)],
+            "upserts": [account_realm_view(REALM_A)],
             "removals": [{"realm_id": REALM_B, "revision": 3}],
         }),
     );

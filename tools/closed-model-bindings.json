@@ -5212,7 +5212,7 @@
               "relationships": {
                 "name": "relationships",
                 "visibility": "pub",
-                "type": "Vec<RealmOrganizationRelationshipRow>",
+                "type": "Vec<RealmOrganizationRelationshipView>",
                 "attributes": [
                   "#[serde(default)]"
                 ]
@@ -6811,12 +6811,12 @@
         },
         {
           "name": "AppletEventRejection",
-          "schema": "applet-edge-operations.schema.json#/$defs/rejected_event_row",
+          "schema": "applet-edge-operations.schema.json#/$defs/applet_event_rejection",
           "rust": {
             "signature": "pub struct AppletEventRejection",
             "attributes": [
               "/// Counterpart for",
-              "/// `spec/v1/artifacts/schemas/applet-edge-operations.schema.json#/$defs/rejected_event_row`.",
+              "/// `spec/v1/artifacts/schemas/applet-edge-operations.schema.json#/$defs/applet_event_rejection`.",
               "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
               "#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
@@ -8975,7 +8975,7 @@
         },
         {
           "name": "PendingSidecarAccessReconciliation",
-          "schema": "agent-operations.schema.json#/$defs/pending_sidecar_access_reconciliation_row",
+          "schema": "agent-operations.schema.json#/$defs/pending_sidecar_access_reconciliation",
           "rust": {
             "signature": "pub struct PendingSidecarAccessReconciliation",
             "attributes": [
@@ -10001,7 +10001,7 @@
               "contacts": {
                 "name": "contacts",
                 "visibility": "pub",
-                "type": "Vec<ContactListRow>",
+                "type": "Vec<ContactView>",
                 "attributes": []
               },
               "next_cursor": {
@@ -11341,13 +11341,13 @@
       "inline": true,
       "types": [
         {
-          "name": "RealmStreamRow",
-          "schema": "realm-read-operations.schema.json#/$defs/realm_stream_row",
+          "name": "RealmStreamView",
+          "schema": "realm-read-operations.schema.json#/$defs/realm_stream_view",
           "rust": {
-            "signature": "pub struct RealmStreamRow",
+            "signature": "pub struct RealmStreamView",
             "attributes": [
               "/// One established authority stream the caller may know exists",
-              "/// (`realm-read-operations.schema.json#/$defs/realm_stream_row`).",
+              "/// (`realm-read-operations.schema.json#/$defs/realm_stream_view`).",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
             ],
@@ -11402,7 +11402,7 @@
               "streams": {
                 "name": "streams",
                 "visibility": "pub",
-                "type": "Vec<RealmStreamRow>",
+                "type": "Vec<RealmStreamView>",
                 "attributes": []
               },
               "next_cursor": {
@@ -17684,10 +17684,10 @@
       "reason": "AgentSidecar is an open schema object (additionalProperties is allowed or omitted); the SDK projects documented core fields and retains the existing extension/opaque data semantics. Treating its named properties as a closed object would narrow the protocol."
     },
     {
-      "rust_type": "crates/models-collaboration/src/contact_operations.rs::ContactListRow",
-      "schema": "contact-operations.schema.json#/$defs/contact_list_row",
+      "rust_type": "crates/models-collaboration/src/contact_operations.rs::ContactView",
+      "schema": "contact-operations.schema.json#/$defs/contact_view",
       "category": "domain_semantics",
-      "reason": "ContactListRow uses its existing serde try_from/into wire adapter to enforce branch presence or transition invariants during decoding; generating that adapter from member sets would erase its domain rejection order."
+      "reason": "ContactView uses its existing serde try_from/into wire adapter to enforce branch presence or transition invariants during decoding; generating that adapter from member sets would erase its domain rejection order."
     },
     {
       "rust_type": "crates/models-collaboration/src/device_messages.rs::DeviceMessageEnvelope",
@@ -17806,6 +17806,30 @@
       "schema": "event-payload.schema.json#/$defs/mls_governance_binding",
       "category": "domain_semantics",
       "reason": "The established hand-written carrier owns transport validation or domain semantics; the exact member set and decimal coordinate serializers remain checked against this canonical schema."
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/mimi.rs::CurrentMimiRoomBinding",
+      "schema": "current-state.schema.json#/$defs/current_mimi_room_binding",
+      "category": "domain_semantics",
+      "reason": "The validated domain model retains the exact canonical schema members; current identity/source invariants and witness identity semantics remain handwritten and checked by structural and behavioral gates."
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/mimi.rs::MimiRoomBindingSelector",
+      "schema": "current-state.schema.json#/$defs/current_mimi_room_binding/properties/selector",
+      "category": "domain_semantics",
+      "reason": "The validated domain model retains the exact canonical schema members; current identity/source invariants and witness identity semantics remain handwritten and checked by structural and behavioral gates."
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/exact_current_state.rs::CurrentCalendarScheduleSource",
+      "schema": "current-state.schema.json#/$defs/current_calendar_schedule_source",
+      "category": "domain_semantics",
+      "reason": "The validated domain model retains the exact canonical schema members; current identity/source invariants and witness identity semantics remain handwritten and checked by structural and behavioral gates."
+    },
+    {
+      "rust_type": "crates/identity/src/binding_digest.rs::WebvhWitnessIdentity",
+      "schema": "did-binding-contracts.schema.json#/$defs/webvh_log_evidence/properties/witnesses/items",
+      "category": "domain_semantics",
+      "reason": "The validated domain model retains the exact canonical schema members; current identity/source invariants and witness identity semantics remain handwritten and checked by structural and behavioral gates."
     }
   ],
   "retained_exemptions": [

@@ -209,7 +209,7 @@ pub struct DeviceMessagesSendRequestBody {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct DeviceMessageDeliveredRow {
+pub struct DeviceMessageDeliveredEntry {
     pub device_message_id: DeviceMessageId,
     pub status: DeviceMessageDeliveredStatus,
 }
@@ -225,7 +225,7 @@ pub enum DeviceMessageDeliveredStatus {
 /// defects fail the entire send request instead of producing a row.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct DeviceMessageUnknownRow {
+pub struct DeviceMessageUnknownEntry {
     pub device_message_id: DeviceMessageId,
     pub status: DeviceMessageUnknownStatus,
 }
@@ -239,8 +239,8 @@ pub enum DeviceMessageUnknownStatus {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeviceMessagesSendResponseBody {
-    pub delivered: BTreeMap<DidCoreId, BTreeMap<DeviceId, DeviceMessageDeliveredRow>>,
-    pub unknown_devices: BTreeMap<DidCoreId, BTreeMap<DeviceId, DeviceMessageUnknownRow>>,
+    pub delivered: BTreeMap<DidCoreId, BTreeMap<DeviceId, DeviceMessageDeliveredEntry>>,
+    pub unknown_devices: BTreeMap<DidCoreId, BTreeMap<DeviceId, DeviceMessageUnknownEntry>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -459,10 +459,10 @@ mod tests {
             "device_message_id": "ak:device_message:01964137-0000-7000-8000-000000000001",
             "status": "unknown"
         });
-        let parsed: DeviceMessageUnknownRow = serde_json::from_value(row.clone()).unwrap();
+        let parsed: DeviceMessageUnknownEntry = serde_json::from_value(row.clone()).unwrap();
         assert_eq!(serde_json::to_value(parsed).unwrap(), row);
         let mut retired = row;
         retired["reason_code"] = json!("device_result_unavailable");
-        assert!(serde_json::from_value::<DeviceMessageUnknownRow>(retired).is_err());
+        assert!(serde_json::from_value::<DeviceMessageUnknownEntry>(retired).is_err());
     }
 }

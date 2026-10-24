@@ -523,7 +523,7 @@ pub enum SidecarAccessProvisioningPhase {
 }
 
 // Field declaration order is byte-for-byte the properties order of
-// agent-operations.schema.json#/$defs/pending_sidecar_access_reconciliation_row.
+// agent-operations.schema.json#/$defs/pending_sidecar_access_reconciliation.
 
 /// Upper bound of `authority_stream_head`, equal to the MLS governance binding
 /// decoder `maximum_collection_items`.

@@ -2,7 +2,7 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/agent-operations.schema.json
-// sha256=15fedd4b4e4462c678d93ac6521a5dfd0372854cd62cd76ec5e777fd88857ae5
+// sha256=f43b1500107a166134dea8fe97289450aedc12da8db65302be386fe1d4ed2e6a
 //
 // Input: schemas/string-profiles.schema.json
 // sha256=aa4422be011e02a256a0cfdc072c66b15534eb8de23b76e31329982702e06e26
@@ -20,13 +20,13 @@
 // sha256=8503a7d8aa20534b337f7ef622a6828cd89b4910c342ba52d76c6033b80cb38d
 //
 // Input: schemas/service-operation-dtos.schema.json
-// sha256=18415d05b61700be7b69081cf070ed3c41de10f8e43cabea16992ae94a0f37d9
+// sha256=32d523d2ce78c43bf47a897d97a4dab2e7d0ae38a392c38d96200ae946dfdd4e
 //
 // Input: schemas/event-payload.schema.json
 // sha256=74e26ef25ba5846ba74149c301a7ff5c7f1afc507f2cfd207cfe0edc060507bf
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
+// sha256=dc92c416f466a595bc16d56fbbae216e8c660c38914459081d8340c5b55ebb2d
 
 /// Counterpart: `agent-operations.schema.json#/$defs/agent_projection`.
 /// Read projection of one Agent.

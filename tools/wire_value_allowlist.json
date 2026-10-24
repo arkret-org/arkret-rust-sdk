@@ -45,6 +45,18 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
+      "finding": "bridges/crates/runtime/src/managed_device/processing.rs::PendingNativeReply.processing_binding",
+      "classification": "independent",
+      "lifecycle": "retained_boundary",
+      "decision": "independent",
+      "authority": "Bridges deployment-private encrypted reply processing fingerprint",
+      "owner_repository": "bridges",
+      "action": "Retain only as caller-owned local processing identity; keep NativeContent and recipient authorization in SDK-owned types.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "prepare_native_reply<E: Serialize> includes the caller binding in the durable input digest and encrypts the reply record. Recovery recomputes that digest before publication; this field is not a v1 wire payload.",
+      "adjudication": "manual"
+    },
+    {
       "finding": "chime/src/push/wire.rs::ChimePushRegisterDeviceRequest.proof",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
@@ -78,6 +90,18 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
+      "finding": "closed_dispatch:coland/crates/http/src/routing/events/operations/semantics.rs::validate_typed_payload_shapes:63b473c9c1fdbb7c",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "arkret_wire::EventKind and operation.typed_payload<EventSpec>",
+      "owner_repository": "coland",
+      "action": "Retain this exact reviewed boundary; keep the separate canonical SDK authoring or validation path enforced.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "This exact receiver-side dispatch validates incoming Event payloads with SDK EventSpec types before admission. Raw field checks only reject malformed legacy input; validate_operation_payload_schema subsequently enforces the authoritative SDK schema. It does not construct a second wire type.",
+      "adjudication": "manual"
+    },
+    {
       "finding": "closed_dispatch:crates/event-draft/src/metadata_send_gate.rs::project:df8092fea8c03438",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
@@ -87,6 +111,18 @@
       "action": "Retain exact raw key-presence evidence at the authoritative SDK decoding boundary before serde defaults erase empty/null plaintext metadata. Every selected payload is decoded through its EventSpec and encrypted envelopes are validated; this read-only projection is never serialized or submitted.",
       "test": "cargo test -p arkret-event-draft --locked --lib metadata_send_gate::tests",
       "reason": "The static create(&[\"metadata\"], ...) key-name slice is not payload indexing. Raw object.contains_key is necessary to preserve original wire key presence, while the returned envelope list is strongly typed and bound to the full Event or EventIntent. Consumers reject mixed plaintext/ciphertext and retain their current epoch checks.",
+      "adjudication": "manual"
+    },
+    {
+      "finding": "closed_dispatch:inkson/src/bin/inkson-wire/realm_fixture.rs::project:78658b8b7a682ee1",
+      "classification": "internal_or_fixture",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "arkret_sdk::event_spec; arkret_wire::{EventKind, CurrentSelector, CurrentState, StrandWatchValue}",
+      "owner_repository": "inkson",
+      "action": "Exact mock-realm CLI fixture projection, not a production admission model. It dispatches on the SDK EventKind and decodes SDK payloads/current values, including typed StrandWatchSet and StrandWatchValue, before updating its SDK CurrentState collection. Retain this one internal fixture boundary; no directory exemption or protocol DTO is introduced.",
+      "test": "Inkson playwright.contract.config.ts: Self Watch current; Watch read controls; Watch CAS validation; python tools/wire_value_audit.py --check",
+      "reason": "Exact mock-realm CLI fixture projection, not a production admission model. It dispatches on the SDK EventKind and decodes SDK payloads/current values, including typed StrandWatchSet and StrandWatchValue, before updating its SDK CurrentState collection. Retain this one internal fixture boundary; no directory exemption or protocol DTO is introduced.",
       "adjudication": "manual"
     },
     {
@@ -202,6 +238,54 @@
       "action": "Retain this exact named boundary with its documented owner; do not dispatch it by the adjacent lifecycle field.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "Review status records review lifecycle only and never selects or dispatches the original invite document.",
+      "adjudication": "manual"
+    },
+    {
+      "finding": "coauth/crates/backend/src/handlers/arkret/did_document.rs::DidDocument.additional_properties",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "External DID/JOSE resolver wire input; arkret_models_identity::DidDocument and SDK normalized_did_document own accepted identity semantics.",
+      "owner_repository": "coauth",
+      "action": "Preserve exact unknown standard/extension members at this named serde(flatten) resolver boundary. services/did_binding converts into the SDK-owned DidDocument before normalized digest and accepted-binding use; these maps never independently grant authority.",
+      "test": "Coauth resolver_preserves_profile_members_and_unknown_extensions (upstream test, not executed by this metadata review); python tools/wire_value_audit.py --check",
+      "reason": "Manually reviewed each of the four external resolver containers, lossless serde conversion, SDK raw_properties preservation and normalized projection. Spec did-usage-and-verification.md section5.1 requires unknown extension preservation and SDK-owned digest validation. This retains a raw boundary, not a new closed protocol model or production acceptance claim.",
+      "adjudication": "manual"
+    },
+    {
+      "finding": "coauth/crates/backend/src/handlers/arkret/did_document.rs::DidDocumentMetadata.additional_properties",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "External DID/JOSE resolver wire input; arkret_models_identity::DidDocument and SDK normalized_did_document own accepted identity semantics.",
+      "owner_repository": "coauth",
+      "action": "Preserve exact unknown standard/extension members at this named serde(flatten) resolver boundary. services/did_binding converts into the SDK-owned DidDocument before normalized digest and accepted-binding use; these maps never independently grant authority.",
+      "test": "Coauth resolver_preserves_profile_members_and_unknown_extensions (upstream test, not executed by this metadata review); python tools/wire_value_audit.py --check",
+      "reason": "Manually reviewed each of the four external resolver containers, lossless serde conversion, SDK raw_properties preservation and normalized projection. Spec did-usage-and-verification.md section5.1 requires unknown extension preservation and SDK-owned digest validation. This retains a raw boundary, not a new closed protocol model or production acceptance claim.",
+      "adjudication": "manual"
+    },
+    {
+      "finding": "coauth/crates/backend/src/handlers/arkret/did_document.rs::DidService.additional_properties",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "External DID/JOSE resolver wire input; arkret_models_identity::DidDocument and SDK normalized_did_document own accepted identity semantics.",
+      "owner_repository": "coauth",
+      "action": "Preserve exact unknown standard/extension members at this named serde(flatten) resolver boundary. services/did_binding converts into the SDK-owned DidDocument before normalized digest and accepted-binding use; these maps never independently grant authority.",
+      "test": "Coauth resolver_preserves_profile_members_and_unknown_extensions (upstream test, not executed by this metadata review); python tools/wire_value_audit.py --check",
+      "reason": "Manually reviewed each of the four external resolver containers, lossless serde conversion, SDK raw_properties preservation and normalized projection. Spec did-usage-and-verification.md section5.1 requires unknown extension preservation and SDK-owned digest validation. This retains a raw boundary, not a new closed protocol model or production acceptance claim.",
+      "adjudication": "manual"
+    },
+    {
+      "finding": "coauth/crates/backend/src/handlers/arkret/did_document.rs::VerificationMethod.additional_properties",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "External DID/JOSE resolver wire input; arkret_models_identity::DidDocument and SDK normalized_did_document own accepted identity semantics.",
+      "owner_repository": "coauth",
+      "action": "Preserve exact unknown standard/extension members at this named serde(flatten) resolver boundary. services/did_binding converts into the SDK-owned DidDocument before normalized digest and accepted-binding use; these maps never independently grant authority.",
+      "test": "Coauth resolver_preserves_profile_members_and_unknown_extensions (upstream test, not executed by this metadata review); python tools/wire_value_audit.py --check",
+      "reason": "Manually reviewed each of the four external resolver containers, lossless serde conversion, SDK raw_properties preservation and normalized projection. Spec did-usage-and-verification.md section5.1 requires unknown extension preservation and SDK-owned digest validation. This retains a raw boundary, not a new closed protocol model or production acceptance claim.",
       "adjudication": "manual"
     },
     {
@@ -420,7 +504,7 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "coauth/crates/data/src/recovery_authority.rs::NewRecoveryCompletionGrantIssuance.reanchor_ref",
+      "finding": "coauth/crates/data/src/recovery_authority.rs::NewRecoveryCompletionGrantIssuance.new_model_generation_ref",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -431,7 +515,7 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "coauth/crates/data/src/recovery_authority.rs::NewRecoveryCompletionGrantIssuance.new_model_generation_ref",
+      "finding": "coauth/crates/data/src/recovery_authority.rs::NewRecoveryCompletionGrantIssuance.reanchor_ref",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -453,7 +537,7 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "coauth/crates/data/src/recovery_authority.rs::RecoveryCompletionGrantIssuance.reanchor_ref",
+      "finding": "coauth/crates/data/src/recovery_authority.rs::RecoveryCompletionGrantIssuance.new_model_generation_ref",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -464,7 +548,7 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "coauth/crates/data/src/recovery_authority.rs::RecoveryCompletionGrantIssuance.new_model_generation_ref",
+      "finding": "coauth/crates/data/src/recovery_authority.rs::RecoveryCompletionGrantIssuance.reanchor_ref",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -547,17 +631,6 @@
       "decision": "raw",
       "authority": "serde_json::Value",
       "owner_repository": "coauth",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
-    },
-    {
-      "finding": "codmin/src/utils/net/error.rs::AdminErrorEnvelope.extra",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "BTreeMap<String, serde_json::Value>",
-      "owner_repository": "codmin",
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
@@ -1463,6 +1536,30 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
+      "finding": "coland/crates/storage/src/principal_resolution.rs::PrincipalResolutionUpdateWrite.log_entries",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "did:webvh native signed JSON log entries",
+      "owner_repository": "coland",
+      "action": "Retain this exact reviewed boundary; keep the separate canonical SDK authoring or validation path enforced.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "Native DID log evidence retains every signed external JSON member for historical verification. This internal transaction carrier is not a protocol endpoint body; admit_update re-verifies the complete evidence against the PCR cut before persistence.",
+      "adjudication": "manual"
+    },
+    {
+      "finding": "coland/crates/storage/src/principal_resolution.rs::PrincipalResolutionUpdateWrite.witness_records",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "did:webvh native witness proof records",
+      "owner_repository": "coland",
+      "action": "Retain this exact reviewed boundary; keep the separate canonical SDK authoring or validation path enforced.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "Native external witness proofs retain their original JSON signature material. The internal transaction carrier transports evidence to the authority verifier, rather than declaring an Arkret protocol structure or bypassing SDK verification.",
+      "adjudication": "manual"
+    },
+    {
       "finding": "coland/crates/storage/src/projection.rs::CircleProjectionRecord.display",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
@@ -2145,12 +2242,12 @@
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
-      "spec_pointer": "current-state.schema.json#/$defs/current_applet_registration/properties/value",
       "authority": "event-payload.schema.json#/$defs/applet_registration_payload",
       "owner_repository": "arkret-rust-sdk",
-      "action": "Retain the shared read carrier; decode with arkret_models_integration::AppletRegistrationPayload before business use.",
-      "test": "cargo test -p arkret-models-integration --test applet_registration",
-      "reason": "The collaboration-domain exact-current carrier cannot depend on the integration domain without a dependency cycle. The HTTP client exact-current and Applet material endpoints decode this value to the sole AppletRegistrationPayload implementation before returning it; the closed registration contract is tested in applet_registration."
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The collaboration-domain exact-current carrier cannot depend on the integration domain without a dependency cycle. The HTTP client exact-current and Applet material endpoints decode this value to the sole AppletRegistrationPayload implementation before returning it; the closed registration contract is tested in applet_registration.",
+      "spec_pointer": "current-state.schema.json#/$defs/current_applet_registration/properties/value"
     },
     {
       "finding": "crates/models-collaboration/src/generated/agent_operations_contracts.rs::AgentView.grants",
@@ -2163,6 +2260,18 @@
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic.",
       "spec_pointer": "agent-operations.schema.json#/$defs/agent_view/properties/grants"
+    },
+    {
+      "finding": "crates/models-collaboration/src/governance/authorization.rs::AuthorizationCheckRequestBody.context",
+      "classification": "open_json",
+      "lifecycle": "retained_boundary",
+      "decision": "open",
+      "authority": "service-operation-dtos.schema.json#/$defs/AuthorizationCheckRequestBody/properties/context",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Retain only at the exact schema-declared open JSON boundary.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
+      "spec_pointer": "service-operation-dtos.schema.json#/$defs/AuthorizationCheckRequestBody/properties/context"
     },
     {
       "finding": "crates/models-collaboration/src/governance/authorization.rs::AuthorizationCheckResponseBody.applied_constraints",
@@ -2235,18 +2344,6 @@
       "test": "python tools/wire_value_audit.py --check",
       "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
       "spec_pointer": "service-operation-dtos.schema.json#/$defs/AuthorizationCheckResponseBody/properties/policy_results"
-    },
-    {
-      "finding": "crates/models-collaboration/src/governance/authorization.rs::AuthorizationCheckRequestBody.context",
-      "classification": "open_json",
-      "lifecycle": "retained_boundary",
-      "decision": "open",
-      "authority": "service-operation-dtos.schema.json#/$defs/AuthorizationCheckRequestBody/properties/context",
-      "owner_repository": "arkret-rust-sdk",
-      "action": "Retain only at the exact schema-declared open JSON boundary.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
-      "spec_pointer": "service-operation-dtos.schema.json#/$defs/AuthorizationCheckRequestBody/properties/context"
     },
     {
       "finding": "crates/models-collaboration/src/governance/erasure.rs::ErasureReceiptProof.extra",
@@ -2882,15 +2979,16 @@
       "spec_pointer": "service-describe.schema.json#/properties/verified_profiles/items/additionalProperties"
     },
     {
-      "finding": "crates/models-identity/src/account.rs::AccountDataRow.content",
-      "classification": "polymorphic_boundary",
+      "finding": "crates/models-identity/src/account.rs::AccountDataEntry.content",
+      "classification": "open_json",
       "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Value",
+      "decision": "open",
+      "authority": "account-data-operations.schema.json#/$defs/account_data_entry/properties/content",
       "owner_repository": "arkret-rust-sdk",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "action": "Retain only at the exact schema-declared open JSON boundary.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
+      "spec_pointer": "account-data-operations.schema.json#/$defs/account_data_entry/properties/content"
     },
     {
       "finding": "crates/models-identity/src/actor_profile.rs::ActorProfile.profile_fields",
@@ -3903,7 +4001,7 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
-      "finding": "json_authoring:coland/crates/http/src/routing/admin/collection.rs::admin_media_items:ae054cc2133de351",
+      "finding": "json_authoring:coland/crates/http/src/routing/admin/collection.rs::admin_media_items:1b53e4a798ce0dc4",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -3914,7 +4012,7 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
-      "finding": "json_authoring:coland/crates/http/src/routing/admin/collection.rs::admin_space_container_items:e0b74c494d113ba7",
+      "finding": "json_authoring:coland/crates/http/src/routing/admin/collection.rs::admin_space_container_items:fb745ed2aa08e9c3",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -4216,6 +4314,30 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
+      "finding": "json_authoring:coland/crates/storage-postgres/src/applets.rs::require_revoke_member_current_in_connection:49ff7723276a1284",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "current-state.schema.json#/$defs/realm_actor_manager_selector",
+      "owner_repository": "coland",
+      "action": "Keep this exact private selector boundary tracked until it serializes the SDK CurrentSelector directly; do not accept caller-supplied selector members.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "An internal PostgreSQL current-source lookup builds the fixed realm_actor_manager selector from an already typed complete ActorId; this is not an independent wire DTO.",
+      "adjudication": "manual"
+    },
+    {
+      "finding": "json_authoring:coland/crates/storage-postgres/src/applets.rs::require_revoke_member_current_in_connection:7d4d4a46cfef9569",
+      "classification": "internal_or_fixture",
+      "lifecycle": "retained_boundary",
+      "decision": "independent",
+      "authority": "Coland private PostgreSQL JSONB containment predicate over a saved SDK AppletRevokeRequestBody",
+      "owner_repository": "coland",
+      "action": "Retain as a partial database search predicate only; deserialize and compare the complete saved SDK request before authorizing a revoke member effect.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The fragment is bound only to record @> $1. The matched saved request is decoded as SDK AppletRevokeRequestBody and the exact submitted Event, Realm and manager are rechecked; the fragment is never a submitted protocol request.",
+      "adjudication": "manual"
+    },
+    {
       "finding": "json_authoring:coland/crates/storage-postgres/src/call_state_current_states.rs::release_in_connection:7a32af1e173bbca7",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
@@ -4291,6 +4413,18 @@
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
+    },
+    {
+      "finding": "json_authoring:coland/crates/storage-postgres/src/managed_message_actor.rs::service_for_event:f3a82c9b07e46004",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "current-state.schema.json#/$defs/realm_actor_manager_selector",
+      "owner_repository": "coland",
+      "action": "Keep this exact private selector boundary tracked until it serializes the SDK CurrentSelector directly; do not accept caller-supplied selector members.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "An internal PostgreSQL current-source lookup builds the fixed realm_actor_manager selector from an already typed complete ActorId; this is not an independent wire DTO.",
+      "adjudication": "manual"
     },
     {
       "path": "coland/crates/storage-postgres/src/morph_projection_reads.rs",
@@ -4417,6 +4551,18 @@
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
+    },
+    {
+      "finding": "json_authoring:coland/crates/storage-postgres/src/realm_actor_creation.rs::inventory:6e4ec04647ef3a9d",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "current-state.schema.json#/$defs/realm_actor_manager_selector",
+      "owner_repository": "coland",
+      "action": "Keep this exact private selector boundary tracked until it serializes the SDK CurrentSelector directly; do not accept caller-supplied selector members.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "An internal PostgreSQL current-source lookup builds the fixed realm_actor_manager selector from an already typed complete ActorId; this is not an independent wire DTO.",
+      "adjudication": "manual"
     },
     {
       "finding": "json_authoring:coland/crates/storage-postgres/src/realm_actor_device_authority.rs::current_in_connection:3bf0209bc158412b",
@@ -4892,6 +5038,18 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
+      "finding": "json_authoring:inkson/src/event_submit/card_placement.rs::card_placement_projection_updates:80c751c46077d572",
+      "classification": "internal_or_fixture",
+      "lifecycle": "retained_boundary",
+      "decision": "independent",
+      "authority": "holder-local optimistic card placement row",
+      "owner_repository": "inkson",
+      "action": "Retain this exact reviewed boundary; keep the separate canonical SDK authoring or validation path enforced.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "This exact object records unsigned local display state including move_id, cell and write_state. The network Move is independently built with TypedEventDraft<StrandMove> and the SDK payload; this UI projection is never submitted as an Event.",
+      "adjudication": "manual"
+    },
+    {
       "finding": "json_authoring:inkson/src/views/chat/composer/commands.rs::send_encrypted_message:a5525d8ff7042b4e",
       "classification": "internal_or_fixture",
       "lifecycle": "retained_boundary",
@@ -5041,6 +5199,18 @@
       "action": "Retain the response object with independently derived historical state and metadata.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "state and metadata are sibling output fields in one historical resolution response; state does not discriminate metadata and both are computed independently from the committed log prefix.",
+      "adjudication": "manual"
+    },
+    {
+      "finding": "json_path_mutation:bridges/crates/runtime/src/managed_actor_authoring/control/manager.rs::prepare_manager_event:599dbb488095911d",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "realm-actor.schema.json#/$defs/manager_change_payload",
+      "owner_repository": "bridges",
+      "action": "Retain the exact typed-transcript-to-typed-payload conversion boundary; require SDK RealmActorManagerChangePayload decoding before building the typed Event.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The code serializes the SDK manager-acceptance transcript, adjusts its carrier members, and immediately deserializes to the SDK RealmActorManagerChangePayload before TypedEventDraft construction. The raw intermediate does not authorize business use.",
       "adjudication": "manual"
     },
     {
@@ -5672,6 +5842,18 @@
       "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
     },
     {
+      "finding": "json_path_mutation:inkson/src/event_submit/card_placement.rs::card_placement_projection_updates:c15510c37570a9c3",
+      "classification": "internal_or_fixture",
+      "lifecycle": "retained_boundary",
+      "decision": "independent",
+      "authority": "holder-local optimistic card placement row",
+      "owner_repository": "inkson",
+      "action": "Retain this exact reviewed boundary; keep the separate canonical SDK authoring or validation path enforced.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "This exact mutation updates an unsigned local projection row for queued card placement. Producer-signed Event bytes remain the separately frozen SDK StrandMove submission; local write_state and view bookkeeping cannot change its preimage.",
+      "adjudication": "manual"
+    },
+    {
       "finding": "json_path_mutation:inkson/src/event_submit/metadata.rs::replace_payload:c50d5e01428b2d4f",
       "classification": "polymorphic_boundary",
       "adjudication": "manual",
@@ -5730,6 +5912,18 @@
       "action": "Preserve this exact reviewed boundary and its mandatory validation; new or changed symbols require separate adjudication.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "In-memory UI projection of an already accepted typed LiveSignalBody; it is not used to author or authorize a protocol message.",
+      "adjudication": "manual"
+    },
+    {
+      "finding": "json_path_mutation:inkson/src/state/demand_sync.rs::project_demand_summary:64f2cf227a8ad3f1",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "arkret-spec protocol schema owning realm_id",
+      "owner_repository": "inkson",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated. The unchanged evidence moved from apply_demand_summary to the pure project_demand_summary boundary; retain the existing raw migration obligation.",
       "adjudication": "manual"
     },
     {
@@ -6033,210 +6227,6 @@
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
-    },
-    {
-      "finding": "bridges/crates/runtime/src/managed_device/processing.rs::PendingNativeReply.processing_binding",
-      "classification": "independent",
-      "lifecycle": "retained_boundary",
-      "decision": "independent",
-      "authority": "Bridges deployment-private encrypted reply processing fingerprint",
-      "owner_repository": "bridges",
-      "action": "Retain only as caller-owned local processing identity; keep NativeContent and recipient authorization in SDK-owned types.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "prepare_native_reply<E: Serialize> includes the caller binding in the durable input digest and encrypts the reply record. Recovery recomputes that digest before publication; this field is not a v1 wire payload.",
-      "adjudication": "manual"
-    },
-    {
-      "finding": "json_authoring:coland/crates/storage-postgres/src/applets.rs::require_revoke_member_current_in_connection:49ff7723276a1284",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "current-state.schema.json#/$defs/realm_actor_manager_selector",
-      "owner_repository": "coland",
-      "action": "Keep this exact private selector boundary tracked until it serializes the SDK CurrentSelector directly; do not accept caller-supplied selector members.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "An internal PostgreSQL current-source lookup builds the fixed realm_actor_manager selector from an already typed complete ActorId; this is not an independent wire DTO.",
-      "adjudication": "manual"
-    },
-    {
-      "finding": "json_authoring:coland/crates/storage-postgres/src/applets.rs::require_revoke_member_current_in_connection:7d4d4a46cfef9569",
-      "classification": "internal_or_fixture",
-      "lifecycle": "retained_boundary",
-      "decision": "independent",
-      "authority": "Coland private PostgreSQL JSONB containment predicate over a saved SDK AppletRevokeRequestBody",
-      "owner_repository": "coland",
-      "action": "Retain as a partial database search predicate only; deserialize and compare the complete saved SDK request before authorizing a revoke member effect.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "The fragment is bound only to record @> $1. The matched saved request is decoded as SDK AppletRevokeRequestBody and the exact submitted Event, Realm and manager are rechecked; the fragment is never a submitted protocol request.",
-      "adjudication": "manual"
-    },
-    {
-      "finding": "json_authoring:coland/crates/storage-postgres/src/managed_message_actor.rs::service_for_event:f3a82c9b07e46004",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "current-state.schema.json#/$defs/realm_actor_manager_selector",
-      "owner_repository": "coland",
-      "action": "Keep this exact private selector boundary tracked until it serializes the SDK CurrentSelector directly; do not accept caller-supplied selector members.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "An internal PostgreSQL current-source lookup builds the fixed realm_actor_manager selector from an already typed complete ActorId; this is not an independent wire DTO.",
-      "adjudication": "manual"
-    },
-    {
-      "finding": "json_authoring:coland/crates/storage-postgres/src/realm_actor_creation.rs::inventory:6e4ec04647ef3a9d",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "current-state.schema.json#/$defs/realm_actor_manager_selector",
-      "owner_repository": "coland",
-      "action": "Keep this exact private selector boundary tracked until it serializes the SDK CurrentSelector directly; do not accept caller-supplied selector members.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "An internal PostgreSQL current-source lookup builds the fixed realm_actor_manager selector from an already typed complete ActorId; this is not an independent wire DTO.",
-      "adjudication": "manual"
-    },
-    {
-      "finding": "json_path_mutation:bridges/crates/runtime/src/managed_actor_authoring/control/manager.rs::prepare_manager_event:599dbb488095911d",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "realm-actor.schema.json#/$defs/manager_change_payload",
-      "owner_repository": "bridges",
-      "action": "Retain the exact typed-transcript-to-typed-payload conversion boundary; require SDK RealmActorManagerChangePayload decoding before building the typed Event.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "The code serializes the SDK manager-acceptance transcript, adjusts its carrier members, and immediately deserializes to the SDK RealmActorManagerChangePayload before TypedEventDraft construction. The raw intermediate does not authorize business use.",
-      "adjudication": "manual"
-    },
-    {
-      "finding": "json_path_mutation:inkson/src/state/demand_sync.rs::project_demand_summary:64f2cf227a8ad3f1",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec protocol schema owning realm_id",
-      "owner_repository": "inkson",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated. The unchanged evidence moved from apply_demand_summary to the pure project_demand_summary boundary; retain the existing raw migration obligation.",
-      "adjudication": "manual"
-    },
-    {
-      "finding": "closed_dispatch:inkson/src/bin/inkson-wire/realm_fixture.rs::project:78658b8b7a682ee1",
-      "classification": "internal_or_fixture",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret_sdk::event_spec; arkret_wire::{EventKind, CurrentSelector, CurrentState, StrandWatchValue}",
-      "owner_repository": "inkson",
-      "action": "Exact mock-realm CLI fixture projection, not a production admission model. It dispatches on the SDK EventKind and decodes SDK payloads/current values, including typed StrandWatchSet and StrandWatchValue, before updating its SDK CurrentState collection. Retain this one internal fixture boundary; no directory exemption or protocol DTO is introduced.",
-      "test": "Inkson playwright.contract.config.ts: Self Watch current; Watch read controls; Watch CAS validation; python tools/wire_value_audit.py --check",
-      "reason": "Exact mock-realm CLI fixture projection, not a production admission model. It dispatches on the SDK EventKind and decodes SDK payloads/current values, including typed StrandWatchSet and StrandWatchValue, before updating its SDK CurrentState collection. Retain this one internal fixture boundary; no directory exemption or protocol DTO is introduced.",
-      "adjudication": "manual"
-    },
-    {
-      "finding": "coauth/crates/backend/src/handlers/arkret/did_document.rs::DidDocument.additional_properties",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "External DID/JOSE resolver wire input; arkret_models_identity::DidDocument and SDK normalized_did_document own accepted identity semantics.",
-      "owner_repository": "coauth",
-      "action": "Preserve exact unknown standard/extension members at this named serde(flatten) resolver boundary. services/did_binding converts into the SDK-owned DidDocument before normalized digest and accepted-binding use; these maps never independently grant authority.",
-      "test": "Coauth resolver_preserves_profile_members_and_unknown_extensions (upstream test, not executed by this metadata review); python tools/wire_value_audit.py --check",
-      "reason": "Manually reviewed each of the four external resolver containers, lossless serde conversion, SDK raw_properties preservation and normalized projection. Spec did-usage-and-verification.md section5.1 requires unknown extension preservation and SDK-owned digest validation. This retains a raw boundary, not a new closed protocol model or production acceptance claim.",
-      "adjudication": "manual"
-    },
-    {
-      "finding": "coauth/crates/backend/src/handlers/arkret/did_document.rs::DidDocumentMetadata.additional_properties",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "External DID/JOSE resolver wire input; arkret_models_identity::DidDocument and SDK normalized_did_document own accepted identity semantics.",
-      "owner_repository": "coauth",
-      "action": "Preserve exact unknown standard/extension members at this named serde(flatten) resolver boundary. services/did_binding converts into the SDK-owned DidDocument before normalized digest and accepted-binding use; these maps never independently grant authority.",
-      "test": "Coauth resolver_preserves_profile_members_and_unknown_extensions (upstream test, not executed by this metadata review); python tools/wire_value_audit.py --check",
-      "reason": "Manually reviewed each of the four external resolver containers, lossless serde conversion, SDK raw_properties preservation and normalized projection. Spec did-usage-and-verification.md section5.1 requires unknown extension preservation and SDK-owned digest validation. This retains a raw boundary, not a new closed protocol model or production acceptance claim.",
-      "adjudication": "manual"
-    },
-    {
-      "finding": "coauth/crates/backend/src/handlers/arkret/did_document.rs::DidService.additional_properties",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "External DID/JOSE resolver wire input; arkret_models_identity::DidDocument and SDK normalized_did_document own accepted identity semantics.",
-      "owner_repository": "coauth",
-      "action": "Preserve exact unknown standard/extension members at this named serde(flatten) resolver boundary. services/did_binding converts into the SDK-owned DidDocument before normalized digest and accepted-binding use; these maps never independently grant authority.",
-      "test": "Coauth resolver_preserves_profile_members_and_unknown_extensions (upstream test, not executed by this metadata review); python tools/wire_value_audit.py --check",
-      "reason": "Manually reviewed each of the four external resolver containers, lossless serde conversion, SDK raw_properties preservation and normalized projection. Spec did-usage-and-verification.md section5.1 requires unknown extension preservation and SDK-owned digest validation. This retains a raw boundary, not a new closed protocol model or production acceptance claim.",
-      "adjudication": "manual"
-    },
-    {
-      "finding": "coauth/crates/backend/src/handlers/arkret/did_document.rs::VerificationMethod.additional_properties",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "External DID/JOSE resolver wire input; arkret_models_identity::DidDocument and SDK normalized_did_document own accepted identity semantics.",
-      "owner_repository": "coauth",
-      "action": "Preserve exact unknown standard/extension members at this named serde(flatten) resolver boundary. services/did_binding converts into the SDK-owned DidDocument before normalized digest and accepted-binding use; these maps never independently grant authority.",
-      "test": "Coauth resolver_preserves_profile_members_and_unknown_extensions (upstream test, not executed by this metadata review); python tools/wire_value_audit.py --check",
-      "reason": "Manually reviewed each of the four external resolver containers, lossless serde conversion, SDK raw_properties preservation and normalized projection. Spec did-usage-and-verification.md section5.1 requires unknown extension preservation and SDK-owned digest validation. This retains a raw boundary, not a new closed protocol model or production acceptance claim.",
-      "adjudication": "manual"
-    },
-    {
-      "finding": "closed_dispatch:coland/crates/http/src/routing/events/operations/semantics.rs::validate_typed_payload_shapes:63b473c9c1fdbb7c",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret_wire::EventKind and operation.typed_payload<EventSpec>",
-      "owner_repository": "coland",
-      "action": "Retain this exact reviewed boundary; keep the separate canonical SDK authoring or validation path enforced.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact receiver-side dispatch validates incoming Event payloads with SDK EventSpec types before admission. Raw field checks only reject malformed legacy input; validate_operation_payload_schema subsequently enforces the authoritative SDK schema. It does not construct a second wire type.",
-      "adjudication": "manual"
-    },
-    {
-      "finding": "coland/crates/storage/src/principal_resolution.rs::PrincipalResolutionUpdateWrite.log_entries",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "did:webvh native signed JSON log entries",
-      "owner_repository": "coland",
-      "action": "Retain this exact reviewed boundary; keep the separate canonical SDK authoring or validation path enforced.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "Native DID log evidence retains every signed external JSON member for historical verification. This internal transaction carrier is not a protocol endpoint body; admit_update re-verifies the complete evidence against the PCR cut before persistence.",
-      "adjudication": "manual"
-    },
-    {
-      "finding": "coland/crates/storage/src/principal_resolution.rs::PrincipalResolutionUpdateWrite.witness_records",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "did:webvh native witness proof records",
-      "owner_repository": "coland",
-      "action": "Retain this exact reviewed boundary; keep the separate canonical SDK authoring or validation path enforced.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "Native external witness proofs retain their original JSON signature material. The internal transaction carrier transports evidence to the authority verifier, rather than declaring an Arkret protocol structure or bypassing SDK verification.",
-      "adjudication": "manual"
-    },
-    {
-      "finding": "json_authoring:inkson/src/event_submit/card_placement.rs::card_placement_projection_updates:80c751c46077d572",
-      "classification": "internal_or_fixture",
-      "lifecycle": "retained_boundary",
-      "decision": "independent",
-      "authority": "holder-local optimistic card placement row",
-      "owner_repository": "inkson",
-      "action": "Retain this exact reviewed boundary; keep the separate canonical SDK authoring or validation path enforced.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact object records unsigned local display state including move_id, cell and write_state. The network Move is independently built with TypedEventDraft<StrandMove> and the SDK payload; this UI projection is never submitted as an Event.",
-      "adjudication": "manual"
-    },
-    {
-      "finding": "json_path_mutation:inkson/src/event_submit/card_placement.rs::card_placement_projection_updates:c15510c37570a9c3",
-      "classification": "internal_or_fixture",
-      "lifecycle": "retained_boundary",
-      "decision": "independent",
-      "authority": "holder-local optimistic card placement row",
-      "owner_repository": "inkson",
-      "action": "Retain this exact reviewed boundary; keep the separate canonical SDK authoring or validation path enforced.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact mutation updates an unsigned local projection row for queued card placement. Producer-signed Event bytes remain the separately frozen SDK StrandMove submission; local write_state and view bookkeeping cannot change its preimage.",
-      "adjudication": "manual"
     }
   ]
 }

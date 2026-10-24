@@ -200,7 +200,7 @@ pub struct AccountDataDeleteRequestBody {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AccountDataRow {
+pub struct AccountDataEntry {
     pub account_data_key: String,
     pub revision: u64,
     pub content: Value,
@@ -219,14 +219,14 @@ pub struct AccountDataCasConflict {
     pub account_data_key: String,
     pub current_revision: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub current_entry: Option<AccountDataRow>,
+    pub current_entry: Option<AccountDataEntry>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AccountDataList {
-    pub account_data_entries: Vec<AccountDataRow>,
+    pub account_data_entries: Vec<AccountDataEntry>,
 }
 
 impl AccountDataList {

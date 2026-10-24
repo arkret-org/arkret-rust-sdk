@@ -121,11 +121,11 @@ pub struct ProjectionAssignedToRelation {
 
 /// Projected Morph read-model row.
 // Field declaration order is byte-for-byte the properties order of
-// service-operation-dtos.schema.json#/$defs/MorphRow.
+// service-operation-dtos.schema.json#/$defs/MorphView.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct MorphRow {
+pub struct MorphView {
     pub morph_id: MorphId,
     pub realm_id: RealmId,
     pub morph_kind: String,
@@ -167,7 +167,7 @@ pub struct MorphRow {
     pub updated_at: Option<DateTime<Utc>>,
 }
 
-impl MorphRow {
+impl MorphView {
     /// `common-fields.md` 5.3.1: `stage_changed_at` must not appear without
     /// `stage`.
     pub fn validate(&self) -> Result<()> {
@@ -177,11 +177,11 @@ impl MorphRow {
 
 /// Projected Space read-model row.
 // Field declaration order is byte-for-byte the properties order of
-// service-operation-dtos.schema.json#/$defs/SpaceRow.
+// service-operation-dtos.schema.json#/$defs/SpaceView.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct SpaceRow {
+pub struct SpaceView {
     pub space_id: SpaceId,
     pub realm_id: RealmId,
     /// Space kind such as `board`, `list`, `folder`, or a profile-registered
@@ -220,11 +220,11 @@ pub struct SpaceRow {
 
 /// Projected Strand read-model row.
 // Field declaration order is byte-for-byte the properties order of
-// service-operation-dtos.schema.json#/$defs/StrandRow.
+// service-operation-dtos.schema.json#/$defs/StrandView.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct StrandRow {
+pub struct StrandView {
     pub strand_id: StrandId,
     pub realm_id: RealmId,
     pub state: ObjectState,
@@ -303,7 +303,7 @@ pub struct StrandRow {
     pub is_default: bool,
 }
 
-impl StrandRow {
+impl StrandView {
     /// `common-fields.md` 5.3.1: `stage_changed_at` must not appear without
     /// `stage`.
     pub fn validate(&self) -> Result<()> {
@@ -450,9 +450,9 @@ mod projection_row_tests {
 
     #[test]
     fn morph_row_round_trips_and_is_closed() {
-        assert_round_trips::<MorphRow>(morph_row_value());
-        assert_rejects_unknown_member::<MorphRow>(morph_row_value());
-        assert_rejects_each_omitted_required_member::<MorphRow>(
+        assert_round_trips::<MorphView>(morph_row_value());
+        assert_rejects_unknown_member::<MorphView>(morph_row_value());
+        assert_rejects_each_omitted_required_member::<MorphView>(
             morph_row_value(),
             &["morph_id", "realm_id", "morph_kind", "state"],
         );
@@ -460,9 +460,9 @@ mod projection_row_tests {
 
     #[test]
     fn space_row_round_trips_and_is_closed() {
-        assert_round_trips::<SpaceRow>(space_row_value());
-        assert_rejects_unknown_member::<SpaceRow>(space_row_value());
-        assert_rejects_each_omitted_required_member::<SpaceRow>(
+        assert_round_trips::<SpaceView>(space_row_value());
+        assert_rejects_unknown_member::<SpaceView>(space_row_value());
+        assert_rejects_each_omitted_required_member::<SpaceView>(
             space_row_value(),
             &["space_id", "realm_id", "kind", "state"],
         );
@@ -470,9 +470,9 @@ mod projection_row_tests {
 
     #[test]
     fn strand_row_round_trips_and_is_closed() {
-        assert_round_trips::<StrandRow>(strand_row_value());
-        assert_rejects_unknown_member::<StrandRow>(strand_row_value());
-        assert_rejects_each_omitted_required_member::<StrandRow>(
+        assert_round_trips::<StrandView>(strand_row_value());
+        assert_rejects_unknown_member::<StrandView>(strand_row_value());
+        assert_rejects_each_omitted_required_member::<StrandView>(
             strand_row_value(),
             &["strand_id", "realm_id", "state", "is_default"],
         );
@@ -482,21 +482,21 @@ mod projection_row_tests {
     fn stage_changed_at_never_stands_without_stage() {
         let mut value = morph_row_value();
         value.as_object_mut().unwrap().remove("stage");
-        let row: MorphRow = serde_json::from_value(value).unwrap();
+        let row: MorphView = serde_json::from_value(value).unwrap();
         assert!(row.validate().is_err());
 
         let mut value = strand_row_value();
         value.as_object_mut().unwrap().remove("stage");
-        let row: StrandRow = serde_json::from_value(value).unwrap();
+        let row: StrandView = serde_json::from_value(value).unwrap();
         assert!(row.validate().is_err());
 
-        let paired: StrandRow = serde_json::from_value(strand_row_value()).unwrap();
+        let paired: StrandView = serde_json::from_value(strand_row_value()).unwrap();
         paired.validate().unwrap();
     }
 
     #[test]
     fn strand_row_projects_the_derived_default_flag_and_assignment_edges() {
-        let row: StrandRow = serde_json::from_value(strand_row_value()).unwrap();
+        let row: StrandView = serde_json::from_value(strand_row_value()).unwrap();
         assert!(row.is_default);
         assert_eq!(row.assigned_actor_ids.len(), 1);
         assert_eq!(
@@ -515,7 +515,7 @@ mod projection_row_tests {
 #[serde(deny_unknown_fields)]
 pub struct MorphPage {
     pub realm_id: RealmId,
-    pub morphs: Vec<MorphRow>,
+    pub morphs: Vec<MorphView>,
     pub total: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<Cursor>,
@@ -550,7 +550,7 @@ impl MorphPage {
 #[serde(deny_unknown_fields)]
 pub struct SpacePage {
     pub realm_id: RealmId,
-    pub spaces: Vec<SpaceRow>,
+    pub spaces: Vec<SpaceView>,
     pub total: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<Cursor>,
@@ -584,7 +584,7 @@ impl SpacePage {
 #[serde(deny_unknown_fields)]
 pub struct StrandPage {
     pub realm_id: RealmId,
-    pub strands: Vec<StrandRow>,
+    pub strands: Vec<StrandView>,
     pub total: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<Cursor>,

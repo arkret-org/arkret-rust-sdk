@@ -5,7 +5,7 @@
 // sha256=25b316c622b40dd0719802a94561c9993e77b0e91a476e58ad282851f8547b26
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
+// sha256=dc92c416f466a595bc16d56fbbae216e8c660c38914459081d8340c5b55ebb2d
 
 /// Counterpart: `account-state-view.schema.json#/$defs/current`.
 /// The Account Station's view of one Realm's authority-committed current state.

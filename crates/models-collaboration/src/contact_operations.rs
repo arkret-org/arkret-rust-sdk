@@ -2032,17 +2032,17 @@ impl ContactPeerEndpoint {
     }
 }
 
-/// `contact-operations.schema.json#/$defs/contact_list_row`.
+/// `contact-operations.schema.json#/$defs/contact_view`.
 ///
 /// The schema's conditional requirements (`next_prepare_input` exactly for
 /// `accepted`, `request_event_ref` for `pending_incoming`, `request_message`
 /// only there, `effective_scopes == bidirectional_scopes`) are enforced on
-/// deserialization through `ContactListRowWire`, so a row that reaches a
+/// deserialization through `ContactViewWire`, so a row that reaches a
 /// caller has already been checked.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[serde(try_from = "ContactListRowWire")]
-pub struct ContactListRow {
+#[serde(try_from = "ContactViewWire")]
+pub struct ContactView {
     pub peer: ContactPeer,
     pub state: ContactState,
     #[serde(
@@ -2109,7 +2109,7 @@ pub struct ContactListRow {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct ContactListRowWire {
+struct ContactViewWire {
     peer: ContactPeer,
     state: ContactState,
     #[serde(default)]
@@ -2138,10 +2138,10 @@ struct ContactListRowWire {
     peer_endpoint: Option<ContactPeerEndpoint>,
 }
 
-impl TryFrom<ContactListRowWire> for ContactListRow {
+impl TryFrom<ContactViewWire> for ContactView {
     type Error = arkret_wire::WireError;
 
-    fn try_from(wire: ContactListRowWire) -> arkret_wire::Result<Self> {
+    fn try_from(wire: ContactViewWire) -> arkret_wire::Result<Self> {
         let row = Self {
             peer: wire.peer,
             state: wire.state,
@@ -2163,7 +2163,7 @@ impl TryFrom<ContactListRowWire> for ContactListRow {
     }
 }
 
-impl ContactListRow {
+impl ContactView {
     pub fn validate_shape(&self) -> arkret_wire::Result<()> {
         if self.peer_endpoint.is_some()
             && (self.state != ContactState::Accepted
@@ -2242,7 +2242,7 @@ mod contact_list_projection_tests {
     }
 
     /// The member order here is the schema `properties` order of
-    /// `contact_list_row`; the round-trip assertion below therefore fails if a
+    /// `contact_view`; the round-trip assertion below therefore fails if a
     /// field is ever reordered or renamed in the Rust declaration.
     fn accepted_row() -> Value {
         json!({
@@ -2289,8 +2289,8 @@ mod contact_list_projection_tests {
         });
         let mut null = value.clone();
         null["peer_endpoint"] = Value::Null;
-        assert!(serde_json::from_value::<ContactListRow>(null).is_err());
-        let parsed: ContactListRow = serde_json::from_value(value.clone()).unwrap();
+        assert!(serde_json::from_value::<ContactView>(null).is_err());
+        let parsed: ContactView = serde_json::from_value(value.clone()).unwrap();
         assert_eq!(serde_json::to_value(parsed).unwrap(), value);
         for state in [
             "pending_outgoing",
@@ -2305,12 +2305,12 @@ mod contact_list_projection_tests {
                 .as_object_mut()
                 .unwrap()
                 .remove("next_prepare_input");
-            assert!(serde_json::from_value::<ContactListRow>(changed).is_err());
+            assert!(serde_json::from_value::<ContactView>(changed).is_err());
         }
         let mut agent = value.clone();
         agent["peer"] = json!({"kind":"agent", "actor_id": value["contact_agents"][0]["actor_id"],
             "controller_account_id": value["contact_agents"][0]["controller_account_id"]});
-        assert!(serde_json::from_value::<ContactListRow>(agent).is_err());
+        assert!(serde_json::from_value::<ContactView>(agent).is_err());
         let account =
             serde_json::from_value::<AccountId>(human_peer()["account_id"].clone()).unwrap();
         let method = "did:webvh:z6mkpeerprincipal:peer.example#ak:device:01964137-0000-7000-8000-000000000001";
@@ -2343,7 +2343,7 @@ mod contact_list_projection_tests {
 
     #[test]
     fn accepted_row_round_trips_byte_for_byte() {
-        let row: ContactListRow = serde_json::from_value(accepted_row()).unwrap();
+        let row: ContactView = serde_json::from_value(accepted_row()).unwrap();
         assert_eq!(row.state, ContactState::Accepted);
         assert_eq!(
             row.direct_conversation.as_ref().unwrap().state,
@@ -2389,19 +2389,19 @@ mod contact_list_projection_tests {
             .as_object_mut()
             .unwrap()
             .remove("next_prepare_input");
-        assert!(serde_json::from_value::<ContactListRow>(without).is_err());
+        assert!(serde_json::from_value::<ContactView>(without).is_err());
 
         let mut pending = accepted_row();
         let object = pending.as_object_mut().unwrap();
         object.insert("state".to_owned(), json!("pending_incoming"));
         object.remove("effective_scopes");
-        assert!(serde_json::from_value::<ContactListRow>(pending.clone()).is_err());
+        assert!(serde_json::from_value::<ContactView>(pending.clone()).is_err());
 
         pending
             .as_object_mut()
             .unwrap()
             .remove("next_prepare_input");
-        let row: ContactListRow = serde_json::from_value(pending).unwrap();
+        let row: ContactView = serde_json::from_value(pending).unwrap();
         assert_eq!(row.state, ContactState::PendingIncoming);
         assert!(row.next_prepare_input.is_none());
     }
@@ -2413,7 +2413,7 @@ mod contact_list_projection_tests {
         object.insert("state".to_owned(), json!("pending_incoming"));
         object.remove("next_prepare_input");
         object.remove("request_event_ref");
-        assert!(serde_json::from_value::<ContactListRow>(pending).is_err());
+        assert!(serde_json::from_value::<ContactView>(pending).is_err());
     }
 
     #[test]
@@ -2423,21 +2423,21 @@ mod contact_list_projection_tests {
             .as_object_mut()
             .unwrap()
             .insert("request_message".to_owned(), json!("hello"));
-        assert!(serde_json::from_value::<ContactListRow>(accepted).is_err());
+        assert!(serde_json::from_value::<ContactView>(accepted).is_err());
 
         let mut pending = accepted_row();
         let object = pending.as_object_mut().unwrap();
         object.insert("state".to_owned(), json!("pending_incoming"));
         object.remove("next_prepare_input");
         object.insert("request_message".to_owned(), json!("hello"));
-        let row: ContactListRow = serde_json::from_value(pending.clone()).unwrap();
+        let row: ContactView = serde_json::from_value(pending.clone()).unwrap();
         assert_eq!(row.request_message.as_deref(), Some("hello"));
 
         pending
             .as_object_mut()
             .unwrap()
             .insert("request_message".to_owned(), json!("x".repeat(2001)));
-        assert!(serde_json::from_value::<ContactListRow>(pending).is_err());
+        assert!(serde_json::from_value::<ContactView>(pending).is_err());
     }
 
     #[test]
@@ -2446,7 +2446,7 @@ mod contact_list_projection_tests {
         row.as_object_mut()
             .unwrap()
             .insert("effective_scopes".to_owned(), json!(["invite"]));
-        assert!(serde_json::from_value::<ContactListRow>(row).is_err());
+        assert!(serde_json::from_value::<ContactView>(row).is_err());
     }
 
     #[test]
@@ -2455,7 +2455,7 @@ mod contact_list_projection_tests {
         row.as_object_mut()
             .unwrap()
             .insert("effective_scope".to_owned(), json!(["invite"]));
-        assert!(serde_json::from_value::<ContactListRow>(row).is_err());
+        assert!(serde_json::from_value::<ContactView>(row).is_err());
 
         let mut summary = direct_conversation();
         summary
@@ -2501,7 +2501,7 @@ mod contact_list_projection_tests {
             .as_object_mut()
             .unwrap()
             .insert("version".to_owned(), json!(1));
-        assert!(serde_json::from_value::<ContactListRow>(row).is_err());
+        assert!(serde_json::from_value::<ContactView>(row).is_err());
     }
 }
 

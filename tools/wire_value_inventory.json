@@ -1,6 +1,6 @@
 {
   "summary": {
-    "total": 540,
+    "total": 539,
     "scope": {
       "repositories": [
         "arkret-rust-sdk",
@@ -48,7 +48,6 @@
       "arkret-rust-sdk": 1,
       "backend": 12,
       "chime": 3,
-      "codmin": 1,
       "contracts": 8,
       "data": 25,
       "domain": 20,
@@ -78,28 +77,27 @@
       "json_authoring": 118,
       "json_path_mutation": 69,
       "paired_api": 13,
-      "public_value_field": 337
+      "public_value_field": 336
     },
     "by_classification": {
       "independent": 14,
       "internal_or_fixture": 18,
-      "open_json": 74,
-      "polymorphic_boundary": 434
+      "open_json": 75,
+      "polymorphic_boundary": 432
     },
     "by_lifecycle": {
-      "retained_boundary": 540
+      "retained_boundary": 539
     },
     "by_decision": {
       "independent": 17,
-      "open": 74,
-      "raw": 449
+      "open": 75,
+      "raw": 447
     },
     "by_owner_repository": {
       "arkret-rust-sdk": 183,
       "bridges": 7,
       "chime": 3,
       "coauth": 48,
-      "codmin": 1,
       "coland": 238,
       "flagon": 1,
       "floria": 12,
@@ -108,10 +106,10 @@
     },
     "by_schema_shape": {
       "closed": 9,
-      "open_json": 2,
+      "open_json": 3,
       "open_json_container": 18,
       "open_map": 51,
-      "unknown": 460
+      "unknown": 458
     }
   },
   "entries": [
@@ -1464,31 +1462,6 @@
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic.",
       "evidence": "public serde_json::Value field"
-    },
-    {
-      "finding": "codmin/src/utils/net/error.rs::AdminErrorEnvelope.extra",
-      "category": "public_value_field",
-      "rust_field": "codmin/src/utils/net/error.rs::AdminErrorEnvelope.extra",
-      "crate": "codmin",
-      "file": "codmin/src/utils/net/error.rs",
-      "path": "codmin/src/utils/net/error.rs",
-      "owner": "AdminErrorEnvelope",
-      "owner_repository": "codmin",
-      "symbol": "AdminErrorEnvelope.extra",
-      "field": "extra",
-      "discriminator": null,
-      "data_field": "extra",
-      "rust_type": "BTreeMap<String, serde_json::Value>",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "BTreeMap<String, serde_json::Value>",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic.",
-      "evidence": "public BTreeMap<String, serde_json::Value> field"
     },
     {
       "finding": "coland/crates/contracts/src/admin/collection.rs::AdminRealmItem.strand",
@@ -5085,8 +5058,8 @@
       "lifecycle": "retained_boundary",
       "decision": "raw",
       "authority": "event-payload.schema.json#/$defs/applet_registration_payload",
-      "action": "Retain the shared read carrier; decode with arkret_models_integration::AppletRegistrationPayload before business use.",
-      "test": "cargo test -p arkret-models-integration --test applet_registration",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "test": "python tools/wire_value_audit.py --check",
       "reason": "The collaboration-domain exact-current carrier cannot depend on the integration domain without a dependency cycle. The HTTP client exact-current and Applet material endpoints decode this value to the sole AppletRegistrationPayload implementation before returning it; the closed registration contract is tested in applet_registration.",
       "evidence": "public serde_json::Value field"
     },
@@ -6641,28 +6614,28 @@
       "evidence": "public BTreeMap<String, Value> field"
     },
     {
-      "finding": "crates/models-identity/src/account.rs::AccountDataRow.content",
+      "finding": "crates/models-identity/src/account.rs::AccountDataEntry.content",
       "category": "public_value_field",
-      "rust_field": "crates/models-identity/src/account.rs::AccountDataRow.content",
+      "rust_field": "crates/models-identity/src/account.rs::AccountDataEntry.content",
       "crate": "models-identity",
       "file": "crates/models-identity/src/account.rs",
       "path": "crates/models-identity/src/account.rs",
-      "owner": "AccountDataRow",
+      "owner": "AccountDataEntry",
       "owner_repository": "arkret-rust-sdk",
-      "symbol": "AccountDataRow.content",
+      "symbol": "AccountDataEntry.content",
       "field": "content",
       "discriminator": null,
       "data_field": "content",
       "rust_type": "Value",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "polymorphic_boundary",
+      "spec_pointer": "account-data-operations.schema.json#/$defs/account_data_entry/properties/content",
+      "schema_shape": "open_json",
+      "classification": "open_json",
       "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Value",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "decision": "open",
+      "authority": "account-data-operations.schema.json#/$defs/account_data_entry/properties/content",
+      "action": "Retain only at the exact schema-declared open JSON boundary.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic.",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
       "evidence": "public Value field"
     },
     {
@@ -8916,7 +8889,7 @@
       "evidence": "json!(AdminFederationOperation { kind: \"federation_operation\".to_owned(), operation_id: operation.operation_id, realm_id: operation.realm_id, operation_kind: operation.operation_kind, canonical_kind, strand_id, track, digest, created_at: operation.created_at, })"
     },
     {
-      "finding": "json_authoring:coland/crates/http/src/routing/admin/collection.rs::admin_media_items:ae054cc2133de351",
+      "finding": "json_authoring:coland/crates/http/src/routing/admin/collection.rs::admin_media_items:1b53e4a798ce0dc4",
       "category": "json_authoring",
       "rust_field": null,
       "crate": null,
@@ -8938,10 +8911,10 @@
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary.",
-      "evidence": "json!(AdminMediaRow { kind: \"media\".to_owned(), sha256: blob.sha256.clone(), media_type: blob.media_type.clone(), filename: blob.filename.clone(), realm_id: blob.realm_id.clone(), encrypted: blob.encryption.is_some(), uploaded_by: DidCoreId::new(blob.uploaded_by.clone()) .expe..."
+      "evidence": "json!(AdminMediaView { kind: \"media\".to_owned(), sha256: blob.sha256.clone(), media_type: blob.media_type.clone(), filename: blob.filename.clone(), realm_id: blob.realm_id.clone(), encrypted: blob.encryption.is_some(), uploaded_by: DidCoreId::new(blob.uploaded_by.clone()) .exp..."
     },
     {
-      "finding": "json_authoring:coland/crates/http/src/routing/admin/collection.rs::admin_space_container_items:e0b74c494d113ba7",
+      "finding": "json_authoring:coland/crates/http/src/routing/admin/collection.rs::admin_space_container_items:fb745ed2aa08e9c3",
       "category": "json_authoring",
       "rust_field": null,
       "crate": null,
@@ -8963,7 +8936,7 @@
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary.",
-      "evidence": "json!(AdminSpaceRow { id: container.container_space_id.clone(), name: container.title.clone(), realm_id: container.realm_id.clone(), kind: container.kind.clone(), member_count: member_counts .get(&container.realm_id) .copied() .unwrap_or_default(), health: space_health(contain..."
+      "evidence": "json!(AdminSpaceView { id: container.container_space_id.clone(), name: container.title.clone(), realm_id: container.realm_id.clone(), kind: container.kind.clone(), member_count: member_counts .get(&container.realm_id) .copied() .unwrap_or_default(), health: space_health(contai..."
     },
     {
       "finding": "json_authoring:coland/crates/http/src/routing/admin/media.rs::admin_get_realm_media_service:1d7a089e1d85c2e8",

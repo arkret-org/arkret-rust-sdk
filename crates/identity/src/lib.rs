@@ -72,7 +72,7 @@ pub use binding::{
 pub use binding_digest::{
     BASE_RESOLVER_POLICY_PROFILE, DigestError, EVIDENCE_RECEIPT_KIND, EvidenceDependencies,
     EvidenceReceipt, MethodEvidence, MethodEvidenceProof, RESOLVER_POLICY_SNAPSHOT_KIND,
-    ResolverPolicyProfile, ResolverPolicySnapshot, WebvhLogEvidence, WebvhWitnessRow,
+    ResolverPolicyProfile, ResolverPolicySnapshot, WebvhLogEvidence, WebvhWitnessIdentity,
     normalize_did_method_prefix, policy_digest,
 };
 pub use binding_store::{

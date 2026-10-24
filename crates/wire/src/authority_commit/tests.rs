@@ -1296,7 +1296,7 @@ fn circle_item(realm_id: RealmId, stream_position: u64) -> CommittedEventFullVie
 }
 
 #[test]
-fn stream_row_rejects_a_commit_bound_to_another_independent_stream() {
+fn committed_event_view_rejects_a_commit_bound_to_another_independent_stream() {
     let realm_id = realm(0x10);
     let mut item = circle_item(realm_id.clone(), 0);
     item.commit.stream_ref = CommitStreamRef::Realm { realm_id };
@@ -1569,7 +1569,7 @@ fn realm_stream_list_enforces_order_floor_and_continuation() {
     let head: RealmCommitId = "ak:realm_commit:ARNRmzDi2r78zveOLmoHOb6AephFMwVuGE1fwXmCoeo4"
         .parse()
         .unwrap();
-    let realm_row = RealmStreamRow {
+    let realm_row = RealmStreamView {
         stream_ref: CommitStreamRef::Realm {
             realm_id: realm_id.clone(),
         },
@@ -1618,7 +1618,7 @@ fn realm_stream_list_enforces_order_floor_and_continuation() {
     });
     assert!(floor_past_head.validate().is_err());
 
-    let circle_row = RealmStreamRow {
+    let circle_row = RealmStreamView {
         stream_ref: CommitStreamRef::Circle {
             realm_id,
             circle_id: "ak:circle:AUifoAUG8AEOHYXp999WnI7WlLt19ByDoqYUsFwbw4A4"

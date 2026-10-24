@@ -78,10 +78,10 @@ pub enum RealmListMembership {
 /// not comparable across accounts, and never a substitute for a
 /// [`arkret_wire::CommitStreamHead`].
 // Field declaration order is byte-for-byte the `properties` order of
-// `account-subscribe-frame.schema.json#/$defs/realm_list_row`.
+// `account-subscribe-frame.schema.json#/$defs/account_realm_view`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RealmListRow {
+pub struct AccountRealmView {
     pub realm_id: RealmId,
     pub revision: u64,
     pub activity_position: u64,
@@ -92,7 +92,7 @@ pub struct RealmListRow {
     pub default_strand_id: Option<StrandId>,
 }
 
-impl RealmListRow {
+impl AccountRealmView {
     pub fn validate(&self) -> Result<()> {
         if self
             .title
@@ -120,7 +120,7 @@ impl RealmListRow {
 pub struct RealmListPage {
     pub snapshot_cursor: String,
     pub snapshot_revision: u64,
-    pub items: Vec<RealmListRow>,
+    pub items: Vec<AccountRealmView>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
 }
@@ -174,7 +174,7 @@ pub struct RealmListRemoval {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmListChanges {
-    pub upserts: Vec<RealmListRow>,
+    pub upserts: Vec<AccountRealmView>,
     pub removals: Vec<RealmListRemoval>,
 }
 
@@ -315,11 +315,11 @@ mod tests {
     fn realm_list_item_rejects_unknown_members_and_retired_memberships() {
         let mut value = item(realm_a());
         value["leave"] = json!(true);
-        assert!(serde_json::from_value::<RealmListRow>(value).is_err());
+        assert!(serde_json::from_value::<AccountRealmView>(value).is_err());
 
         let mut retired = item(realm_a());
         retired["membership"] = json!("invite");
-        assert!(serde_json::from_value::<RealmListRow>(retired).is_err());
+        assert!(serde_json::from_value::<AccountRealmView>(retired).is_err());
     }
 
     #[test]

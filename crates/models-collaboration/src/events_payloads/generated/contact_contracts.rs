@@ -5,7 +5,7 @@
 // sha256=74e26ef25ba5846ba74149c301a7ff5c7f1afc507f2cfd207cfe0edc060507bf
 //
 // Input: schemas/principal-operations.schema.json
-// sha256=1a2386903398e423357f8871b00e4f242f446f6aa695af4a6df200455dc4a69b
+// sha256=51276d41d5ca6dde5257d686a51b678c57467c4377417653060861c8ec8fb854
 //
 // Input: schemas/account-operations.schema.json
 // sha256=78c6503698cd43571f2b25543013f9036927ef9bfd005e71377ad3006f4a64d4
@@ -14,7 +14,7 @@
 // sha256=0cc25a02fe0d9a94f6e41f2cf8f64e492ba36362f1e69a699cf1e684924837ee
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
+// sha256=dc92c416f466a595bc16d56fbbae216e8c660c38914459081d8340c5b55ebb2d
 
 /// Counterpart: `event-payload.schema.json#/$defs/contact_accepted_payload`.
 /// Counterpart for

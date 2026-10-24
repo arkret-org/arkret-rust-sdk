@@ -8,10 +8,10 @@
 // sha256=74e26ef25ba5846ba74149c301a7ff5c7f1afc507f2cfd207cfe0edc060507bf
 //
 // Input: schemas/realm-organization-operations.schema.json
-// sha256=9c47e06c9a60ef687501295978cf62b0c8d920284806b7eca25b59602b0ffb47
+// sha256=cb36954bb1f984ec3bea96289ede428accabc65334aa74fa356b6fd609fe56f9
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
+// sha256=dc92c416f466a595bc16d56fbbae216e8c660c38914459081d8340c5b55ebb2d
 
 /// Counterpart: `realm-link-operations.schema.json#/$defs/realm_link_list`.
 /// `realm-link-operations.schema.json#/$defs/realm_link_list`.
@@ -61,6 +61,6 @@ pub struct RealmAliasTombstonePayload {
 #[serde(deny_unknown_fields)]
 pub struct RealmOrganizationRelationshipList {
     pub realm_id: RealmId,
-    pub relationships: Vec<RealmOrganizationRelationshipRow>,
+    pub relationships: Vec<RealmOrganizationRelationshipView>,
     pub declared_organization_hint_ids: Vec<DidCoreId>,
 }

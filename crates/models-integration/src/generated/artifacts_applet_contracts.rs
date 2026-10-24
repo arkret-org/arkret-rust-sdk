@@ -2,7 +2,7 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/applet-edge-operations.schema.json
-// sha256=281d081a715af6336246e65f77801ca81d5cc1fac950e87af2f873ddcd963193
+// sha256=59e3d84d50f7cdb6575c05ec52d95635df081ca82a74ec850b8a629d24cc0766
 //
 // Input: schemas/string-profiles.schema.json
 // sha256=aa4422be011e02a256a0cfdc072c66b15534eb8de23b76e31329982702e06e26
@@ -17,7 +17,7 @@
 // sha256=1dc897dd43ac4d614337e1aafc67dda231eaafd90dedd36f87afa0d4aaafa258
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
+// sha256=dc92c416f466a595bc16d56fbbae216e8c660c38914459081d8340c5b55ebb2d
 
 /// Counterpart: `applet-edge-operations.schema.json#/$defs/field_definition`.
 /// Counterpart for
@@ -52,9 +52,9 @@ pub struct ProtocolInstance {
     pub external_ref: Option<ExternalRef>,
 }
 
-/// Counterpart: `applet-edge-operations.schema.json#/$defs/rejected_event_row`.
+/// Counterpart: `applet-edge-operations.schema.json#/$defs/applet_event_rejection`.
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/applet-edge-operations.schema.json#/$defs/rejected_event_row`.
+/// `spec/v1/artifacts/schemas/applet-edge-operations.schema.json#/$defs/applet_event_rejection`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

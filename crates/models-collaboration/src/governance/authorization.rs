@@ -68,7 +68,7 @@ pub struct AuthorizationCheckResponseBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize)]
 #[serde(deny_unknown_fields)]
-pub struct EffectiveCapabilityGrantRow {
+pub struct EffectiveCapabilityGrantView {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub grant: CapabilityGrant,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
@@ -77,17 +77,17 @@ pub struct EffectiveCapabilityGrantRow {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct EffectiveCapabilityGrantRowWire {
+struct EffectiveCapabilityGrantViewWire {
     grant: CapabilityGrant,
     revision: CurrentRevision,
 }
 
-impl<'de> Deserialize<'de> for EffectiveCapabilityGrantRow {
+impl<'de> Deserialize<'de> for EffectiveCapabilityGrantView {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let wire = EffectiveCapabilityGrantRowWire::deserialize(deserializer)?;
+        let wire = EffectiveCapabilityGrantViewWire::deserialize(deserializer)?;
         if wire.grant.status != crate::governance::grant_constraint::CapabilityGrantStatus::Active {
             return Err(serde::de::Error::custom(
                 "effective capability row must carry an active grant",
@@ -102,14 +102,14 @@ impl<'de> Deserialize<'de> for EffectiveCapabilityGrantRow {
 
 /// Atomic subject-visible snapshot returned by the governing Station.
 ///
-/// Each entry is an [`EffectiveCapabilityGrantRow`]. `state_digest` binds the
+/// Each entry is an [`EffectiveCapabilityGrantView`]. `state_digest` binds the
 /// complete list snapshot and is not a per-grant revision or authoring basis.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EffectiveGrantSnapshot {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = Vec<serde_json::Value>)))]
-    pub grants: Vec<EffectiveCapabilityGrantRow>,
+    pub grants: Vec<EffectiveCapabilityGrantView>,
     pub state_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub evaluated_at: DateTime<Utc>,

@@ -8,7 +8,7 @@
 // sha256=952900cbdbafc71f26a703a9cf423fa07fc67d9741e833df9ad949fce0db9508
 //
 // Input: schemas/agent-operations.schema.json
-// sha256=15fedd4b4e4462c678d93ac6521a5dfd0372854cd62cd76ec5e777fd88857ae5
+// sha256=f43b1500107a166134dea8fe97289450aedc12da8db65302be386fe1d4ed2e6a
 //
 // Input: schemas/common-ids.schema.json
 // sha256=0cc25a02fe0d9a94f6e41f2cf8f64e492ba36362f1e69a699cf1e684924837ee
@@ -29,7 +29,7 @@
 // sha256=6652f814405afb672ebc20ca69bdd58f47a3847606d5f5b890b3306b5949d947
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
+// sha256=dc92c416f466a595bc16d56fbbae216e8c660c38914459081d8340c5b55ebb2d
 
 /// Counterpart: `agent-sidecar-view-state.schema.json`.
 /// Controller-private encrypted account-data plaintext for one hosted Sidecar
@@ -113,7 +113,7 @@ pub struct AgentSidecarMlsContext {
     pub current_controller_device_ready: bool,
 }
 
-/// Counterpart: `agent-operations.schema.json#/$defs/pending_sidecar_access_reconciliation_row`.
+/// Counterpart: `agent-operations.schema.json#/$defs/pending_sidecar_access_reconciliation`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

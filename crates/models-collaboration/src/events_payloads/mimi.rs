@@ -1,7 +1,8 @@
 //! MIMI interop event payloads.
 
 use arkret_wire::{
-    CurrentRevision, CurrentSelector, DidCoreId, EventId, RealmCommitId, Result, WireError,
+    CommitStreamRef, CurrentRevision, DidCoreId, EventId, MimiRoomUri, RealmCommitId, Result,
+    WireError,
 };
 
 use crate::internal_prelude::*;
@@ -83,29 +84,111 @@ impl MimiRoomBindingPayload {
     }
 }
 
-/// Typed current result for the URI-keyed MIMI room binding projection.
+/// Closed selector for
+/// `current-state.schema.json#/$defs/current_mimi_room_binding/properties/selector`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MimiRoomBindingSelectorKind {
+    MimiRoomBinding,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MimiRoomBindingSelector {
+    pub kind: MimiRoomBindingSelectorKind,
+    pub mimi_room_uri: MimiRoomUri,
+}
+
+/// Complete authority current state, not the facade's payload-only projection.
+/// `current-state.schema.json#/$defs/current_mimi_room_binding`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct MimiRoomBindingCurrentRow {
-    pub selector: CurrentSelector,
+pub struct CurrentMimiRoomBinding {
+    pub selector: MimiRoomBindingSelector,
+    pub source_stream_ref: CommitStreamRef,
     pub revision: CurrentRevision,
     pub value: MimiRoomBindingPayload,
 }
 
-impl MimiRoomBindingCurrentRow {
+impl CurrentMimiRoomBinding {
     pub fn validate(&self) -> Result<()> {
         self.value.validate_shape()?;
-        match &self.selector {
-            CurrentSelector::MimiRoomBinding { mimi_room_uri }
-                if mimi_room_uri == &self.value.mimi_room_uri =>
-            {
-                Ok(())
-            }
-            _ => Err(WireError::Protocol(
-                "MIMI room binding current result selector must name its payload URI".to_owned(),
-            )),
+        if self.selector.mimi_room_uri != self.value.mimi_room_uri {
+            return Err(WireError::Protocol(
+                "MIMI current selector must name its payload URI".to_owned(),
+            ));
         }
+        if self.source_stream_ref.realm_id() != &self.value.binding_scope.realm_id {
+            return Err(WireError::Protocol(
+                "MIMI current source must belong to its binding Realm".to_owned(),
+            ));
+        }
+        Ok(())
     }
 }
 
 include!("generated/mimi_contracts.rs");
+
+#[cfg(test)]
+mod current_binding_tests {
+    use serde_json::{Value, json};
+
+    use super::*;
+
+    fn specimen() -> Value {
+        let event = EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [0x41; 32]);
+        let realm = RealmId::from_event_id(&event);
+        let strand = StrandId::from_event_id(&event);
+        json!({
+            "selector": {"kind": "mimi_room_binding", "mimi_room_uri": "mimi://binding.example/rooms/one"},
+            "source_stream_ref": {"kind": "realm", "realm_id": realm},
+            "revision": {"commit_id": RealmCommitId::from_digest([0x42; 32]), "stream_position": 7},
+            "value": {"profile": "ak.profile.mimi_interop.v1", "mimi_room_uri": "mimi://binding.example/rooms/one",
+                "binding_scope": {"realm_id": realm, "strand_id": strand},
+                "hub_provider_id": "ak:did_core:web:binding.example", "local_provider_role": "hub", "status": "accepted"}
+        })
+    }
+
+    #[test]
+    fn complete_current_round_trips_and_rejects_partial_or_foreign_selectors() {
+        let original = specimen();
+        let current: CurrentMimiRoomBinding = serde_json::from_value(original.clone()).unwrap();
+        current.validate().unwrap();
+        assert_eq!(serde_json::to_value(current).unwrap(), original);
+        for mutation in [
+            "missing_source",
+            "foreign_kind",
+            "extra_selector_field",
+            "extra_current_field",
+        ] {
+            let mut value = original.clone();
+            match mutation {
+                "missing_source" => {
+                    value.as_object_mut().unwrap().remove("source_stream_ref");
+                }
+                "foreign_kind" => value["selector"]["kind"] = json!("agent_status"),
+                "extra_selector_field" => value["selector"]["agent_id"] = json!("unrelated"),
+                _ => value["legacy"] = json!(true),
+            }
+            assert!(
+                serde_json::from_value::<CurrentMimiRoomBinding>(value).is_err(),
+                "{mutation}"
+            );
+        }
+    }
+
+    #[test]
+    fn current_validation_binds_room_identity_and_source_realm() {
+        for mutation in ["room", "realm"] {
+            let mut value = specimen();
+            if mutation == "room" {
+                value["selector"]["mimi_room_uri"] = json!("mimi://binding.example/rooms/two");
+            } else {
+                let event = EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [0x43; 32]);
+                value["source_stream_ref"]["realm_id"] = json!(RealmId::from_event_id(&event));
+            }
+            let current: CurrentMimiRoomBinding = serde_json::from_value(value).unwrap();
+            assert!(current.validate().is_err(), "{mutation}");
+        }
+    }
+}

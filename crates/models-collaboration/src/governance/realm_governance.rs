@@ -510,7 +510,7 @@ pub enum RealmOrganizationLifecyclePhase {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
-pub struct RealmOrganizationRelationshipRow {
+pub struct RealmOrganizationRelationshipView {
     pub statement_id: String,
     pub organization_id: DidCoreId,
     pub relationship: RealmOrganizationRelationship,

@@ -225,7 +225,7 @@ pub struct CalendarScheduleSourceExactSelector {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct CalendarScheduleSourceExactRow {
+pub struct CurrentCalendarScheduleSource {
     pub selector: CalendarScheduleSourceExactSelector,
     pub source_stream_ref: CommitStreamRef,
     pub revision: CurrentRevision,
@@ -388,7 +388,7 @@ pub enum ExactCurrentStateEntry {
     CapabilityGrant(CurrentCapabilityGrant),
     AppletRegistration(CurrentAppletRegistration),
     Policy(CurrentPolicy),
-    CalendarScheduleSource(CalendarScheduleSourceExactRow),
+    CalendarScheduleSource(CurrentCalendarScheduleSource),
 }
 
 impl ExactCurrentStateEntry {

@@ -3253,7 +3253,7 @@ impl RealmStreamPage {
 
     /// Validate an internal full discovery cut before it is divided into wire
     /// pages. The 500-item wire bound remains enforced by `validate`.
-    pub fn validate_rows(realm_id: &RealmId, streams: &[RealmStreamRow]) -> Result<()> {
+    pub fn validate_rows(realm_id: &RealmId, streams: &[RealmStreamView]) -> Result<()> {
         let mut previous: Option<Vec<u8>> = None;
         for row in streams {
             if row.stream_ref.realm_id() != realm_id {

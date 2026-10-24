@@ -9,6 +9,24 @@ spec.loader.exec_module(gate)
 
 
 class TypeNameTests(unittest.TestCase):
+    def test_row_reexports_cannot_restore_a_retired_public_alias(self):
+        self.assertEqual(gate.violations('wire/src/new.rs',
+            'pub use domain::ObjectView as ObjectRow; pub use domain::{StateView as StateRow};'),
+            ['ObjectRow', 'StateRow'])
+
+    def test_primary_ci_executes_the_type_name_gate_and_mutations(self):
+        workflow = (Path(__file__).resolve().parents[1] / '.github/workflows/ci.yml').read_text(encoding='utf-8')
+        self.assertIn('--check sdk.protocol-type-names --check sdk.protocol-type-names-regression', workflow)
+
+
+    def test_public_row_struct_enum_and_alias_are_rejected(self):
+        self.assertEqual(gate.violations('wire/src/new.rs',
+            'pub struct ObjectRow {} pub enum StateRow {} pub type AliasRow = ObjectView;'),
+            ['ObjectRow', 'StateRow', 'AliasRow'])
+        self.assertEqual(gate.violations('wire/src/new.rs',
+            'struct StorageRow {} pub struct ObjectView {} pub struct CurrentObject {}'), [])
+
+
     def test_body_aliases_must_use_the_canonical_type_directly(self):
         self.assertEqual(gate.violations('wire/src/new.rs',
                          'pub type IssueResponseBody = Receipt; pub type Result<T> = std::result::Result<T, Error>;'),

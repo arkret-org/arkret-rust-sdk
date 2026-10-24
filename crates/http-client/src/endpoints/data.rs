@@ -19,8 +19,8 @@ use arkret_models_crypto::{
 };
 use arkret_models_discovery::{ServiceDescribe, TransportBinding};
 use arkret_models_identity::account::{
-    AccountDataDeleteRequestBody, AccountDataDeleteResponseBody, AccountDataList,
-    AccountDataReplaceRequestBody, AccountDataRow,
+    AccountDataDeleteRequestBody, AccountDataDeleteResponseBody, AccountDataEntry, AccountDataList,
+    AccountDataReplaceRequestBody,
 };
 use arkret_wire::BlobRef;
 use reqwest::Method;
@@ -621,7 +621,7 @@ impl Client {
     }
 
     /// Read one account-data entry.
-    pub async fn account_data_get(&self, account_data_key: &str) -> Result<AccountDataRow> {
+    pub async fn account_data_get(&self, account_data_key: &str) -> Result<AccountDataEntry> {
         reject_path_segment(account_data_key)?;
         self.get(&format!("/_arkret/self/account_data/{account_data_key}"))
             .await
@@ -636,7 +636,7 @@ impl Client {
         &self,
         account_data_key: &str,
         request: &VerifiedSubmission<AccountDataReplaceRequestBody>,
-    ) -> Result<AccountDataRow> {
+    ) -> Result<AccountDataEntry> {
         reject_path_segment(account_data_key)?;
         self.put(
             &format!("/_arkret/self/account_data/{account_data_key}"),

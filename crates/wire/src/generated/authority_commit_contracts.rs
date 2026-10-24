@@ -2,16 +2,16 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/realm-read-operations.schema.json
-// sha256=a92f3062e1bb6271c244752397f427d129f37641a5931bfbb16770e59b3c959b
+// sha256=42278e7c05317c7629724c1cbbe5ab019e87da08d73d014d915898fce20012ab
 //
 // Input: schemas/authority-commit-operations.schema.json
-// sha256=f95cb1acfa8517176738115925b1795d3b13d206a1d99ddf0b5050f670136d2f
+// sha256=af71e24e8f5ef6f00ea14c3a0fb6ddc258aaed79d20a128f3b524dd7673f56e1
 //
 // Input: schemas/authorization-operations.schema.json
 // sha256=b367d60aeb13aa9e524c5201cc1857d8ac9defd5c78293f696a4f4c0a5d4450b
 //
 // Input: schemas/service-operation-dtos.schema.json
-// sha256=18415d05b61700be7b69081cf070ed3c41de10f8e43cabea16992ae94a0f37d9
+// sha256=32d523d2ce78c43bf47a897d97a4dab2e7d0ae38a392c38d96200ae946dfdd4e
 //
 // Input: schemas/current-state.schema.json
 // sha256=feba0ff19e227c276a3792aaed506b6534bf9ff8ce6c2e91a0ab36c04777785f
@@ -26,14 +26,14 @@
 // sha256=6feb8f90ab444004084e457cc4c52193dbfc9d630f4739eda7712c21257af590
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
+// sha256=dc92c416f466a595bc16d56fbbae216e8c660c38914459081d8340c5b55ebb2d
 
-/// Counterpart: `realm-read-operations.schema.json#/$defs/realm_stream_row`.
+/// Counterpart: `realm-read-operations.schema.json#/$defs/realm_stream_view`.
 /// One established authority stream the caller may know exists
-/// (`realm-read-operations.schema.json#/$defs/realm_stream_row`).
+/// (`realm-read-operations.schema.json#/$defs/realm_stream_view`).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RealmStreamRow {
+pub struct RealmStreamView {
     pub stream_ref: CommitStreamRef,
     pub head_commit_ref: RealmCommitId,
     pub next_position: u64,
@@ -49,7 +49,7 @@ pub struct RealmStreamRow {
 #[serde(deny_unknown_fields)]
 pub struct RealmStreamPage {
     pub realm_id: RealmId,
-    pub streams: Vec<RealmStreamRow>,
+    pub streams: Vec<RealmStreamView>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
     pub next_cursor: Option<String>,

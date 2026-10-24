@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-24.3;
-//! sha256=d198725f3daedeba075aeab923f810259a0734f1f146c625d42071345f27507c Entries: schema_ids=230,
+//! Input: registry/contract-registry.json; version=2026-10-24.4;
+//! sha256=41ba0124d0722954caf755d55e28b1ed4faa05f014c2a8e02549035eda4a76e6 Entries: schema_ids=230,
 //! active=230
 
 use serde::{Deserialize, Serialize};
@@ -1323,8 +1323,8 @@ impl SchemaId {
     /// Closed decrypted Signal payload profile for ak.typing Strand composition indicators.
     pub const SIGNAL_TYPING_V1: &'static str = "ak.schema.signal_typing.v1";
     /// Unified own-Station current/historical Device and Agent signing-key request; historical
-    /// selectors require an exact committed_event_ref obtained from a verified stream_row, never a
-    /// bare EventId or current projection.
+    /// selectors require an exact committed_event_ref obtained from a verified
+    /// committed_event_view, never a bare EventId or current projection.
     pub const SIGNER_KEY_QUERY_REQUEST_V1: &'static str = "ak.schema.signer_key_query_request.v1";
     /// Unified own-Station current/historical Device and Agent signing-key outcome; resolved keys
     /// bind an independent committed authorization ref, current revision and governance generation,

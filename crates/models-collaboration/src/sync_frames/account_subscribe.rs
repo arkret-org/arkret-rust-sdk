@@ -6,7 +6,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use arkret_models_identity::account::AccountDataRow;
+use arkret_models_identity::account::AccountDataEntry;
 use arkret_wire::{
     AccountId, ActorId, CommitStreamRef, CommittedEventView, Cursor, DidCoreId, Event, EventId,
     Hash, RealmId, Result, SchemaId, WireError, canonical,
@@ -641,7 +641,7 @@ impl AccountDataContainer {
 #[serde(deny_unknown_fields)]
 pub struct StationCasAccountDataContainer {
     #[serde(default)]
-    pub upserts: Vec<AccountDataRow>,
+    pub upserts: Vec<AccountDataEntry>,
     #[serde(default)]
     pub removals: Vec<StationCasAccountDataRemoval>,
 }

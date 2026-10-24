@@ -2,10 +2,10 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/agent-operations.schema.json
-// sha256=15fedd4b4e4462c678d93ac6521a5dfd0372854cd62cd76ec5e777fd88857ae5
+// sha256=f43b1500107a166134dea8fe97289450aedc12da8db65302be386fe1d4ed2e6a
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=9ae24a86bf06fbbb34b7c213750ec967f236063bb554064280a2c76cb825acb6
+// sha256=dc92c416f466a595bc16d56fbbae216e8c660c38914459081d8340c5b55ebb2d
 
 /// Counterpart: `agent-operations.schema.json#/$defs/agent_participation_response_body`.
 /// Response for `ak.self.agent.participation.{set,get}`.

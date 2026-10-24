@@ -305,7 +305,7 @@ impl DidWebvhResolver {
         for id in policy.map(|policy| policy.witnesses).unwrap_or_default() {
             let witness_did =
                 Did::new(id).map_err(|error| IdentityError::Protocol(error.to_string()))?;
-            witnesses.push(WebvhWitnessRow {
+            witnesses.push(WebvhWitnessIdentity {
                 controlling_organization_did: witness_did.clone(),
                 witness_did,
             });

@@ -14,7 +14,7 @@ OWNERS = ("wire", "models-identity", "models-crypto", "models-collaboration",
           "models-discovery", "models-integration")
 DECLARATION = re.compile(r"\bpub\s+(?:struct|enum)\s+(\w+)")
 REJECTED = ("Result", "Candidate", "Item", "Response",
-            "Wrapper", "Info", "Details", "ResBody", "ReqBody")
+            "Row", "Wrapper", "Info", "Details", "ResBody", "ReqBody")
 EXCEPTIONS = {
     ("wire/src/platform.rs", "WasmHttpResponse"):
         "Local browser transport carrier for an HTTP response, not an Arkret operation DTO.",
@@ -37,6 +37,11 @@ EXCEPTIONS = {
 }
 
 
+def row_reexports(masked: str) -> list[str]:
+    return [name for body in re.findall(r"\bpub\s+use\s+([^;]+);", masked)
+            for name in re.findall(r"\b[A-Za-z_][A-Za-z0-9_]*Row\b", body)]
+
+
 def violations(path: str, source: str) -> list[str]:
     # Reuse the audit lexer so declarations in comments and strings do not count.
     from wire_value_audit import mask_non_code
@@ -45,7 +50,8 @@ def violations(path: str, source: str) -> list[str]:
     errors = [name for name in DECLARATION.findall(masked)
               if name.endswith(REJECTED) and (path, name) not in EXCEPTIONS]
     errors.extend(name for name in re.findall(r'\bpub\s+type\s+(\w+)\s*=', masked)
-                  if name.endswith(('RequestBody', 'ResponseBody')))
+                  if name.endswith(('RequestBody', 'ResponseBody', 'Row')))
+    errors.extend(row_reexports(masked))
     return errors
 
 
@@ -59,6 +65,18 @@ def main() -> int:
             declarations.update((relative, name) for name in DECLARATION.findall(source))
             errors.extend(f"{relative}: {name}: use an R4 wrapper or a domain noun"
                           for name in violations(relative, source))
+    from wire_value_audit import mask_non_code
+    for path in sorted((ROOT / "crates").rglob("*.rs")):
+        if "src" not in path.relative_to(ROOT / "crates").parts:
+            continue
+        relative = path.relative_to(ROOT / "crates").as_posix()
+        if relative.split("/", 1)[0] in OWNERS:
+            continue
+        masked = mask_non_code(path.read_text(encoding="utf-8"))
+        errors.extend(f"{relative}: {name}: public Row reexports are forbidden" for name in row_reexports(masked))
+        for name in re.findall(r"\bpub\s+(?:struct|enum|type)\s+(\w+)", masked):
+            if name.endswith("Row"):
+                errors.append(f"{relative}: {name}: public SDK models cannot use generic Row")
     errors.extend(f"stale type-name exception: {path}::{name}"
                   for path, name in EXCEPTIONS if (path, name) not in declarations)
     if errors:

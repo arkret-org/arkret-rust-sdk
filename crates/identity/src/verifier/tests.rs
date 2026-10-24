@@ -1106,7 +1106,7 @@ fn webvh_evidence() -> MethodEvidence {
         proofs: vec![crate::MethodEvidenceProof::WebvhLog(
             crate::WebvhLogEvidence {
                 history_head: "3-QmFixtureHead".to_owned(),
-                witnesses: vec![crate::WebvhWitnessRow {
+                witnesses: vec![crate::WebvhWitnessIdentity {
                     witness_did: Did::new("did:webvh:z6mkfixture:witness.example".to_owned())
                         .expect("valid did"),
                     controlling_organization_did: Did::new(

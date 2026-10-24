@@ -285,6 +285,8 @@ class CompatibilityGateTests(ManifestFixture, unittest.TestCase):
 
     def test_sdk_structure_time_event_checks_are_shared_with_standalone_ci(self) -> None:
         expected = {
+            "sdk.protocol-type-names": ["tools/lint-type-names.py"],
+            "sdk.protocol-type-names-regression": ["tools/test_type_names.py"],
             "sdk.layering-regression": ["tools/test_check_layering.py"],
             "sdk.layering": ["tools/check-layering.py"],
             "sdk.test-layout-regression": ["-m", "unittest", "tools.tests.test_test_layout_gate"],
