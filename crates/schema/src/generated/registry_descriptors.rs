@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-24.2;
-//! sha256=e79e94261c890e82a59726272e1d22118c7d3ba48720b3b9e810971299b09c0f Input: registry/
+//! Input: registry/contract-registry.json; version=2026-10-24.3;
+//! sha256=d198725f3daedeba075aeab923f810259a0734f1f146c625d42071345f27507c Input: registry/
 //! account-data-key-registry.json; version=2026-10-24.1;
 //! sha256=6232b072b675125888fa4c7d8f8b85d4f1513963c29855f2d5c9ce0a0bb8edd6 Entries: id_kinds=48,
 //! special_forms=15, actions=153, approval_carriers=2, schemas=230, account_data_patterns=24
