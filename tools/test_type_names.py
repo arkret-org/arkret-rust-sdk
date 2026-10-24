@@ -9,6 +9,9 @@ spec.loader.exec_module(gate)
 
 
 class TypeNameTests(unittest.TestCase):
+    def test_exceptions_cannot_permanently_whitelist_an_already_valid_role(self):
+        self.assertTrue(all(name.endswith(gate.REJECTED) for _path, name in gate.EXCEPTIONS))
+
     def test_result_aliases_must_be_error_channels_and_bodies_have_one_owner(self):
         self.assertEqual(gate.violations('wire/src/new.rs',
             'pub type LookupResult = LookupView; pub type ResultsResult<T> = Vec<T>; '

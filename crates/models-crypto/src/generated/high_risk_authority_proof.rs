@@ -5,7 +5,7 @@
 //! sha256=4acda127c256d66797a837628cc785a36d2bb23f197e263e2f385e5d83db2a54
 //!
 //! Bindings: tools/closed-model-bindings.json
-//! sha256=ea613fae32e25a94687889845566828fe050317b185350eceb320391ae60c2f4
+//! sha256=7eb29e3393ca0d6c4a4fe35cc4d4a9f0694ef825bf0b9fd710255bafada51f39
 
 /// Counterpart: `high-risk-authority-proof.schema.json#/$defs/recovery_unlock_proof`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

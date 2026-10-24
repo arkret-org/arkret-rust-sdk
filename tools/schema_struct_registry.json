@@ -4131,6 +4131,14 @@
     {
       "rust_type": "crates/wire/src/websocket_binding.rs::WebSocketDpopProof",
       "schema": "websocket-dpop-proof.schema.json"
+    },
+    {
+      "rust_type": "crates/models-identity/src/account.rs::AccountDataRevisionProblemExtensions",
+      "schema": "account-data-operations.schema.json#/$defs/account_data_revision_problem_extensions"
+    },
+    {
+      "rust_type": "crates/wire/src/problem_details.rs::InviteLiveTargetOccupiedProblemExtensions",
+      "schema": "invite.schema.json#/$defs/invite_live_target_occupied_problem_extensions"
     }
   ],
   "exemptions": [

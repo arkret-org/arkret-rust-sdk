@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-10-24.3;
-//! sha256=bc97180697be14ec9bdb36ad6270b36a7b346e0b884338f45dd465d267947820
+//! Input: registry/error-code-registry.json; version=2026-10-25.1;
+//! sha256=c9a7e8316205f0ae51c8f39f038f65fc0b73e714e21015f81ed260fca41db8e7
 //! Entries: reason_codes=306, reserved_not_emitted=67
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -2118,7 +2118,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::INVITE_LIVE_TARGET_OCCUPIED,
         applies_to: &["event_envelope", "auth_decision"],
-        description: "Sub-reason for failed_precondition when ak.invite.create targets an account whose Realm live-target slot invite_live_target is already claimed by another live directed Invite. The Event is not accepted, enters no canonical history and derives no current state write; the closed error.details is InviteLiveTargetOccupiedProblem carrying the occupying invite_id and create_event_id. See zh/models/governance-objects.md section 5.3.",
+        description: "Sub-reason for failed_precondition when ak.invite.create targets an account whose Realm live-target slot invite_live_target is already claimed by another live directed Invite. The Event is not accepted, enters no canonical history and derives no current state write; the closed top-level Problem extensions is InviteLiveTargetOccupiedProblemExtensions carrying the occupying invite_id and create_event_id. See zh/models/governance-objects.md section 5.3.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::INVITE_OOB_ENTROPY_TOO_LOW,

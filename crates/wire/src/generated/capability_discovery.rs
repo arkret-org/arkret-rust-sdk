@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-24.5;
-//! sha256=8032fa87b7a51d8ae5098b6c16de960b45704022744148e422daa523cea67870
+//! Input: registry/contract-registry.json; version=2026-10-25.1;
+//! sha256=5959ff13cb7da01f1bc722e5101a9e953e0f2340b0f9915852fcbec5a001f924
 //! Entries: operation_bundles=44 features=12
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};

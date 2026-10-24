@@ -24,10 +24,6 @@ EXCEPTIONS = {
         "Domain subject: a candidate service for joining a Realm.",
     ("models-collaboration/src/call_signal.rs", "IceCandidate"):
         "External ICE candidate term.",
-    ("models-collaboration/src/events_payloads/call.rs", "CallRecordingMetadata"):
-        "Domain artifact: a produced call recording, not an endpoint result wrapper.",
-    ("models-collaboration/src/events_payloads/call.rs", "CallTranscriptMetadata"):
-        "Domain artifact: a produced call transcript, not an endpoint result wrapper.",
     ("models-collaboration/src/governance/generated/moderation_queue_contracts.rs", "ModerationQueueItem"):
         "First-class moderation queue object with its own registered identifier and schema.",
     ("models-collaboration/src/governance/realm_governance.rs", "RealmLinkTransitionCandidate"):
@@ -118,6 +114,8 @@ def main() -> int:
                 errors.append(f"{relative}: {name}: public SDK models cannot use generic Row")
     errors.extend(f"stale type-name exception: {path}::{name}"
                   for path, name in EXCEPTIONS if (path, name) not in declarations)
+    errors.extend(f"redundant type-name exception: {path}::{name}"
+                  for path, name in EXCEPTIONS if not name.endswith(REJECTED))
     if errors:
         print("\n".join(errors))
         return 1

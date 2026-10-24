@@ -95,6 +95,9 @@
     "DeviceMessageUnknownRow": "DeviceMessageUnknownEntry",
     "CalendarScheduleSourceExactRow": "CurrentCalendarScheduleSource",
     "MimiRoomBindingCurrentRow": "CurrentMimiRoomBinding",
-    "WebvhWitnessRow": "DidBindingWitness"
+    "WebvhWitnessRow": "DidBindingWitness",
+    "AccountDataCasConflict": "AccountDataRevisionProblemExtensions",
+    "AccountDataCasConflictDetails": "AccountDataRevisionProblemExtensions",
+    "InviteLiveTargetOccupiedProblem": "InviteLiveTargetOccupiedProblemExtensions"
   }
 }

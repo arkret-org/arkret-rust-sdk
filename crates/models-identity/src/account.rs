@@ -208,17 +208,21 @@ pub struct AccountDataEntry {
     pub updated_at: DateTime<Utc>,
 }
 
-/// Closed `cas_conflict` / `not_found` details for one Account Data key.
+/// Closed top-level RFC 9457 extensions for one Account Data revision.
 ///
 /// `current_entry` is present only while the key has a live value. A missing
 /// entry still carries the authoritative revision high-water mark.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AccountDataCasConflict {
+pub struct AccountDataRevisionProblemExtensions {
     pub account_data_key: String,
     pub current_revision: u64,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_wire::serde_helpers::deserialize_non_null_optional"
+    )]
     pub current_entry: Option<AccountDataEntry>,
 }
 
@@ -1943,8 +1947,8 @@ mod account_data_tests {
     }
 
     #[test]
-    fn cas_conflict_details_preserve_revision_without_live_entry() {
-        let details: AccountDataCasConflict = serde_json::from_value(json!({
+    fn account_data_revision_extensions_preserve_revision_without_live_entry() {
+        let details: AccountDataRevisionProblemExtensions = serde_json::from_value(json!({
             "account_data_key": "ak.client.ui_state",
             "current_revision": 7
         }))
@@ -1955,9 +1959,19 @@ mod account_data_tests {
     }
 
     #[test]
-    fn cas_conflict_details_reject_unknown_fields() {
+    fn account_data_revision_extensions_reject_null_entries_and_error_wrappers() {
+        for value in [
+            json!({"account_data_key":"ak.client.ui_state","current_revision":7,"current_entry":null}),
+            json!({"details":{"account_data_key":"ak.client.ui_state","current_revision":7}}),
+        ] {
+            assert!(serde_json::from_value::<AccountDataRevisionProblemExtensions>(value).is_err());
+        }
+    }
+
+    #[test]
+    fn account_data_revision_extensions_reject_unknown_fields() {
         assert!(
-            serde_json::from_value::<AccountDataCasConflict>(json!({
+            serde_json::from_value::<AccountDataRevisionProblemExtensions>(json!({
                 "account_data_key": "ak.client.ui_state",
                 "current_revision": 7,
                 "expected_revision": 6

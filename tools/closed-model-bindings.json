@@ -21204,6 +21204,18 @@
       "schema": "websocket-dpop-proof.schema.json",
       "category": "domain_semantics",
       "reason": "Retain this public domain declaration and its current serde behavior; explicitly bind the reviewed KeyPackage or WebSocket canonical contract so lexical capitalization cannot escape the exact field-set gate."
+    },
+    {
+      "rust_type": "crates/models-identity/src/account.rs::AccountDataRevisionProblemExtensions",
+      "schema": "account-data-operations.schema.json#/$defs/account_data_revision_problem_extensions",
+      "category": "domain_semantics",
+      "reason": "Retain the exact Account Data revision extension fragment and its canonical optional-non-null entry decoding; errors reuse these fields at the RFC 9457 top level without a duplicate details wrapper."
+    },
+    {
+      "rust_type": "crates/wire/src/problem_details.rs::InviteLiveTargetOccupiedProblemExtensions",
+      "schema": "invite.schema.json#/$defs/invite_live_target_occupied_problem_extensions",
+      "category": "domain_semantics",
+      "reason": "The occupying Event determines the Invite retype and the closed reason code. Retain the validating constructor and decoder while checking their exact canonical Problem extension members."
     }
   ],
   "retained_exemptions": [

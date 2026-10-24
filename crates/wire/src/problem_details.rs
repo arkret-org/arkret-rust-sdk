@@ -239,13 +239,13 @@ pub enum AgentHumanApprovalProblemError {
 /// `invite_id` is only the object name to show a human or look a lifecycle up
 /// by.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-pub struct InviteLiveTargetOccupiedProblem {
+pub struct InviteLiveTargetOccupiedProblemExtensions {
     reason_code: &'static str,
     invite_id: crate::InviteId,
     create_event_id: crate::EventId,
 }
 
-impl InviteLiveTargetOccupiedProblem {
+impl InviteLiveTargetOccupiedProblemExtensions {
     /// Build the closed details from the slot value itself.
     ///
     /// The slot stores the occupying `ak.invite.create` Event id, so that is
@@ -290,7 +290,7 @@ impl InviteLiveTargetOccupiedProblem {
     }
 }
 
-impl<'de> Deserialize<'de> for InviteLiveTargetOccupiedProblem {
+impl<'de> Deserialize<'de> for InviteLiveTargetOccupiedProblemExtensions {
     fn deserialize<D>(deserializer: D) -> StdResult<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -477,7 +477,7 @@ impl Problem {
     /// history and derives no projection or notification.
     pub fn invite_live_target_occupied(
         detail: impl Into<String>,
-        details: InviteLiveTargetOccupiedProblem,
+        details: InviteLiveTargetOccupiedProblemExtensions,
     ) -> Self {
         Self::from_code(crate::error_codes::ErrorCode::FAILED_PRECONDITION, detail)
             .with_extensions(details.into_wire_details())
@@ -553,8 +553,10 @@ impl Problem {
     /// object is what selects this shape.
     pub fn invite_live_target_occupied_details(
         &self,
-    ) -> StdResult<Option<InviteLiveTargetOccupiedProblem>, InviteLiveTargetOccupiedProblemError>
-    {
+    ) -> StdResult<
+        Option<InviteLiveTargetOccupiedProblemExtensions>,
+        InviteLiveTargetOccupiedProblemError,
+    > {
         if self.code() != crate::error_codes::ErrorCode::FAILED_PRECONDITION {
             return Ok(None);
         }
