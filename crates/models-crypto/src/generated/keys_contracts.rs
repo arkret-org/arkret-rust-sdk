@@ -5,7 +5,7 @@
 // sha256=d2645beeab92e67cca8924e10310364580de299c04cd12034896ffe43c7c1607
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=7eb29e3393ca0d6c4a4fe35cc4d4a9f0694ef825bf0b9fd710255bafada51f39
+// sha256=107c58e1dbd8a2701005c9cd1dc573b3c5e861cc4f3c68403bae0ff3d579bd03
 
 /// Counterpart:
 /// `keys-operations.schema.json#/$defs/device_projection_attestation_core/properties/

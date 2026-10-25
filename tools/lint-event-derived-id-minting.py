@@ -121,9 +121,10 @@ def main() -> int:
 
     sites: dict[str, list[str]] = {}
     for path in sorted(scan_root.rglob("*.rs")):
-        if any(part in SKIP_DIRS for part in path.parts):
+        relative_path = path.relative_to(scan_root)
+        if any(part in SKIP_DIRS for part in relative_path.parts):
             continue
-        relative = path.relative_to(scan_root).as_posix()
+        relative = relative_path.as_posix()
         for number, line in enumerate(
             path.read_text(encoding="utf-8", errors="replace").splitlines(), start=1
         ):

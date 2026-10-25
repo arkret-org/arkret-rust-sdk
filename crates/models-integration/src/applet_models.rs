@@ -687,19 +687,99 @@ pub struct AppletActorView {
     pub external_ref: Option<ExternalRef>,
 }
 
+/// Exact lookup selector; all coordinates are required and no enumeration exists.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ThirdPartyUserQuery {
+    pub applet_id: AppletId,
+    pub realm_id: RealmId,
+    pub protocol: String,
+    pub instance_id: String,
+    pub external_id: String,
+}
+
+impl ThirdPartyUserQuery {
+    pub fn external_ref(&self) -> GhostExternalTuple {
+        GhostExternalTuple {
+            protocol: self.protocol.clone(),
+            instance_id: self.instance_id.clone(),
+            external_id: self.external_id.clone(),
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.protocol.is_empty()
+            || self.protocol.len() > 64
+            || !self.protocol.as_bytes()[0].is_ascii_lowercase()
+            || !self.protocol.bytes().all(|byte| {
+                byte.is_ascii_lowercase() || byte.is_ascii_digit() || b"_.-".contains(&byte)
+            })
+            || self.instance_id.is_empty()
+            || self.external_id.is_empty()
+            || self.instance_id.starts_with("ak:")
+            || self.external_id.starts_with("ak:")
+        {
+            return Err(WireError::Protocol(
+                "third-party user lookup requires an exact external tuple".into(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AppletThirdPartyUserLookupResponseBody {
+    pub exists: bool,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_optional_realm_actor"
+    )]
+    pub actor_id: Option<ActorId>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub external_ref: Option<GhostExternalTuple>,
+}
+
+impl AppletThirdPartyUserLookupResponseBody {
+    pub fn validate_for_query(&self, query: &ThirdPartyUserQuery) -> Result<()> {
+        query.validate()?;
+        let valid = match (&self.actor_id, &self.external_ref) {
+            (Some(actor), Some(external)) => {
+                self.exists
+                    && actor
+                        .as_realm_actor_id()
+                        .is_some_and(|id| id.realm_id == query.realm_id)
+                    && external == &query.external_ref()
+            }
+            (None, None) => !self.exists,
+            _ => false,
+        };
+        if !valid {
+            return Err(WireError::Protocol(
+                "third-party user lookup differs from its exact selector".into(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 fn deserialize_optional_realm_actor<'de, D: serde::Deserializer<'de>>(
     deserializer: D,
 ) -> std::result::Result<Option<ActorId>, D::Error> {
-    let actor = Option::<ActorId>::deserialize(deserializer)?;
-    if actor
-        .as_ref()
-        .is_some_and(|actor| actor.as_realm_actor_id().is_none())
-    {
+    let actor = ActorId::deserialize(deserializer)?;
+    if actor.as_realm_actor_id().is_none() {
         return Err(serde::de::Error::custom(
             "Applet actor lookup requires a Realm ActorId",
         ));
     }
-    Ok(actor)
+    Ok(Some(actor))
 }
 
 #[cfg(test)]
@@ -708,6 +788,84 @@ mod actor_view_tests {
     use serde_json::json;
 
     use super::*;
+
+    #[test]
+    fn third_party_user_lookup_preserves_exact_tuple_and_closed_presence() {
+        let query = ThirdPartyUserQuery {
+            applet_id: "ak:applet:01904100-0000-7000-8000-000000000001"
+                .parse()
+                .unwrap(),
+            realm_id: RealmId::from_event_id(&EventId::from_digest(
+                arkret_canonical::DigestSuite::Sha256,
+                [7; 32],
+            )),
+            protocol: "slack".into(),
+            instance_id: "T123".into(),
+            external_id: "U123".into(),
+        };
+        let actor = ActorId::realm(arkret_wire::RealmActorId::new(
+            query.realm_id.clone(),
+            "ak:did_core:webvh:zlookup".parse().unwrap(),
+        ));
+        let response = AppletThirdPartyUserLookupResponseBody {
+            exists: true,
+            actor_id: Some(actor),
+            external_ref: Some(query.external_ref()),
+        };
+        response.validate_for_query(&query).unwrap();
+        let registry = arkret_schema_conformance::schema_registry_from_default_spec_artifacts()
+            .unwrap()
+            .unwrap();
+        registry
+            .validate_value(
+                &format!(
+                    "{}#/$defs/third_party_user_query",
+                    SchemaId::APPLET_EDGE_OPERATIONS_V1
+                ),
+                &serde_json::to_value(&query).unwrap(),
+            )
+            .unwrap();
+        registry
+            .validate_value(
+                &format!(
+                    "{}#/$defs/applet_third_party_user_lookup_response_body",
+                    SchemaId::APPLET_EDGE_OPERATIONS_V1
+                ),
+                &serde_json::to_value(&response).unwrap(),
+            )
+            .unwrap();
+        let mut changed = response.clone();
+        changed.exists = false;
+        assert!(changed.validate_for_query(&query).is_err());
+        let mut changed_query = query.clone();
+        changed_query.external_id.push('x');
+        assert!(response.validate_for_query(&changed_query).is_err());
+        for field in ["actor_id", "external_ref"] {
+            let mut raw = serde_json::to_value(&response).unwrap();
+            raw[field] = serde_json::Value::Null;
+            assert!(serde_json::from_value::<AppletThirdPartyUserLookupResponseBody>(raw).is_err());
+        }
+        for field in [
+            "applet_id",
+            "realm_id",
+            "protocol",
+            "instance_id",
+            "external_id",
+        ] {
+            let mut raw = serde_json::to_value(&query).unwrap();
+            raw.as_object_mut().unwrap().remove(field);
+            assert!(serde_json::from_value::<ThirdPartyUserQuery>(raw).is_err());
+        }
+        let mut bad = query.clone();
+        bad.instance_id = "ak:realm:external".into();
+        assert!(bad.validate().is_err());
+        let absent = AppletThirdPartyUserLookupResponseBody {
+            exists: false,
+            actor_id: None,
+            external_ref: None,
+        };
+        absent.validate_for_query(&query).unwrap();
+    }
 
     #[test]
     fn applet_actor_view_preserves_exact_realm_identity() {

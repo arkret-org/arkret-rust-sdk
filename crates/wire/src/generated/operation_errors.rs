@@ -1,9 +1,9 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operations-error-mapping.json; version=2026-10-25.2;
-//! sha256=6d981feb4531b589e67b8c9ea12e380f1c9f4cfef199d9cb525370cdb3668b97 Input: registry/
-//! contract-registry.json; version=2026-10-25.1;
-//! sha256=5959ff13cb7da01f1bc722e5101a9e953e0f2340b0f9915852fcbec5a001f924 Input: registry/
+//! Input: registry/operations-error-mapping.json; version=2026-10-25.3;
+//! sha256=080af9a809ca014c38357a5dcef4375f5ef4bdc6cf04d1928883ea91aa89a16a Input: registry/
+//! contract-registry.json; version=2026-10-25.2;
+//! sha256=486b7d389283a4a7eda54f78979c9d047424a30d0b30b22781e5c8191f2bf963 Input: registry/
 //! error-code-registry.json; version=2026-10-25.1;
 //! sha256=c9a7e8316205f0ae51c8f39f038f65fc0b73e714e21015f81ed260fca41db8e7 Entries: operations=225
 
@@ -51,7 +51,7 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
     &[],
     &[],
     &[],
-    &[],
+    &[OperationSpecificError::Code(ErrorCode::NotFound)],
     &[
         OperationSpecificError::Code(ErrorCode::DuplicateConflict),
         OperationSpecificError::Code(ErrorCode::PushTokenInvalid),
@@ -893,6 +893,7 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Reason(ReasonCode::IdentityMethodEvidenceInvalid),
         OperationSpecificError::Code(ErrorCode::DependencyMissing),
         OperationSpecificError::Code(ErrorCode::DuplicateConflict),
+        OperationSpecificError::Code(ErrorCode::NotFound),
     ],
     &[
         OperationSpecificError::Code(ErrorCode::NotFound),

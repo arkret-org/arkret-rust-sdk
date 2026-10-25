@@ -7,8 +7,9 @@ use arkret_models_integration::{
     AppletInstallRequestBody, AppletInstallResponseBody, AppletManagedActorAuthorRequestBody,
     AppletManagedActorAuthorResponseBody, AppletPingResponseBody, AppletProtocolMetadata,
     AppletRealmView, AppletRevokePreviewRequestBody, AppletRevokePreviewResponseBody,
-    AppletRevokeRequestBody, AppletRevokeResponseBody, AppletTransactionRequestBody,
-    AppletTransactionResponseBody, GhostPreviewRequestBody, GhostPreviewResponseBody,
+    AppletRevokeRequestBody, AppletRevokeResponseBody, AppletThirdPartyUserLookupResponseBody,
+    AppletTransactionRequestBody, AppletTransactionResponseBody, GhostPreviewRequestBody,
+    GhostPreviewResponseBody, ThirdPartyUserQuery,
 };
 use arkret_signatures::http_signature::HttpSignatureScenario;
 use arkret_wire::DidCoreId;
@@ -536,6 +537,38 @@ impl Client {
             ));
         }
         Ok(outcome)
+    }
+
+    /// Resolve an exact external tuple as the current governing Station.
+    pub async fn applet_third_party_user(
+        &self,
+        source: &DidCoreId,
+        destination: &DidCoreId,
+        query: &ThirdPartyUserQuery,
+    ) -> Result<AppletThirdPartyUserLookupResponseBody> {
+        query.validate()?;
+        let encoded = url::form_urlencoded::Serializer::new(String::new())
+            .extend_pairs([
+                ("applet_id", query.applet_id.as_str()),
+                ("realm_id", query.realm_id.as_str()),
+                ("protocol", query.protocol.as_str()),
+                ("instance_id", query.instance_id.as_str()),
+                ("external_id", query.external_id.as_str()),
+            ])
+            .finish();
+        let path = format!("/_arkret/edge/applet/third_party/users?{encoded}");
+        let request = self
+            .service_request(Method::GET, &path)?
+            .header(crate::HEADER_SOURCE_SERVICE_ID, source.as_str())
+            .header(crate::HEADER_DESTINATION_SERVICE_ID, destination.as_str());
+        let response: AppletThirdPartyUserLookupResponseBody = self
+            .send_json_protocol_replay_safe_for_scenario(
+                request,
+                HttpSignatureScenario::ServiceToServiceV1,
+            )
+            .await?;
+        response.validate_for_query(query)?;
+        Ok(response)
     }
 
     pub async fn applet_realm(

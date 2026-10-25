@@ -102,9 +102,10 @@ def main() -> int:
     violations: list[str] = []
     used: set[str] = set()
     for path in sorted(scan_root.rglob("*.rs")):
-        if any(part in SKIP_DIRS for part in path.parts) or path.name in SKIP_FILES:
+        relative_path = path.relative_to(scan_root)
+        if any(part in SKIP_DIRS for part in relative_path.parts) or path.name in SKIP_FILES:
             continue
-        relative = path.relative_to(scan_root).as_posix()
+        relative = relative_path.as_posix()
         text = path.read_text(encoding="utf-8")
         hits = [
             (number, match.group(1))

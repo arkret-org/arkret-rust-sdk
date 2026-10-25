@@ -40,6 +40,8 @@ fn non_enumerating_not_found_is_bound_to_its_registered_operations() {
         ServiceOperationId::OpenAgentPairingReadRuntimeKeyRequestStatusV1,
         ServiceOperationId::SelfAgentParticipationResourceReplaceV1,
         ServiceOperationId::PeerStrandWatchReadCurrentV1,
+        ServiceOperationId::EdgeAppletThirdPartyUsersReadListV1,
+        ServiceOperationId::SelfRealmActorReadMaterialV1,
     ] {
         assert!(
             operation
@@ -51,6 +53,11 @@ fn non_enumerating_not_found_is_bound_to_its_registered_operations() {
     }
     assert!(
         !ServiceOperationId::EdgeAppletReadPingV1
+            .operation_specific_errors()
+            .contains(&OperationSpecificError::Code(ErrorCode::NotFound))
+    );
+    assert!(
+        !ServiceOperationId::SelfConsentReadListV1
             .operation_specific_errors()
             .contains(&OperationSpecificError::Code(ErrorCode::NotFound))
     );

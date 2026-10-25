@@ -23,9 +23,9 @@ SPEC.loader.exec_module(LINT)
 
 
 class EventPreimageAuthoringGuardTests(unittest.TestCase):
-    def scan(self, sources: dict[str, str], allowlist: list[dict[str, str]]) -> int:
+    def scan(self, sources: dict[str, str], allowlist: list[dict[str, str]], parent: str = "") -> int:
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory) / "some-repo"
+            root = Path(directory) / parent / "some-repo"
             for relative, text in sources.items():
                 path = root / relative
                 path.parent.mkdir(parents=True, exist_ok=True)
@@ -53,6 +53,14 @@ fn verify(event: &Event) {
     def test_flags_a_hand_rolled_event_id_exclusion(self) -> None:
         source = 'fn preimage() { map.remove("event_id"); }\n'
         self.assertEqual(self.scan({"src/sign.rs": source}, []), 1)
+
+    def test_parent_artifacts_does_not_exclude_the_repository(self) -> None:
+        source = 'fn preimage() { map.remove("event_id"); }\n'
+        self.assertEqual(self.scan({"src/sign.rs": source}, [], parent="artifacts"), 1)
+
+    def test_repository_build_artifacts_remain_excluded(self) -> None:
+        source = 'fn preimage() { map.remove("event_id"); }\n'
+        self.assertEqual(self.scan({"artifacts/sign.rs": source}, []), 0)
 
     def test_allows_stripping_proofs_from_a_non_event_object(self) -> None:
         # PrincipalLocator / DID documents legally strip

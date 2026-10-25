@@ -23,9 +23,9 @@ SPEC.loader.exec_module(LINT)
 
 
 class EventDerivedIdMintingAuditTests(unittest.TestCase):
-    def scan(self, sources: dict[str, str], entries: list[dict[str, str]]) -> int:
+    def scan(self, sources: dict[str, str], entries: list[dict[str, str]], parent: str = "") -> int:
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory) / "some-repo"
+            root = Path(directory) / parent / "some-repo"
             for relative, text in sources.items():
                 path = root / relative
                 path.parent.mkdir(parents=True, exist_ok=True)
@@ -52,6 +52,14 @@ class EventDerivedIdMintingAuditTests(unittest.TestCase):
     def test_flags_an_interpolated_mint(self) -> None:
         source = 'let id = format!("ak:strand:{}", uuid_v7());\n'
         self.assertEqual(self.scan({"src/ui.rs": source}, []), 1)
+
+    def test_parent_artifacts_does_not_exclude_the_repository(self) -> None:
+        source = 'let id = format!("ak:strand:{}", uuid_v7());\n'
+        self.assertEqual(self.scan({"src/ui.rs": source}, [], parent="artifacts"), 1)
+
+    def test_repository_build_artifacts_remain_excluded(self) -> None:
+        source = 'let id = format!("ak:strand:{}", uuid_v7());\n'
+        self.assertEqual(self.scan({"artifacts/ui.rs": source}, []), 0)
 
     def test_flags_a_generator_passed_as_a_value(self) -> None:
         source = "let realm_id = body.realm_id.unwrap_or_else(ids::generate_realm_id);\n"

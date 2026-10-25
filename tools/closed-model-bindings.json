@@ -21216,6 +21216,18 @@
       "schema": "invite.schema.json#/$defs/invite_live_target_occupied_problem_extensions",
       "category": "domain_semantics",
       "reason": "The occupying Event determines the Invite retype and the closed reason code. Retain the validating constructor and decoder while checking their exact canonical Problem extension members."
+    },
+    {
+      "rust_type": "crates/models-integration/src/applet_models.rs::ThirdPartyUserQuery",
+      "schema": "applet-edge-operations.schema.json#/$defs/third_party_user_query",
+      "category": "domain_semantics",
+      "reason": "The exact external tuple and conditional presence are validated against an accepted Realm actor and the current manager; preserve the owning handwritten validation methods."
+    },
+    {
+      "rust_type": "crates/models-integration/src/applet_models.rs::AppletThirdPartyUserLookupResponseBody",
+      "schema": "applet-edge-operations.schema.json#/$defs/applet_third_party_user_lookup_response_body",
+      "category": "domain_semantics",
+      "reason": "The exact external tuple and conditional presence are validated against an accepted Realm actor and the current manager; preserve the owning handwritten validation methods."
     }
   ],
   "retained_exemptions": [
