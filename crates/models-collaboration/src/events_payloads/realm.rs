@@ -307,7 +307,19 @@ impl FoundingDeviceDescriptor {
     }
 
     pub fn validate(&self) -> Result<()> {
-        if self.descriptor_version != 1
+        let valid_hpke = self
+            .hpke_key
+            .as_str()
+            .strip_prefix("z6LS")
+            .is_some_and(|suffix| {
+                !suffix.is_empty()
+                    && suffix.bytes().all(|byte| {
+                        matches!(byte,
+                b'1'..=b'9' | b'A'..=b'H' | b'J'..=b'N' | b'P'..=b'Z' | b'a'..=b'k' | b'm'..=b'z')
+                    })
+            });
+        if !valid_hpke
+            || self.descriptor_version != 1
             || !self.device_public_key_did.as_str().starts_with("did:key:z")
             || self.algorithms.is_empty()
             || self

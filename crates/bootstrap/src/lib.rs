@@ -21,8 +21,6 @@ pub use self_principal::{
     validate_self_principal_pcr_create,
 };
 
-pub const DID_INCEPTION_REF_ROLE: &str = "did_inception";
-
 /// Author a bootstrap Event whose kind and payload type are one type-level
 /// fact; the payload is validated through its SDK binding before signing.
 fn author_event<K: arkret_event_draft::EventSpec>(

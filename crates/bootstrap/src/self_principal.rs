@@ -6,12 +6,10 @@ use arkret_models_collaboration::events_payloads::{
 use arkret_models_identity::ResolutionCommitment;
 use arkret_wire::{
     AccountId, ActorId, Did, DidCoreId, Discoverability, Event, EventKind, GenesisSalt,
-    HistoryAccess, JoinRule, PcrGenesisUnit, ScopeRef, SecurityClass, SemanticRef, TrustDomainId,
-    WireError, project_did_to_core_id,
+    HistoryAccess, JoinRule, PcrGenesisUnit, ScopeRef, SecurityClass, TrustDomainId, WireError,
+    project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
-
-use crate::DID_INCEPTION_REF_ROLE;
 
 /// Producer-selected content for the self-principal Realm-create Event.
 ///
@@ -24,7 +22,6 @@ pub struct SelfPrincipalPcrCreateInput {
     pub principal_did: Did,
     pub genesis_salt: GenesisSalt,
     pub trust_domain: TrustDomainId,
-    pub did_inception_ref: SemanticRef,
     pub initial_resolution: ResolutionCommitment,
     pub founding_device_descriptor: FoundingDeviceDescriptor,
     pub initial_join_rule: JoinRule,
@@ -49,12 +46,6 @@ pub fn build_self_principal_pcr_create(
             "self-principal identity resolution does not match principal_id".to_owned(),
         ));
     }
-    if input.did_inception_ref.role != DID_INCEPTION_REF_ROLE || !input.did_inception_ref.critical {
-        return Err(WireError::Protocol(
-            "self-principal bootstrap requires one critical did_inception reference".to_owned(),
-        ));
-    }
-
     let genesis = RealmGenesis::new(
         RealmPurpose::PrincipalControl,
         input.genesis_salt,
@@ -77,7 +68,7 @@ pub fn build_self_principal_pcr_create(
         None,
         None,
         input.created_at,
-        vec![input.did_inception_ref],
+        vec![],
         RealmCreatePayload::new(genesis),
     )?;
     validate_self_principal_pcr_create(&event, false)?;
@@ -99,9 +90,7 @@ pub fn validate_self_principal_pcr_create(
         || event.authorization_ref.is_some()
         || event.applet_id.is_some()
         || event.external_ref.is_some()
-        || event.semantic_refs.len() != 1
-        || event.semantic_refs[0].role != DID_INCEPTION_REF_ROLE
-        || !event.semantic_refs[0].critical
+        || !event.semantic_refs.is_empty()
     {
         return Err(WireError::Protocol(
             "invalid self-principal Realm-create Event shape".to_owned(),

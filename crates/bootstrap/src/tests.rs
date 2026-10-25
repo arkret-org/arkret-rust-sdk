@@ -7,13 +7,13 @@ use arkret_models_identity::handle::HandleVisibility;
 use arkret_wire::{
     AccountId, ActorId, AuthorizationRef, DeviceId, Did, DidCoreId, DidUrl, Discoverability,
     EventKind, GenesisSalt, Hash, HistoryAccess, JoinRule, NonEmptyString, ProducerEventProof,
-    RealmId, ScopeRef, SemanticRef, TrustDomainId, project_did_to_core_id, proof_kind,
+    RealmId, ScopeRef, TrustDomainId, project_did_to_core_id, proof_kind,
 };
 
 use crate::{
     AgentPcrCreateEventInput, AgentPcrCreatePayloadInput, AgentProvisionIntentOptions,
-    DID_INCEPTION_REF_ROLE, SelfPrincipalPcrCreateInput, build_agent_pcr_create,
-    build_agent_provision_intent, build_pcr_genesis_unit, build_self_principal_pcr_create,
+    SelfPrincipalPcrCreateInput, build_agent_pcr_create, build_agent_provision_intent,
+    build_pcr_genesis_unit, build_self_principal_pcr_create,
 };
 
 fn realm(seed: u8) -> RealmId {
@@ -63,10 +63,6 @@ fn self_principal_input() -> SelfPrincipalPcrCreateInput {
         principal_did: principal_did.clone(),
         genesis_salt: GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA").unwrap(),
         trust_domain: TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
-        did_inception_ref: SemanticRef::new(
-            format!("sha256:{}", "c".repeat(64)),
-            DID_INCEPTION_REF_ROLE,
-        ),
         initial_resolution: resolution(principal_did),
         founding_device_descriptor: founding_device_descriptor(),
         initial_join_rule: JoinRule::Invite,
@@ -105,7 +101,7 @@ fn self_principal_builder_emits_only_producer_content() {
         RealmId::from_event_id(&authored.event_id)
     );
     assert!(authored.producer_proof.is_none());
-    assert_eq!(authored.semantic_refs.len(), 1);
+    assert!(authored.semantic_refs.is_empty());
 
     let wire = serde_json::to_value(authored.event()).unwrap();
     let object = wire["payload"]["object"].as_object().unwrap();
@@ -114,6 +110,22 @@ fn self_principal_builder_emits_only_producer_content() {
         object["governance_station_id"],
         "ak:did_core:web:station.example"
     );
+}
+
+#[test]
+fn self_principal_genesis_rejects_non_event_anchors_and_raw_hpke_bytes() {
+    let mut event = build_self_principal_pcr_create(self_principal_input())
+        .unwrap()
+        .into_event();
+    event.semantic_refs.push(arkret_wire::SemanticRef::new(
+        "1-method-version",
+        "did_inception",
+    ));
+    assert!(crate::validate_self_principal_pcr_create(&event, false).is_err());
+    let mut input = self_principal_input();
+    input.founding_device_descriptor.hpke_key =
+        NonEmptyString::new("ERERERERERERERERERERERERERERERERERERERERERE").unwrap();
+    assert!(build_self_principal_pcr_create(input).is_err());
 }
 
 #[test]
