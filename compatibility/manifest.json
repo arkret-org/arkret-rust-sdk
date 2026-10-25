@@ -22,7 +22,7 @@
   "repositories": {
     "arkret-spec": {
       "repository": "arkret-org/arkret-spec",
-      "commit": "d7a28b10e3ac5484293140249ee24bc8c288a3d2",
+      "commit": "df9dc0b93d02211ac2d3f6e7d4a49e8e698ec3f3",
       "checkout_path": "arkret-spec",
       "roles": [
         "normative-artifacts",
@@ -32,7 +32,7 @@
     },
     "arkret-rust-sdk": {
       "repository": "arkret-org/arkret-rust-sdk",
-      "commit": "e13f70ed10a8f7aa652437e1d4bce5f9b22603c0",
+      "commit": "0ab7606d604ae1f152674c4094910f8548c311e2",
       "checkout_path": "arkret-rust-sdk",
       "roles": [
         "public-models",
@@ -50,7 +50,7 @@
     },
     "coland": {
       "repository": "arkret-org/coland",
-      "commit": "d09f4dea6d1c660090421a78b3721e39a00d2e55",
+      "commit": "f375c44a59d74bf4d06b3a83f35bc8342d0b84b5",
       "checkout_path": "coland",
       "roles": [
         "protocol-producer",
@@ -68,7 +68,7 @@
     },
     "garth": {
       "repository": "arkret-org/garth",
-      "commit": "3c0fc95da6cd2142bd5015171bd2687d49373631",
+      "commit": "22be3c9765ba0bad21deb06923a09347a0ef5718",
       "checkout_path": "garth",
       "roles": [
         "runtime-consumer"
@@ -84,7 +84,7 @@
     },
     "inkson": {
       "repository": "arkret-org/inkson",
-      "commit": "35885e681c28833cb6e62e930f8980480a9febba",
+      "commit": "2a5be6d50237673c49754ff4e93dccb723892503",
       "checkout_path": "inkson",
       "roles": [
         "application-consumer"
@@ -92,7 +92,7 @@
     },
     "cotest": {
       "repository": "arkret-org/cotest",
-      "commit": "6b8883057a980fe4bb92aa1263a31ed0190a02ec",
+      "commit": "18635ad2bc76bcf837dd7c1af44531347a77275a",
       "checkout_path": "cotest",
       "roles": [
         "joint-contract-tests",
@@ -117,7 +117,7 @@
     },
     "savfox": {
       "repository": "savfox-ai/savfox",
-      "commit": "0db6b47a213f106ab20d143b12eb234d8e8fb219",
+      "commit": "97f4098d951bbdab8edef3cf3aac86085d8c0936",
       "checkout_path": "../savfox-ai/savfox",
       "roles": [
         "coland-native-agent-build-dependency"
