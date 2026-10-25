@@ -30,3 +30,28 @@ fn unknown_reason_code_rejects_invalid_wire_syntax() {
     let wire = serde_json::to_string(&overlong).expect("serialize fixture");
     assert!(serde_json::from_str::<ReasonCode>(&wire).is_err());
 }
+
+#[test]
+fn non_enumerating_not_found_is_bound_to_its_registered_operations() {
+    use crate::{OperationSpecificError, ServiceOperationId};
+    for operation in [
+        ServiceOperationId::OpenAgentPairingReadResolveV1,
+        ServiceOperationId::OpenAgentPairingCommandSubmitRuntimeKeyRequestV1,
+        ServiceOperationId::OpenAgentPairingReadRuntimeKeyRequestStatusV1,
+        ServiceOperationId::SelfAgentParticipationResourceReplaceV1,
+        ServiceOperationId::PeerStrandWatchReadCurrentV1,
+    ] {
+        assert!(
+            operation
+                .operation_specific_errors()
+                .contains(&OperationSpecificError::Code(ErrorCode::NotFound)),
+            "{}",
+            operation.as_str()
+        );
+    }
+    assert!(
+        !ServiceOperationId::EdgeAppletReadPingV1
+            .operation_specific_errors()
+            .contains(&OperationSpecificError::Code(ErrorCode::NotFound))
+    );
+}

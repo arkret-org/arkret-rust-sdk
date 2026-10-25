@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operations-error-mapping.json; version=2026-10-25.1;
-//! sha256=690b082c3f14b48e178a64373ee62079415d96848d8323cdf331e6fb662ce75a Input: registry/
+//! Input: registry/operations-error-mapping.json; version=2026-10-25.2;
+//! sha256=6d981feb4531b589e67b8c9ea12e380f1c9f4cfef199d9cb525370cdb3668b97 Input: registry/
 //! contract-registry.json; version=2026-10-25.1;
 //! sha256=5959ff13cb7da01f1bc722e5101a9e953e0f2340b0f9915852fcbec5a001f924 Input: registry/
 //! error-code-registry.json; version=2026-10-25.1;
@@ -22,7 +22,7 @@ impl ServiceOperationId {
 }
 
 pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
-    &[],
+    &[OperationSpecificError::Code(ErrorCode::NotFound)],
     &[
         OperationSpecificError::Code(ErrorCode::HttpSignatureRequired),
         OperationSpecificError::Code(ErrorCode::HttpSignatureInvalid),
@@ -83,7 +83,10 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Reason(ReasonCode::IdentityCreationLeaseFenced),
         OperationSpecificError::Reason(ReasonCode::IdentityCreationAlreadyAccepted),
     ],
-    &[OperationSpecificError::Reason(ReasonCode::ProofInvalid)],
+    &[
+        OperationSpecificError::Reason(ReasonCode::ProofInvalid),
+        OperationSpecificError::Code(ErrorCode::NotFound),
+    ],
     &[
         OperationSpecificError::Reason(ReasonCode::ProofInvalid),
         OperationSpecificError::Code(ErrorCode::FailedPrecondition),
@@ -192,17 +195,18 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Reason(ReasonCode::ProofInvalid),
         OperationSpecificError::Code(ErrorCode::DuplicateConflict),
     ],
+    &[OperationSpecificError::Code(ErrorCode::NotFound)],
     &[],
+    &[
+        OperationSpecificError::Reason(ReasonCode::AgentRuntimeRequestConflict),
+        OperationSpecificError::Code(ErrorCode::NotFound),
+    ],
+    &[OperationSpecificError::Code(ErrorCode::NotFound)],
+    &[OperationSpecificError::Code(ErrorCode::NotFound)],
     &[],
-    &[OperationSpecificError::Reason(
-        ReasonCode::AgentRuntimeRequestConflict,
-    )],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    &[OperationSpecificError::Code(ErrorCode::NotFound)],
+    &[OperationSpecificError::Code(ErrorCode::NotFound)],
+    &[OperationSpecificError::Code(ErrorCode::NotFound)],
     &[],
     &[
         OperationSpecificError::Code(ErrorCode::HttpSignatureRequired),
@@ -268,13 +272,14 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Reason(ReasonCode::ThirdPartyInviteMaterialMismatch),
         OperationSpecificError::Reason(ReasonCode::ThirdPartyInviteProvisioningAlreadyBound),
         OperationSpecificError::Reason(ReasonCode::ThirdPartyInviteProvisioningExpired),
+        OperationSpecificError::Code(ErrorCode::NotFound),
     ],
     &[
         OperationSpecificError::Reason(ReasonCode::ThirdPartyInviteTokenInQuery),
         OperationSpecificError::Code(ErrorCode::UnsupportedJoinRule),
     ],
     &[],
-    &[],
+    &[OperationSpecificError::Code(ErrorCode::NotFound)],
     &[
         OperationSpecificError::Code(ErrorCode::DuplicateConflict),
         OperationSpecificError::Code(ErrorCode::FailedPrecondition),
@@ -296,8 +301,8 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
     &[],
     &[],
     &[],
-    &[],
-    &[],
+    &[OperationSpecificError::Code(ErrorCode::NotFound)],
+    &[OperationSpecificError::Code(ErrorCode::NotFound)],
     &[],
     &[
         OperationSpecificError::Code(ErrorCode::FailedPrecondition),
@@ -363,16 +368,19 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Code(ErrorCode::StateMismatch),
         OperationSpecificError::Code(ErrorCode::LimitExceeded),
         OperationSpecificError::Code(ErrorCode::RevisionUnavailable),
+        OperationSpecificError::Code(ErrorCode::NotFound),
     ],
     &[
         OperationSpecificError::Code(ErrorCode::RevisionUnavailable),
         OperationSpecificError::Code(ErrorCode::CursorInvalid),
+        OperationSpecificError::Code(ErrorCode::NotFound),
     ],
     &[
         OperationSpecificError::Code(ErrorCode::FailedPrecondition),
         OperationSpecificError::Reason(ReasonCode::IdentityMethodEvidenceInvalid),
         OperationSpecificError::Code(ErrorCode::DependencyMissing),
         OperationSpecificError::Code(ErrorCode::DuplicateConflict),
+        OperationSpecificError::Code(ErrorCode::NotFound),
     ],
     &[OperationSpecificError::Code(ErrorCode::FailedPrecondition)],
     &[
@@ -392,8 +400,14 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Code(ErrorCode::PayloadTooLarge),
     ],
     &[],
-    &[],
-    &[],
+    &[
+        OperationSpecificError::Code(ErrorCode::NotFound),
+        OperationSpecificError::Code(ErrorCode::RevisionUnavailable),
+    ],
+    &[
+        OperationSpecificError::Code(ErrorCode::NotFound),
+        OperationSpecificError::Code(ErrorCode::RevisionUnavailable),
+    ],
     &[
         OperationSpecificError::Code(ErrorCode::UnsupportedDidMethod),
         OperationSpecificError::Code(ErrorCode::DidAlreadyExists),
@@ -510,7 +524,7 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Code(ErrorCode::CasConflict),
         OperationSpecificError::Code(ErrorCode::FailedPrecondition),
     ],
-    &[],
+    &[OperationSpecificError::Code(ErrorCode::NotFound)],
     &[
         OperationSpecificError::Reason(ReasonCode::AgentDeactivated),
         OperationSpecificError::Code(ErrorCode::FailedPrecondition),
@@ -545,7 +559,10 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Reason(ReasonCode::SnapshotCapacityExceeded),
     ],
     &[],
-    &[OperationSpecificError::Code(ErrorCode::CasConflict)],
+    &[
+        OperationSpecificError::Code(ErrorCode::CasConflict),
+        OperationSpecificError::Code(ErrorCode::NotFound),
+    ],
     &[OperationSpecificError::Code(ErrorCode::CursorInvalid)],
     &[OperationSpecificError::Code(ErrorCode::NotFound)],
     &[
@@ -656,7 +673,7 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         ReasonCode::SnapshotCapacityExceeded,
     )],
     &[],
-    &[],
+    &[OperationSpecificError::Code(ErrorCode::NotFound)],
     &[],
     &[OperationSpecificError::Code(ErrorCode::NotFound)],
     &[
@@ -719,7 +736,10 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Code(ErrorCode::PayloadTooLarge),
         OperationSpecificError::Code(ErrorCode::LimitExceeded),
     ],
-    &[],
+    &[
+        OperationSpecificError::Code(ErrorCode::NotFound),
+        OperationSpecificError::Code(ErrorCode::RevisionUnavailable),
+    ],
     &[],
     &[
         OperationSpecificError::Code(ErrorCode::DuplicateConflict),
@@ -757,7 +777,10 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Code(ErrorCode::DependencyMissing),
     ],
     &[OperationSpecificError::Code(ErrorCode::NotFound)],
-    &[OperationSpecificError::Code(ErrorCode::ParamInvalid)],
+    &[
+        OperationSpecificError::Code(ErrorCode::ParamInvalid),
+        OperationSpecificError::Code(ErrorCode::NotFound),
+    ],
     &[
         OperationSpecificError::Code(ErrorCode::FailedPrecondition),
         OperationSpecificError::Code(ErrorCode::RateLimited),
@@ -838,10 +861,14 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Code(ErrorCode::PayloadTooLarge),
         OperationSpecificError::Code(ErrorCode::LimitExceeded),
     ],
-    &[OperationSpecificError::Code(ErrorCode::RevisionUnavailable)],
+    &[
+        OperationSpecificError::Code(ErrorCode::RevisionUnavailable),
+        OperationSpecificError::Code(ErrorCode::NotFound),
+    ],
     &[
         OperationSpecificError::Code(ErrorCode::RevisionUnavailable),
         OperationSpecificError::Code(ErrorCode::CursorInvalid),
+        OperationSpecificError::Code(ErrorCode::NotFound),
     ],
     &[
         OperationSpecificError::Code(ErrorCode::NotFound),
@@ -858,8 +885,9 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Reason(ReasonCode::InvalidCursor),
         OperationSpecificError::Code(ErrorCode::CursorExpired),
         OperationSpecificError::Code(ErrorCode::CursorIntegrityInvalid),
+        OperationSpecificError::Code(ErrorCode::NotFound),
     ],
-    &[],
+    &[OperationSpecificError::Code(ErrorCode::NotFound)],
     &[
         OperationSpecificError::Code(ErrorCode::FailedPrecondition),
         OperationSpecificError::Reason(ReasonCode::IdentityMethodEvidenceInvalid),
@@ -915,9 +943,18 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
     ],
     &[],
     &[],
-    &[],
-    &[],
-    &[],
+    &[
+        OperationSpecificError::Code(ErrorCode::NotFound),
+        OperationSpecificError::Code(ErrorCode::RevisionUnavailable),
+    ],
+    &[
+        OperationSpecificError::Code(ErrorCode::NotFound),
+        OperationSpecificError::Code(ErrorCode::RevisionUnavailable),
+    ],
+    &[
+        OperationSpecificError::Code(ErrorCode::NotFound),
+        OperationSpecificError::Code(ErrorCode::RevisionUnavailable),
+    ],
     &[],
 ];
 
