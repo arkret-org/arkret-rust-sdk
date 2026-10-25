@@ -32,7 +32,7 @@
     },
     "arkret-rust-sdk": {
       "repository": "arkret-org/arkret-rust-sdk",
-      "commit": "6df53d1fa786570409db06fd077df2e40cf927c5",
+      "commit": "e13f70ed10a8f7aa652437e1d4bce5f9b22603c0",
       "checkout_path": "arkret-rust-sdk",
       "roles": [
         "public-models",
@@ -50,7 +50,7 @@
     },
     "coland": {
       "repository": "arkret-org/coland",
-      "commit": "005d815f9d1c8981a9922c1ff113b911d5dc01c0",
+      "commit": "d09f4dea6d1c660090421a78b3721e39a00d2e55",
       "checkout_path": "coland",
       "roles": [
         "protocol-producer",
@@ -84,7 +84,7 @@
     },
     "inkson": {
       "repository": "arkret-org/inkson",
-      "commit": "4515e2e8e0ae6beadef697de5069ce2b91920794",
+      "commit": "35885e681c28833cb6e62e930f8980480a9febba",
       "checkout_path": "inkson",
       "roles": [
         "application-consumer"
@@ -92,7 +92,7 @@
     },
     "cotest": {
       "repository": "arkret-org/cotest",
-      "commit": "ceb62b467cec7434a0a33b2d4ba0b55436413a4e",
+      "commit": "6b8883057a980fe4bb92aa1263a31ed0190a02ec",
       "checkout_path": "cotest",
       "roles": [
         "joint-contract-tests",
@@ -117,7 +117,7 @@
     },
     "savfox": {
       "repository": "savfox-ai/savfox",
-      "commit": "070615368e2df1a5f8cb13e8905a410d9e15fcd5",
+      "commit": "0db6b47a213f106ab20d143b12eb234d8e8fb219",
       "checkout_path": "../savfox-ai/savfox",
       "roles": [
         "coland-native-agent-build-dependency"
