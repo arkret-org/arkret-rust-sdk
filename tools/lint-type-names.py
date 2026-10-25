@@ -17,6 +17,14 @@ DECLARATION = re.compile(r"\bpub\s+(?:struct|enum)\s+(\w+)")
 REJECTED = ("Result", "Candidate", "Item", "Response",
             "Row", "Rows", "Results", "Wrapper", "Info", "Details", "ResBody", "ReqBody")
 RETIRED = set(json.loads((ROOT / "tools/retired-public-type-names.json").read_text(encoding="utf-8"))["types"])
+CANONICAL_TYPE_OWNERS = {
+    "AgentLifecycleState": "models-identity/src/agent_signer_state.rs",
+    "IssuerAuthorityRef": "models-collaboration/src/governance/grant_constraint.rs",
+    "DidBindingPurpose": "identity/src/binding.rs",
+    "AccountDidBindingPurpose": "models-identity/src/account.rs",
+}
+
+
 EXCEPTIONS = {
     ("wire/src/platform.rs", "WasmHttpResponse"):
         "Local browser transport carrier for an HTTP response, not an Arkret operation DTO.",
@@ -74,6 +82,16 @@ def noncanonical_aliases(masked: str) -> list[str]:
     return errors
 
 
+def canonical_owner_errors(path: str, source: str) -> list[str]:
+    from wire_value_audit import mask_non_code
+    masked = mask_non_code(source)
+    names = DECLARATION.findall(masked) + [name for name, _ in public_aliases(masked)]
+    names += [name for body in re.findall(r"\bpub\s+use\s+([^;]+);", masked)
+              for name in re.findall(r"\bas\s+(\w+)", body)]
+    return [f"{path}: {name}: reuse canonical owner {CANONICAL_TYPE_OWNERS[name]}"
+            for name in names if name in CANONICAL_TYPE_OWNERS and path != CANONICAL_TYPE_OWNERS[name]]
+
+
 def violations(path: str, source: str) -> list[str]:
     # Reuse the audit lexer so declarations in comments and strings do not count.
     from wire_value_audit import mask_non_code
@@ -92,11 +110,13 @@ def violations(path: str, source: str) -> list[str]:
 def main() -> int:
     errors = []
     declarations = set()
+    from wire_value_audit import mask_non_code
     for owner in OWNERS:
         for path in sorted((ROOT / "crates" / owner / "src").rglob("*.rs")):
             relative = path.relative_to(ROOT / "crates").as_posix()
             source = path.read_text(encoding="utf-8")
-            declarations.update((relative, name) for name in DECLARATION.findall(source))
+            declarations.update((relative, name) for name in DECLARATION.findall(mask_non_code(source)))
+            errors.extend(canonical_owner_errors(relative, source))
             errors.extend(f"{relative}: {name}: use an R4 wrapper or a domain noun"
                           for name in violations(relative, source))
     from wire_value_audit import mask_non_code
@@ -106,7 +126,9 @@ def main() -> int:
         relative = path.relative_to(ROOT / "crates").as_posix()
         if relative.split("/", 1)[0] in OWNERS:
             continue
-        masked = mask_non_code(path.read_text(encoding="utf-8"))
+        source = path.read_text(encoding="utf-8")
+        masked = mask_non_code(source)
+        errors.extend(canonical_owner_errors(relative, source))
         errors.extend(f"{relative}: {name}: public Row reexports are forbidden" for name in row_reexports(masked))
         errors.extend(f"{relative}: {name}: retired duplicate reexport" for name in retired_reexports(masked))
         for name in re.findall(r"\bpub\s+(?:struct|enum|type)\s+(\w+)", masked):

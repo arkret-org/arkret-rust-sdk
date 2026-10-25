@@ -704,6 +704,29 @@ pub enum IssuerAuthorityRef {
     },
 }
 
+impl IssuerAuthorityRef {
+    /// The grant id this ref names, if it is a grant edge.
+    #[must_use]
+    pub fn grant_id(&self) -> Option<&str> {
+        match self {
+            Self::Grant { grant_id } => Some(grant_id.as_str()),
+            Self::RealmRoot { .. } | Self::OwnedAgent { .. } => None,
+        }
+    }
+
+    /// The authority generation this ref is anchored to, if it is a root.
+    #[must_use]
+    pub fn authority_generation(&self) -> Option<u64> {
+        match self {
+            Self::RealmRoot {
+                authority_generation,
+                ..
+            } => Some(*authority_generation),
+            Self::Grant { .. } | Self::OwnedAgent { .. } => None,
+        }
+    }
+}
+
 /// Identity of one committed authority source reached by a grant.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

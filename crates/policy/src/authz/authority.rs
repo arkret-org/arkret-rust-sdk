@@ -36,59 +36,24 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_models_collaboration::governance::grant_constraint::GrantConstraintSubkind;
-use arkret_wire::{AccountId, ActorId, AppletId, CircleId, EventId, Hash, RealmId};
+pub use arkret_models_collaboration::governance::grant_constraint::IssuerAuthorityRef;
+#[cfg(test)]
+use arkret_wire::AccountId;
+use arkret_wire::{ActorId, AppletId, CircleId, Hash};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::authz::ConstraintDuration;
 
-/// One entry of a grant's `issuer_authority_refs[]`.
-///
-/// The ref type is the whole difference between "the root controller issued
-/// this" and "someone re-granted what they hold" — v1 carries no separate
-/// separate child-grant event, cell family or wire bit.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-pub enum IssuerAuthorityRef {
-    OwnedAgent {
-        realm_id: RealmId,
-        controller_account_id: AccountId,
-        controller_join_event_id: EventId,
-        agent_join_event_id: EventId,
-    },
-    /// A grant the issuer holds. The issuer MUST be its subject, and it MUST
-    /// be active at evaluation time.
-    Grant { grant_id: String },
-    /// A Realm authority root accepted by the governing Station.
-    RealmRoot {
-        realm_id: RealmId,
-        authority_event_ref: EventId,
-        #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
-        authority_generation: u64,
-    },
-}
-
-impl IssuerAuthorityRef {
-    /// The grant id this ref names, if it is a grant edge.
-    #[must_use]
-    pub fn grant_id(&self) -> Option<&str> {
-        match self {
-            Self::Grant { grant_id } => Some(grant_id.as_str()),
-            Self::RealmRoot { .. } | Self::OwnedAgent { .. } => None,
-        }
+#[cfg(test)]
+fn test_grant_id(label: &str) -> arkret_wire::GrantId {
+    if let Ok(id) = arkret_wire::GrantId::new(label) {
+        return id;
     }
-
-    /// The authority generation this ref is anchored to, if it is a root.
-    #[must_use]
-    pub fn authority_generation(&self) -> Option<u64> {
-        match self {
-            Self::RealmRoot {
-                authority_generation,
-                ..
-            } => Some(*authority_generation),
-            Self::Grant { .. } | Self::OwnedAgent { .. } => None,
-        }
-    }
+    arkret_wire::GrantId::from_event_id(&arkret_wire::EventId::from_digest(
+        arkret_canonical::DigestSuite::Sha256,
+        arkret_canonical::sha256_bytes(label.as_bytes()),
+    ))
 }
 
 /// A capability grant in its runtime / in-memory form.
@@ -542,7 +507,7 @@ mod tests {
             [1; 32],
         ));
         Grant {
-            grant_id: id.to_owned(),
+            grant_id: test_grant_id(id).to_string(),
             realm_id: "ak:realm:1".to_owned(),
             issuer_id: account_actor("ak:did_core:webvh:z6mkfixturealice"),
             subject_id: account_actor("ak:did_core:webvh:z6mkfixturebob"),
@@ -583,7 +548,7 @@ mod tests {
         expires_at: Option<DateTime<Utc>>,
     ) -> Grant {
         Grant {
-            grant_id: id.to_owned(),
+            grant_id: test_grant_id(id).to_string(),
             realm_id: "ak:realm:1".to_owned(),
             issuer_id: account_actor(issuer),
             subject_id: account_actor(subject),
@@ -602,7 +567,7 @@ mod tests {
             revoked: false,
             created_at: Utc::now(),
             issuer_authority_refs: vec![IssuerAuthorityRef::Grant {
-                grant_id: parent.to_owned(),
+                grant_id: test_grant_id(parent),
             }],
             authority_depth: 2,
             authority_root_refs: vec![
@@ -649,8 +614,16 @@ mod tests {
         );
         let grants = vec![root, child];
         let now = Utc::now();
-        assert!(authority_chain_intact(&grants, "g1", now));
-        assert!(authority_chain_intact(&grants, "g2", now));
+        assert!(authority_chain_intact(
+            &grants,
+            test_grant_id("g1").as_str(),
+            now
+        ));
+        assert!(authority_chain_intact(
+            &grants,
+            test_grant_id("g2").as_str(),
+            now
+        ));
     }
 
     #[test]
@@ -668,8 +641,16 @@ mod tests {
         );
         let grants = vec![root, child];
         let now = Utc::now();
-        assert!(!authority_chain_intact(&grants, "g1", now));
-        assert!(!authority_chain_intact(&grants, "g2", now));
+        assert!(!authority_chain_intact(
+            &grants,
+            test_grant_id("g1").as_str(),
+            now
+        ));
+        assert!(!authority_chain_intact(
+            &grants,
+            test_grant_id("g2").as_str(),
+            now
+        ));
     }
 
     #[test]
@@ -687,8 +668,16 @@ mod tests {
             None,
         );
         let grants = vec![root, child];
-        assert!(!authority_chain_intact(&grants, "g1", now));
-        assert!(!authority_chain_intact(&grants, "g2", now));
+        assert!(!authority_chain_intact(
+            &grants,
+            test_grant_id("g1").as_str(),
+            now
+        ));
+        assert!(!authority_chain_intact(
+            &grants,
+            test_grant_id("g2").as_str(),
+            now
+        ));
     }
 
     #[test]
@@ -731,16 +720,40 @@ mod tests {
         );
         // Pre-condition: all three chain-intact.
         let intact = vec![root.clone(), middle.clone(), leaf.clone()];
-        assert!(authority_chain_intact(&intact, "g1", now));
-        assert!(authority_chain_intact(&intact, "g2", now));
-        assert!(authority_chain_intact(&intact, "g3", now));
+        assert!(authority_chain_intact(
+            &intact,
+            test_grant_id("g1").as_str(),
+            now
+        ));
+        assert!(authority_chain_intact(
+            &intact,
+            test_grant_id("g2").as_str(),
+            now
+        ));
+        assert!(authority_chain_intact(
+            &intact,
+            test_grant_id("g3").as_str(),
+            now
+        ));
 
         // Revoke the middle grant; root still intact, middle + leaf broken.
         middle.revoked = true;
         let broken = vec![root, middle, leaf];
-        assert!(authority_chain_intact(&broken, "g1", now));
-        assert!(!authority_chain_intact(&broken, "g2", now));
-        assert!(!authority_chain_intact(&broken, "g3", now));
+        assert!(authority_chain_intact(
+            &broken,
+            test_grant_id("g1").as_str(),
+            now
+        ));
+        assert!(!authority_chain_intact(
+            &broken,
+            test_grant_id("g2").as_str(),
+            now
+        ));
+        assert!(!authority_chain_intact(
+            &broken,
+            test_grant_id("g3").as_str(),
+            now
+        ));
     }
 
     #[test]
@@ -761,7 +774,11 @@ mod tests {
             DidCoreId::new("ak:did_core:webvh:z6mkfixtureotherstation").unwrap(),
         ));
 
-        assert!(!authority_chain_intact(&[root, forged], "g2", now));
+        assert!(!authority_chain_intact(
+            &[root, forged],
+            test_grant_id("g2").as_str(),
+            now
+        ));
     }
 
     #[test]
@@ -1096,7 +1113,7 @@ mod managed_service_child_tests {
     fn pair() -> (Grant, Grant) {
         let service = ActorId::service(DidCoreId::new("ak:did_core:web:service.example").unwrap());
         let parent = Grant {
-            grant_id: "parent".into(),
+            grant_id: test_grant_id("parent").to_string(),
             realm_id: "ak:realm:AUGIFvQctz4TjQTmvvO4Wdy-xdc5XP2ZnJ5Qpbh4s8Ru".into(),
             issuer_id: service.clone(),
             subject_id: service.clone(),
@@ -1113,14 +1130,14 @@ mod managed_service_child_tests {
             authority_root_refs: vec![],
         };
         let mut child = parent.clone();
-        child.grant_id = "child".into();
+        child.grant_id = test_grant_id("child").to_string();
         child.subject_id = ActorId::realm(arkret_wire::RealmActorId {
             realm_id: parent.realm_id.parse().unwrap(),
             principal_id: DidCoreId::new("ak:did_core:webvh:zRealmBotFixture").unwrap(),
         });
         child.resource = "space".into();
         child.issuer_authority_refs = vec![IssuerAuthorityRef::Grant {
-            grant_id: "parent".into(),
+            grant_id: test_grant_id("parent"),
         }];
         child.constraints = vec![control(false, 0, &[]), binding(&child.subject_id)];
         (parent, child)

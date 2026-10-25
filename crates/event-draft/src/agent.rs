@@ -4,19 +4,11 @@ use arkret_models_collaboration::events_payloads::agent::{
     AgentDeactivatePayload, AgentKeyAuthorizePayload, AgentKeyRevokePayload, AgentPausePayload,
     AgentResumePayload,
 };
+pub use arkret_models_identity::AgentLifecycleState;
 use arkret_wire::{ActorId, DidUrl, ScopeRef, event_spec};
 use chrono::{DateTime, Utc};
 
 use crate::{EventIntent, EventSpec, Result, TypedEventDraft};
-
-/// Local authoring state used to choose the legal source of a lifecycle
-/// transition. It is not a shared Event payload or a replicated state record.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum AgentLifecycleState {
-    Active,
-    Paused,
-    Deactivated,
-}
 
 /// Draft a controller-executed `ak.agent.key.authorize`. The current Station
 /// assigns authority-stream position only after the producer Event is signed.

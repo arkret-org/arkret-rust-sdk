@@ -9,6 +9,15 @@ spec.loader.exec_module(gate)
 
 
 class TypeNameTests(unittest.TestCase):
+    def test_shared_enum_owners_reject_copies_and_alternate_aliases(self):
+        for name, owner in gate.CANONICAL_TYPE_OWNERS.items():
+            self.assertEqual(gate.canonical_owner_errors(owner, f"pub enum {name} {{ Active }}"), [])
+            for copied in (f"pub enum {name} {{ Active }}", f"pub type {name} = Another;",
+                           f"pub use another::Other as {name};"):
+                self.assertTrue(gate.canonical_owner_errors("event-draft/src/copy.rs", copied))
+            self.assertEqual(gate.canonical_owner_errors("event-draft/src/import.rs",
+                f"pub use registered::{name}; // pub enum {name} {{ Fake }}"), [])
+
     def test_exceptions_cannot_permanently_whitelist_an_already_valid_role(self):
         self.assertTrue(all(name.endswith(gate.REJECTED) for _path, name in gate.EXCEPTIONS))
 

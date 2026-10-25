@@ -1060,7 +1060,7 @@ impl DidBindingChallengeRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum DidBindingPurpose {
+pub enum AccountDidBindingPurpose {
     AccountBindingForPublishedDid,
 }
 
@@ -1074,7 +1074,7 @@ pub struct DidBindingChallengeResponseBody {
     pub request_id: RequestId,
     pub challenge_id: String,
     pub challenge: String,
-    pub purpose: DidBindingPurpose,
+    pub purpose: AccountDidBindingPurpose,
     pub account_subject: Hash,
     pub principal_id: DidCoreId,
     pub did: Did,
@@ -1122,7 +1122,7 @@ pub struct AccountRegistrationControlProof {
     pub proof_kind: AccountRegistrationControlProofKind,
     pub challenge_id: String,
     pub challenge: String,
-    pub purpose: DidBindingPurpose,
+    pub purpose: AccountDidBindingPurpose,
     pub request_canonical_digest: Hash,
     pub account_subject: Hash,
     pub principal_id: DidCoreId,

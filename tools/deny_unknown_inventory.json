@@ -1,14 +1,14 @@
 {
   "summary": {
-    "total": 1516,
+    "total": 1515,
     "by_classification": {
       "A": 7,
       "B": 925,
-      "needs_review": 584
+      "needs_review": 583
     },
     "by_openness": {
       "closed": 932,
-      "unresolved": 581,
+      "unresolved": 580,
       "unspecified": 3
     },
     "by_crate": {
@@ -21,7 +21,6 @@
       "models-discovery": 13,
       "models-identity": 150,
       "models-integration": 137,
-      "policy": 1,
       "schema": 10,
       "schema-conformance": 1,
       "signatures": 6,
@@ -7534,7 +7533,7 @@
       "rust_type": "crates/models-collaboration/src/governance/grant_constraint.rs::AuthorityRootRef",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/governance/grant_constraint.rs",
-      "line": 710,
+      "line": 733,
       "kind": "enum",
       "value_kind": "AuthorityRootRef",
       "spec_pointer": null,
@@ -7547,7 +7546,7 @@
       "rust_type": "crates/models-collaboration/src/governance/grant_constraint.rs::CapabilityGrant",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/governance/grant_constraint.rs",
-      "line": 738,
+      "line": 761,
       "kind": "struct",
       "value_kind": "CapabilityGrant",
       "spec_pointer": "capability-grant.schema.json",
@@ -17924,19 +17923,6 @@
       "line": 106,
       "kind": "struct",
       "value_kind": "DndPeriod",
-      "spec_pointer": null,
-      "schema_openness": "unresolved",
-      "classification": "needs_review",
-      "cfg_gated": false,
-      "flatten_extra": false
-    },
-    {
-      "rust_type": "crates/policy/src/authz/authority.rs::IssuerAuthorityRef",
-      "crate": "policy",
-      "file": "crates/policy/src/authz/authority.rs",
-      "line": 51,
-      "kind": "enum",
-      "value_kind": "IssuerAuthorityRef",
       "spec_pointer": null,
       "schema_openness": "unresolved",
       "classification": "needs_review",
