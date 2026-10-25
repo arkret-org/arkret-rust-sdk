@@ -227,7 +227,8 @@ mod tests {
         let request = RealmAuthorityBundleRequestBody {
             realm_id: RealmId::new("ak:realm:AfF-hFqRoMbajXkPapH-xaq0xwK-UKt2ph2zTs9JZRAO")
                 .unwrap(),
-            nonce: arkret_wire::Base64UrlString::new("BBBBBBBBBBBBBBBBBBBBBB").unwrap(),
+            nonce: arkret_wire::Base64UrlString::new("AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI")
+                .unwrap(),
         };
         assert!(remote.realm_authority_bundle(&request).await.is_err());
         let request = captured.await.unwrap();

@@ -1839,3 +1839,23 @@ fn snapshot_history_purpose_binds_coverage_and_never_replaces_current() {
     });
     assert!(snapshot.validate_purpose().is_err());
 }
+
+#[test]
+fn authority_bundle_request_requires_the_canonical_32_byte_nonce() {
+    let realm_id = RealmId::from_event_id(&EventId::from_digest(
+        arkret_canonical::DigestSuite::Sha256,
+        [31; 32],
+    ));
+    for size in [16usize, 31, 32, 33] {
+        let request = RealmAuthorityBundleRequestBody {
+            realm_id: realm_id.clone(),
+            nonce: crate::Base64UrlString::new(arkret_canonical::base64url_encode(vec![7; size]))
+                .unwrap(),
+        };
+        assert_eq!(
+            request.validate().is_ok(),
+            size == 32,
+            "wrong nonce length: {size}"
+        );
+    }
+}

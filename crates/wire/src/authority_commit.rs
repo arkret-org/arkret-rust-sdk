@@ -3296,9 +3296,16 @@ pub struct RealmAuthorityBundleRequestBody {
 
 impl RealmAuthorityBundleRequestBody {
     pub fn validate(&self) -> Result<()> {
-        if !(22..=128).contains(&self.nonce.as_str().len()) {
+        if self.nonce.as_str().len() != 43
+            || !self
+                .nonce
+                .as_str()
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+        {
             return Err(WireError::Protocol(
-                "authority bundle nonce must contain 22..=128 base64url characters".to_owned(),
+                "authority bundle request nonce must contain exactly 43 base64url characters"
+                    .to_owned(),
             ));
         }
         Ok(())
