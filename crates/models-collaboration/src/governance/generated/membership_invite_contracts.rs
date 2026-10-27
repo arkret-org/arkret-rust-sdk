@@ -20,7 +20,7 @@
 // sha256=0aeb76477ec3d0ff335ea072a019a0b7d4371ff5890add72cf986fe5167e8de3
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=3c8b4ad76a778828f23891614ed9c259161da8c53eb669c8825b9bb8a5da8ff2
+// sha256=13aff1fc7ba8bd04dc6586b917faf46593a6d0e4beeadb69db75284c9e17a6f7
 
 /// Counterpart: `current-state.schema.json#/$defs/invite_directed_invitee_value`.
 /// Closed value of the `invite_directed_invitee` current state

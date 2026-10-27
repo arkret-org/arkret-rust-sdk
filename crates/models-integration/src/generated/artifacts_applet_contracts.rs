@@ -17,7 +17,7 @@
 // sha256=845b801850c13a0a9041b101915c40ec18b5e6f77a138878abb80768943e0adb
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=3c8b4ad76a778828f23891614ed9c259161da8c53eb669c8825b9bb8a5da8ff2
+// sha256=13aff1fc7ba8bd04dc6586b917faf46593a6d0e4beeadb69db75284c9e17a6f7
 
 /// Counterpart: `applet-edge-operations.schema.json#/$defs/field_definition`.
 /// Counterpart for

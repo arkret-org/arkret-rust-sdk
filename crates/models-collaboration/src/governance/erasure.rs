@@ -4,30 +4,44 @@
 //! digest rules shared by receipt issuers and verifiers.
 
 use std::collections::BTreeMap;
-use std::sync::LazyLock;
 
 use arkret_canonical::canonical;
 use arkret_wire::{
-    DidCoreId, DidUrl, Hash, PolicyId, ProtocolSignature, RealmId, Result, SchemaId, WireError,
+    AccountStatusRecordId, DidCoreId, DidUrl, Hash, PolicyId, ProtocolSignature, RealmId, Result,
+    SchemaId, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use sha2::{Digest as _, Sha256};
 
 use crate::events_payloads::event_wire::VerificationStub;
 
 pub const ERASURE_RECEIPT_DIGEST_DOMAIN: &[u8] = b"ak.erasure-receipt.v1\n";
 pub const ERASURE_RECEIPT_ACCEPTANCE_DOMAIN: &[u8] = b"ak.erasure-receipt-acceptance.v1\n";
 
-fn valid_erasure_reference(value: &str) -> bool {
-    // Principal references reuse the canonical identity validator. The other
-    // resource references match erasure-verification-stub's subject_ref union.
-    static OTHER_REFERENCE: LazyLock<regex::Regex> = LazyLock::new(|| {
-        regex::Regex::new(
-        r"^(did:[^\s]+|(?:ak:(realm|event|message|strand|morph|relation|view):[A-Za-z0-9_-]{44}|ak:(blob|device|policy|receipt):[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})|ak:blob:(?:sha256|blake3):[0-9a-f]{64})$"
-    ).expect("static erasure reference grammar")
-    });
-    DidCoreId::new(value).is_ok() || Hash::new(value).is_ok() || OTHER_REFERENCE.is_match(value)
+/// Deterministic receipt id for one account-status record/storage-boundary execution.
+/// Retries and crash recovery therefore address the same resource without a
+/// second operation id namespace.
+pub fn account_erasure_receipt_id(
+    triggering_status_record_id: &AccountStatusRecordId,
+    storage_boundary: ErasureStorageBoundary,
+) -> String {
+    let mut input = triggering_status_record_id.as_str().as_bytes().to_vec();
+    input.push(0);
+    input.extend_from_slice(
+        serde_json::to_value(storage_boundary)
+            .expect("erasure storage boundary serializes")
+            .as_str()
+            .expect("erasure storage boundary is a string")
+            .as_bytes(),
+    );
+    let digest = Sha256::digest(input);
+    let mut bytes = [0_u8; 16];
+    bytes.copy_from_slice(&digest[..16]);
+    bytes[6] = (bytes[6] & 0x0f) | 0x70;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    format!("ak:receipt:{}", uuid::Uuid::from_bytes(bytes))
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -134,7 +148,7 @@ pub enum ErasureReceiptSubmitResponseBody {
 #[serde(rename_all = "snake_case")]
 pub enum ErasureSubjectKind {
     Principal,
-    Realm,
+    Space,
     Event,
     Blob,
     Device,
@@ -180,8 +194,6 @@ pub enum ErasedClass {
     MediaDerivatives,
 }
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/erasure-verification-stub.schema.json#/$defs/subject`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
@@ -190,44 +202,19 @@ pub struct ErasureSubject {
     pub subject_ref: String,
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/erasure-verification-stub.schema.json#/$defs/scope`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ErasureScope {
     pub storage_boundary: ErasureStorageBoundary,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
-    )]
-    pub target_refs: Option<Vec<String>>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub target_refs: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub retention_policy_id: Option<PolicyId>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub service_scope: Option<String>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[serde(untagged)]
-pub enum LegalHoldRef {
-    PolicyId(PolicyId),
-    Hash(Hash),
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -281,59 +268,39 @@ pub enum ErasurePeerStatus {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ErasureReceipt {
-    pub schema: String,
     pub receipt_id: String,
     pub trigger: crate::events_payloads::event_wire::ErasureTrigger,
+    pub schema: String,
     pub issuer_id: DidCoreId,
     pub subject: ErasureSubject,
     pub scope: ErasureScope,
     pub outcome: ErasureAttemptOutcome,
     pub erased_classes: Vec<ErasedClass>,
     pub retained_stub_digest: Hash,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub retained_stub: Option<VerificationStub>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "crate::serde_absence::deserialize_present_nullable"
-    )]
-    pub legal_hold_ref: Option<Option<LegalHoldRef>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub legal_hold_ref: Option<String>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub completed_at: DateTime<Utc>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional_timestamp"
-    )]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub issued_at: Option<DateTime<Utc>>,
     pub proofs: Vec<ErasureReceiptProof>,
     /// Cross-Station erasure fanout aggregate status. Absent on
     /// receipts that do not drive fanout tracking.
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fanout_status: Option<ErasureFanoutStatus>,
     /// Per-peer fanout acknowledgement records backing `fanout_status`.
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
-    )]
-    pub peer_receipts: Option<Vec<ErasurePeerReceipt>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub peer_receipts: Vec<ErasurePeerReceipt>,
 }
 
 impl ErasureReceipt {
     pub const SCHEMA: &'static str = SchemaId::ERASURE_RECEIPT_V1;
 
     pub fn validate_minimal(&self) -> Result<()> {
-        let targets = self.scope.target_refs.as_deref().unwrap_or_default();
         let valid_id = self
             .receipt_id
             .strip_prefix("ak:receipt:")
@@ -345,11 +312,7 @@ impl ErasureReceipt {
             });
         if !valid_id
             || self.subject.subject_ref.is_empty()
-            || targets.iter().any(|value| !valid_erasure_reference(value))
-            || targets
-                .iter()
-                .enumerate()
-                .any(|(index, value)| targets[..index].contains(value))
+            || self.scope.target_refs.iter().any(String::is_empty)
             || self
                 .scope
                 .service_scope
@@ -365,25 +328,6 @@ impl ErasureReceipt {
                 "erasure receipt violates its closed schema constraints".into(),
             ));
         }
-        let valid_subject = match self.subject.kind {
-            ErasureSubjectKind::Principal => DidCoreId::new(&self.subject.subject_ref).is_ok(),
-            ErasureSubjectKind::Realm => RealmId::new(&self.subject.subject_ref).is_ok(),
-            ErasureSubjectKind::Event => {
-                arkret_wire::EventId::new(&self.subject.subject_ref).is_ok()
-            }
-            ErasureSubjectKind::Blob => {
-                arkret_wire::BlobRef::new(&self.subject.subject_ref).is_ok()
-            }
-            ErasureSubjectKind::Device => {
-                arkret_wire::DeviceId::new(&self.subject.subject_ref).is_ok()
-            }
-            ErasureSubjectKind::AccountPrivateState => Hash::new(&self.subject.subject_ref).is_ok(),
-        };
-        if !valid_subject {
-            return Err(WireError::Protocol(
-                "erasure subject reference differs from its declared kind".to_owned(),
-            ));
-        }
         if self.schema != SchemaId::ERASURE_RECEIPT_V1 {
             return Err(WireError::Protocol(
                 "erasure receipt schema mismatch".to_owned(),
@@ -395,11 +339,7 @@ impl ErasureReceipt {
             ));
         }
         if matches!(self.outcome, ErasureAttemptOutcome::BlockedByLegalHold)
-            && self
-                .legal_hold_ref
-                .as_ref()
-                .and_then(Option::as_ref)
-                .is_none()
+            && self.legal_hold_ref.is_none()
         {
             return Err(WireError::Protocol(
                 "blocked erasure receipt requires legal_hold_ref".to_owned(),
@@ -437,7 +377,6 @@ impl ErasureReceipt {
     /// Validate a received receipt against the retained verification stub.
     pub fn validate_with_retained_stub(&self, retained_stub: &VerificationStub) -> Result<()> {
         self.validate_minimal()?;
-        retained_stub.validate_linkage()?;
         let retained_stub_digest = Hash::new(canonical::canonical_sha256(retained_stub)?)?;
         if retained_stub_digest != self.retained_stub_digest {
             return Err(WireError::Protocol(
@@ -448,9 +387,32 @@ impl ErasureReceipt {
             || retained_stub.receipt_id != self.receipt_id
             || retained_stub.trigger != self.trigger
             || retained_stub.completed_at != self.completed_at
-            || retained_stub.subject != self.subject
-            || retained_stub.scope != self.scope
-            || retained_stub.legal_hold_ref != self.legal_hold_ref
+            || retained_stub.subject.kind
+                != serde_json::to_value(self.subject.kind)?
+                    .as_str()
+                    .unwrap_or_default()
+            || retained_stub.subject.subject_ref != self.subject.subject_ref
+            || retained_stub.scope.storage_boundary
+                != serde_json::to_value(self.scope.storage_boundary)?
+                    .as_str()
+                    .unwrap_or_default()
+            || retained_stub.scope.realm_id != self.scope.realm_id
+            || retained_stub
+                .scope
+                .target_refs
+                .as_deref()
+                .unwrap_or_default()
+                != self.scope.target_refs.as_slice()
+            || retained_stub.scope.retention_policy_id != self.scope.retention_policy_id
+            || retained_stub.scope.service_scope != self.scope.service_scope
+            || retained_stub
+                .legal_hold_ref
+                .as_ref()
+                .map(serde_json::to_value)
+                .transpose()?
+                .as_ref()
+                .and_then(Value::as_str)
+                != self.legal_hold_ref.as_deref()
         {
             return Err(WireError::Protocol(
                 "erasure_receipt_stub_binding_mismatch".to_owned(),
@@ -492,7 +454,7 @@ mod tests {
             scope: ErasureScope {
                 storage_boundary: ErasureStorageBoundary::ServiceDefined,
                 realm_id: None,
-                target_refs: None,
+                target_refs: Vec::new(),
                 retention_policy_id: None,
                 service_scope: Some("schema verification".into()),
             },
@@ -508,7 +470,7 @@ mod tests {
             issued_at: None,
             proofs: Vec::new(),
             fanout_status: None,
-            peer_receipts: None,
+            peer_receipts: Vec::new(),
         };
         receipt.proofs.push(ErasureReceiptProof {
             verification_method: DidUrl::new("did:web:issuer.example#notary-key").unwrap(),
@@ -546,33 +508,6 @@ mod tests {
         invalid = valid;
         invalid.erased_classes = vec![ErasedClass::BlobBytes, ErasedClass::BlobBytes];
         assert!(invalid.validate_minimal().is_err());
-    }
-
-    #[test]
-    fn principal_target_uses_canonical_core_identity_and_rejects_invalid_reference_sets() {
-        let mut valid = receipt();
-        valid.scope.target_refs = Some(vec![valid.subject.subject_ref.clone()]);
-        valid.validate_minimal().unwrap();
-        for target in [
-            "",
-            "ak:did_core:",
-            "arbitrary-private-string",
-            "ak:realm:invalid",
-        ] {
-            let mut invalid = valid.clone();
-            invalid.scope.target_refs = Some(vec![target.into()]);
-            assert!(invalid.validate_minimal().is_err(), "{target}");
-        }
-        let mut duplicate = valid.clone();
-        duplicate
-            .scope
-            .target_refs
-            .as_mut()
-            .unwrap()
-            .push(valid.subject.subject_ref.clone());
-        assert!(duplicate.validate_minimal().is_err());
-        valid.subject.subject_ref = "did:web:alice.example".into();
-        assert!(valid.validate_minimal().is_err());
     }
 }
 

@@ -5,7 +5,7 @@
 // sha256=4bbdb549699dfa03e28322ebb5846fe61384e18d4d9c693173b286d659e5ef8a
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=3c8b4ad76a778828f23891614ed9c259161da8c53eb669c8825b9bb8a5da8ff2
+// sha256=13aff1fc7ba8bd04dc6586b917faf46593a6d0e4beeadb69db75284c9e17a6f7
 
 /// Counterpart: `push-operations.schema.json#/$defs/push_gateway_submission_outcome`.
 /// Counterpart for

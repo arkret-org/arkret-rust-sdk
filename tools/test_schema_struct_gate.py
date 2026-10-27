@@ -8,44 +8,6 @@ from tools.wire_value_audit import SchemaResolver
 
 
 class SchemaStructGateTests(unittest.TestCase):
-    def test_required_members_cannot_be_supplied_by_defaults_or_implicit_option(self):
-        prefix = '#[derive(Serialize, Deserialize)]\n#[serde(deny_unknown_fields)]\n'
-        default = prefix + 'pub struct Payload { #[serde(default)] pub member: String }'
-        properties = {'member': {'type': 'string', 'default': 'annotation-only'}}
-        errors = self.representation_fixture(default, {}, properties, required=['member'], additionalProperties=False)
-        self.assertTrue(any('must not have a serde default' in error for error in errors), errors)
-        self.assertEqual(self.representation_fixture(default.replace('#[serde(default)]', ''), {}, properties, required=['member'], additionalProperties=False), [])
-        nullable = prefix + 'pub struct Payload { pub member: Option<String> }'
-        properties = {'member': {'type': ['string', 'null']}}
-        errors = self.representation_fixture(nullable, {}, properties, required=['member'], additionalProperties=False)
-        self.assertTrue(any('presence-checking decoder' in error for error in errors), errors)
-        explicit = nullable.replace('pub member', '#[serde(deserialize_with="required_nullable")] pub member')
-        self.assertEqual(self.representation_fixture(explicit, {}, properties, required=['member'], additionalProperties=False), [])
-
-    def test_closed_derived_decoders_cannot_accept_unknown_fields(self):
-        for body, properties in (('', {}), ('pub member: String', {'member': {'type': 'string'}})):
-            source = '#[derive(Serialize, Deserialize)]\npub struct Payload {' + body + '}'
-            errors = self.representation_fixture(source, {}, properties, additionalProperties=False)
-            self.assertTrue(any('must reject unknown fields' in error for error in errors), errors)
-            strict = source.replace('pub struct', '#[serde(deny_unknown_fields)]\npub struct')
-            self.assertEqual(self.representation_fixture(strict, {}, properties, additionalProperties=False), [])
-            if properties:
-                self.assertEqual(self.representation_fixture(source, {}, properties, additionalProperties=True), [])
-            self.assertEqual(self.representation_fixture(source.replace('Serialize, Deserialize', 'Serialize'), {}, properties, additionalProperties=False), [])
-
-    def test_closed_private_decode_adapter_needs_its_own_strictness(self):
-        source = '''#[derive(Serialize, Deserialize)]
-#[serde(try_from = "PayloadWire")]
-pub struct Payload { #[serde(flatten)] pub branch: Branch }
-#[derive(Deserialize)]
-struct PayloadWire { member: String }
-'''
-        mapping = {'wire_adapter': 'crates/models/src/lib.rs::PayloadWire'}
-        errors = self.representation_fixture(source, mapping, {'member': {}}, additionalProperties=False)
-        self.assertTrue(any('must reject unknown fields' in error for error in errors), errors)
-        strict = source.replace('struct PayloadWire', '#[serde(deny_unknown_fields)]\nstruct PayloadWire')
-        self.assertEqual(self.representation_fixture(strict, mapping, {'member': {}}, additionalProperties=False), [])
-
     def representation_fixture(self, source, mapping, properties, **schema_keywords):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

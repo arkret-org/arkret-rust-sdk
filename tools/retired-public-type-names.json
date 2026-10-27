@@ -103,8 +103,6 @@
     "KeyBackupDeleteProof": "HighRiskAuthorityProof",
     "KeyBackupDeleteQuorumSignature": "HighRiskDeviceQuorumSignature",
     "KeysBackupsDeleteResponseBody": "unit: registered empty_response has no entity body",
-    "SignalRelayResponseBody": "unit: registered HTTP 204 empty_response has no entity body",
-    "VerificationStubSubject": "ErasureSubject",
-    "VerificationStubScope": "ErasureScope"
+    "SignalRelayResponseBody": "unit: registered HTTP 204 empty_response has no entity body"
   }
 }

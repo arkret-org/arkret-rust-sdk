@@ -3,7 +3,6 @@
 use arkret_wire::{AccountStatusRecordId, ActorId, CommittedEventRef, Event, EventId, SchemaId};
 use serde::de::DeserializeOwned;
 
-use crate::governance::erasure::{ErasureScope, ErasureSubject, ErasureSubjectKind, LegalHoldRef};
 use crate::internal_prelude::*;
 
 /// Decode payload bytes only after the enclosing model has proved the Event's
@@ -23,6 +22,31 @@ pub use arkret_models_crypto::encrypted_envelope::{
 };
 pub use arkret_wire::EventProofAudience;
 
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/erasure-verification-stub.schema.json`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct VerificationStubSubject {
+    pub kind: String,
+    pub subject_ref: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct VerificationStubScope {
+    pub storage_boundary: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub realm_id: Option<RealmId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_refs: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retention_policy_id: Option<PolicyId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub service_scope: Option<String>,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
@@ -35,77 +59,35 @@ pub enum ErasureTrigger {
     },
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/erasure-verification-stub.schema.json`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct VerificationStub {
     pub stub_schema: String,
-    pub subject: ErasureSubject,
-    pub scope: ErasureScope,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    pub event_digest: Option<Hash>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    pub retained_digests: Option<Vec<Hash>>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    pub committed_event_ref: Option<CommittedEventRef>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    pub redaction_authorization_ref: Option<String>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "crate::serde_absence::deserialize_present_nullable"
-    )]
-    pub legal_hold_ref: Option<Option<LegalHoldRef>>,
-    pub receipt_id: String,
     pub trigger: ErasureTrigger,
+    pub subject: VerificationStubSubject,
+    pub scope: VerificationStubScope,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub event_digest: Option<Hash>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retained_digests: Option<Vec<Hash>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub commit_ref: Option<CommittedEventRef>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub redaction_authorization_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub legal_hold_ref: Option<LegalHoldRef>,
+    pub receipt_id: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub completed_at: DateTime<Utc>,
 }
 
-impl VerificationStub {
-    /// Check retained Event linkage; this does not verify acceptance or a proof.
-    pub fn validate_linkage(&self) -> Result<()> {
-        if self.subject.kind != ErasureSubjectKind::Event {
-            if self.event_digest.is_some() || self.committed_event_ref.is_some() {
-                return Err(WireError::Protocol(
-                    "non-Event erasure stub carries Event-only evidence".into(),
-                ));
-            }
-            return Ok(());
-        }
-        let event_id = EventId::new(&self.subject.subject_ref)?;
-        if self
-            .event_digest
-            .as_ref()
-            .is_some_and(|digest| *digest != event_id.event_digest())
-            || self
-                .committed_event_ref
-                .as_ref()
-                .is_some_and(|reference| reference.event_id != event_id)
-        {
-            return Err(WireError::Protocol(
-                "erasure stub Event linkage differs from its subject".into(),
-            ));
-        }
-        Ok(())
-    }
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(untagged)]
+pub enum LegalHoldRef {
+    PolicyId(PolicyId),
+    Hash(Hash),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
