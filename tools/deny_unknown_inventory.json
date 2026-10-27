@@ -1,18 +1,19 @@
 {
   "summary": {
-    "total": 1527,
+    "total": 1531,
     "by_classification": {
       "A": 7,
       "B": 942,
-      "needs_review": 578
+      "needs_review": 582
     },
     "by_openness": {
       "closed": 949,
-      "unresolved": 575,
+      "unresolved": 579,
       "unspecified": 3
     },
     "by_crate": {
       "crypto": 2,
+      "deployment-contracts": 4,
       "event-draft": 3,
       "identity": 12,
       "mls": 4,
@@ -51,6 +52,58 @@
       "spec_pointer": "account-data-encrypted-value.schema.json",
       "schema_openness": "closed",
       "classification": "B",
+      "cfg_gated": false,
+      "flatten_extra": false
+    },
+    {
+      "rust_type": "crates/deployment-contracts/src/account_projection.rs::AccountProjectionRequestBody",
+      "crate": "deployment-contracts",
+      "file": "crates/deployment-contracts/src/account_projection.rs",
+      "line": 60,
+      "kind": "struct",
+      "value_kind": "AccountProjectionRequestBody",
+      "spec_pointer": null,
+      "schema_openness": "unresolved",
+      "classification": "needs_review",
+      "cfg_gated": false,
+      "flatten_extra": false
+    },
+    {
+      "rust_type": "crates/deployment-contracts/src/admin/account_localparts.rs::AccountLocalpartAddRequestBody",
+      "crate": "deployment-contracts",
+      "file": "crates/deployment-contracts/src/admin/account_localparts.rs",
+      "line": 30,
+      "kind": "struct",
+      "value_kind": "AccountLocalpartAddRequestBody",
+      "spec_pointer": null,
+      "schema_openness": "unresolved",
+      "classification": "needs_review",
+      "cfg_gated": false,
+      "flatten_extra": false
+    },
+    {
+      "rust_type": "crates/deployment-contracts/src/agent_session_authority.rs::AgentSessionAuthorityRequest",
+      "crate": "deployment-contracts",
+      "file": "crates/deployment-contracts/src/agent_session_authority.rs",
+      "line": 15,
+      "kind": "struct",
+      "value_kind": "AgentSessionAuthorityRequest",
+      "spec_pointer": null,
+      "schema_openness": "unresolved",
+      "classification": "needs_review",
+      "cfg_gated": false,
+      "flatten_extra": false
+    },
+    {
+      "rust_type": "crates/deployment-contracts/src/agent_session_authority.rs::AgentSessionAuthorityView",
+      "crate": "deployment-contracts",
+      "file": "crates/deployment-contracts/src/agent_session_authority.rs",
+      "line": 30,
+      "kind": "struct",
+      "value_kind": "AgentSessionAuthorityView",
+      "spec_pointer": null,
+      "schema_openness": "unresolved",
+      "classification": "needs_review",
       "cfg_gated": false,
       "flatten_extra": false
     },

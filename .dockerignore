@@ -11,6 +11,7 @@
 **/.env
 **/.env.*
 **/*.log
+artifacts/
 
 # Credential mounts at the repository root are not Rust source modules.
 secrets/

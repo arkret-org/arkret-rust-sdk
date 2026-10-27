@@ -1,0 +1,26 @@
+[package]
+name = "arkret-deployment-contracts"
+version.workspace = true
+rust-version.workspace = true
+edition = "2024"
+license = "Apache-2.0"
+authors = ["Chris Young <chris@sonc.ai>"]
+repository = "https://github.com/arkret-org/arkret-rust-sdk"
+description = "Pure transport contracts for separately deployed Arkret products; not canonical protocol operations."
+
+[features]
+default = []
+openapi = ["dep:salvo-oapi", "arkret-identifiers/openapi", "arkret-models-collaboration/openapi", "arkret-wire/openapi", "salvo-oapi/chrono"]
+
+[dependencies]
+arkret-canonical.workspace = true
+arkret-identifiers.workspace = true
+arkret-models-collaboration.workspace = true
+arkret-wire.workspace = true
+chrono = { workspace = true, features = ["serde"] }
+salvo-oapi = { workspace = true, optional = true }
+serde = { workspace = true, features = ["derive"] }
+url.workspace = true
+
+[lints]
+workspace = true

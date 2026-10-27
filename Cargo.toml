@@ -4,6 +4,7 @@ members = [
     "crates/bootstrap",
     "crates/canonical",
     "crates/crypto",
+    "crates/deployment-contracts",
     "crates/egress-policy",
     "crates/egress-reqwest",
     "crates/event-draft",
@@ -37,6 +38,7 @@ default-members = [
     "crates/bootstrap",
     "crates/canonical",
     "crates/crypto",
+    "crates/deployment-contracts",
     "crates/egress-policy",
     "crates/egress-reqwest",
     "crates/event-draft",
@@ -79,6 +81,7 @@ async-trait = "0.1.92"
 arkret-auth = { version = "0.3.0", path = "crates/auth", default-features = false }
 arkret-bootstrap = { version = "0.3.0", path = "crates/bootstrap", default-features = false }
 arkret-canonical = { version = "0.3.0", path = "crates/canonical", default-features = false }
+arkret-deployment-contracts = { version = "0.3.0", path = "crates/deployment-contracts", default-features = false }
 arkret-crypto = { version = "0.3.0", path = "crates/crypto", default-features = false }
 arkret-egress-policy = { version = "0.3.0", path = "crates/egress-policy", default-features = false }
 arkret-egress-reqwest = { version = "0.3.0", path = "crates/egress-reqwest", default-features = false }

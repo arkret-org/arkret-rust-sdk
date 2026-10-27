@@ -270,6 +270,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "arkret-deployment-contracts"
+version = "0.3.0"
+dependencies = [
+ "arkret-canonical",
+ "arkret-identifiers",
+ "arkret-models-collaboration",
+ "arkret-wire",
+ "chrono",
+ "salvo-oapi",
+ "serde",
+ "url",
+]
+
+[[package]]
 name = "arkret-egress-policy"
 version = "0.3.0"
 dependencies = [
