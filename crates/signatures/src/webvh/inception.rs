@@ -41,7 +41,7 @@ use arkret_models_identity::{
 };
 use arkret_wire::{
     Base64UrlString, Did, DidBindingEvidenceKind, DidBindingEvidenceReceipt, DidBindingMethodProof,
-    DidBindingMethodProofKind, DidCoreId, DidUrl, Hash, RegistrationControlSignature,
+    DidBindingMethodProofKind, DidCoreId, DidUrl, Hash, ProtocolSignature,
     RegistrationDidEvidenceDraft, ServiceKind,
 };
 use chrono::{DateTime, Utc};
@@ -550,15 +550,12 @@ pub fn verify_registration_did_evidence_draft(
     let signing_bytes = draft
         .canonical_control_proof_signing_bytes()
         .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
-    if !crate::proof::verify_detached_ed25519_signature(
-        &key,
-        &signing_bytes,
-        draft.control_proof.jws.as_str(),
-    ) {
-        return Err(WebvhInceptionError::InvalidProof(
-            "registration DID evidence control signature is invalid".to_owned(),
-        ));
-    }
+    crate::proof::verify_detached_jws_over(&draft.control_proof.jws, &signing_bytes, &key)
+        .map_err(|error| {
+            WebvhInceptionError::InvalidProof(format!(
+                "registration DID evidence control JWS is invalid: {error}"
+            ))
+        })?;
     Ok(validated)
 }
 
@@ -606,21 +603,18 @@ pub fn sign_registration_did_evidence_draft(
                 witness_proofs_digest,
             }],
         },
-        control_proof: RegistrationControlSignature {
+        control_proof: ProtocolSignature {
             verification_method,
             created_at,
-            jws: Base64UrlString::new("AA".to_owned())
-                .map_err(|error| WebvhInceptionError::InvalidProof(error.to_owned()))?,
+            jws: "AA..AA".to_owned(),
         },
     };
     let signing_bytes = draft
         .canonical_control_proof_signing_bytes()
         .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
     let signing_key = SigningKey::from_bytes(root_seed);
-    draft.control_proof.jws = Base64UrlString::new(base64url_encode(
-        signing_key.sign(&signing_bytes).to_bytes(),
-    ))
-    .map_err(|error| WebvhInceptionError::InvalidProof(error.to_owned()))?;
+    draft.control_proof.jws = crate::jws::sign_jws_ed25519(&signing_bytes, &signing_key)
+        .map_err(WebvhInceptionError::InvalidProof)?;
     verify_registration_did_evidence_draft(request, &draft)?;
     Ok(draft)
 }
@@ -773,6 +767,17 @@ pub struct PrincipalInceptionInput<'a> {
     pub witness_policy: Option<&'a arkret_models_identity::DidWebvhWitnessPolicy>,
 }
 
+/// Separate publication ceremony for an externally controlled organization.
+/// This prepares method history only; it grants no local registration or Realm authority.
+pub struct OrganizationInceptionInput<'a> {
+    pub provider_endpoint: &'a Url,
+    pub local_id: &'a str,
+    pub version_created_at: DateTime<Utc>,
+    pub root_seed: &'a [u8; SECRET_KEY_LENGTH],
+    pub next_root_public_key_multibase: &'a str,
+    pub control_public_key: &'a [u8; 32],
+}
+
 /// Inputs for the controller-authored, PCR-independent inception of a managed
 /// Agent DID. The inception commits only the controller delegation; the PCR
 /// binding is added by a later, precommitted WebVH update.
@@ -847,6 +852,46 @@ pub fn prepare_principal_inception(
     input: &PrincipalInceptionInput<'_>,
 ) -> Result<PreparedPrincipalInception, WebvhInceptionError> {
     prepare_principal_inception_with_portability(input, false)
+}
+
+/// Publish an organization with an operational control key independent of its
+/// native update keys. Registration is a separate challenge-bound ceremony.
+pub fn prepare_organization_inception(
+    input: &OrganizationInceptionInput<'_>,
+) -> Result<PreparedPrincipalInception, WebvhInceptionError> {
+    let control_key = encode_ed25519_pubkey_multibase(input.control_public_key);
+    prepare_identity_inception(
+        input.provider_endpoint,
+        input.provider_endpoint,
+        input.local_id,
+        &[],
+        input.version_created_at,
+        input.root_seed,
+        input.next_root_public_key_multibase,
+        None,
+        false,
+        |did, _endpoint| {
+            let method = format!("{did}#organization-control");
+            Ok(json!({
+                "@context": ["https://www.w3.org/ns/did/v1"], "id": did,
+                "verificationMethod": [{"id": method, "type": "Multikey",
+                    "controller": did, "publicKeyMultibase": control_key}],
+                "authentication": [method], "capabilityInvocation": [method],
+            }))
+        },
+        |did, document, roots| {
+            let encoded = serde_json::to_string(document)
+                .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
+            if roots.iter().any(|root| encoded.contains(*root))
+                || document.get("id").and_then(Value::as_str) != Some(did)
+            {
+                return Err(WebvhInceptionError::InvalidProof(
+                    "organization control must be independent from history update keys".into(),
+                ));
+            }
+            Ok(())
+        },
+    )
 }
 
 /// Prepare the PCR-independent Agent DID inception. The returned
@@ -1252,6 +1297,35 @@ pub fn prepare_principal_rotation(
             input.next_root_public_key_multibase,
         ],
     )?;
+    prepare_principal_rotation_inner(input, None)
+}
+
+/// Rotate the native update key of an organization without creating any
+/// Principal service bindings or changing its local registration generation.
+pub fn prepare_organization_rotation(
+    input: &PrincipalRotationInput<'_>,
+) -> Result<PreparedPrincipalRotation, WebvhInceptionError> {
+    let document: DidDocument = serde_json::from_value(input.state.clone())
+        .map_err(|error| WebvhInceptionError::InvalidProof(error.to_string()))?;
+    document
+        .validate()
+        .map_err(|error| WebvhInceptionError::InvalidProof(error.to_string()))?;
+    let current_root = encode_ed25519_pubkey_multibase(
+        &SigningKey::from_bytes(input.current_root_seed)
+            .verifying_key()
+            .to_bytes(),
+    );
+    let encoded = serde_json::to_string(input.state)
+        .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
+    if document.id.as_str() != input.did
+        || [current_root.as_str(), input.next_root_public_key_multibase]
+            .iter()
+            .any(|root| encoded.contains(*root))
+    {
+        return Err(WebvhInceptionError::InvalidProof(
+            "organization document must retain independent operational control".into(),
+        ));
+    }
     prepare_principal_rotation_inner(input, None)
 }
 
@@ -2772,6 +2846,59 @@ mod historical_verification_tests {
 
     use super::*;
 
+    #[test]
+    fn organization_publication_keeps_control_and_registration_separate() {
+        let endpoint = Url::parse("https://organization-provider.example/").unwrap();
+        let root = [0x61; 32];
+        let next = [0x62; 32];
+        let control = [0x63; 32];
+        let future = [0x64; 32];
+        let public = |seed: &[u8; 32]| SigningKey::from_bytes(seed).verifying_key().to_bytes();
+        let next_key = encode_ed25519_pubkey_multibase(&public(&next));
+        let control_key = public(&control);
+        let input = OrganizationInceptionInput {
+            provider_endpoint: &endpoint,
+            local_id: "organization",
+            version_created_at: Utc::now() - Duration::seconds(2),
+            root_seed: &root,
+            next_root_public_key_multibase: &next_key,
+            control_public_key: &control_key,
+        };
+        let prepared = prepare_organization_inception(&input).unwrap();
+        let did = Did::new(&prepared.did).unwrap();
+        let point =
+            validate_webvh_history_at(&did, &[prepared.log_entry.clone()], Utc::now()).unwrap();
+        assert!(point.document.get("service").is_none());
+        assert!(point.document.get("registration_receipt").is_none());
+        let future_key = encode_ed25519_pubkey_multibase(&public(&future));
+        let rotated = prepare_organization_rotation(&PrincipalRotationInput {
+            did: &prepared.did,
+            local_id: "organization",
+            previous_entries: &[prepared.log_entry.clone()],
+            version_created_at: Utc::now(),
+            current_root_seed: &next,
+            next_root_public_key_multibase: &future_key,
+            state: &point.document,
+        })
+        .unwrap();
+        validate_webvh_history_at(&did, &[prepared.log_entry, rotated.log_entry], Utc::now())
+            .unwrap();
+        assert!(
+            prepare_organization_inception(&OrganizationInceptionInput {
+                control_public_key: &public(&root),
+                ..input
+            })
+            .is_err()
+        );
+        assert!(
+            prepare_organization_inception(&OrganizationInceptionInput {
+                control_public_key: &public(&next),
+                ..input
+            })
+            .is_err()
+        );
+    }
+
     struct HistoryFixture {
         did: Did,
         first_time: DateTime<Utc>,
@@ -3020,6 +3147,103 @@ mod historical_verification_tests {
     }
 
     #[test]
+    fn registration_evidence_jws_matches_schema_and_rejects_raw_or_prefixed_signatures() {
+        let (prepared, root_seed, created_at) = registration_fixture();
+        let draft =
+            sign_registration_did_evidence_draft(&prepared.submit_body, created_at, &root_seed)
+                .unwrap();
+        let registry = arkret_schema_conformance::schema_registry_from_default_spec_artifacts()
+            .unwrap()
+            .unwrap();
+        let schema =
+            "ak.schema.registration_did_evidence.v1#/$defs/registration_did_evidence_draft";
+        registry
+            .validate_value(schema, &serde_json::to_value(&draft).unwrap())
+            .unwrap();
+        let binding = draft.canonical_control_proof_signing_bytes().unwrap();
+        let object: Value = serde_json::from_slice(&binding).unwrap();
+        assert_eq!(
+            object["context"],
+            "ak.registration_did_evidence_control_proof.v1"
+        );
+        let mut legacy = draft.clone();
+        legacy.control_proof.jws =
+            base64url_encode(SigningKey::from_bytes(&root_seed).sign(&binding).to_bytes());
+        assert!(
+            registry
+                .validate_value(schema, &serde_json::to_value(&legacy).unwrap())
+                .is_err()
+        );
+        assert!(
+            serde_json::from_value::<RegistrationDidEvidenceDraft>(
+                serde_json::to_value(&legacy).unwrap()
+            )
+            .is_err()
+        );
+        assert!(verify_registration_did_evidence_draft(&prepared.submit_body, &legacy).is_err());
+        let prefixed = [
+            b"ak.registration_did_evidence_control_proof.v1\n".as_slice(),
+            &binding,
+        ]
+        .concat();
+        legacy.control_proof.jws =
+            crate::jws::sign_jws_ed25519(&prefixed, &SigningKey::from_bytes(&root_seed)).unwrap();
+        assert!(verify_registration_did_evidence_draft(&prepared.submit_body, &legacy).is_err());
+    }
+
+    #[test]
+    fn registration_control_jws_verifies_the_independent_spec_known_answer() {
+        let artifacts = arkret_schema_conformance::default_spec_artifacts_dir().unwrap();
+        let fixture: Value = serde_json::from_slice(
+            &std::fs::read(artifacts.join("fixtures/published-did-registration-fixture.json"))
+                .unwrap(),
+        )
+        .unwrap();
+        // This is only a cryptographic KAT, never native authority coverage.
+        let evidence = &fixture["request"]["published_identity"]["registration_did_evidence_draft"];
+        let mut binding = serde_json::Map::new();
+        for field in [
+            "principal_id",
+            "did",
+            "adapter_version",
+            "method_history_head",
+            "version_id",
+            "control_key_digest",
+        ] {
+            binding.insert(field.into(), evidence[field].clone());
+        }
+        binding.insert(
+            "context".into(),
+            json!("ak.registration_did_evidence_control_proof.v1"),
+        );
+        binding.insert(
+            "method_evidence_digest".into(),
+            json!(
+                arkret_canonical::canonical::canonical_sha256(&evidence["method_evidence"])
+                    .unwrap()
+            ),
+        );
+        for field in ["verification_method", "created_at"] {
+            binding.insert(field.into(), evidence["control_proof"][field].clone());
+        }
+        let bytes = arkret_canonical::canonical::canonical_json_bytes(&binding).unwrap();
+        let key_bytes: [u8; 32] =
+            arkret_canonical::base64url_decode(fixture["control_public_key"].as_str().unwrap())
+                .unwrap()
+                .try_into()
+                .unwrap();
+        let key = crate::proof::PublicKeyMaterial::Ed25519Multibase {
+            value: arkret_canonical::ed25519_pubkey_to_did_key_multibase(&key_bytes),
+        };
+        crate::proof::verify_detached_jws_over(
+            evidence["control_proof"]["jws"].as_str().unwrap(),
+            &bytes,
+            &key,
+        )
+        .unwrap();
+    }
+
+    #[test]
     fn frozen_registration_evidence_rejects_mutation_and_omission() {
         let (prepared, root_seed, created_at) = registration_fixture();
         let draft =
@@ -3033,7 +3257,7 @@ mod historical_verification_tests {
         assert!(verify_registration_did_evidence_draft(&prepared.submit_body, &mutated).is_err());
 
         let mut signature_invalid = draft.clone();
-        signature_invalid.control_proof.jws = Base64UrlString::new("AA".to_owned()).unwrap();
+        signature_invalid.control_proof.jws = "AA".to_owned();
         assert!(
             verify_registration_did_evidence_draft(&prepared.submit_body, &signature_invalid)
                 .is_err()

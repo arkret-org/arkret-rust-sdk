@@ -443,6 +443,8 @@ impl PolicyRule {
 /// delivery material never reaches this object either — only the
 /// `introduction_evidence_digest` commitment.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+/// Wire boundary: `invite.schema.json`.
+#[serde(deny_unknown_fields)]
 pub struct Invite {
     pub id: InviteId,
     pub schema: String,

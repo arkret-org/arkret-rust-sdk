@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json; version=2026-10-24.3;
-//! sha256=486b7d389283a4a7eda54f78979c9d047424a30d0b30b22781e5c8191f2bf963 Input: reachable event
+//! sha256=3c274e9b7cef33f32fbaba37a7f23561a7a13b71bb59fb4a681c127c0105d4bb Input: reachable event
 //! schema closure; version=aggregate;
-//! sha256=44ef85d8b73ab6e57d34db1ad6a99592d5439573a9c6b85cbd822c057f22887a
-//! Entries: preimage_commitments=43
+//! sha256=14d1642a4b5527f1b08310e69e24d16bd3fbbfa6ede7cc4f88839aafa1249b64
+//! Entries: preimage_commitments=44
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PreimageCommitment {
@@ -77,6 +77,11 @@ pub const PREIMAGE_COMMITMENT_FIELDS: &[PreimageCommitmentField] = &[
     PreimageCommitmentField {
         schema_file: "schemas/erasure-verification-stub.schema.json",
         json_pointer: "/$defs/trigger/oneOf/0/properties/event_id",
+        commitment: PreimageCommitment::FixedEvent,
+    },
+    PreimageCommitmentField {
+        schema_file: "schemas/erasure-verification-stub.schema.json",
+        json_pointer: "/properties/committed_event_ref",
         commitment: PreimageCommitment::FixedEvent,
     },
     PreimageCommitmentField {

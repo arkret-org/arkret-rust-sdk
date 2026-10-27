@@ -4147,16 +4147,28 @@
     {
       "rust_type": "crates/models-integration/src/applet_models.rs::AppletThirdPartyUserLookupResponseBody",
       "schema": "applet-edge-operations.schema.json#/$defs/applet_third_party_user_lookup_response_body"
+    },
+    {
+      "rust_type": "crates/models-identity/src/http_bodies.rs::AccountLogoutRequestBody",
+      "schema": "service-operation-dtos.schema.json#/$defs/AccountLogoutRequestBody"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/event_wire.rs::VerificationStub",
+      "schema": "erasure-verification-stub.schema.json"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/governance/erasure.rs::ErasureSubject",
+      "schema": "erasure-verification-stub.schema.json#/$defs/subject"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/governance/erasure.rs::ErasureScope",
+      "schema": "erasure-verification-stub.schema.json#/$defs/scope"
     }
   ],
   "exemptions": [
     {
       "rust_type": "crates/models-crypto/src/recovery_policy.rs::RecoveryPolicyPublishRequestBody",
       "reason": "struct-level serde conversion/transparent representation is not an object field set"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/events_payloads/event_wire.rs::VerificationStubSubject",
-      "reason": "Documented counterpart is not field-set exact; Rust-only=['kind', 'subject_ref'], Spec-only=['commit_inclusion', 'completed_at', 'event_digest', 'legal_hold_ref', 'receipt_id', 'redaction_authorization_ref', 'retained_digests', 'scope', 'stub_schema', 'subject', 'trigger']."
     },
     {
       "rust_type": "crates/models-identity/src/handle.rs::Handle",

@@ -2,8 +2,8 @@
 
 use arkret_models_crypto::{
     KeyBackup, KeyBackupsListQuery, KeysBackupsDeleteChallenge, KeysBackupsDeleteRequestBody,
-    KeysBackupsDeleteResponseBody, KeysBackupsIssueDeleteChallengeRequestBody, KeysBackupsPage,
-    KeysBackupsReplaceResponseBody, KeysBackupsUnlockRequestBody,
+    KeysBackupsIssueDeleteChallengeRequestBody, KeysBackupsPage, KeysBackupsReplaceResponseBody,
+    KeysBackupsUnlockRequestBody,
 };
 use arkret_wire::BackupId;
 
@@ -62,7 +62,7 @@ impl KeyBackupClient {
         &self,
         backup_id: &BackupId,
         request: &KeysBackupsDeleteRequestBody,
-    ) -> Result<KeysBackupsDeleteResponseBody> {
+    ) -> Result<()> {
         self.client.delete_key_backup(backup_id, request).await
     }
 }

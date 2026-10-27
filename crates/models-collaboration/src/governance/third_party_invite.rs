@@ -89,8 +89,7 @@ pub struct ThirdPartyInvite {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_name_hint: Option<String>,
     /// Both modes: SHA-256 of the private salt followed by the raw token bytes.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub token_commitment: Option<Hash>,
+    pub token_commitment: Hash,
     /// `offline_token` mode — opaque salt id, MUST be rotated per token.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub token_salt_id: Option<String>,
@@ -124,10 +123,7 @@ impl ThirdPartyInvite {
                 .as_ref()
                 .is_some_and(|hint| hint.chars().count() > 128)
             || self.verification_public_key.is_empty()
-            || self
-                .token_commitment
-                .as_ref()
-                .is_none_or(|commitment| !commitment.as_str().starts_with("sha256:"))
+            || !self.token_commitment.as_str().starts_with("sha256:")
             || [&self.token_salt_id, &self.pepper_id]
                 .into_iter()
                 .flatten()
@@ -146,10 +142,7 @@ impl ThirdPartyInvite {
         }
         match self.oob_code_kind {
             ThirdPartyInviteOobKind::OfflineToken => {
-                if self.token_commitment.is_none()
-                    || self.token_salt_id.is_none()
-                    || self.token_entropy_bits.is_none()
-                {
+                if self.token_salt_id.is_none() || self.token_entropy_bits.is_none() {
                     return Err(WireError::Protocol(
                         "third_party_invite offline_token mode requires token_commitment + token_salt_id + token_entropy_bits"
                             .to_owned(),
@@ -172,10 +165,7 @@ impl ThirdPartyInvite {
             }
 
             ThirdPartyInviteOobKind::Lookup => {
-                if self.token_commitment.is_none()
-                    || self.lookup_table_ref.is_none()
-                    || self.pepper_id.is_none()
-                {
+                if self.lookup_table_ref.is_none() || self.pepper_id.is_none() {
                     return Err(WireError::Protocol(
                         "third_party_invite lookup mode requires token_commitment + lookup_table_ref + pepper_id"
                             .to_owned(),

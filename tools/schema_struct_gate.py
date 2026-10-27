@@ -35,6 +35,7 @@ from wire_value_audit import (  # noqa: E402
     normalize_pointer,
     split_top_level_fields,
 )
+from deny_unknown_audit import object_openness  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SPEC_ROOT = ROOT.parent / "arkret-spec" / "spec" / "v1" / "artifacts" / "schemas"
@@ -63,6 +64,9 @@ class RustStruct:
     unsupported_reason: str | None
     scalar_fields: dict[str, tuple[str, str]]
     serializable: bool = False
+    derived_deserialize: bool = False
+    deny_unknown_fields: bool = False
+    decode_conversion: bool = False
 
 
 def attached_prefix(source: str, start: int, masked_source: str | None = None) -> str:
@@ -169,6 +173,9 @@ def parse_struct(
         serializable=(bool(re.search(r'\bderive\s*\([^)]*\bSerialize\b', mask_non_code(attributes))) or bool(re.search(
             r'\bimpl(?:\s*<[^{};]*>)?\s+(?:serde::)?Serialize\s+for\s+' + re.escape(name) + r'\b',
             masked))),
+        derived_deserialize=bool(re.search(r'\bderive\s*\([^)]*\bDeserialize\b', mask_non_code(attributes))),
+        deny_unknown_fields=bool(re.search(r'\bdeny_unknown_fields\b', serde_attributes)),
+        decode_conversion=bool(re.search(r'\b(?:try_from|from|transparent)\b', serde_attributes)),
     )
 
 
@@ -454,6 +461,19 @@ def validate(
                 raise ValueError(f"unknown schema_field_set {field_set!r}")
             schema_fields = schema_property_names(resolver, schema_path, node, accepted=field_set == "accepted")
             decimal_formats = decimal_property_formats(resolver, schema_path, node)
+            if (item.derived_deserialize and not item.decode_conversion and not item.has_flatten
+                    and object_openness(resolver, node, schema_path) == 'closed'
+                    and not item.deny_unknown_fields):
+                errors.append(f'closed derived decoder for {rust_type} must reject unknown fields')
+            if item.derived_deserialize and not item.decode_conversion and not item.has_flatten:
+                _, presence = resolver.resolve_ref(schema_path, node)
+                for required in presence.get('required', []) if isinstance(presence, dict) else []:
+                    field_type, attributes = item.scalar_fields.get(required, ('', ''))
+                    if re.search(r'\bdefault\b', attributes):
+                        errors.append(f'required member {rust_type}.{required} must not have a serde default')
+                    if (re.search(r'\bOption\s*<', field_type)
+                            and not re.search(r'\b(?:deserialize_with|with)\s*=', attributes)):
+                        errors.append(f'required nullable member {rust_type}.{required} needs an explicit presence-checking decoder')
             if serializer is not None:
                 emitted, dynamic = serializer_members(serializer)
                 if emitted and not emitted <= schema_fields:

@@ -2,8 +2,7 @@
 
 use arkret_wire::{
     AccountId, ActorId, AuditReasonText, BackupId, BackupSeriesId, Base64UrlString, Cursor,
-    DeviceId, DidCoreId, DidUrl, Hash, NonEmptyString, PayloadProof, RealmCommitId,
-    RecoverySessionId,
+    DeviceId, DidCoreId, DidUrl, Hash, NonEmptyString, RealmCommitId, RecoverySessionId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -458,29 +457,6 @@ pub struct KeysBackupsReplaceResponseBody {
     pub ciphertext_digest: Hash,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-pub enum KeyBackupDeleteProof {
-    CurrentDevice {
-        proof: PayloadProof,
-    },
-    RecoverySession {
-        recovery_session_id: RecoverySessionId,
-        proof: PayloadProof,
-    },
-    DeviceQuorum {
-        threshold: u32,
-        signatures: Vec<KeyBackupDeleteQuorumSignature>,
-    },
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct KeyBackupDeleteQuorumSignature {
-    pub device_id: DeviceId,
-    pub proof: PayloadProof,
-}
-
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -543,18 +519,25 @@ impl KeysBackupsDeleteChallenge {
 pub struct KeysBackupsDeleteRequestBody {
     pub request_id: Base64UrlString,
     pub challenge_id: Base64UrlString,
-    pub proof: KeyBackupDeleteProof,
+    pub proof: crate::HighRiskAuthorityProof,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<AuditReasonText>,
 }
 
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct KeysBackupsDeleteResponseBody {
-    pub deleted: bool,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub backup_id: Option<BackupId>,
+impl KeysBackupsDeleteRequestBody {
+    pub fn validate(&self) -> arkret_wire::Result<()> {
+        if !(22..=128).contains(&self.request_id.as_str().len()) {
+            return Err(arkret_wire::WireError::Protocol(
+                "backup delete request_id must contain 22 to 128 base64url characters".into(),
+            ));
+        }
+        if !(22..=128).contains(&self.challenge_id.as_str().len()) {
+            return Err(arkret_wire::WireError::Protocol(
+                "backup delete challenge_id must contain 22 to 128 base64url characters".into(),
+            ));
+        }
+        self.proof.validate_shape()
+    }
 }
 
 #[cfg(test)]

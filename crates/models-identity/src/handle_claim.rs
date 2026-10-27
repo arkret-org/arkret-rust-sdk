@@ -49,6 +49,7 @@ pub struct HandleClaimCore {
     pub issuer_id: DidCoreId,
     pub claim: HandleClaimVariant,
     pub visibility: HandleVisibility,
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_required_nullable")]
     pub audience: Option<String>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
@@ -213,6 +214,7 @@ pub struct HandleClaim {
     pub verifier_id: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub verified_at: Option<DateTime<Utc>>,
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_required_nullable")]
     pub revocation: Option<HandleClaimRevocation>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub cache_expires_at: DateTime<Utc>,

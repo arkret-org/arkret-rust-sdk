@@ -332,7 +332,7 @@ mod object_lifecycle_tests {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HistoryAccessPayload {
-    #[serde(default)]
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_required_nullable")]
     pub from: Option<HistoryAccess>,
     pub to: HistoryAccess,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -390,7 +390,7 @@ impl HistoryAccessPayload {
 #[serde(deny_unknown_fields)]
 pub struct CircleHistoryAccessPayload {
     pub circle_id: CircleId,
-    #[serde(default)]
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_required_nullable")]
     pub from: Option<HistoryAccess>,
     pub to: HistoryAccess,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -409,3 +409,21 @@ impl CircleHistoryAccessPayload {
 }
 
 include!("generated/realm_lifecycle_contracts.rs");
+
+#[cfg(test)]
+mod history_presence_contract_tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn history_origin_null_is_present_and_missing_origin_is_rejected() {
+        let wire = json!({"from":null,"to":"since_join"});
+        let parsed: HistoryAccessPayload = serde_json::from_value(wire.clone()).unwrap();
+        assert!(parsed.from.is_none());
+        assert_eq!(serde_json::to_value(parsed).unwrap(), wire);
+        assert!(
+            serde_json::from_value::<HistoryAccessPayload>(json!({"to":"since_join"})).is_err()
+        );
+    }
+}

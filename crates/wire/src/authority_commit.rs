@@ -1679,6 +1679,7 @@ pub enum CurrentSelector {
     RealmJoinRule,
     RealmHistoryAccess,
     RealmPreviewPolicy,
+    RealmAssetPrivacyPolicy,
     ScopeReadReceiptPolicy {
         #[serde(deserialize_with = "deserialize_read_receipt_policy_scope")]
         scope_ref: ScopeRef,
@@ -1936,6 +1937,7 @@ enum FlatCurrentSelector {
     RealmJoinRule,
     RealmHistoryAccess,
     RealmPreviewPolicy,
+    RealmAssetPrivacyPolicy,
     ScopeReadReceiptPolicy {
         #[serde(deserialize_with = "deserialize_read_receipt_policy_scope")]
         scope_ref: ScopeRef,
@@ -2192,6 +2194,7 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                 | "realm_join_rule"
                 | "realm_history_access"
                 | "realm_preview_policy"
+                | "realm_asset_privacy_policy"
                 | "realm_tombstone"
                 | "realm_archive"
                 | "realm_freeze"
@@ -2213,6 +2216,7 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                     "realm_join_rule" => Self::RealmJoinRule,
                     "realm_history_access" => Self::RealmHistoryAccess,
                     "realm_preview_policy" => Self::RealmPreviewPolicy,
+                    "realm_asset_privacy_policy" => Self::RealmAssetPrivacyPolicy,
                     "realm_tombstone" => Self::RealmTombstone,
                     "realm_archive" => Self::RealmArchive,
                     "realm_freeze" => Self::RealmFreeze,
@@ -2298,6 +2302,7 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                     FlatCurrentSelector::RealmJoinRule => Self::RealmJoinRule,
                     FlatCurrentSelector::RealmHistoryAccess => Self::RealmHistoryAccess,
                     FlatCurrentSelector::RealmPreviewPolicy => Self::RealmPreviewPolicy,
+                    FlatCurrentSelector::RealmAssetPrivacyPolicy => Self::RealmAssetPrivacyPolicy,
                     FlatCurrentSelector::ScopeReadReceiptPolicy { scope_ref } => {
                         Self::ScopeReadReceiptPolicy { scope_ref }
                     }

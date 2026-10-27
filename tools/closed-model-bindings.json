@@ -21228,17 +21228,36 @@
       "schema": "applet-edge-operations.schema.json#/$defs/applet_third_party_user_lookup_response_body",
       "category": "domain_semantics",
       "reason": "The exact external tuple and conditional presence are validated against an accepted Realm actor and the current manager; preserve the owning handwritten validation methods."
+    },
+    {
+      "rust_type": "crates/models-identity/src/http_bodies.rs::AccountLogoutRequestBody",
+      "schema": "service-operation-dtos.schema.json#/$defs/AccountLogoutRequestBody",
+      "category": "domain_semantics",
+      "reason": "The registered empty logout body is an explicit closed object. Preserve its public owner and reject invented authorization or DPoP JSON fields; those credentials remain in their HTTP headers."
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/event_wire.rs::VerificationStub",
+      "schema": "erasure-verification-stub.schema.json",
+      "category": "domain_semantics",
+      "reason": "Retain the shared erasure validator and exact serde carrier. Bind the complete canonical subject union, scope or stub so every nested wire member is checked without a narrowed-branch exemption."
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/governance/erasure.rs::ErasureSubject",
+      "schema": "erasure-verification-stub.schema.json#/$defs/subject",
+      "category": "domain_semantics",
+      "reason": "Retain the shared erasure validator and exact serde carrier. Bind the complete canonical subject union, scope or stub so every nested wire member is checked without a narrowed-branch exemption."
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/governance/erasure.rs::ErasureScope",
+      "schema": "erasure-verification-stub.schema.json#/$defs/scope",
+      "category": "domain_semantics",
+      "reason": "Retain the shared erasure validator and exact serde carrier. Bind the complete canonical subject union, scope or stub so every nested wire member is checked without a narrowed-branch exemption."
     }
   ],
   "retained_exemptions": [
     {
       "rust_type": "crates/models-crypto/src/recovery_policy.rs::RecoveryPolicyPublishRequestBody",
       "reason": "struct-level serde conversion/transparent representation is not an object field set",
-      "category": "domain_semantics"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/events_payloads/event_wire.rs::VerificationStubSubject",
-      "reason": "VerificationStubSubject shares one kind/subject_ref Rust carrier across six schema union branches. The subject discriminator owns the corresponding typed identifier validation; binding the carrier to only one const-kind schema would incorrectly narrow the union.",
       "category": "domain_semantics"
     },
     {
