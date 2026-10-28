@@ -113,7 +113,6 @@ class TestKitProductionGateTests(unittest.TestCase):
             decisions.write_text(
                 json.dumps(
                     {
-                        "version": 1,
                         "decisions": [
                             {
                                 "manifest": "harness/Cargo.toml",
@@ -134,7 +133,6 @@ class TestKitProductionGateTests(unittest.TestCase):
             decisions.write_text(
                 json.dumps(
                     {
-                        "version": 1,
                         "decisions": [
                             {
                                 "manifest": "harness/Cargo.toml",
@@ -156,7 +154,6 @@ class TestKitProductionGateTests(unittest.TestCase):
             decisions.write_text(
                 json.dumps(
                     {
-                        "version": 1,
                         "decisions": [{"manifest": "harness/Cargo.toml", "rationale": "tests"}],
                     }
                 ),

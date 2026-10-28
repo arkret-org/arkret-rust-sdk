@@ -97,9 +97,9 @@ pub use arkret_identifiers::{
     DeviceMessageTransactionId, Did, DidCoreId, EventId, FilterId, FrameId, GrantId, Hash, Hlc,
     InviteId, InviteLocatorId, MessageId, MessageStreamId, ModerationQueueItemId, MorphId,
     NotificationId, NotificationProjectionId, OperationId, PolicyId, PresentationId,
-    RealmAuthorityHandoffId, RealmCommitId, RealmId, RealmSnapshotId, ReceiptId, RecoverySessionId,
-    RelationId, ReportId, RequestId, RtcParticipantId, SidecarId, SpaceId, StrandId,
-    SubscriptionId, TransactionId, TrustDomainId, ViewId, WebOrigin, new_prefixed_uuid7,
+    RealmAuthorityHandoffId, RealmCommitId, RealmId, RealmInviteLinkId, RealmSnapshotId, ReceiptId,
+    RecoverySessionId, RelationId, ReportId, RequestId, RtcParticipantId, SidecarId, SpaceId,
+    StrandId, SubscriptionId, TransactionId, TrustDomainId, ViewId, WebOrigin, new_prefixed_uuid7,
     project_did_to_core_id,
 };
 pub use arkret_identity as identity;
@@ -181,6 +181,7 @@ pub use arkret_models_collaboration::governance::operation_wire::*;
 pub use arkret_models_collaboration::governance::peer_contact::*;
 pub use arkret_models_collaboration::governance::plaintext_visibility::*;
 pub use arkret_models_collaboration::governance::realm_governance::*;
+pub use arkret_models_collaboration::governance::realm_invite_link::*;
 pub use arkret_models_collaboration::governance::realm_join_bootstrap::{
     RealmJoinBootstrapAssembly, RealmJoinBootstrapStreamScan,
 };
@@ -194,7 +195,6 @@ pub use arkret_models_collaboration::governance::realm_join_intake::{
     canonicalize_authority_locator_hints, validate_authority_locator_hints,
 };
 pub use arkret_models_collaboration::governance::realm_lifecycle::*;
-pub use arkret_models_collaboration::governance::third_party_invite::*;
 pub use arkret_models_collaboration::mention_composer::*;
 pub use arkret_models_collaboration::message_authoring::{
     MessageAuthoringContent, MessageAuthoringIntent, MessageEncryptionContext,

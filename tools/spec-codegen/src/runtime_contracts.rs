@@ -3,7 +3,6 @@ use std::fmt::Write as _;
 use std::path::PathBuf;
 
 use anyhow::{Result, bail};
-use arkret_wire::{CapabilityActionId, event_kind_str};
 
 use crate::model::{CapabilityAction, RealmBootstrapProfile, SpecInputs};
 use crate::render::{
@@ -562,14 +561,13 @@ fn validate(inputs: &SpecInputs) -> Result<()> {
                 });
         if matches!(
             row.action.as_str(),
-            CapabilityActionId::APPLET_BOT_PROVISION | CapabilityActionId::APPLET_GHOST_PROVISION
+            "ak.applet.bot.provision" | "ak.applet.ghost.provision"
         ) {
             if row.eligibility_kind != "event_submission_carrier"
                 || row.carrier_id != "event_admission_submission.approval_signatures"
                 || carrier.carrier_class != "event_submission"
-                || action.target_event_kinds != [event_kind_str::REALM_ACTOR_CREATE]
-                || row.approver_capability_action.as_deref()
-                    != Some(CapabilityActionId::REALM_ADMIN)
+                || action.target_event_kinds != ["ak.realm.actor.create"]
+                || row.approver_capability_action.as_deref() != Some("ak.realm.admin")
             {
                 bail!(
                     "approval eligibility override for {} requires its exact Realm actor creation approval carrier and Realm administrator",
@@ -600,9 +598,9 @@ fn validate(inputs: &SpecInputs) -> Result<()> {
         }
     }
     for required in [
-        CapabilityActionId::APPLET_BOT_PROVISION,
-        CapabilityActionId::APPLET_GHOST_PROVISION,
-        CapabilityActionId::APPLET_CONFIGURE,
+        "ak.applet.bot.provision",
+        "ak.applet.ghost.provision",
+        "ak.applet.configure",
     ] {
         if !overridden_actions.contains(required) {
             bail!("required approval qualification override missing for {required}");
@@ -1411,10 +1409,6 @@ pub const REGISTERED_OPERATION_SURFACE_GROUPS: &[OperationSurfaceGroupDescriptor
 pub const HIGH_SECURITY_SESSION_OPERATION_PREFIX: &str = {};
 pub const UNAUTHENTICATED_PUBLIC_PROJECTION_OPERATIONS: &[ServiceOperationId] = &[{}];
 
-pub const EVENT_KIND_REGISTRY_VERSION: &str = {};
-pub const SCHEMA_REGISTRY_VERSION: &str = {};
-pub const OPERATION_REGISTRY_VERSION: &str = {};
-pub const ID_KIND_REGISTRY_VERSION: &str = {};
 pub const PQ_HYBRID_TLS_REQUIRED_GROUP: &str = {};"#,
         rust_string(&session_policy.applies_to_operation_id_prefix),
         session_policy
@@ -1423,10 +1417,6 @@ pub const PQ_HYBRID_TLS_REQUIRED_GROUP: &str = {};"#,
             .map(|operation| format!("ServiceOperationId::{}", variant(operation, &["ak."])))
             .collect::<Vec<_>>()
             .join(", "),
-        rust_string(&inputs.event_kinds_source.version),
-        rust_string(&inputs.schemas_source.version),
-        rust_string(&inputs.operations_source.version),
-        rust_string(&inputs.id_kinds_source.version),
         rust_string(&inputs.deployment_probes.probes[0].tls.required_named_group),
     )
     .expect("write to String");

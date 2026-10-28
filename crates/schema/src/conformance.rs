@@ -3,7 +3,7 @@
 //! This crate is the sole owner of the conformance descriptor vocabulary;
 //! executable cross-layer vectors live in owner integration tests.
 
-use arkret_wire::{BUILT_IN_CONFORMANCE_FIXTURES_VERSION, EventKind, SchemaId};
+use arkret_wire::{EventKind, SchemaId};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
@@ -60,7 +60,6 @@ pub struct ConformanceProfileCoverage {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ConformanceReport {
-    pub fixture_version: String,
     pub passed: bool,
     pub coverage: Vec<ConformanceProfileCoverage>,
     pub results: Vec<ConformanceCaseOutcome>,
@@ -68,8 +67,8 @@ pub struct ConformanceReport {
 
 /// Loadable conformance fixture set used by SDK and external fixtures.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ConformanceFixtureSet {
-    pub fixture_version: String,
     pub suites: Vec<ConformanceSuite>,
 }
 
@@ -77,7 +76,6 @@ impl ConformanceFixtureSet {
     /// Built-in fixtures shipped with the SDK.
     pub fn builtin() -> Self {
         Self {
-            fixture_version: BUILT_IN_CONFORMANCE_FIXTURES_VERSION.to_owned(),
             suites: profile_conformance_suites(),
         }
     }
@@ -92,11 +90,6 @@ impl ConformanceFixtureSet {
 
     /// Validate fixture shape before execution.
     pub fn validate(&self) -> Result<()> {
-        if self.fixture_version.trim().is_empty() {
-            return Err(SchemaError::Protocol(
-                "fixture_version must be non-empty".to_owned(),
-            ));
-        }
         if self.suites.is_empty() {
             return Err(SchemaError::Protocol(
                 "fixture set must contain at least one suite".to_owned(),
@@ -125,7 +118,7 @@ impl ConformanceFixtureSet {
     /// vector payloads are not executed.
     pub fn run(&self) -> ConformanceReport {
         let registry = ProtocolSchemaRegistry::default();
-        run_conformance_suites(&registry, self.fixture_version.clone(), &self.suites)
+        run_conformance_suites(&registry, &self.suites)
     }
 }
 
@@ -260,7 +253,6 @@ pub fn run_builtin_conformance_report() -> ConformanceReport {
 
 fn run_conformance_suites(
     registry: &ProtocolSchemaRegistry,
-    fixture_version: String,
     suites: &[ConformanceSuite],
 ) -> ConformanceReport {
     let mut results = Vec::new();
@@ -300,7 +292,6 @@ fn run_conformance_suites(
     let passed = results.iter().all(|result| result.passed);
 
     ConformanceReport {
-        fixture_version,
         passed,
         coverage,
         results,

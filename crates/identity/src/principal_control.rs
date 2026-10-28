@@ -1,4 +1,4 @@
-//! Historical native identity control for direct approval and Invite subject proofs.
+//! Historical native identity control for direct approval proofs.
 //! Callers must authenticate the complete WebVH history and select the exact
 //! non-deactivated state at the protocol timestamp before using this helper.
 use arkret_wire::{Did, DidCoreId, DidUrl};
@@ -8,7 +8,6 @@ use crate::{IdentityError, Result};
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DirectIdentityControlPurpose {
     ApprovalSignature,
-    InviteClaimSubject,
 }
 
 #[derive(Clone, Debug)]
@@ -194,7 +193,7 @@ mod tests {
                 .unwrap();
         let principal = arkret_wire::project_did_to_core_id(&identity).unwrap();
         let method = DidUrl::new(format!("did:key:{multibase}#{multibase}")).unwrap();
-        let purpose = DirectIdentityControlPurpose::InviteClaimSubject;
+        let purpose = DirectIdentityControlPurpose::ApprovalSignature;
         let selected = native_identity_control_key_from_verified_selection(
             &identity,
             &principal,

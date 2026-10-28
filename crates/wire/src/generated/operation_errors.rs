@@ -1,11 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operations-error-mapping.json; version=2026-10-25.3;
-//! sha256=080af9a809ca014c38357a5dcef4375f5ef4bdc6cf04d1928883ea91aa89a16a Input: registry/
-//! contract-registry.json; version=2026-10-27;
-//! sha256=3c274e9b7cef33f32fbaba37a7f23561a7a13b71bb59fb4a681c127c0105d4bb Input: registry/
-//! error-code-registry.json; version=2026-10-25.1;
-//! sha256=c9a7e8316205f0ae51c8f39f038f65fc0b73e714e21015f81ed260fca41db8e7 Entries: operations=225
+//! Input: registry/operations-error-mapping.json;
+//! sha256=a2de3a07bf2d6f599c6a3043d568552af236d354cd097705b4acf1edbe1801e7 Input: registry/
+//! contract-registry.json; sha256=4603ea9c66ada9ca9e09db7ccce8dfd3b0ba0675ac2f67bdeaba66402115762c
+//! Input: registry/error-code-registry.json;
+//! sha256=b806a829f23fae90f1ce24f2691ed3f7c797293bb779ffc3d4f3e2298b8defc1 Entries: operations=220
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -266,20 +265,6 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
     &[],
     &[OperationSpecificError::Code(ErrorCode::NotFound)],
     &[OperationSpecificError::Reason(ReasonCode::ServiceRouteFork)],
-    &[
-        OperationSpecificError::Reason(ReasonCode::ThirdPartyInviteAcceptanceMissing),
-        OperationSpecificError::Reason(ReasonCode::ThirdPartyInviteAcceptanceStale),
-        OperationSpecificError::Reason(ReasonCode::ThirdPartyInviteMaterialMismatch),
-        OperationSpecificError::Reason(ReasonCode::ThirdPartyInviteProvisioningAlreadyBound),
-        OperationSpecificError::Reason(ReasonCode::ThirdPartyInviteProvisioningExpired),
-        OperationSpecificError::Code(ErrorCode::NotFound),
-    ],
-    &[
-        OperationSpecificError::Reason(ReasonCode::ThirdPartyInviteTokenInQuery),
-        OperationSpecificError::Code(ErrorCode::UnsupportedJoinRule),
-    ],
-    &[],
-    &[OperationSpecificError::Code(ErrorCode::NotFound)],
     &[
         OperationSpecificError::Code(ErrorCode::DuplicateConflict),
         OperationSpecificError::Code(ErrorCode::FailedPrecondition),
@@ -944,10 +929,6 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
     ],
     &[],
     &[],
-    &[
-        OperationSpecificError::Code(ErrorCode::NotFound),
-        OperationSpecificError::Code(ErrorCode::RevisionUnavailable),
-    ],
     &[
         OperationSpecificError::Code(ErrorCode::NotFound),
         OperationSpecificError::Code(ErrorCode::RevisionUnavailable),

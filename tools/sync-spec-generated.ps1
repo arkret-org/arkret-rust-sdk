@@ -13,10 +13,6 @@ $artifacts = (Resolve-Path -LiteralPath $ArtifactsDir).Path
 $manifestPath = Join-Path $PSScriptRoot 'spec-generation-manifest.json'
 $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
 
-if ($manifest.version -ne 1) {
-    throw "unsupported generation manifest version: $($manifest.version)"
-}
-
 $declaredOutputs = @(
     $manifest.entries |
         ForEach-Object { $_.outputs } |

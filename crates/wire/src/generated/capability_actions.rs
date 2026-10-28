@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-27;
-//! sha256=3c274e9b7cef33f32fbaba37a7f23561a7a13b71bb59fb4a681c127c0105d4bb Entries: registered=153
+//! Input: registry/contract-registry.json;
+//! sha256=4603ea9c66ada9ca9e09db7ccce8dfd3b0ba0675ac2f67bdeaba66402115762c Entries: registered=154
 
 use serde::{Deserialize, Serialize};
 
@@ -49,10 +49,8 @@ pub enum CapabilityActionId {
     EventRead,
     InviteAccept,
     InviteCancel,
-    InviteClaim,
     InviteCreate,
     InviteRevoke,
-    InviteThirdParty,
     MemberCompensateLeave,
     MemberCompensateRemove,
     MemberLeaveOwn,
@@ -116,6 +114,9 @@ pub enum CapabilityActionId {
     RealmSearchPolicy,
     RealmSetDefaultStrand,
     RealmTombstone,
+    RealmInviteLinkAccept,
+    RealmInviteLinkCreate,
+    RealmInviteLinkRevoke,
     ReceiptBroadcast,
     RelationCreate,
     RelationTombstone,
@@ -206,10 +207,8 @@ impl CapabilityActionId {
         Self::EventRead,
         Self::InviteAccept,
         Self::InviteCancel,
-        Self::InviteClaim,
         Self::InviteCreate,
         Self::InviteRevoke,
-        Self::InviteThirdParty,
         Self::MemberCompensateLeave,
         Self::MemberCompensateRemove,
         Self::MemberLeaveOwn,
@@ -273,6 +272,9 @@ impl CapabilityActionId {
         Self::RealmSearchPolicy,
         Self::RealmSetDefaultStrand,
         Self::RealmTombstone,
+        Self::RealmInviteLinkAccept,
+        Self::RealmInviteLinkCreate,
+        Self::RealmInviteLinkRevoke,
         Self::ReceiptBroadcast,
         Self::RelationCreate,
         Self::RelationTombstone,
@@ -361,10 +363,8 @@ impl CapabilityActionId {
     pub const EVENT_READ: &'static str = "ak.event.read";
     pub const INVITE_ACCEPT: &'static str = "ak.invite.accept";
     pub const INVITE_CANCEL: &'static str = "ak.invite.cancel";
-    pub const INVITE_CLAIM: &'static str = "ak.invite.claim";
     pub const INVITE_CREATE: &'static str = "ak.invite.create";
     pub const INVITE_REVOKE: &'static str = "ak.invite.revoke";
-    pub const INVITE_THIRD_PARTY: &'static str = "ak.invite.third_party";
     pub const MEMBER_COMPENSATE_LEAVE: &'static str = "ak.member.compensate.leave";
     pub const MEMBER_COMPENSATE_REMOVE: &'static str = "ak.member.compensate.remove";
     pub const MEMBER_LEAVE_OWN: &'static str = "ak.member.leave.own";
@@ -429,6 +429,9 @@ impl CapabilityActionId {
     pub const REALM_SEARCH_POLICY: &'static str = "ak.realm.search_policy";
     pub const REALM_SET_DEFAULT_STRAND: &'static str = "ak.realm.set_default_strand";
     pub const REALM_TOMBSTONE: &'static str = "ak.realm.tombstone";
+    pub const REALM_INVITE_LINK_ACCEPT: &'static str = "ak.realm_invite_link.accept";
+    pub const REALM_INVITE_LINK_CREATE: &'static str = "ak.realm_invite_link.create";
+    pub const REALM_INVITE_LINK_REVOKE: &'static str = "ak.realm_invite_link.revoke";
     pub const RECEIPT_BROADCAST: &'static str = "ak.receipt.broadcast";
     pub const RELATION_CREATE: &'static str = "ak.relation.create";
     pub const RELATION_TOMBSTONE: &'static str = "ak.relation.tombstone";
@@ -527,10 +530,8 @@ impl CapabilityActionId {
             Self::EventRead => Self::EVENT_READ,
             Self::InviteAccept => Self::INVITE_ACCEPT,
             Self::InviteCancel => Self::INVITE_CANCEL,
-            Self::InviteClaim => Self::INVITE_CLAIM,
             Self::InviteCreate => Self::INVITE_CREATE,
             Self::InviteRevoke => Self::INVITE_REVOKE,
-            Self::InviteThirdParty => Self::INVITE_THIRD_PARTY,
             Self::MemberCompensateLeave => Self::MEMBER_COMPENSATE_LEAVE,
             Self::MemberCompensateRemove => Self::MEMBER_COMPENSATE_REMOVE,
             Self::MemberLeaveOwn => Self::MEMBER_LEAVE_OWN,
@@ -594,6 +595,9 @@ impl CapabilityActionId {
             Self::RealmSearchPolicy => Self::REALM_SEARCH_POLICY,
             Self::RealmSetDefaultStrand => Self::REALM_SET_DEFAULT_STRAND,
             Self::RealmTombstone => Self::REALM_TOMBSTONE,
+            Self::RealmInviteLinkAccept => Self::REALM_INVITE_LINK_ACCEPT,
+            Self::RealmInviteLinkCreate => Self::REALM_INVITE_LINK_CREATE,
+            Self::RealmInviteLinkRevoke => Self::REALM_INVITE_LINK_REVOKE,
             Self::ReceiptBroadcast => Self::RECEIPT_BROADCAST,
             Self::RelationCreate => Self::RELATION_CREATE,
             Self::RelationTombstone => Self::RELATION_TOMBSTONE,
@@ -693,10 +697,8 @@ impl CapabilityActionId {
             Self::EVENT_READ => Some(Self::EventRead),
             Self::INVITE_ACCEPT => Some(Self::InviteAccept),
             Self::INVITE_CANCEL => Some(Self::InviteCancel),
-            Self::INVITE_CLAIM => Some(Self::InviteClaim),
             Self::INVITE_CREATE => Some(Self::InviteCreate),
             Self::INVITE_REVOKE => Some(Self::InviteRevoke),
-            Self::INVITE_THIRD_PARTY => Some(Self::InviteThirdParty),
             Self::MEMBER_COMPENSATE_LEAVE => Some(Self::MemberCompensateLeave),
             Self::MEMBER_COMPENSATE_REMOVE => Some(Self::MemberCompensateRemove),
             Self::MEMBER_LEAVE_OWN => Some(Self::MemberLeaveOwn),
@@ -760,6 +762,9 @@ impl CapabilityActionId {
             Self::REALM_SEARCH_POLICY => Some(Self::RealmSearchPolicy),
             Self::REALM_SET_DEFAULT_STRAND => Some(Self::RealmSetDefaultStrand),
             Self::REALM_TOMBSTONE => Some(Self::RealmTombstone),
+            Self::REALM_INVITE_LINK_ACCEPT => Some(Self::RealmInviteLinkAccept),
+            Self::REALM_INVITE_LINK_CREATE => Some(Self::RealmInviteLinkCreate),
+            Self::REALM_INVITE_LINK_REVOKE => Some(Self::RealmInviteLinkRevoke),
             Self::RECEIPT_BROADCAST => Some(Self::ReceiptBroadcast),
             Self::RELATION_CREATE => Some(Self::RelationCreate),
             Self::RELATION_TOMBSTONE => Some(Self::RelationTombstone),

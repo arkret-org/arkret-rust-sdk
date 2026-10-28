@@ -631,6 +631,7 @@ pub const EVENT_DERIVED_ID_KIND_PREFIXES: &[&str] = &[
     "ak:moderation_queue_item:",
     "ak:morph:",
     "ak:realm:",
+    "ak:realm_invite_link:",
     "ak:relation:",
     "ak:report:",
     "ak:sidecar:",
@@ -940,6 +941,7 @@ declare_event_token_id_kinds! {
     EventId, "ak:event:";
     GrantId, "ak:grant:";
     InviteId, "ak:invite:";
+    RealmInviteLinkId, "ak:realm_invite_link:";
     MessageId, "ak:message:";
     ModerationQueueItemId, "ak:moderation_queue_item:";
     MorphId, "ak:morph:";
@@ -2077,5 +2079,12 @@ mod tests {
         ] {
             assert!(WebOrigin::new(invalid).is_err(), "{invalid} must fail");
         }
+    }
+}
+
+impl RealmInviteLinkId {
+    /// Retype the immutable creation Event identity.
+    pub fn event_id(&self) -> EventId {
+        EventId(encode_event_token(EventId::KIND_PREFIX, self.token_bytes()))
     }
 }

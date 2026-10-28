@@ -1,6 +1,5 @@
 {
   "$schema": "./manifest.schema.json",
-  "schema_version": 1,
   "train": {
     "id": "arkret-salvo-1.0.1-20261014",
     "merge_order": [

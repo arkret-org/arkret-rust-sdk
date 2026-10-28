@@ -84,8 +84,8 @@ pub fn header(inputs: &[&LoadedArtifact], counts: &str) -> String {
         }
         writeln!(
             output,
-            "//! Input: {}; version={}; sha256={}",
-            input.relative_path, input.version, input.digest
+            "//! Input: {}; sha256={}",
+            input.relative_path, input.digest
         )
         .expect("write to String");
     }

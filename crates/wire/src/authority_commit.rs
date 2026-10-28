@@ -1839,6 +1839,16 @@ pub enum CurrentSelector {
     },
     /// One Invite's process-state register
     /// (`current-state.schema.json#/$defs/current_invite_lifecycle`).
+    RealmInviteLinkDefinition {
+        realm_invite_link_id: arkret_identifiers::RealmInviteLinkId,
+    },
+    RealmInviteLinkLifecycle {
+        realm_invite_link_id: arkret_identifiers::RealmInviteLinkId,
+    },
+    RealmInviteLinkUse {
+        realm_invite_link_id: arkret_identifiers::RealmInviteLinkId,
+        subject_account_id: AccountId,
+    },
     InviteLifecycle {
         invite_id: InviteId,
     },
@@ -2071,6 +2081,16 @@ enum FlatCurrentSelector {
     },
     /// One Invite's process-state register
     /// (`current-state.schema.json#/$defs/current_invite_lifecycle`).
+    RealmInviteLinkDefinition {
+        realm_invite_link_id: arkret_identifiers::RealmInviteLinkId,
+    },
+    RealmInviteLinkLifecycle {
+        realm_invite_link_id: arkret_identifiers::RealmInviteLinkId,
+    },
+    RealmInviteLinkUse {
+        realm_invite_link_id: arkret_identifiers::RealmInviteLinkId,
+        subject_account_id: AccountId,
+    },
     InviteLifecycle {
         invite_id: InviteId,
     },
@@ -2430,6 +2450,23 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                     FlatCurrentSelector::CapabilityGrant { grant_id } => {
                         Self::CapabilityGrant { grant_id }
                     }
+                    FlatCurrentSelector::RealmInviteLinkDefinition {
+                        realm_invite_link_id,
+                    } => Self::RealmInviteLinkDefinition {
+                        realm_invite_link_id,
+                    },
+                    FlatCurrentSelector::RealmInviteLinkLifecycle {
+                        realm_invite_link_id,
+                    } => Self::RealmInviteLinkLifecycle {
+                        realm_invite_link_id,
+                    },
+                    FlatCurrentSelector::RealmInviteLinkUse {
+                        realm_invite_link_id,
+                        subject_account_id,
+                    } => Self::RealmInviteLinkUse {
+                        realm_invite_link_id,
+                        subject_account_id,
+                    },
                     FlatCurrentSelector::InviteLifecycle { invite_id } => {
                         Self::InviteLifecycle { invite_id }
                     }

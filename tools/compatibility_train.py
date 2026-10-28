@@ -135,7 +135,6 @@ def preflight_stage(
             }
         )
     return {
-        "schema_version": 1,
         "train_id": document["train"]["id"],
         "run_id": run_id,
         "phase": "planned",
@@ -185,8 +184,6 @@ def dispatch_exact_gate(evidence: dict[str, Any], client: GitHubApi) -> None:
 
 def validate_evidence(document: dict[str, Any], evidence: dict[str, Any]) -> None:
     gate.validate_manifest(document)
-    if evidence.get("schema_version") != 1:
-        raise gate.CompatibilityError("train evidence schema_version must be 1")
     if evidence.get("manifest_digest") != canonical_digest(document):
         raise gate.CompatibilityError("train evidence does not bind the supplied manifest")
     if evidence.get("merge_order") != document["train"]["merge_order"]:

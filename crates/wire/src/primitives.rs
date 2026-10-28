@@ -645,7 +645,6 @@ pub enum InviteState {
     Rejected,
     Revoked,
     Expired,
-    Claimed,
 }
 
 impl InviteState {
@@ -657,7 +656,6 @@ impl InviteState {
             Self::Rejected => "rejected",
             Self::Revoked => "revoked",
             Self::Expired => "expired",
-            Self::Claimed => "claimed",
         }
     }
 
@@ -669,7 +667,6 @@ impl InviteState {
             "rejected" => Self::Rejected,
             "revoked" => Self::Revoked,
             "expired" => Self::Expired,
-            "claimed" => Self::Claimed,
             _ => return None,
         })
     }
@@ -679,7 +676,7 @@ impl InviteState {
     /// Every later state-changing Event on a terminal Invite is refused with
     /// `invite_already_terminal` (`zh/models/governance-objects.md` section 5.3).
     pub const fn is_terminal(self) -> bool {
-        !matches!(self, Self::Pending | Self::Claimed)
+        !matches!(self, Self::Pending)
     }
 }
 

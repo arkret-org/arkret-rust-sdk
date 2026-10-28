@@ -1,5 +1,4 @@
 {
-  "version": 1,
   "description": "Retired owned symbols; a new protocol role requires its own explicit name rather than restoring a compatibility alias.",
   "types": {
     "GrantSnapshot": "AgentGrantView",

@@ -1,5 +1,4 @@
 {
-  "version": 1,
   "mappings": [
     {
       "rust_type": "crates/models-collaboration/src/generated/agent_operations_contracts.rs::AgentOperationStatusView",
@@ -2475,22 +2474,6 @@
       "reason": "The named core is checked exactly against the canonical schema; serde(flatten) carries the registered variant payload or extension slot and cannot justify excluding any named Rust field."
     },
     {
-      "rust_type": "crates/models-collaboration/src/governance/membership_invite.rs::InviteThirdPartyCreatePayload",
-      "schema": "event-payload.schema.json#/$defs/invite_third_party_create_payload",
-      "comparison": "rust_fields_subset",
-      "reason": "The named core is checked exactly against the canonical schema; serde(flatten) carries the registered variant payload or extension slot and cannot justify excluding any named Rust field."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/membership_invite.rs::InviteClaimBindingProof",
-      "schema": "event-payload.schema.json#/$defs/invite_claim_binding_proof"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/membership_invite.rs::InviteClaimPayload",
-      "schema": "event-payload.schema.json#/$defs/invite_claim_payload",
-      "comparison": "rust_fields_subset",
-      "reason": "The named core is checked exactly against the canonical schema; serde(flatten) carries the registered variant payload or extension slot and cannot justify excluding any named Rust field."
-    },
-    {
       "rust_type": "crates/models-collaboration/src/governance/moderation.rs::ModerationReportRequestBody",
       "schema": "moderation-report.schema.json#/$defs/moderation_report_request_body"
     },
@@ -2531,50 +2514,6 @@
     {
       "rust_type": "crates/models-collaboration/src/governance/realm_lifecycle.rs::CircleHistoryAccessPayload",
       "schema": "event-payload.schema.json#/$defs/circle_history_access_payload"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/third_party_invite.rs::ThirdPartyInvitePresentRequestBody",
-      "schema": "invite.schema.json#/$defs/third_party_invite_present_request_body"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/third_party_invite.rs::ThirdPartyInvitePresentResponseBody",
-      "schema": "invite.schema.json#/$defs/third_party_invite_present_response_body"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/third_party_invite.rs::ThirdPartyInvite",
-      "schema": "invite.schema.json#/$defs/third_party_invite"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/third_party_invite.rs::ThirdPartyInviteProvisionRequestBody",
-      "schema": "invite.schema.json#/$defs/third_party_invite_provision_request_body"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/third_party_invite.rs::ThirdPartyInviteProvisionResponseBody",
-      "schema": "invite.schema.json#/$defs/third_party_invite_provision_response_body"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/third_party_invite.rs::ThirdPartyInviteAcceptanceAttestationRequestBody",
-      "schema": "invite.schema.json#/$defs/third_party_invite_acceptance_attestation_request_body"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/third_party_invite.rs::ThirdPartyInviteAcceptanceAttestationResponseBody",
-      "schema": "invite.schema.json#/$defs/third_party_invite_acceptance_attestation_response_body"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/third_party_invite.rs::ThirdPartyInviteActivationRequestBody",
-      "schema": "invite.schema.json#/$defs/third_party_invite_activation_request_body"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/third_party_invite.rs::ThirdPartyInviteActivationResponseBody",
-      "schema": "invite.schema.json#/$defs/third_party_invite_activation_response_body"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/third_party_invite.rs::ThirdPartyInviteProvisioningStatusRequestBody",
-      "schema": "invite.schema.json#/$defs/third_party_invite_provisioning_status_request_body"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/third_party_invite.rs::ThirdPartyInviteProvisioningStatusResponseBody",
-      "schema": "invite.schema.json#/$defs/third_party_invite_provisioning_status_response_body"
     },
     {
       "rust_type": "crates/models-collaboration/src/message_authoring.rs::MessageEncryptionContext",
@@ -3875,10 +3814,6 @@
       "schema": "event-payload.schema.json#/$defs/realm_schema_payload"
     },
     {
-      "rust_type": "crates/models-collaboration/src/governance/third_party_invite.rs::ThirdPartyInviteAcceptanceAttestation",
-      "schema": "invite.schema.json#/$defs/third_party_invite_acceptance_attestation"
-    },
-    {
       "rust_type": "crates/models-collaboration/src/objects/blob.rs::BlobPresignResponseBody",
       "schema": "service-operation-dtos.schema.json#/$defs/BlobPresignResponseBody"
     },
@@ -4151,6 +4086,54 @@
     {
       "rust_type": "crates/models-identity/src/http_bodies.rs::AccountLogoutRequestBody",
       "schema": "service-operation-dtos.schema.json#/$defs/AccountLogoutRequestBody"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/governance/generated/realm_invite_link_contracts.rs::RealmInviteLinkProofAlgorithm",
+      "schema": "realm-invite-link.schema.json#/$defs/proof/properties/signature_algorithm"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/governance/generated/realm_invite_link_contracts.rs::RealmInviteLinkProof",
+      "schema": "realm-invite-link.schema.json#/$defs/proof"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/governance/generated/realm_invite_link_contracts.rs::RealmInviteLinkLimits",
+      "schema": "realm-invite-link.schema.json#/$defs/limits"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/governance/generated/realm_invite_link_contracts.rs::RealmInviteLinkLifecycle",
+      "schema": "realm-invite-link.schema.json#/$defs/lifecycle_value"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/governance/generated/realm_invite_link_contracts.rs::RealmInviteLinkStatus",
+      "schema": "realm-invite-link.schema.json#/$defs/status"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/governance/generated/realm_invite_link_contracts.rs::RealmInviteLinkCreatePayload",
+      "schema": "realm-invite-link.schema.json#/$defs/create_payload"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/governance/generated/realm_invite_link_contracts.rs::RealmInviteLinkRevokePayload",
+      "schema": "realm-invite-link.schema.json#/$defs/revoke_payload"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/governance/generated/realm_invite_link_contracts.rs::RealmInviteLinkAcceptPayload",
+      "schema": "realm-invite-link.schema.json#/$defs/accept_payload"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/governance/generated/realm_invite_link_contracts.rs::RealmInviteLinkDefinitionValue",
+      "schema": "realm-invite-link.schema.json#/$defs/definition_value"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/governance/generated/realm_invite_link_contracts.rs::RealmInviteLinkUseRecord",
+      "schema": "realm-invite-link.schema.json#/$defs/use_record"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/governance/generated/realm_invite_link_contracts.rs::RealmInviteLinkView",
+      "schema": "realm-invite-link.schema.json#/$defs/view"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/governance/realm_invite_link.rs::RealmInviteLinkToken",
+      "schema": "realm-invite-link-token.schema.json"
     }
   ],
   "exemptions": [

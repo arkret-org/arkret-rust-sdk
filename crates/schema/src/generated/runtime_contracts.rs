@@ -1,13 +1,12 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/agent-runtime-scope-registry.json; version=2026-09-26;
-//! sha256=e7e3d1e742ea74acadf57fab9554b6a39d6a0a082de7f847c6098f3610a341f6 Input: registry/
-//! contract-registry.json; version=2026-10-27;
-//! sha256=3c274e9b7cef33f32fbaba37a7f23561a7a13b71bb59fb4a681c127c0105d4bb
-//! Input: deployment-probes.json; version=2026-06-19;
-//! sha256=3aaf7d76d6618e2ea0dcc211195cfc9ffe21b6233faeafd5c7df4aac0ac3054d
+//! Input: registry/agent-runtime-scope-registry.json;
+//! sha256=c19999dee0337692d6415cb6631373e0fec3b60cf47e6aa892afab259ab3d995 Input: registry/
+//! contract-registry.json; sha256=4603ea9c66ada9ca9e09db7ccce8dfd3b0ba0675ac2f67bdeaba66402115762c
+//! Input: deployment-probes.json;
+//! sha256=d460713a703e79c05fe21df3844650be21b201c32e5673df81460ea132d48c89
 //! Entries: capability_sets=2, layers=3, feature_additions=1, bootstrap_profiles=2,
-//! operation_surface_groups=36
+//! operation_surface_groups=35
 
 use arkret_wire::{ServiceOperationId, event_kind_str};
 
@@ -684,18 +683,6 @@ pub const REGISTERED_OPERATION_SURFACE_GROUPS: &[OperationSurfaceGroupDescriptor
         operations: &[ServiceOperationId::OpenInviteLocatorReadResolveV1],
     },
     OperationSurfaceGroupDescriptor {
-        surface: "third_party_invite_handoff",
-        surface_class: "extension",
-        profile: None,
-        operations: &[
-            ServiceOperationId::OpenThirdPartyInviteCommandActivateV1,
-            ServiceOperationId::OpenThirdPartyInviteCommandPresentTokenV1,
-            ServiceOperationId::OpenThirdPartyInviteCommandProvisionV1,
-            ServiceOperationId::OpenThirdPartyInviteReadProvisioningStatusV1,
-            ServiceOperationId::SelfThirdPartyInviteReadAcceptanceAttestationV1,
-        ],
-    },
-    OperationSurfaceGroupDescriptor {
         surface: "identity_resolution",
         surface_class: "extension",
         profile: None,
@@ -782,8 +769,4 @@ pub const HIGH_SECURITY_SESSION_OPERATION_PREFIX: &str = "ak.self.";
 pub const UNAUTHENTICATED_PUBLIC_PROJECTION_OPERATIONS: &[ServiceOperationId] =
     &[ServiceOperationId::SelfAccountReadDescribeV1];
 
-pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-10-24.3";
-pub const SCHEMA_REGISTRY_VERSION: &str = "2026-10-27";
-pub const OPERATION_REGISTRY_VERSION: &str = "2026-10-27";
-pub const ID_KIND_REGISTRY_VERSION: &str = "2026-10-27";
 pub const PQ_HYBRID_TLS_REQUIRED_GROUP: &str = "X25519MLKEM768";

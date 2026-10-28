@@ -45,8 +45,6 @@ fn canonical_decimal(value: &str) -> bool {
         && (value == "0" || !value.starts_with('0'))
 }
 
-pub const BUILT_IN_CONFORMANCE_FIXTURES_VERSION: &str = "arkret-sdk-builtin-v1";
-
 /// AEAD profile id used by every Arkret payload envelope that seals with
 /// XChaCha20-Poly1305 (account data, key vaults, file transfer).
 pub const AEAD_PROFILE_XCHACHA20_POLY1305_V1: &str = crate::AeadProfileId::XCHACHA20_POLY1305_V1;

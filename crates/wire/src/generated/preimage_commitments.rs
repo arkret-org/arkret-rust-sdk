@@ -1,10 +1,9 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-24.3;
-//! sha256=3c274e9b7cef33f32fbaba37a7f23561a7a13b71bb59fb4a681c127c0105d4bb Input: reachable event
-//! schema closure; version=aggregate;
-//! sha256=44ef85d8b73ab6e57d34db1ad6a99592d5439573a9c6b85cbd822c057f22887a
-//! Entries: preimage_commitments=43
+//! Input: registry/contract-registry.json;
+//! sha256=4603ea9c66ada9ca9e09db7ccce8dfd3b0ba0675ac2f67bdeaba66402115762c Input: reachable event
+//! schema closure; sha256=3506c1a2a2b3941a464a4a719cb6a77950f3548945661fe0fa4613ed16a76e92 Entries:
+//! preimage_commitments=43
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PreimageCommitment {

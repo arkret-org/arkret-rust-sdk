@@ -1,5 +1,4 @@
 {
-  "version": 1,
   "references": {
     "common-ids.schema.json#/$defs/realm_id": "arkret_wire::RealmId",
     "common-ids.schema.json#/$defs/blob_ref": "arkret_wire::BlobRef",
@@ -111,7 +110,21 @@
     "event-payload.schema.json#/$defs/consent_replace_payload": "crate::events_payloads::consent::ConsentReplacePayload",
     "consent-operations.schema.json#/$defs/consent_current_read_response_body/properties/current": "crate::call_invitation::ConsentCurrentReadState",
     "current-state.schema.json#/$defs/revision": "arkret_wire::CurrentRevision",
-    "agent-operations.schema.json#/$defs/operation_status_view": "arkret_models_collaboration::agent_operations::AgentOperationStatusView"
+    "agent-operations.schema.json#/$defs/operation_status_view": "arkret_models_collaboration::agent_operations::AgentOperationStatusView",
+    "realm-invite-link.schema.json#/$defs/realm_invite_link_id": "arkret_wire::RealmInviteLinkId",
+    "realm-join-intake.schema.json#/$defs/request_id": "arkret_wire::RequestId",
+    "event-payload.schema.json#/$defs/timestamp": "chrono::DateTime<chrono::Utc>",
+    "realm-invite-link.schema.json#/$defs/proof/properties/transcript_digest": "arkret_wire::Hash",
+    "realm-invite-link.schema.json#/$defs/limits/properties/max_lifetime_seconds": "u32",
+    "realm-invite-link.schema.json#/$defs/limits/properties/max_uses_per_link": "u32",
+    "realm-invite-link.schema.json#/$defs/create_payload/properties/max_uses": "u32",
+    "realm-invite-link.schema.json#/$defs/definition_value/properties/max_uses": "u32",
+    "realm-invite-link.schema.json#/$defs/view/properties/max_uses": "u32",
+    "realm-invite-link.schema.json#/$defs/view/properties/use_count": "u32",
+    "realm-invite-link.schema.json#/$defs/link_public_key": "String",
+    "common-ids.schema.json#/$defs/account_id": "arkret_wire::AccountId",
+    "common-ids.schema.json#/$defs/actor_id": "arkret_wire::ActorId",
+    "common-ids.schema.json#/$defs/event_id": "arkret_wire::EventId"
   },
   "families": [
     {
@@ -11835,8 +11848,6 @@
               "///",
               "/// It is the create-locked reverse index of the `invite_live_target` slot:",
               "/// written once by a directed `ak.invite.create` from that Event's own payload",
-              "/// and never by `ak.invite.third_party`, so a third-party Invite's stored",
-              "/// invitee is absent rather than null.",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
             ],
@@ -17260,6 +17271,67 @@
           }
         }
       ]
+    },
+    {
+      "output": "crates/models-collaboration/src/governance/generated/realm_invite_link_contracts.rs",
+      "inline": true,
+      "types": [
+        {
+          "name": "RealmInviteLinkProofAlgorithm",
+          "schema": "realm-invite-link.schema.json#/$defs/proof/properties/signature_algorithm",
+          "openapi": false
+        },
+        {
+          "name": "RealmInviteLinkProof",
+          "schema": "realm-invite-link.schema.json#/$defs/proof",
+          "openapi": false
+        },
+        {
+          "name": "RealmInviteLinkLimits",
+          "schema": "realm-invite-link.schema.json#/$defs/limits",
+          "openapi": false
+        },
+        {
+          "name": "RealmInviteLinkLifecycle",
+          "schema": "realm-invite-link.schema.json#/$defs/lifecycle_value",
+          "openapi": false
+        },
+        {
+          "name": "RealmInviteLinkStatus",
+          "schema": "realm-invite-link.schema.json#/$defs/status",
+          "openapi": false
+        },
+        {
+          "name": "RealmInviteLinkCreatePayload",
+          "schema": "realm-invite-link.schema.json#/$defs/create_payload",
+          "openapi": false
+        },
+        {
+          "name": "RealmInviteLinkRevokePayload",
+          "schema": "realm-invite-link.schema.json#/$defs/revoke_payload",
+          "openapi": false
+        },
+        {
+          "name": "RealmInviteLinkAcceptPayload",
+          "schema": "realm-invite-link.schema.json#/$defs/accept_payload",
+          "openapi": false
+        },
+        {
+          "name": "RealmInviteLinkDefinitionValue",
+          "schema": "realm-invite-link.schema.json#/$defs/definition_value",
+          "openapi": false
+        },
+        {
+          "name": "RealmInviteLinkUseRecord",
+          "schema": "realm-invite-link.schema.json#/$defs/use_record",
+          "openapi": false
+        },
+        {
+          "name": "RealmInviteLinkView",
+          "schema": "realm-invite-link.schema.json#/$defs/view",
+          "openapi": false
+        }
+      ]
     }
   ],
   "retained_binding_reasons": {
@@ -18753,26 +18825,6 @@
       "category": "domain_semantics"
     },
     {
-      "rust_type": "crates/models-collaboration/src/governance/membership_invite.rs::InviteThirdPartyCreatePayload",
-      "schema": "event-payload.schema.json#/$defs/invite_third_party_create_payload",
-      "comparison": "rust_fields_subset",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs.",
-      "category": "domain_semantics"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/membership_invite.rs::InviteClaimBindingProof",
-      "schema": "event-payload.schema.json#/$defs/invite_claim_binding_proof",
-      "category": "domain_semantics",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/membership_invite.rs::InviteClaimPayload",
-      "schema": "event-payload.schema.json#/$defs/invite_claim_payload",
-      "comparison": "rust_fields_subset",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs.",
-      "category": "domain_semantics"
-    },
-    {
       "rust_type": "crates/models-collaboration/src/governance/moderation.rs::ModerationReportRequestBody",
       "schema": "moderation-report.schema.json#/$defs/moderation_report_request_body",
       "category": "domain_semantics",
@@ -18830,72 +18882,6 @@
     {
       "rust_type": "crates/models-collaboration/src/governance/realm_lifecycle.rs::CircleHistoryAccessPayload",
       "schema": "event-payload.schema.json#/$defs/circle_history_access_payload",
-      "category": "domain_semantics",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/third_party_invite.rs::ThirdPartyInvitePresentRequestBody",
-      "schema": "invite.schema.json#/$defs/third_party_invite_present_request_body",
-      "category": "domain_semantics",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/third_party_invite.rs::ThirdPartyInvitePresentResponseBody",
-      "schema": "invite.schema.json#/$defs/third_party_invite_present_response_body",
-      "category": "domain_semantics",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/third_party_invite.rs::ThirdPartyInvite",
-      "schema": "invite.schema.json#/$defs/third_party_invite",
-      "category": "domain_semantics",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/third_party_invite.rs::ThirdPartyInviteProvisionRequestBody",
-      "schema": "invite.schema.json#/$defs/third_party_invite_provision_request_body",
-      "category": "domain_semantics",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/third_party_invite.rs::ThirdPartyInviteProvisionResponseBody",
-      "schema": "invite.schema.json#/$defs/third_party_invite_provision_response_body",
-      "category": "domain_semantics",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/third_party_invite.rs::ThirdPartyInviteAcceptanceAttestationRequestBody",
-      "schema": "invite.schema.json#/$defs/third_party_invite_acceptance_attestation_request_body",
-      "category": "domain_semantics",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/third_party_invite.rs::ThirdPartyInviteAcceptanceAttestationResponseBody",
-      "schema": "invite.schema.json#/$defs/third_party_invite_acceptance_attestation_response_body",
-      "category": "domain_semantics",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/third_party_invite.rs::ThirdPartyInviteActivationRequestBody",
-      "schema": "invite.schema.json#/$defs/third_party_invite_activation_request_body",
-      "category": "domain_semantics",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/third_party_invite.rs::ThirdPartyInviteActivationResponseBody",
-      "schema": "invite.schema.json#/$defs/third_party_invite_activation_response_body",
-      "category": "domain_semantics",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/third_party_invite.rs::ThirdPartyInviteProvisioningStatusRequestBody",
-      "schema": "invite.schema.json#/$defs/third_party_invite_provisioning_status_request_body",
-      "category": "domain_semantics",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/third_party_invite.rs::ThirdPartyInviteProvisioningStatusResponseBody",
-      "schema": "invite.schema.json#/$defs/third_party_invite_provisioning_status_response_body",
       "category": "domain_semantics",
       "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
     },
@@ -20829,12 +20815,6 @@
       "reason": "Retain the existing typed public declaration and its domain methods at the owning module. Exact canonical fields and scalar encodings are enforced by the shared field-set gate without replacing its validating serde behavior."
     },
     {
-      "rust_type": "crates/models-collaboration/src/governance/third_party_invite.rs::ThirdPartyInviteAcceptanceAttestation",
-      "schema": "invite.schema.json#/$defs/third_party_invite_acceptance_attestation",
-      "category": "domain_semantics",
-      "reason": "Retain the existing typed public declaration and its domain methods at the owning module. Exact canonical fields and scalar encodings are enforced by the shared field-set gate without replacing its validating serde behavior."
-    },
-    {
       "rust_type": "crates/models-collaboration/src/objects/blob.rs::BlobPresignResponseBody",
       "schema": "service-operation-dtos.schema.json#/$defs/BlobPresignResponseBody",
       "category": "domain_semantics",
@@ -21234,6 +21214,12 @@
       "schema": "service-operation-dtos.schema.json#/$defs/AccountLogoutRequestBody",
       "category": "domain_semantics",
       "reason": "The registered empty logout body is an explicit closed object. Preserve its public owner and reject invented authorization or DPoP JSON fields; those credentials remain in their HTTP headers."
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/governance/realm_invite_link.rs::RealmInviteLinkToken",
+      "schema": "realm-invite-link-token.schema.json",
+      "category": "domain_semantics",
+      "reason": "Private fragment credentials require a zeroizing secret scalar and redacted Debug; canonical fields and encodings remain checked by the shared contract gate."
     }
   ],
   "retained_exemptions": [

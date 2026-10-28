@@ -5,10 +5,10 @@
 //! sha256=3e94b6c387b6fa1d895c5c5d5d56d86d7dbeeda40e4e513afb23c904e25f1592
 //!
 //! Input: schemas/current-state.schema.json
-//! sha256=7f7c4f2664ee79f2bda622abea13f8bbb119a2387d89cbe4eeb9af4f3c087428
+//! sha256=b3cb719af901c84d50427c0d94de8900dfb1572ee60d81cd331187225388756d
 //!
 //! Bindings: tools/closed-model-bindings.json
-//! sha256=13aff1fc7ba8bd04dc6586b917faf46593a6d0e4beeadb69db75284c9e17a6f7
+//! sha256=dd0891cd81e0fc2caaf499fd178468a13da86ea101d8780b59ca3e5c661eeecd
 
 /// Counterpart: `realm-actor.schema.json#/$defs/control_scope/properties/kind`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]

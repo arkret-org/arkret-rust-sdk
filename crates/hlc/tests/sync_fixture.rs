@@ -83,7 +83,7 @@ fn flag(case: &Value, key: &str) -> Option<bool> {
 #[test]
 fn client_sync_fixture_surface_is_pinned() {
     let fixture = fixture();
-    assert_eq!(fixture["suite"].as_str(), Some("client_sync"));
+
     assert_eq!(fixture["runner"]["kind"].as_str(), Some("named_suite"));
     assert_eq!(
         fixture["runner"]["entrypoint"].as_str(),

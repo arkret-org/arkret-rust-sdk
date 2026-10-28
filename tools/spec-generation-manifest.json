@@ -1,5 +1,4 @@
 {
-  "version": 1,
   "entries": [
     {
       "generator": "event-kinds",
@@ -2159,6 +2158,30 @@
       "provides": [
         "AppletAuthorityMaterialRequestBody",
         "AppletAuthorityMaterialResponseBody"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/governance/generated/realm_invite_link_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "schema-closed-models",
+      "artifacts": [
+        "schemas/realm-invite-link.schema.json"
+      ],
+      "provides": [
+        "RealmInviteLinkProofAlgorithm",
+        "RealmInviteLinkProof",
+        "RealmInviteLinkLimits",
+        "RealmInviteLinkLifecycle",
+        "RealmInviteLinkStatus",
+        "RealmInviteLinkCreatePayload",
+        "RealmInviteLinkRevokePayload",
+        "RealmInviteLinkAcceptPayload",
+        "RealmInviteLinkDefinitionValue",
+        "RealmInviteLinkUseRecord",
+        "RealmInviteLinkView"
       ]
     }
   ]

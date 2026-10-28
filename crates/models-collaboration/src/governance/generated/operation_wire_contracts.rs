@@ -8,13 +8,13 @@
 // sha256=0cc25a02fe0d9a94f6e41f2cf8f64e492ba36362f1e69a699cf1e684924837ee
 //
 // Input: schemas/event-payload.schema.json
-// sha256=6e557b3350ecfe34a8c4836bb00abf61dce039fa6a5fbbc58b07ec74dbaaba7f
+// sha256=5d51dfc7bb9e654a8c467a057b1df9d91741203447e09c3aff43e05fb8e76a4f
 //
 // Input: schemas/current-state.schema.json
-// sha256=7f7c4f2664ee79f2bda622abea13f8bbb119a2387d89cbe4eeb9af4f3c087428
+// sha256=b3cb719af901c84d50427c0d94de8900dfb1572ee60d81cd331187225388756d
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=13aff1fc7ba8bd04dc6586b917faf46593a6d0e4beeadb69db75284c9e17a6f7
+// sha256=dd0891cd81e0fc2caaf499fd178468a13da86ea101d8780b59ca3e5c661eeecd
 
 /// Counterpart: `policy.schema.json#/$defs/policy_rule/properties/resources/items`.
 /// Resource selector from `policy.schema.json#/$defs/policy_rule/properties/resources/items`.

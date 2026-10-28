@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/redactable-field-registry.json; version=2026-09-16.6;
-//! sha256=b68da335e45b221404dab404fe51da8112a7d3b22105400413cddf1689f865f7
+//! Input: registry/redactable-field-registry.json;
+//! sha256=b69f70bbb4655d6589071f6ab3a71f4d6f285843daaa2f72021f6e6c3040e6a4
 //! Entries: redactable_fields=8, distinct_paths=4
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

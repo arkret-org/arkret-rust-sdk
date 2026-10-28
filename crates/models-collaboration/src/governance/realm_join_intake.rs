@@ -10,6 +10,8 @@ use arkret_wire::{
 };
 use serde::{Deserialize, Serialize};
 
+use super::realm_invite_link::RealmInviteLinkProof;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AuthorityLocatorSource {
@@ -25,10 +27,17 @@ pub struct RealmJoinTarget {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub invite_id: Option<InviteId>,
     pub authority_locator_hints: Vec<RealmJoinCandidate>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub realm_invite_link_id: Option<arkret_wire::RealmInviteLinkId>,
 }
 
 impl RealmJoinTarget {
     pub fn validate(&self) -> Result<()> {
+        if self.invite_id.is_some() && self.realm_invite_link_id.is_some() {
+            return Err(WireError::Protocol(
+                "join target carries two distinct invitation identities".into(),
+            ));
+        }
         validate_authority_locator_hints(&self.authority_locator_hints)
     }
 }
@@ -90,6 +99,10 @@ pub enum RealmJoinIntent {
     InviteAccept {
         invite_id: InviteId,
     },
+    InviteLinkAccept {
+        realm_invite_link_id: arkret_wire::RealmInviteLinkId,
+        link_proof: RealmInviteLinkProof,
+    },
     MemberJoin,
     Knock,
 }
@@ -150,11 +163,19 @@ fn validate_preview_binding(
 pub struct SelfRealmJoinPreviewRequestBody {
     pub request_id: RequestId,
     pub target: RealmJoinTarget,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub link_proof: Option<RealmInviteLinkProof>,
 }
 
 impl SelfRealmJoinPreviewRequestBody {
     pub fn validate(&self) -> Result<()> {
-        self.target.validate()
+        self.target.validate()?;
+        if self.target.realm_invite_link_id.is_some() != self.link_proof.is_some() {
+            return Err(WireError::Protocol(
+                "link preview requires its exact possession proof".into(),
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -187,11 +208,23 @@ pub struct PeerRealmJoinPreviewRequestBody {
     pub requester_account_id: AccountId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub invite_id: Option<InviteId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub realm_invite_link_id: Option<arkret_wire::RealmInviteLinkId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub link_proof: Option<RealmInviteLinkProof>,
 }
 
 impl PeerRealmJoinPreviewRequestBody {
     pub fn validate(&self) -> Result<()> {
-        self.requester_account_id.validate()
+        self.requester_account_id.validate()?;
+        if (self.invite_id.is_some() && self.realm_invite_link_id.is_some())
+            || self.realm_invite_link_id.is_some() != self.link_proof.is_some()
+        {
+            return Err(WireError::Protocol(
+                "invalid link preview target or possession proof".into(),
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -231,6 +264,23 @@ impl SelfRealmJoinPrepareRequestBody {
     /// carries; `member_join` and `knock` are valid with or without one.
     pub fn validate(&self) -> Result<()> {
         self.target.validate()?;
+        match &self.intent {
+            RealmJoinIntent::InviteLinkAccept {
+                realm_invite_link_id,
+                ..
+            } if self.target.realm_invite_link_id.as_ref() == Some(realm_invite_link_id) => {}
+            RealmJoinIntent::InviteLinkAccept { .. } => {
+                return Err(WireError::Protocol(
+                    "link intent differs from target".into(),
+                ));
+            }
+            _ if self.target.realm_invite_link_id.is_some() => {
+                return Err(WireError::Protocol(
+                    "link target requires link intent".into(),
+                ));
+            }
+            _ => {}
+        }
         if let RealmJoinIntent::InviteAccept { invite_id } = &self.intent
             && self.target.invite_id.as_ref() != Some(invite_id)
         {

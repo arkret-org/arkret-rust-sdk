@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-27;
-//! sha256=3c274e9b7cef33f32fbaba37a7f23561a7a13b71bb59fb4a681c127c0105d4bb Entries: registered=225
+//! Input: registry/contract-registry.json;
+//! sha256=4603ea9c66ada9ca9e09db7ccce8dfd3b0ba0675ac2f67bdeaba66402115762c Entries: registered=220
 
 use serde::{Deserialize, Serialize};
 
@@ -61,10 +61,6 @@ pub enum ServiceOperationId {
     OpenMimiReadProviderDirectoryV1,
     OpenRealmAuthorityReadBundleV1,
     OpenServiceReadResolutionV1,
-    OpenThirdPartyInviteCommandActivateV1,
-    OpenThirdPartyInviteCommandPresentTokenV1,
-    OpenThirdPartyInviteCommandProvisionV1,
-    OpenThirdPartyInviteReadProvisioningStatusV1,
     PeerAccountStatusCommandSubmitV1,
     PeerAccountStatusReadResolveV1,
     PeerAppletConfigurationCommandSubmitV1,
@@ -231,7 +227,6 @@ pub enum ServiceOperationId {
     SelfStrandReadListV1,
     SelfStrandWatchCommandAuditReadV1,
     SelfStrandWatchReadCurrentV1,
-    SelfThirdPartyInviteReadAcceptanceAttestationV1,
     ServerReadDescribeV1,
 }
 
@@ -289,10 +284,6 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::OPEN_MIMI_READ_PROVIDER_DIRECTORY_V1,
     ServiceOperationId::OPEN_REALM_AUTHORITY_READ_BUNDLE_V1,
     ServiceOperationId::OPEN_SERVICE_READ_RESOLUTION_V1,
-    ServiceOperationId::OPEN_THIRD_PARTY_INVITE_COMMAND_ACTIVATE_V1,
-    ServiceOperationId::OPEN_THIRD_PARTY_INVITE_COMMAND_PRESENT_TOKEN_V1,
-    ServiceOperationId::OPEN_THIRD_PARTY_INVITE_COMMAND_PROVISION_V1,
-    ServiceOperationId::OPEN_THIRD_PARTY_INVITE_READ_PROVISIONING_STATUS_V1,
     ServiceOperationId::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT_V1,
     ServiceOperationId::PEER_ACCOUNT_STATUS_READ_RESOLVE_V1,
     ServiceOperationId::PEER_APPLET_CONFIGURATION_COMMAND_SUBMIT_V1,
@@ -459,7 +450,6 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_STRAND_READ_LIST_V1,
     ServiceOperationId::SELF_STRAND_WATCH_COMMAND_AUDIT_READ_V1,
     ServiceOperationId::SELF_STRAND_WATCH_READ_CURRENT_V1,
-    ServiceOperationId::SELF_THIRD_PARTY_INVITE_READ_ACCEPTANCE_ATTESTATION_V1,
     ServiceOperationId::SERVER_READ_DESCRIBE_V1,
 ];
 
@@ -559,10 +549,6 @@ impl ServiceOperationId {
         Self::OpenMimiReadProviderDirectoryV1,
         Self::OpenRealmAuthorityReadBundleV1,
         Self::OpenServiceReadResolutionV1,
-        Self::OpenThirdPartyInviteCommandActivateV1,
-        Self::OpenThirdPartyInviteCommandPresentTokenV1,
-        Self::OpenThirdPartyInviteCommandProvisionV1,
-        Self::OpenThirdPartyInviteReadProvisioningStatusV1,
         Self::PeerAccountStatusCommandSubmitV1,
         Self::PeerAccountStatusReadResolveV1,
         Self::PeerAppletConfigurationCommandSubmitV1,
@@ -729,7 +715,6 @@ impl ServiceOperationId {
         Self::SelfStrandReadListV1,
         Self::SelfStrandWatchCommandAuditReadV1,
         Self::SelfStrandWatchReadCurrentV1,
-        Self::SelfThirdPartyInviteReadAcceptanceAttestationV1,
         Self::ServerReadDescribeV1,
     ];
 
@@ -830,14 +815,6 @@ impl ServiceOperationId {
     pub const OPEN_REALM_AUTHORITY_READ_BUNDLE_V1: &'static str =
         "ak.open.realm_authority.read.bundle.v1";
     pub const OPEN_SERVICE_READ_RESOLUTION_V1: &'static str = "ak.open.service.read.resolution.v1";
-    pub const OPEN_THIRD_PARTY_INVITE_COMMAND_ACTIVATE_V1: &'static str =
-        "ak.open.third_party_invite.command.activate.v1";
-    pub const OPEN_THIRD_PARTY_INVITE_COMMAND_PRESENT_TOKEN_V1: &'static str =
-        "ak.open.third_party_invite.command.present_token.v1";
-    pub const OPEN_THIRD_PARTY_INVITE_COMMAND_PROVISION_V1: &'static str =
-        "ak.open.third_party_invite.command.provision.v1";
-    pub const OPEN_THIRD_PARTY_INVITE_READ_PROVISIONING_STATUS_V1: &'static str =
-        "ak.open.third_party_invite.read.provisioning_status.v1";
     pub const PEER_ACCOUNT_STATUS_COMMAND_SUBMIT_V1: &'static str =
         "ak.peer.account_status.command.submit.v1";
     pub const PEER_ACCOUNT_STATUS_READ_RESOLVE_V1: &'static str =
@@ -1112,8 +1089,6 @@ impl ServiceOperationId {
         "ak.self.strand.watch.command.audit_read.v1";
     pub const SELF_STRAND_WATCH_READ_CURRENT_V1: &'static str =
         "ak.self.strand.watch.read.current.v1";
-    pub const SELF_THIRD_PARTY_INVITE_READ_ACCEPTANCE_ATTESTATION_V1: &'static str =
-        "ak.self.third_party_invite.read.acceptance_attestation.v1";
     pub const SERVER_READ_DESCRIBE_V1: &'static str = "ak.server.read.describe.v1";
 
     pub const fn as_str(self) -> &'static str {
@@ -1207,18 +1182,6 @@ impl ServiceOperationId {
             Self::OpenMimiReadProviderDirectoryV1 => Self::OPEN_MIMI_READ_PROVIDER_DIRECTORY_V1,
             Self::OpenRealmAuthorityReadBundleV1 => Self::OPEN_REALM_AUTHORITY_READ_BUNDLE_V1,
             Self::OpenServiceReadResolutionV1 => Self::OPEN_SERVICE_READ_RESOLUTION_V1,
-            Self::OpenThirdPartyInviteCommandActivateV1 => {
-                Self::OPEN_THIRD_PARTY_INVITE_COMMAND_ACTIVATE_V1
-            }
-            Self::OpenThirdPartyInviteCommandPresentTokenV1 => {
-                Self::OPEN_THIRD_PARTY_INVITE_COMMAND_PRESENT_TOKEN_V1
-            }
-            Self::OpenThirdPartyInviteCommandProvisionV1 => {
-                Self::OPEN_THIRD_PARTY_INVITE_COMMAND_PROVISION_V1
-            }
-            Self::OpenThirdPartyInviteReadProvisioningStatusV1 => {
-                Self::OPEN_THIRD_PARTY_INVITE_READ_PROVISIONING_STATUS_V1
-            }
             Self::PeerAccountStatusCommandSubmitV1 => Self::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT_V1,
             Self::PeerAccountStatusReadResolveV1 => Self::PEER_ACCOUNT_STATUS_READ_RESOLVE_V1,
             Self::PeerAppletConfigurationCommandSubmitV1 => {
@@ -1465,9 +1428,6 @@ impl ServiceOperationId {
                 Self::SELF_STRAND_WATCH_COMMAND_AUDIT_READ_V1
             }
             Self::SelfStrandWatchReadCurrentV1 => Self::SELF_STRAND_WATCH_READ_CURRENT_V1,
-            Self::SelfThirdPartyInviteReadAcceptanceAttestationV1 => {
-                Self::SELF_THIRD_PARTY_INVITE_READ_ACCEPTANCE_ATTESTATION_V1
-            }
             Self::ServerReadDescribeV1 => Self::SERVER_READ_DESCRIBE_V1,
         }
     }
@@ -1583,18 +1543,6 @@ impl ServiceOperationId {
             }
             Self::OPEN_REALM_AUTHORITY_READ_BUNDLE_V1 => Some(Self::OpenRealmAuthorityReadBundleV1),
             Self::OPEN_SERVICE_READ_RESOLUTION_V1 => Some(Self::OpenServiceReadResolutionV1),
-            Self::OPEN_THIRD_PARTY_INVITE_COMMAND_ACTIVATE_V1 => {
-                Some(Self::OpenThirdPartyInviteCommandActivateV1)
-            }
-            Self::OPEN_THIRD_PARTY_INVITE_COMMAND_PRESENT_TOKEN_V1 => {
-                Some(Self::OpenThirdPartyInviteCommandPresentTokenV1)
-            }
-            Self::OPEN_THIRD_PARTY_INVITE_COMMAND_PROVISION_V1 => {
-                Some(Self::OpenThirdPartyInviteCommandProvisionV1)
-            }
-            Self::OPEN_THIRD_PARTY_INVITE_READ_PROVISIONING_STATUS_V1 => {
-                Some(Self::OpenThirdPartyInviteReadProvisioningStatusV1)
-            }
             Self::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT_V1 => {
                 Some(Self::PeerAccountStatusCommandSubmitV1)
             }
@@ -1909,9 +1857,6 @@ impl ServiceOperationId {
                 Some(Self::SelfStrandWatchCommandAuditReadV1)
             }
             Self::SELF_STRAND_WATCH_READ_CURRENT_V1 => Some(Self::SelfStrandWatchReadCurrentV1),
-            Self::SELF_THIRD_PARTY_INVITE_READ_ACCEPTANCE_ATTESTATION_V1 => {
-                Some(Self::SelfThirdPartyInviteReadAcceptanceAttestationV1)
-            }
             Self::SERVER_READ_DESCRIBE_V1 => Some(Self::ServerReadDescribeV1),
             _ => None,
         }
@@ -3230,109 +3175,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: None,
         response_schema_ref: Some(
             "schemas/identity-resolution.schema.json#/$defs/authenticated_service_resolution",
-        ),
-        uncertain_outcome: None,
-        durable_effect: None,
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::OpenThirdPartyInviteCommandActivateV1,
-        http_method: "POST",
-        http_path: "/_arkret/open/third-party-invites/activate",
-        grpc: Some("OpenThirdPartyInvite/Activate"),
-        mq: Some("open.third_party_invite.command.activate"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("object_id"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/invite.schema.json#/$defs/third_party_invite_activation_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/invite.schema.json#/$defs/third_party_invite_activation_response_body",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some(
-                "persists_only_the_verification_service_private_invite_binding_and_delivery_intent_no_event_is_authored",
-            ),
-            branch_contract_json: None,
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::OpenThirdPartyInviteCommandPresentTokenV1,
-        http_method: "POST",
-        http_path: "/_arkret/open/third-party-invites/present",
-        grpc: Some("OpenThirdPartyInvite/PresentToken"),
-        mq: Some("open.third_party_invite.command.present_token"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("request_id"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/invite.schema.json#/$defs/third_party_invite_present_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/invite.schema.json#/$defs/third_party_invite_present_response_body",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.open.third_party_invite.command.present_token.v1\",\"requires_same_request_identity_and_canonical_intent\":true,\"strategy\":\"replay_same_operation\"}",
-        ),
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
-            branch_contract_json: None,
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::OpenThirdPartyInviteCommandProvisionV1,
-        http_method: "POST",
-        http_path: "/_arkret/open/third-party-invites/provision",
-        grpc: Some("OpenThirdPartyInvite/Provision"),
-        mq: Some("open.third_party_invite.command.provision"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("request_id"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/invite.schema.json#/$defs/third_party_invite_provision_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/invite.schema.json#/$defs/third_party_invite_provision_response_body",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.open.third_party_invite.command.provision.v1\",\"requires_same_request_identity_and_canonical_intent\":true,\"strategy\":\"replay_same_operation\"}",
-        ),
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some(
-                "mints_and_persists_only_verification_service_private_invite_material_no_event_is_authored",
-            ),
-            branch_contract_json: None,
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::OpenThirdPartyInviteReadProvisioningStatusV1,
-        http_method: "POST",
-        http_path: "/_arkret/open/third-party-invites/status",
-        grpc: Some("OpenThirdPartyInvite/ProvisioningStatus"),
-        mq: Some("open.third_party_invite.query.provisioning_status"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/invite.schema.json#/$defs/third_party_invite_provisioning_status_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/invite.schema.json#/$defs/third_party_invite_provisioning_status_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -7050,26 +6892,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             rationale: Some("read_only_exact_current_projection_no_event_or_durable_mutation"),
             branch_contract_json: None,
         }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfThirdPartyInviteReadAcceptanceAttestationV1,
-        http_method: "POST",
-        http_path: "/_arkret/self/third-party-invites/acceptance-attestation",
-        grpc: Some("SelfThirdPartyInvite/AcceptanceAttestation"),
-        mq: Some("self.third_party_invite.query.acceptance_attestation"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/invite.schema.json#/$defs/third_party_invite_acceptance_attestation_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/invite.schema.json#/$defs/third_party_invite_acceptance_attestation_response_body",
-        ),
-        uncertain_outcome: None,
-        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::ServerReadDescribeV1,
