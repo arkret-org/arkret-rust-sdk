@@ -223,11 +223,12 @@ impl TryFrom<u16> for WebSocketCloseCode {
 /// Closed transport error body carried by an `error` frame (§8).
 ///
 /// This is deliberately **not** the HTTP `Problem`: it has three members
-/// and its `code` must resolve to a registered [`ErrorCode`], so an unknown
+/// and its wire `error_code` must resolve to a registered [`ErrorCode`], so an unknown
 /// code fails closed at parse time.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct WebSocketTransportError {
+    #[serde(rename = "error_code")]
     pub code: ErrorCode,
     pub message: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -766,6 +767,54 @@ impl WebSocketReplayLedgerKey {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn transport_error_round_trips_the_exact_error_code_wire_shape() {
+        for (body, expected) in [
+            (
+                WebSocketTransportError::new(
+                    ErrorCode::InternalError,
+                    "connection state unavailable",
+                ),
+                serde_json::json!({
+                    "error_code": "internal_error",
+                    "message": "connection state unavailable",
+                }),
+            ),
+            (
+                WebSocketTransportError::new(ErrorCode::RateLimited, "channel limit reached")
+                    .with_retry_after_ms(1000),
+                serde_json::json!({
+                    "error_code": "rate_limited",
+                    "message": "channel limit reached",
+                    "retry_after_ms": 1000,
+                }),
+            ),
+        ] {
+            body.validate().unwrap();
+            assert_eq!(serde_json::to_value(&body).unwrap(), expected);
+            let parsed: WebSocketTransportError = serde_json::from_value(expected).unwrap();
+            parsed.validate().unwrap();
+            assert_eq!(parsed, body);
+        }
+    }
+
+    #[test]
+    fn transport_error_rejects_legacy_code_and_unregistered_codes() {
+        for invalid in [
+            serde_json::json!({"code": "rate_limited", "message": "channel limit reached"}),
+            serde_json::json!({
+                "error_code": "rate_limited", "code": "rate_limited",
+                "message": "channel limit reached",
+            }),
+            serde_json::json!({
+                "error_code": "unregistered_websocket_failure",
+                "message": "channel limit reached",
+            }),
+        ] {
+            assert!(serde_json::from_value::<WebSocketTransportError>(invalid).is_err());
+        }
+    }
 
     #[test]
     fn canonical_base_url_accepts_the_fixture_form() {
