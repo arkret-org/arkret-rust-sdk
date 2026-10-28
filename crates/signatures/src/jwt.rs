@@ -420,6 +420,7 @@ mod tests {
         let mut jwk = json!({
             "kty": "OKP",
             "crv": "Ed25519",
+            "use": "sig",
             "x": base64url_encode(public_key.to_bytes())
         });
         if let Some(kid) = kid {
@@ -446,6 +447,24 @@ mod tests {
             verified.claims.subject().map(NonEmptyString::as_str),
             Some("alice")
         );
+    }
+
+    #[test]
+    fn jwks_usage_metadata_never_enables_an_encryption_or_non_verification_key() {
+        let now = 1_715_990_000;
+        let (jwt, jwks) = jwt_fixture(now, Some("key-1"));
+        let policy = JwtVerificationPolicy::new(now);
+        assert!(verify_ed25519_jwt_with_jwks(&jwt, &jwks, &policy).is_ok());
+        for (name, value) in [
+            ("use", json!("enc")),
+            ("key_ops", json!(["encrypt"])),
+            ("alg", json!("ES256")),
+        ] {
+            let mut wire = serde_json::to_value(&jwks).unwrap();
+            wire["keys"][0][name] = value;
+            let unusable: JsonWebKeySet = serde_json::from_value(wire).unwrap();
+            assert!(verify_ed25519_jwt_with_jwks(&jwt, &unusable, &policy).is_err());
+        }
     }
 
     #[test]

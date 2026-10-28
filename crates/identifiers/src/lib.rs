@@ -1217,6 +1217,13 @@ impl InviteId {
     }
 }
 
+impl RealmInviteLinkId {
+    /// Retype the immutable creation Event identity.
+    pub fn event_id(&self) -> EventId {
+        EventId(encode_event_token(EventId::KIND_PREFIX, self.token_bytes()))
+    }
+}
+
 impl EventId {
     /// Construct from the canonical binary token used by database/wire codecs.
     pub fn from_token_bytes(token: [u8; 33]) -> Result<Self> {
@@ -2079,12 +2086,5 @@ mod tests {
         ] {
             assert!(WebOrigin::new(invalid).is_err(), "{invalid} must fail");
         }
-    }
-}
-
-impl RealmInviteLinkId {
-    /// Retype the immutable creation Event identity.
-    pub fn event_id(&self) -> EventId {
-        EventId(encode_event_token(EventId::KIND_PREFIX, self.token_bytes()))
     }
 }
