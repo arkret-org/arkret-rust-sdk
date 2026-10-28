@@ -88,7 +88,7 @@ impl std::fmt::Debug for RealmInviteLinkToken {
 }
 
 impl RealmInviteLinkToken {
-    pub const SCHEMA: &str = "ak.schema.realm_invite_link_token.v1";
+    pub const SCHEMA: &str = arkret_wire::SchemaId::REALM_INVITE_LINK_TOKEN_V1;
 
     pub fn validate(&self) -> Result<()> {
         if self.schema != Self::SCHEMA {

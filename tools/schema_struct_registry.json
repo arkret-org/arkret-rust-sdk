@@ -4088,24 +4088,12 @@
       "schema": "service-operation-dtos.schema.json#/$defs/AccountLogoutRequestBody"
     },
     {
-      "rust_type": "crates/models-collaboration/src/governance/generated/realm_invite_link_contracts.rs::RealmInviteLinkProofAlgorithm",
-      "schema": "realm-invite-link.schema.json#/$defs/proof/properties/signature_algorithm"
-    },
-    {
       "rust_type": "crates/models-collaboration/src/governance/generated/realm_invite_link_contracts.rs::RealmInviteLinkProof",
       "schema": "realm-invite-link.schema.json#/$defs/proof"
     },
     {
       "rust_type": "crates/models-collaboration/src/governance/generated/realm_invite_link_contracts.rs::RealmInviteLinkLimits",
       "schema": "realm-invite-link.schema.json#/$defs/limits"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/generated/realm_invite_link_contracts.rs::RealmInviteLinkLifecycle",
-      "schema": "realm-invite-link.schema.json#/$defs/lifecycle_value"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/generated/realm_invite_link_contracts.rs::RealmInviteLinkStatus",
-      "schema": "realm-invite-link.schema.json#/$defs/status"
     },
     {
       "rust_type": "crates/models-collaboration/src/governance/generated/realm_invite_link_contracts.rs::RealmInviteLinkCreatePayload",
