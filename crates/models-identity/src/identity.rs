@@ -36,6 +36,8 @@ pub enum DidMethodUri {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+/// Wire boundary: `service-operation-dtos.schema.json#/$defs/IdentityResolveRequestBody`.
+#[serde(deny_unknown_fields)]
 pub struct IdentityResolveRequestBody {
     pub did: Did,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -64,6 +66,8 @@ pub enum IdentityMethodEvidence {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+/// Wire boundary: `service-operation-dtos.schema.json#/$defs/IdentityResolveResponseBody`.
+#[serde(deny_unknown_fields)]
 pub struct IdentityResolveResponseBody {
     pub did_document: BTreeMap<String, Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -263,8 +267,9 @@ impl DidOperationSubmitResponseBody {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+/// Wire boundary: `service-operation-dtos.schema.json#/$defs/IdentityReceiptListResponseBody`.
+#[serde(deny_unknown_fields)]
 pub struct IdentityReceiptListResponseBody {
-    #[serde(default)]
     #[cfg_attr(
         feature = "openapi",
         salvo(schema(value_type = Vec<serde_json::Value>))
@@ -276,12 +281,13 @@ pub struct IdentityReceiptListResponseBody {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+/// Wire boundary: `service-operation-dtos.schema.json#/$defs/IdentityLogListResponseBody`.
+#[serde(deny_unknown_fields)]
 pub struct IdentityLogListResponseBody {
     pub did: Did,
     pub method: DidMethodUri,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub native_history: Option<bool>,
-    #[serde(default)]
     #[cfg_attr(
         feature = "openapi",
         salvo(schema(value_type = Vec<serde_json::Value>))
@@ -289,7 +295,6 @@ pub struct IdentityLogListResponseBody {
     pub entries: Vec<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
-    #[serde(default)]
     pub has_more: bool,
 }
 
@@ -384,5 +389,42 @@ mod document_view_contract_tests {
                 "{name}"
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod identity_list_contract_tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn native_history_and_receipt_lists_require_their_registered_members() {
+        let complete =
+            json!({"did":"did:web:example.test","method":"did:web","entries":[],"has_more":false});
+        let value: IdentityLogListResponseBody = serde_json::from_value(complete.clone()).unwrap();
+        assert_eq!(serde_json::to_value(value).unwrap(), complete);
+        for field in ["did", "method", "entries", "has_more"] {
+            let mut missing = complete.clone();
+            missing.as_object_mut().unwrap().remove(field);
+            assert!(
+                serde_json::from_value::<IdentityLogListResponseBody>(missing).is_err(),
+                "{field}"
+            );
+        }
+        let mut extra = complete;
+        extra["unexpected"] = json!(true);
+        assert!(serde_json::from_value::<IdentityLogListResponseBody>(extra).is_err());
+        assert!(
+            serde_json::from_value::<IdentityReceiptListResponseBody>(json!({"receipts":[]}))
+                .is_ok()
+        );
+        assert!(serde_json::from_value::<IdentityReceiptListResponseBody>(json!({})).is_err());
+        assert!(
+            serde_json::from_value::<IdentityReceiptListResponseBody>(
+                json!({"receipts":[],"unexpected":true})
+            )
+            .is_err()
+        );
     }
 }

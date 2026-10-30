@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-10-25.1;
-//! sha256=c9a7e8316205f0ae51c8f39f038f65fc0b73e714e21015f81ed260fca41db8e7
-//! Entries: error_codes=159, reserved_not_emitted=94
+//! Input: registry/error-code-registry.json;
+//! sha256=b806a829f23fae90f1ce24f2691ed3f7c797293bb779ffc3d4f3e2298b8defc1
+//! Entries: error_codes=158, reserved_not_emitted=94
 
 use serde::{Deserialize, Serialize};
 
@@ -185,7 +185,6 @@ pub enum ErrorCode {
     UnsupportedEventKind,
     UnsupportedFeature,
     UnsupportedHpkeSuite,
-    UnsupportedJoinRule,
     UnsupportedMediaPolicy,
     UnsupportedOperationVersion,
     UnsupportedOrganizationRegistrationScope,
@@ -360,7 +359,6 @@ impl ErrorCode {
         Self::UnsupportedEventKind,
         Self::UnsupportedFeature,
         Self::UnsupportedHpkeSuite,
-        Self::UnsupportedJoinRule,
         Self::UnsupportedMediaPolicy,
         Self::UnsupportedOperationVersion,
         Self::UnsupportedOrganizationRegistrationScope,
@@ -530,7 +528,6 @@ impl ErrorCode {
     pub const UNSUPPORTED_EVENT_KIND: &'static str = "unsupported_event_kind";
     pub const UNSUPPORTED_FEATURE: &'static str = "unsupported_feature";
     pub const UNSUPPORTED_HPKE_SUITE: &'static str = "unsupported_hpke_suite";
-    pub const UNSUPPORTED_JOIN_RULE: &'static str = "unsupported_join_rule";
     pub const UNSUPPORTED_MEDIA_POLICY: &'static str = "unsupported_media_policy";
     pub const UNSUPPORTED_OPERATION_VERSION: &'static str = "unsupported_operation_version";
     pub const UNSUPPORTED_ORGANIZATION_REGISTRATION_SCOPE: &'static str =
@@ -703,7 +700,6 @@ impl ErrorCode {
             Self::UnsupportedEventKind => "unsupported_event_kind",
             Self::UnsupportedFeature => "unsupported_feature",
             Self::UnsupportedHpkeSuite => "unsupported_hpke_suite",
-            Self::UnsupportedJoinRule => "unsupported_join_rule",
             Self::UnsupportedMediaPolicy => "unsupported_media_policy",
             Self::UnsupportedOperationVersion => "unsupported_operation_version",
             Self::UnsupportedOrganizationRegistrationScope => {
@@ -883,7 +879,6 @@ impl ErrorCode {
             "unsupported_event_kind" => Some(Self::UnsupportedEventKind),
             "unsupported_feature" => Some(Self::UnsupportedFeature),
             "unsupported_hpke_suite" => Some(Self::UnsupportedHpkeSuite),
-            "unsupported_join_rule" => Some(Self::UnsupportedJoinRule),
             "unsupported_media_policy" => Some(Self::UnsupportedMediaPolicy),
             "unsupported_operation_version" => Some(Self::UnsupportedOperationVersion),
             "unsupported_organization_registration_scope" => {
@@ -2449,16 +2444,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "both",
         applies_to: &[],
         description: "HPKE suite id on an application-layer committed surface is not an active row of artifacts/registry/hpke-suite-registry.json (unknown, inactive, or reserved-but-not-activated). One of the four algorithm-agility fail-closed errors; dual-registered as a service code and a reason_code (see unsupported_digest_algorithm). Receivers MUST fail closed rather than infer suite parameters from the AEAD name. See zh/identity/key-management.md §7.5.2.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::UnsupportedJoinRule,
-        type_uri: "https://arkret.org/problems/unsupported_join_rule",
-        title: "Unsupported join rule",
-        http_status: 422,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &[],
-        description: "A third-party (3PID) invite claim targeted a join-rule Realm whose continuation profile is outside v1 base conformance (e.g. knock_restricted) and the deployment has not declared the required candidate profile in ak.find.directory.read.describe.v1 / ak.account.describe. The verification service MUST reject the token claim instead of silently downgrading. See zh/sync/third-party-invites.md §4.3.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedMediaPolicy,

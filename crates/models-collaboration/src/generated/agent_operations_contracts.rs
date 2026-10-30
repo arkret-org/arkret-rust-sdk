@@ -23,10 +23,10 @@
 // sha256=820d763125038f2777a3fc00ba30173c5a5d85cf50f6047457416eff7523d4d3
 //
 // Input: schemas/event-payload.schema.json
-// sha256=6e557b3350ecfe34a8c4836bb00abf61dce039fa6a5fbbc58b07ec74dbaaba7f
+// sha256=5d51dfc7bb9e654a8c467a057b1df9d91741203447e09c3aff43e05fb8e76a4f
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=107c58e1dbd8a2701005c9cd1dc573b3c5e861cc4f3c68403bae0ff3d579bd03
+// sha256=dd0891cd81e0fc2caaf499fd178468a13da86ea101d8780b59ca3e5c661eeecd
 
 /// Counterpart: `agent-operations.schema.json#/$defs/agent_projection`.
 /// Read projection of one Agent.

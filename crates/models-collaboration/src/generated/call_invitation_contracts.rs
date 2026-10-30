@@ -5,13 +5,13 @@
 //! sha256=88f06d26b99092fdcafd2f95d0d755ecab82ec71089520093382afc8c5a3dffd
 //!
 //! Input: schemas/current-state.schema.json
-//! sha256=7f7c4f2664ee79f2bda622abea13f8bbb119a2387d89cbe4eeb9af4f3c087428
+//! sha256=b3cb719af901c84d50427c0d94de8900dfb1572ee60d81cd331187225388756d
 //!
 //! Input: schemas/consent-operations.schema.json
 //! sha256=a367b21ca191391ab7a62c8b1413a48f9866b7cdca5692c65e5bd58c5a330b09
 //!
 //! Bindings: tools/closed-model-bindings.json
-//! sha256=107c58e1dbd8a2701005c9cd1dc573b3c5e861cc4f3c68403bae0ff3d579bd03
+//! sha256=dd0891cd81e0fc2caaf499fd178468a13da86ea101d8780b59ca3e5c661eeecd
 
 /// Counterpart: `call-invitation-operations.schema.json#/$defs/media`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

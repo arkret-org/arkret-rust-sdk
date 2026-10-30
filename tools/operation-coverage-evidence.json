@@ -1,5 +1,4 @@
 {
-  "schema": "arkret.sdk-operation-coverage-evidence.v1",
   "operations": {
     "ak.edge.applet.read.ping.v1": {
       "api": [

@@ -37,6 +37,8 @@ fn join_locator_is_only_a_bounded_https_hint() {
             source: AuthorityLocatorSource::Invite,
             endpoint_url: Some("https://station.example".to_owned()),
         }],
+
+        realm_invite_link_id: None,
     };
     target.validate().unwrap();
 

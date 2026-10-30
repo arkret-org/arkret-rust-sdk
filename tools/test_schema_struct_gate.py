@@ -20,7 +20,7 @@ class SchemaStructGateTests(unittest.TestCase):
                 'type': 'object', 'properties': properties, **schema_keywords,
             }), encoding='utf-8')
             registry = root / 'registry.json'
-            registry.write_text(json.dumps({'version': 1, 'mappings': [{
+            registry.write_text(json.dumps({'mappings': [{
                 'rust_type': 'crates/models/src/lib.rs::Payload',
                 'schema': 'example.schema.json#', **mapping,
             }], 'exemptions': []}), encoding='utf-8')
@@ -70,7 +70,7 @@ impl Serialize for Payload { fn serialize() {
                 'read_view': {'type': 'object', 'properties': {'canonical': {'type': 'string'}}}
             }}), encoding='utf-8')
             registry = root / 'registry.json'
-            registry.write_text(json.dumps({'version': 1, 'mappings': [], 'exemptions': []}), encoding='utf-8')
+            registry.write_text(json.dumps({'mappings': [], 'exemptions': []}), encoding='utf-8')
             self.assertTrue(any('unregistered named object' in error
                                 for error in validate(registry, schemas, root)))
 
@@ -86,7 +86,7 @@ impl Serialize for Payload { fn serialize() {
                 'keypackages_upload_response_body': {'type': 'object', 'properties': {'accepted_count': {'type': 'integer'}}}
             }}), encoding='utf-8')
             registry = root / 'registry.json'
-            registry.write_text(json.dumps({'version': 1, 'mappings': [], 'exemptions': []}), encoding='utf-8')
+            registry.write_text(json.dumps({'mappings': [], 'exemptions': []}), encoding='utf-8')
             self.assertTrue(any('unregistered named object' in error for error in validate(registry, schemas, root)))
 
     def test_full_width_coordinate_cannot_fall_back_to_json_number(self) -> None:
@@ -101,7 +101,7 @@ impl Serialize for Payload { fn serialize() {
                 (schemas / 'example.schema.json').write_text(json.dumps({'properties': {
                     'epoch': {'$ref': './decimal-integers.schema.json#/$defs/uint64_decimal'}}}), encoding='utf-8')
                 registry = root / 'registry.json'
-                registry.write_text(json.dumps({'version': 1, 'mappings': [{
+                registry.write_text(json.dumps({'mappings': [{
                     'rust_type': 'crates/models/src/lib.rs::Payload', 'schema': 'example.schema.json#'}],
                     'exemptions': []}), encoding='utf-8')
                 errors = validate(registry, schemas, root)
@@ -196,7 +196,6 @@ pub struct Payload {{
             registry.write_text(
                 json.dumps(
                     {
-                        "version": 1,
                         "mappings": (
                             [
                                 {

@@ -46,6 +46,7 @@ arkret-models-identity
 arkret-schema
 arkret-models-collaboration
 arkret-models-discovery
+arkret-deployment-contracts
 arkret-models-integration
 arkret-push-policy
 arkret-event-draft

@@ -1,13 +1,13 @@
 [package]
-authors = ["Chris Young <chris@sonc.ai>"]
+authors.workspace = true
 categories = ["algorithms", "data-structures"]
 description = "Arkret principal-control and agent bootstrap validation."
-edition = "2024"
-homepage = "https://github.com/arkret-org/arkret-rust-sdk"
+edition.workspace = true
+homepage.workspace = true
 keywords = ["arkret", "bootstrap", "identity", "protocol"]
-license = "Apache-2.0"
+license.workspace = true
 name = "arkret-bootstrap"
-repository = "https://github.com/arkret-org/arkret-rust-sdk"
+repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
 

@@ -2,9 +2,9 @@
 
 use arkret_models_crypto::{
     KeyBackup, KeyBackupsListQuery, KeysBackupsDeleteChallenge, KeysBackupsDeleteRequestBody,
-    KeysBackupsDeleteResponseBody, KeysBackupsIssueDeleteChallengeRequestBody,
-    KeysBackupsIssueUnlockChallengeRequestBody, KeysBackupsPage, KeysBackupsReplaceResponseBody,
-    KeysBackupsUnlockChallenge, KeysBackupsUnlockRequestBody,
+    KeysBackupsIssueDeleteChallengeRequestBody, KeysBackupsIssueUnlockChallengeRequestBody,
+    KeysBackupsPage, KeysBackupsReplaceResponseBody, KeysBackupsUnlockChallenge,
+    KeysBackupsUnlockRequestBody,
 };
 use arkret_wire::BackupId;
 
@@ -120,12 +120,30 @@ impl Client {
         &self,
         backup_id: &BackupId,
         request: &KeysBackupsDeleteRequestBody,
-    ) -> Result<KeysBackupsDeleteResponseBody> {
+    ) -> Result<()> {
         reject_path_segment(backup_id.as_str())?;
-        self.delete_with_body(
-            &format!("/_arkret/self/keys/backups/{}", backup_id.as_str()),
+        request.validate()?;
+        let builder = self.canonical_json_body(
+            self.request(
+                reqwest::Method::DELETE,
+                &format!("/_arkret/self/keys/backups/{}", backup_id.as_str()),
+            )?,
             request,
-        )
-        .await
+        )?;
+        let response = self.send_response(builder).await?;
+        if response.status() != reqwest::StatusCode::OK {
+            return Err(crate::Error::Protocol(
+                "backup delete success must use its registered HTTP 200 status".into(),
+            ));
+        }
+        if !crate::client_internals::read_body_limited(response, 1024)
+            .await?
+            .is_empty()
+        {
+            return Err(crate::Error::Protocol(
+                "backup delete success must have no entity body".into(),
+            ));
+        }
+        Ok(())
     }
 }

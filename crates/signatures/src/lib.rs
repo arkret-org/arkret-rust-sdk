@@ -69,3 +69,5 @@ pub use protocol_api::*;
 mod signer;
 #[cfg(feature = "signer")]
 pub use signer::{Ed25519PayloadSigner, verify_ed25519_payload_signature};
+#[cfg(feature = "collaboration")]
+pub mod realm_invite_link;

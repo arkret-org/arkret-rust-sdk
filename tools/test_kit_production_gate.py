@@ -105,8 +105,6 @@ def load_decisions(path: Path) -> dict[str, str]:
     if not path.exists():
         return {}
     document = json.loads(path.read_text(encoding="utf-8"))
-    if document.get("version") != 1:
-        raise ValueError("test-kit production decisions version must be 1")
     decisions: dict[str, str] = {}
     for entry in document.get("decisions", []):
         manifest = entry.get("manifest")

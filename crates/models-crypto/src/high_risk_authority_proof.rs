@@ -23,7 +23,7 @@ pub use crate::generated::high_risk_authority_proof::{
 };
 
 impl HighRiskAuthorityProof {
-    /// The recovery session this proof is bound to. Every branch names one.
+    /// The bound recovery session, absent for the device-quorum branch.
     pub fn recovery_session_id(&self) -> Option<&RecoverySessionId> {
         match self {
             Self::RecoveryUnlock(body) => Some(&body.recovery_session_id),
@@ -64,6 +64,29 @@ mod tests {
 
     const SESSION_ID: &str = "ak:recovery_session:0198ff00-0000-7000-8000-00000000000c";
     const DEVICE_ID: &str = "ak:device:0198ff00-0000-7000-8000-00000000000a";
+
+    #[test]
+    fn backup_delete_reuses_exact_shared_authority_family_without_legacy_branches() {
+        let proof = payload_proof_value();
+        let branches = [
+            json!({"kind":"recovery_unlock","recovery_session_id":SESSION_ID,"proof":proof}),
+            json!({"kind":"device_quorum","threshold":2,"signatures":[{"device_id":DEVICE_ID,"proof":proof}]}),
+            json!({"kind":"trusted_recovery_service","service_id":"ak:did_core:web:recovery.example","recovery_session_id":SESSION_ID,"proof":proof}),
+        ];
+        for branch in branches {
+            let value = json!({"request_id":"AAAAAAAAAAAAAAAAAAAAAA","challenge_id":"BBBBBBBBBBBBBBBBBBBBBB","proof":branch});
+            let request: crate::KeysBackupsDeleteRequestBody =
+                serde_json::from_value(value.clone()).unwrap();
+            request.validate().unwrap();
+            assert_eq!(serde_json::to_value(request).unwrap(), value);
+        }
+        for branch in [
+            json!({"kind":"current_device","proof":proof}),
+            json!({"kind":"recovery_session","recovery_session_id":SESSION_ID,"proof":proof}),
+        ] {
+            assert!(serde_json::from_value::<crate::KeysBackupsDeleteRequestBody>(json!({"request_id":"AAAAAAAAAAAAAAAAAAAAAA","challenge_id":"BBBBBBBBBBBBBBBBBBBBBB","proof":branch})).is_err());
+        }
+    }
 
     fn payload_proof_value() -> serde_json::Value {
         json!({

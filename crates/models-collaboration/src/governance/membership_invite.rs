@@ -1,7 +1,7 @@
 use arkret_wire::serde_helpers::canonical_timestamp;
 use arkret_wire::{
-    AccountId, ActorId, DidCoreId, DidUrl, EventId, Hash, InviteId, NonEmptyString, PayloadProof,
-    RealmId, ReasonCode, Result, StrandId, WireError, XExtensionMap, canonical,
+    AccountId, ActorId, DidCoreId, EventId, Hash, InviteId, NonEmptyString, PayloadProof, RealmId,
+    ReasonCode, Result, StrandId, WireError, XExtensionMap, canonical,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -9,20 +9,6 @@ use serde_json::Value;
 use crate::governance::agent_membership_cascade::{
     AgentControllerMembershipBinding, MembershipLifecycleCause,
 };
-use crate::governance::third_party_invite::ThirdPartyInvite;
-
-/// Evaluate a third-party invite claim against the only canonical admission
-/// time available before acceptance: the signed claim Event's `created_at`.
-///
-/// Receiver-local wall clocks are deliberately absent. A claim at the exact
-/// expiry boundary is expired (`invite.expires_at <= claim.created_at`), and a
-/// rejected claim must not be used to mutate the invite cell.
-pub fn invite_claim_within_canonical_expiry(
-    claim_created_at: chrono::DateTime<chrono::Utc>,
-    invite_expires_at: chrono::DateTime<chrono::Utc>,
-) -> bool {
-    claim_created_at < invite_expires_at
-}
 
 /// Canonical membership state for `ak.member.state` payloads
 /// (`event-payload.schema.json#/$defs/membership_state`).
@@ -310,7 +296,6 @@ pub enum InviteCancelTargetState {
 #[serde(rename_all = "snake_case")]
 pub enum InvitePreviousState {
     Pending,
-    Claimed,
 }
 
 /// Directed-invite cancel/reject payload
@@ -376,15 +361,7 @@ pub enum InviteRevokeTargetState {
     Expired,
 }
 
-/// Closed source states for a terminal revoke transition.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum InviteRevokePreviousState {
-    Pending,
-    Claimed,
-}
-
-/// High-risk/direct-or-third-party revocation payload
+/// Capability-authorized directed Invite revocation payload
 /// (`event-payload.schema.json#/$defs/invite_revoke_payload`).
 ///
 /// The schema allows `x_*` extension properties but is otherwise closed; the
@@ -392,11 +369,9 @@ pub enum InviteRevokePreviousState {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InviteRevokePayload {
     pub invite_id: InviteId,
-    pub previous_state: InviteRevokePreviousState,
-    /// Present exactly when the target Invite stores one: it is the signed source the
-    /// `invite_live_target` subject can be derived from.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub invitee_account_id: Option<AccountId>,
+    pub previous_state: InvitePreviousState,
+    /// Exact stored target, used to derive the live-target slot release.
+    pub invitee_account_id: AccountId,
     pub target_state: InviteRevokeTargetState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason_code: Option<ReasonCode>,
@@ -410,8 +385,8 @@ pub struct InviteRevokePayload {
 impl InviteRevokePayload {
     pub fn new(
         invite_id: InviteId,
-        previous_state: InviteRevokePreviousState,
-        invitee_account_id: Option<AccountId>,
+        previous_state: InvitePreviousState,
+        invitee_account_id: AccountId,
         target_state: InviteRevokeTargetState,
     ) -> Self {
         Self {
@@ -438,9 +413,7 @@ impl InviteRevokePayload {
     /// Validate the signed target identity. Both terminal targets release only
     /// the stored directed Invite's own live-target slot.
     pub fn validate(&self) -> Result<()> {
-        if let Some(invitee_account_id) = &self.invitee_account_id {
-            invitee_account_id.validate()?;
-        }
+        self.invitee_account_id.validate()?;
         Ok(())
     }
 
@@ -457,29 +430,18 @@ pub struct InviteAcceptPayload {
     pub invite_id: InviteId,
     /// Exact invite_lifecycle state observed before this transition.
     pub previous_state: InvitePreviousState,
-    /// Present exactly when the target Invite stores one, that is for a
-    /// directed invite and never for a third-party invite.
+    /// Exact stored directed invitee.
     ///
     /// It exists only so the `ak.component.invite.live_target.v1` subject can be
     /// derived from the signed Event: the projection grammar cannot convert the
     /// envelope ActorId into an AccountId. It is not a "accept on behalf of"
     /// entry point — see [`Self::validate_actor`].
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub invitee_account_id: Option<AccountId>,
+    pub invitee_account_id: AccountId,
     #[serde(flatten, default)]
     pub extensions: XExtensionMap,
 }
 
 impl InviteAcceptPayload {
-    pub fn new(invite_id: InviteId, previous_state: InvitePreviousState) -> Self {
-        Self {
-            invite_id,
-            previous_state,
-            invitee_account_id: None,
-            extensions: XExtensionMap::default(),
-        }
-    }
-
     /// Directed form: carry the stored invitee so the slot release write is
     /// derivable from this Event alone.
     pub fn directed(
@@ -490,15 +452,13 @@ impl InviteAcceptPayload {
         Self {
             invite_id,
             previous_state,
-            invitee_account_id: Some(invitee_account_id),
+            invitee_account_id,
             extensions: XExtensionMap::default(),
         }
     }
 
     pub fn validate(&self) -> Result<()> {
-        if let Some(invitee_account_id) = &self.invitee_account_id {
-            invitee_account_id.validate()?;
-        }
+        self.invitee_account_id.validate()?;
         Ok(())
     }
 
@@ -507,9 +467,7 @@ impl InviteAcceptPayload {
     /// their own invite; the field never widens who may accept.
     pub fn validate_actor(&self, actor_id: &ActorId) -> Result<()> {
         self.validate()?;
-        let Some(invitee_account_id) = &self.invitee_account_id else {
-            return Ok(());
-        };
+        let invitee_account_id = &self.invitee_account_id;
         if actor_id.as_account_id() != Some(invitee_account_id) {
             return Err(WireError::Protocol(
                 "invite accept payload invitee_account_id must equal the envelope actor account"
@@ -529,425 +487,6 @@ impl InviteAcceptPayload {
 /// Closed `invite_live_target` slot value: an occupant or the empty slot.
 pub type InviteLiveTargetValue = Option<InviteLiveTargetOccupant>;
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct InviteThirdPartyCreatePayload {
-    pub third_party_invite: ThirdPartyInvite,
-    #[serde(with = "canonical_timestamp")]
-    pub expires_at: chrono::DateTime<chrono::Utc>,
-    #[serde(flatten, default)]
-    pub extensions: XExtensionMap,
-}
-
-impl InviteThirdPartyCreatePayload {
-    pub fn validate(&self) -> Result<()> {
-        self.third_party_invite.validate_minimal()
-    }
-}
-
-pub const INVITE_CLAIM_AUDIENCE: &str = "arkret.invite.claim";
-pub const INVITE_BINDING_PROOF_TRANSCRIPT_DOMAIN: &str = "ak.invite.claim.binding_proof.v1\n";
-pub const INVITE_SUBJECT_PROOF_ALG: &str = "Ed25519";
-pub const INVITE_SUBJECT_PROOF_TRANSCRIPT_DOMAIN: &str = "ak.invite.claim.subject_proof.v1\n";
-
-/// Verification-service proof carried by `ak.invite.claim`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct InviteClaimBindingProof {
-    pub verification_id: DidCoreId,
-    pub verification_method: DidUrl,
-    pub subject_account_id: AccountId,
-    pub realm_id: RealmId,
-    pub audience: String,
-    pub claim_nonce: String,
-    pub expires_at: String,
-    pub signature: String,
-}
-
-impl InviteClaimBindingProof {
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        verification_id: DidCoreId,
-        subject_account_id: AccountId,
-        realm_id: RealmId,
-        claim_nonce: impl Into<String>,
-        expires_at: impl Into<String>,
-        verification_method: DidUrl,
-        signature: impl Into<String>,
-    ) -> Self {
-        Self {
-            verification_id,
-            subject_account_id,
-            realm_id,
-            audience: INVITE_CLAIM_AUDIENCE.to_owned(),
-            claim_nonce: claim_nonce.into(),
-            expires_at: expires_at.into(),
-            verification_method,
-            signature: signature.into(),
-        }
-    }
-
-    pub fn validate(&self) -> Result<()> {
-        if self.audience != INVITE_CLAIM_AUDIENCE {
-            return Err(WireError::Protocol(
-                "invite binding proof audience must be arkret.invite.claim".to_owned(),
-            ));
-        }
-        if self.claim_nonce.len() < 16 || self.claim_nonce.len() > 128 {
-            return Err(WireError::Protocol(
-                "invite binding proof claim_nonce length must be 16..=128".to_owned(),
-            ));
-        }
-        canonical::validate_timestamp_canonical(&self.expires_at)?;
-        // `verification_method` is a `DidUrl`: emptiness — and "is it a DID
-        // URL at all" — is enforced by the type at deserialization, so the
-        // hand-written guard that used to live here is gone
-        // (did-usage-and-verification.md §6).
-        if self.signature.trim().is_empty() {
-            return Err(WireError::Protocol(
-                "invite binding proof signature must not be empty".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-
-    pub fn unsigned(&self) -> InviteClaimUnsignedBindingProof {
-        InviteClaimUnsignedBindingProof {
-            verification_id: self.verification_id.clone(),
-            subject_account_id: self.subject_account_id.clone(),
-            realm_id: self.realm_id.clone(),
-            audience: self.audience.clone(),
-            claim_nonce: self.claim_nonce.clone(),
-            expires_at: self.expires_at.clone(),
-            verification_method: self.verification_method.clone(),
-        }
-    }
-
-    pub fn canonical_digest(&self) -> Result<Hash> {
-        self.validate()?;
-        Ok(Hash::new(canonical::canonical_sha256(self)?)?)
-    }
-}
-
-/// `binding_proof` with only the `signature` member removed.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct InviteClaimUnsignedBindingProof {
-    pub verification_id: DidCoreId,
-    pub subject_account_id: AccountId,
-    pub realm_id: RealmId,
-    pub audience: String,
-    pub claim_nonce: String,
-    pub expires_at: String,
-    pub verification_method: DidUrl,
-}
-
-/// Canonical `ak.invite.claim.binding_proof.v1` transcript body.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct InviteClaimBindingProofBody {
-    pub audience: String,
-    pub binding_proof: InviteClaimUnsignedBindingProof,
-    pub claim_nonce: String,
-    pub invite_digest: Hash,
-    pub invite_id: InviteId,
-    pub realm_id: RealmId,
-    pub subject_account_id: AccountId,
-    pub token_commitment: Hash,
-    pub verification_id: DidCoreId,
-}
-
-impl InviteClaimBindingProofBody {
-    pub fn new(
-        binding_proof: &InviteClaimBindingProof,
-        invite_id: InviteId,
-        token_commitment: Hash,
-        invite_digest: Hash,
-    ) -> Result<Self> {
-        binding_proof.validate()?;
-        if !token_commitment.as_str().starts_with("sha256:") {
-            return Err(WireError::Protocol(
-                "invite binding proof token_commitment must be sha256".to_owned(),
-            ));
-        }
-        if !invite_digest.as_str().starts_with("sha256:") {
-            return Err(WireError::Protocol(
-                "invite binding proof invite_digest must be sha256".to_owned(),
-            ));
-        }
-        Ok(Self {
-            audience: INVITE_CLAIM_AUDIENCE.to_owned(),
-            binding_proof: binding_proof.unsigned(),
-            claim_nonce: binding_proof.claim_nonce.clone(),
-            invite_digest,
-            invite_id,
-            realm_id: binding_proof.realm_id.clone(),
-            subject_account_id: binding_proof.subject_account_id.clone(),
-            token_commitment,
-            verification_id: binding_proof.verification_id.clone(),
-        })
-    }
-
-    pub fn from_wire_parts(
-        binding_proof: &InviteClaimBindingProof,
-        invite_id: impl Into<String>,
-        token_commitment: impl Into<String>,
-        invite_digest: impl Into<String>,
-    ) -> Result<Self> {
-        Self::new(
-            binding_proof,
-            InviteId::new(invite_id.into())?,
-            Hash::new(token_commitment.into())?,
-            Hash::new(invite_digest.into())?,
-        )
-    }
-
-    pub fn canonical_bytes(&self) -> Result<Vec<u8>> {
-        let mut bytes = INVITE_BINDING_PROOF_TRANSCRIPT_DOMAIN.as_bytes().to_vec();
-        bytes.extend(canonical::canonical_json_bytes(self)?);
-        Ok(bytes)
-    }
-
-    pub fn transcript_digest(&self) -> Result<Hash> {
-        Ok(Hash::new(canonical::sha256_digest(
-            self.canonical_bytes()?,
-        ))?)
-    }
-}
-
-pub fn invite_binding_proof_transcript_bytes(
-    binding_proof: &InviteClaimBindingProof,
-    invite_id: &str,
-    token_commitment: &str,
-    invite_digest: &str,
-) -> Result<Vec<u8>> {
-    InviteClaimBindingProofBody::from_wire_parts(
-        binding_proof,
-        invite_id,
-        token_commitment,
-        invite_digest,
-    )?
-    .canonical_bytes()
-}
-
-/// Subject DID proof carried by `ak.invite.claim`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct InviteSubjectProof {
-    pub verification_method: DidUrl,
-    pub signature_algorithm: String,
-    pub transcript_digest: Hash,
-    pub signature: String,
-}
-
-impl InviteSubjectProof {
-    pub fn new(
-        verification_method: DidUrl,
-        transcript_digest: Hash,
-        signature: impl Into<String>,
-    ) -> Self {
-        Self {
-            verification_method,
-            signature_algorithm: INVITE_SUBJECT_PROOF_ALG.to_owned(),
-            transcript_digest,
-            signature: signature.into(),
-        }
-    }
-
-    pub fn validate(&self) -> Result<()> {
-        if self.verification_method.trim().is_empty() {
-            return Err(WireError::Protocol(
-                "invite subject proof verification_method must not be empty".to_owned(),
-            ));
-        }
-        if !matches!(self.signature_algorithm.as_str(), "Ed25519" | "ML-DSA-65") {
-            return Err(WireError::Protocol(
-                "invite subject proof alg must be Ed25519 or ML-DSA-65".to_owned(),
-            ));
-        }
-        if !self.transcript_digest.as_str().starts_with("sha256:") {
-            return Err(WireError::Protocol(
-                "invite subject proof transcript_digest must be sha256".to_owned(),
-            ));
-        }
-        if self.signature.trim().is_empty() {
-            return Err(WireError::Protocol(
-                "invite subject proof signature must not be empty".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-}
-
-/// Complete `ak.invite.claim` payload. Claim evidence is kept distinct from
-/// every create/cancel/revoke payload shape.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct InviteClaimPayload {
-    pub invite_id: InviteId,
-    pub subject_account_id: AccountId,
-    pub token_commitment: Hash,
-    pub claim_nonce: String,
-    pub binding_proof: InviteClaimBindingProof,
-    pub subject_proof: InviteSubjectProof,
-    #[serde(flatten, default)]
-    pub extensions: XExtensionMap,
-}
-
-impl InviteClaimPayload {
-    pub fn validate(&self) -> Result<()> {
-        self.binding_proof.validate()?;
-        self.subject_proof.validate()?;
-        if self.claim_nonce.len() < 16
-            || self.claim_nonce.len() > 128
-            || self.subject_account_id != self.binding_proof.subject_account_id
-            || self.claim_nonce != self.binding_proof.claim_nonce
-            || !self.token_commitment.as_str().starts_with("sha256:")
-        {
-            return Err(WireError::Protocol(
-                "invite claim payload does not match its binding evidence".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-}
-
-/// Canonical `ak.invite.claim.subject_proof.v1` transcript body.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct InviteSubjectProofBody {
-    pub subject_account_id: AccountId,
-    pub invite_id: InviteId,
-    pub realm_id: RealmId,
-    pub token_commitment: Hash,
-    pub claim_nonce: String,
-    pub audience: String,
-    pub verification_id: DidCoreId,
-    pub binding_proof_digest: Hash,
-}
-
-impl InviteSubjectProofBody {
-    pub fn new(
-        subject_account_id: AccountId,
-        invite_id: InviteId,
-        realm_id: RealmId,
-        token_commitment: Hash,
-        claim_nonce: impl Into<String>,
-        verification_id: DidCoreId,
-        binding_proof_digest: Hash,
-    ) -> Self {
-        Self {
-            subject_account_id,
-            invite_id,
-            realm_id,
-            token_commitment,
-            claim_nonce: claim_nonce.into(),
-            audience: INVITE_CLAIM_AUDIENCE.to_owned(),
-            verification_id,
-            binding_proof_digest,
-        }
-    }
-
-    pub fn from_wire_parts(
-        subject_account_id: AccountId,
-        invite_id: impl Into<String>,
-        realm_id: impl Into<String>,
-        token_commitment: impl Into<String>,
-        claim_nonce: impl Into<String>,
-        verification_id: impl Into<String>,
-        binding_proof_digest: impl Into<String>,
-    ) -> Result<Self> {
-        Ok(Self::new(
-            subject_account_id,
-            InviteId::new(invite_id.into())?,
-            RealmId::new(realm_id.into())?,
-            Hash::new(token_commitment.into())?,
-            claim_nonce,
-            DidCoreId::new(verification_id.into())?,
-            Hash::new(binding_proof_digest.into())?,
-        ))
-    }
-
-    pub fn validate(&self) -> Result<()> {
-        if !self.token_commitment.as_str().starts_with("sha256:") {
-            return Err(WireError::Protocol(
-                "invite subject proof token_commitment must be sha256".to_owned(),
-            ));
-        }
-        if self.claim_nonce.len() < 16 || self.claim_nonce.len() > 128 {
-            return Err(WireError::Protocol(
-                "invite subject proof claim_nonce length must be 16..=128".to_owned(),
-            ));
-        }
-        if self.audience != INVITE_CLAIM_AUDIENCE {
-            return Err(WireError::Protocol(
-                "invite subject proof audience must be arkret.invite.claim".to_owned(),
-            ));
-        }
-        if !self.binding_proof_digest.as_str().starts_with("sha256:") {
-            return Err(WireError::Protocol(
-                "invite subject proof binding_proof_digest must be sha256".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-
-    pub fn canonical_bytes(&self) -> Result<Vec<u8>> {
-        self.validate()?;
-        let mut bytes = INVITE_SUBJECT_PROOF_TRANSCRIPT_DOMAIN.as_bytes().to_vec();
-        bytes.extend(canonical::canonical_json_bytes(self)?);
-        Ok(bytes)
-    }
-
-    pub fn transcript_digest(&self) -> Result<Hash> {
-        Ok(Hash::new(canonical::sha256_digest(
-            self.canonical_bytes()?,
-        ))?)
-    }
-}
-
-pub fn invite_subject_proof_transcript_bytes(
-    subject_account_id: &AccountId,
-    invite_id: &str,
-    realm_id: &str,
-    token_commitment: &str,
-    claim_nonce: &str,
-    verification_id: &str,
-    binding_proof_digest: &str,
-) -> Result<Vec<u8>> {
-    InviteSubjectProofBody::from_wire_parts(
-        subject_account_id.clone(),
-        invite_id,
-        realm_id,
-        token_commitment,
-        claim_nonce,
-        verification_id,
-        binding_proof_digest,
-    )?
-    .canonical_bytes()
-}
-
-pub fn invite_subject_proof_transcript_digest(
-    subject_account_id: &AccountId,
-    invite_id: &str,
-    realm_id: &str,
-    token_commitment: &str,
-    claim_nonce: &str,
-    verification_id: &str,
-    binding_proof_digest: &str,
-) -> Result<Hash> {
-    Ok(Hash::new(canonical::sha256_digest(
-        invite_subject_proof_transcript_bytes(
-            subject_account_id,
-            invite_id,
-            realm_id,
-            token_commitment,
-            claim_nonce,
-            verification_id,
-            binding_proof_digest,
-        )?,
-    ))?)
-}
-
 #[cfg(test)]
 mod invite_accept_payload_tests {
     use super::*;
@@ -956,11 +495,16 @@ mod invite_accept_payload_tests {
     fn previous_state_is_required_and_closed_on_the_wire() {
         let invite_id =
             InviteId::new("ak:invite:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7").unwrap();
-        for (state, wire) in [
-            (InvitePreviousState::Pending, "pending"),
-            (InvitePreviousState::Claimed, "claimed"),
-        ] {
-            let payload = InviteAcceptPayload::new(invite_id.clone(), state);
+        {
+            let (state, wire) = (InvitePreviousState::Pending, "pending");
+            let payload = InviteAcceptPayload::directed(
+                invite_id.clone(),
+                AccountId::new(
+                    DidCoreId::new("ak:did_core:web:bob.example").unwrap(),
+                    DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+                ),
+                state,
+            );
             let value = payload.to_value().unwrap();
             assert_eq!(value["previous_state"], wire);
             assert_eq!(
@@ -985,7 +529,8 @@ mod invite_accept_payload_tests {
             DidCoreId::new("ak:did_core:web:bob.example").unwrap(),
             DidCoreId::new("ak:did_core:web:station.example").unwrap(),
         );
-        for state in [InvitePreviousState::Pending, InvitePreviousState::Claimed] {
+        {
+            let state = InvitePreviousState::Pending;
             let payload = InviteCancelPayload::new(
                 invite_id.clone(),
                 state,
@@ -1007,14 +552,12 @@ mod invite_accept_payload_tests {
         missing["previous_state"] = serde_json::json!("send_failed");
         assert!(serde_json::from_value::<InviteCancelPayload>(missing).is_err());
 
-        for state in [
-            InviteRevokePreviousState::Pending,
-            InviteRevokePreviousState::Claimed,
-        ] {
+        {
+            let state = InvitePreviousState::Pending;
             let payload = InviteRevokePayload::new(
                 invite_id.clone(),
                 state,
-                None,
+                invitee,
                 InviteRevokeTargetState::Revoked,
             );
             let value = payload.to_value().unwrap();

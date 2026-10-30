@@ -31,6 +31,13 @@
       "path": "crates/http/src/routing/spaces/space.rs",
       "pattern": "struct\\s+RealmExport(Event|Operation|Outcome)\\b",
       "owner": "arkret_models_collaboration::governance::realm_governance::RealmExport"
+    },
+    {
+      "repository": "coland",
+      "path_glob": "crates/**/*.rs",
+      "pattern": "(?:struct|enum|type)\\s+(?:MlsAttestAdd(?:HttpRequest|HttpOutcome|RequestBody|ResponseBody|Status)|MlsAddAuthorityAttestation)\\b",
+      "owner": "arkret_models_collaboration::mls_roster_authority",
+      "rationale": "The registered MLS Add operation directly consumes SDK request/response and nested authority types. HTTP-local mirrors, generic JSON schema shells and duplicate aliases erase the closed protocol or decimal epoch; they cannot be restored under another crate path."
     }
   ],
   "classified": [

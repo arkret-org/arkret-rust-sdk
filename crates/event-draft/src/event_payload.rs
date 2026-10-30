@@ -15,13 +15,16 @@ use arkret_models_collaboration::events_payloads::*;
 use arkret_models_collaboration::governance::accountability::AccountabilityGrantPayload;
 use arkret_models_collaboration::governance::erasure::ErasureReceipt;
 use arkret_models_collaboration::governance::membership_invite::{
-    InviteAcceptPayload, InviteCancelPayload, InviteClaimPayload, InviteCreatePayload,
-    InviteRevokePayload, InviteThirdPartyCreatePayload, MembershipPayload,
+    InviteAcceptPayload, InviteCancelPayload, InviteCreatePayload, InviteRevokePayload,
+    MembershipPayload,
 };
 use arkret_models_collaboration::governance::operation_wire::PolicySetStatePayload;
 use arkret_models_collaboration::governance::plaintext_visibility::PlaintextVisibleServicesPayload;
 use arkret_models_collaboration::governance::realm_governance::{
     RealmAliasPayload, RealmLinkPayload,
+};
+use arkret_models_collaboration::governance::realm_invite_link::{
+    RealmInviteLinkAcceptPayload, RealmInviteLinkCreatePayload, RealmInviteLinkRevokePayload,
 };
 use arkret_models_collaboration::governance::realm_lifecycle::{
     CircleHistoryAccessPayload, HistoryAccessPayload, ObjectLifecyclePayload, RealmArchivePayload,
@@ -307,11 +310,12 @@ event_payload_accessors! {
     event_spec::ModerationDecision => (as_moderation_decision, ModerationDecisionPayload),
     event_spec::ModerationDecisionLift => (as_moderation_decision_lift, ModerationDecisionLiftPayload),
     event_spec::ReadCursorAdvance => (as_read_cursor_advance, ReadCursor),
+    event_spec::RealmInviteLinkCreate => (as_realm_invite_link_create, RealmInviteLinkCreatePayload, RealmInviteLinkCreatePayload::validate),
+    event_spec::RealmInviteLinkRevoke => (as_realm_invite_link_revoke, RealmInviteLinkRevokePayload),
+    event_spec::RealmInviteLinkAccept => (as_realm_invite_link_accept, RealmInviteLinkAcceptPayload),
     event_spec::InviteCreate => (as_invite_create, InviteCreatePayload),
     event_spec::InviteCancel => (as_invite_cancel, InviteCancelPayload),
     event_spec::InviteAccept => (as_invite_accept, InviteAcceptPayload, InviteAcceptPayload::validate),
-    event_spec::InviteThirdParty => (as_invite_third_party, InviteThirdPartyCreatePayload),
-    event_spec::InviteClaim => (as_invite_claim, InviteClaimPayload),
     event_spec::InviteRevoke => (as_invite_revoke, InviteRevokePayload, InviteRevokePayload::validate),
     event_spec::AppletBridgeError => (as_applet_bridge_error, AppletBridgeErrorPayload),
     event_spec::AppletRegistration => (as_applet_registration, AppletRegistrationPayload),

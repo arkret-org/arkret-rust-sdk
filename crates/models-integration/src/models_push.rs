@@ -214,6 +214,13 @@ impl From<PushRegistrationId> for String {
     }
 }
 
+impl From<PushRegistrationId> for OpaqueLocalId {
+    fn from(value: PushRegistrationId) -> Self {
+        // The registration alphabet and 22..=128 bound are a strict subset.
+        Self::new(value.into_string()).expect("validated registration id is an opaque local id")
+    }
+}
+
 impl<'de> Deserialize<'de> for PushRegistrationId {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         Self::new(String::deserialize(deserializer)?).map_err(serde::de::Error::custom)
@@ -290,12 +297,13 @@ pub struct PushRegisterDeviceResponseBody {
     /// device MUST use this exact value as the notify target and MUST NOT mint
     /// their own.
     pub push_target_id: PushTargetId,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub registration_id: Option<OpaqueLocalId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+
+    pub registration_id: PushRegistrationId,
     #[serde(
         default,
-        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional_timestamp"
     )]
     pub expires_at: Option<DateTime<Utc>>,
 }
@@ -1401,3 +1409,37 @@ impl PushOperations {
 }
 
 include!("generated/models_push_contracts.rs");
+
+#[cfg(test)]
+mod registration_response_contract_tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn response_requires_a_real_registration_identifier_shape() {
+        let valid = json!({"push_target_id":"ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8","registration_id":"registration-test-00000001"});
+        let response: PushRegisterDeviceResponseBody =
+            serde_json::from_value(valid.clone()).unwrap();
+        assert_eq!(serde_json::to_value(response).unwrap(), valid);
+        let mut missing = valid.clone();
+        missing.as_object_mut().unwrap().remove("registration_id");
+        assert!(serde_json::from_value::<PushRegisterDeviceResponseBody>(missing).is_err());
+        for identifier in [
+            json!(null),
+            json!("short"),
+            json!("push:registration-test-00000001"),
+            json!("ak:request:01904100-0000-7000-8000-000000000001"),
+        ] {
+            let mut changed = valid.clone();
+            changed["registration_id"] = identifier;
+            assert!(serde_json::from_value::<PushRegisterDeviceResponseBody>(changed).is_err());
+        }
+        let mut expiry = valid.clone();
+        expiry["expires_at"] = json!(null);
+        assert!(serde_json::from_value::<PushRegisterDeviceResponseBody>(expiry).is_err());
+        let mut extra = valid;
+        extra["unexpected"] = json!(true);
+        assert!(serde_json::from_value::<PushRegisterDeviceResponseBody>(extra).is_err());
+    }
+}
