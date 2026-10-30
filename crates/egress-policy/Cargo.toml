@@ -1,14 +1,14 @@
 [package]
-authors = ["Chris Young <chris@sonc.ai>"]
+authors.workspace = true
 categories = ["network-programming", "web-programming"]
 description = "Arkret v1 outbound network target and SSRF policy primitives."
-edition = "2024"
-homepage = "https://github.com/arkret-org/arkret-rust-sdk"
+edition.workspace = true
+homepage.workspace = true
 keywords = ["arkret", "egress", "ssrf", "network", "policy"]
-license = "Apache-2.0"
+license.workspace = true
 name = "arkret-egress-policy"
 readme = "README.md"
-repository = "https://github.com/arkret-org/arkret-rust-sdk"
+repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
 

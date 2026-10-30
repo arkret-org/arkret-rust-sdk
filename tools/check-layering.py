@@ -36,6 +36,7 @@ DATA_CRATES = (
     "arkret-models-discovery",
     "arkret-models",
     "arkret-schema",
+    "arkret-deployment-contracts",
     "arkret-policy",
     "arkret-state",
 )
@@ -90,6 +91,7 @@ ALLOWED_EDGES: dict[str, set[str]] = {
         "arkret-models-discovery",
     },
     "arkret-schema": _WIRE,
+    "arkret-deployment-contracts": _WIRE | {"arkret-models-collaboration"},
     # R2 (frozen): no policy -> state edge.
     # Amendment 2026-07-19 (phase 1A): policy -> models-integration allowed —
     # the blind-payload sanitizer consumes the push wire vocabulary owned by

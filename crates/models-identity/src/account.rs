@@ -711,7 +711,7 @@ impl IdentityCreationRecoveryKeyState {
 pub struct IdentityCreationLease {
     pub identity_creation_lease_id: String,
     pub fence: u64,
-    #[serde(default)]
+
     pub state: IdentityCreationLeaseState,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
@@ -1723,10 +1723,10 @@ pub struct AccountBindingReceipt {
     pub did: Did,
     pub did_version_id: String,
     pub control_key_digest: Hash,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub identity_creation_lease_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub lease_fence: Option<u64>,
+
+    pub identity_creation_lease_id: String,
+
+    pub lease_fence: u64,
     pub operation_status: IdentityCreationOperationStatus,
     pub registration_anchor_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -1744,10 +1744,8 @@ struct AccountBindingReceiptPayload<'a> {
     did: &'a Did,
     did_version_id: &'a str,
     control_key_digest: &'a Hash,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    identity_creation_lease_id: Option<&'a str>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    lease_fence: Option<u64>,
+    identity_creation_lease_id: &'a str,
+    lease_fence: u64,
     operation_status: IdentityCreationOperationStatus,
     registration_anchor_digest: &'a Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -1779,7 +1777,7 @@ impl AccountBindingReceipt {
             did: &self.did,
             did_version_id: &self.did_version_id,
             control_key_digest: &self.control_key_digest,
-            identity_creation_lease_id: self.identity_creation_lease_id.as_deref(),
+            identity_creation_lease_id: &self.identity_creation_lease_id,
             lease_fence: self.lease_fence,
             operation_status: self.operation_status,
             registration_anchor_digest: &self.registration_anchor_digest,
@@ -1807,17 +1805,10 @@ impl AccountBindingReceipt {
                 )
             })?;
         let proof_controller = project_did_to_core_id(&Did::new(proof_controller.to_owned())?)?;
-        let branch_valid = match self.binding_kind {
-            AccountBindingKind::PublishedDid => {
-                self.identity_creation_lease_id.is_none() && self.lease_fence.is_none()
-            }
-            AccountBindingKind::IdentityCreation => {
-                self.identity_creation_lease_id
-                    .as_ref()
-                    .is_some_and(|value| !value.is_empty())
-                    && self.lease_fence.is_some_and(|value| value > 0)
-            }
-        };
+        let branch_valid = !self.identity_creation_lease_id.is_empty()
+            && self.lease_fence > 0
+            && (self.binding_kind != AccountBindingKind::PublishedDid
+                || self.operation_status == IdentityCreationOperationStatus::Accepted);
         if !branch_valid
             || self.did_version_id.is_empty()
             || project_did_to_core_id(&self.did)?.as_str() != self.principal_id.as_str()
@@ -1876,6 +1867,8 @@ pub enum CursorRevokeScope {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+/// Wire boundary: `service-operation-dtos.schema.json#/$defs/AccountCursorRevokeRequestBody`.
+#[serde(deny_unknown_fields)]
 pub struct AccountCursorRevokeRequestBody {
     pub cursor: String,
     pub reason_code: ReasonCode,
@@ -1885,10 +1878,17 @@ pub struct AccountCursorRevokeRequestBody {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+/// Wire boundary: `service-operation-dtos.schema.json#/$defs/AccountCursorRevokeResponseBody`.
+#[serde(deny_unknown_fields)]
 pub struct AccountCursorRevokeResponseBody {
     pub revoked: bool,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional_timestamp"
+    )]
+    pub expires_at: Option<DateTime<Utc>>,
 }
 
 fn default_cursor_revoke_scope() -> CursorRevokeScope {
@@ -2027,8 +2027,8 @@ mod account_handoff_tests {
             did: principal_did,
             did_version_id: "1-fixture".to_owned(),
             control_key_digest: Hash::new(format!("sha256:{}", "b".repeat(64))).unwrap(),
-            identity_creation_lease_id: Some("lease-fixture".to_owned()),
-            lease_fence: Some(1),
+            identity_creation_lease_id: "lease-fixture".to_owned(),
+            lease_fence: 1,
             operation_status: IdentityCreationOperationStatus::Accepted,
             registration_anchor_digest: Hash::new(format!("sha256:{}", "c".repeat(64))).unwrap(),
             issued_at: now,
@@ -2391,5 +2391,36 @@ impl AccountLifecycleProof {
             ));
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod cursor_revoke_response_contract_tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn cursor_revoke_expiry_is_optional_canonical_and_non_null() {
+        let absent: AccountCursorRevokeResponseBody =
+            serde_json::from_value(json!({"revoked":true})).unwrap();
+        assert!(absent.expires_at.is_none());
+        assert_eq!(
+            serde_json::to_value(absent).unwrap(),
+            json!({"revoked":true})
+        );
+        let present = json!({"revoked":true,"expires_at":"2026-10-26T00:00:00.000Z"});
+        let parsed: AccountCursorRevokeResponseBody =
+            serde_json::from_value(present.clone()).unwrap();
+        assert!(parsed.expires_at.is_some());
+        assert_eq!(serde_json::to_value(parsed).unwrap(), present);
+        for invalid in [
+            json!({}),
+            json!({"revoked":true,"expires_at":null}),
+            json!({"revoked":true,"expires_at":"2026-10-26T00:00:00+00:00"}),
+            json!({"revoked":true,"unexpected":true}),
+        ] {
+            assert!(serde_json::from_value::<AccountCursorRevokeResponseBody>(invalid).is_err());
+        }
     }
 }

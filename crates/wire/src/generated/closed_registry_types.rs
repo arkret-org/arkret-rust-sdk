@@ -1,9 +1,9 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-25.2;
-//! sha256=486b7d389283a4a7eda54f78979c9d047424a30d0b30b22781e5c8191f2bf963 Input: registry/
-//! authority-set-policy-registry.json; version=2026-09-16.6;
-//! sha256=ea238a2ee4bb13a9513ee1349a92dbe9bc3542698d08d5cdb6878dbf5a30ebe2 Entries: track_names=2,
+//! Input: registry/contract-registry.json;
+//! sha256=4603ea9c66ada9ca9e09db7ccce8dfd3b0ba0675ac2f67bdeaba66402115762c Input: registry/
+//! authority-set-policy-registry.json;
+//! sha256=ed607a159a6ffade713ed3196b1d9948d7da6bfcdfbbfd6185e92731f131a134 Entries: track_names=2,
 //! binding_kinds=3, authority_policy_kinds=3, authority_source_kinds=2
 
 use serde::{Deserialize, Serialize};

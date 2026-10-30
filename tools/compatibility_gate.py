@@ -54,8 +54,10 @@ def load_manifest(path: Path) -> dict[str, Any]:
 
 
 def validate_manifest(document: dict[str, Any]) -> None:
-    if document.get("schema_version") != 1:
-        raise CompatibilityError("manifest schema_version must be 1")
+    schema_path = Path(__file__).resolve().parents[1] / "compatibility/manifest.schema.json"
+    allowed = set(json.loads(schema_path.read_text(encoding="utf-8"))["properties"])
+    if set(document) - allowed:
+        raise CompatibilityError("manifest contains unknown fields")
 
     repositories = document.get("repositories")
     if not isinstance(repositories, dict):

@@ -37,7 +37,7 @@ use crate::binding::{
     DidBindingPurpose, DidBindingStatus, VerifiedDidBinding, VerifiedDidBindingKey,
     document_canonical_digest,
 };
-use crate::binding_digest::DidBindingEvidenceReceipt;
+use crate::binding_digest::{DidBindingEvidenceReceipt, DidBindingEvidenceReceiptExt};
 
 // ============================================================================
 // Errors
@@ -1039,5 +1039,3 @@ mod tests {
         );
     }
 }
-
-use crate::binding_digest::DidBindingEvidenceReceiptExt;

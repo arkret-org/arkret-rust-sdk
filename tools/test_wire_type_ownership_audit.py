@@ -9,6 +9,35 @@ from wire_type_ownership_audit import audit
 
 
 class WireTypeOwnershipAuditTests(unittest.TestCase):
+    def mls_audit(self, source: str) -> list[str]:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / "coland/crates/new_adapter/src/lib.rs"
+            path.parent.mkdir(parents=True)
+            path.write_text(source, encoding="utf-8")
+            shipped = json.loads(Path(__file__).with_name("wire_type_ownership_decisions.json").read_text(encoding="utf-8"))
+            rules = [entry for entry in shipped["forbidden"] if entry["owner"] == "arkret_models_collaboration::mls_roster_authority"]
+            self.assertEqual(len(rules), 1)
+            decisions = root / "decisions.json"
+            decisions.write_text(json.dumps({"forbidden": rules, "classified": []}), encoding="utf-8")
+            return audit(root, decisions, {"coland"})
+
+    def test_mls_add_cannot_restore_http_json_shells_or_duplicate_aliases(self) -> None:
+        for declaration in ("struct MlsAttestAddHttpRequest {}", "struct MlsAttestAddHttpOutcome {}",
+                            "type MlsAttestAddRequestBody = SDK;", "enum MlsAttestAddStatus {}",
+                            "struct MlsAddAuthorityAttestation {}"):
+            with self.subTest(declaration=declaration):
+                errors = self.mls_audit(declaration)
+                self.assertEqual(len(errors), 1)
+                self.assertIn("duplicates SDK owner", errors[0])
+
+    def test_mls_add_sdk_use_and_private_storage_records_are_allowed(self) -> None:
+        self.assertEqual(self.mls_audit('''
+            use arkret_models_collaboration::mls_roster_authority::{MlsAttestAddRequestBody, MlsAttestAddResponseBody};
+            struct MlsAddAuthorityAttestationRow { stored_at: u64 }
+            // struct MlsAttestAddHttpRequest {}
+        '''), [])
+
     def garth_audit(self, sources: dict[str, str], repository_exists: bool = True) -> list[str]:
         """Exercise the shipped Garth decisions, including future nested files."""
         with tempfile.TemporaryDirectory() as directory:

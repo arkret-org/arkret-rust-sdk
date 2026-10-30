@@ -1,14 +1,14 @@
 [package]
-authors = ["Chris Young <chris@sonc.ai>"]
+authors.workspace = true
 categories = ["development-tools", "testing"]
 description = "Protocol test material shared by Arkret implementations: standard subjects, pinned HLCs, deterministic identities, canonical signed Events, and negative-case builders."
-edition = "2024"
-homepage = "https://github.com/arkret-org/arkret-rust-sdk"
+edition.workspace = true
+homepage.workspace = true
 keywords = ["arkret", "testing", "fixture", "conformance"]
-license = "Apache-2.0"
+license.workspace = true
 name = "arkret-test-kit"
 publish = false
-repository = "https://github.com/arkret-org/arkret-rust-sdk"
+repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
 

@@ -5,8 +5,7 @@ use arkret_schema_conformance::{
 };
 use arkret_wire::generated::profile_requirements::non_event_grant_authority_rule;
 use arkret_wire::{
-    AuthoredEvent, BUILT_IN_CONFORMANCE_FIXTURES_VERSION, DidCoreId, DidUrl, Hash,
-    ProducerEventProof, RealmId, SchemaId, ScopeRef,
+    AuthoredEvent, DidCoreId, DidUrl, Hash, ProducerEventProof, RealmId, SchemaId, ScopeRef,
 };
 use serde_json::json;
 
@@ -215,10 +214,6 @@ fn applet_bridge_exposes_exact_non_event_grant_authority_rule() {
 #[test]
 fn builtin_conformance_report_is_machine_readable_and_covers_profiles() {
     let report = run_builtin_conformance_report();
-    assert_eq!(
-        report.fixture_version,
-        BUILT_IN_CONFORMANCE_FIXTURES_VERSION
-    );
     assert!(report.passed);
     for profile in required_profiles() {
         let coverage = report
@@ -231,7 +226,6 @@ fn builtin_conformance_report_is_machine_readable_and_covers_profiles() {
     }
 
     let encoded = serde_json::to_value(report).unwrap();
-    assert!(encoded["fixture_version"].is_string());
     assert!(encoded["results"].is_array());
 }
 
@@ -241,13 +235,8 @@ fn conformance_fixture_set_loads_and_reports_external_json() {
     let fixtures = ConformanceFixtureSet::from_json(encoded).unwrap();
     let report = fixtures.run();
     assert!(report.passed);
-    assert_eq!(
-        report.fixture_version,
-        BUILT_IN_CONFORMANCE_FIXTURES_VERSION
-    );
 
     let empty = serde_json::from_value::<ConformanceFixtureSet>(json!({
-        "fixture_version": "",
         "suites": []
     }))
     .unwrap();

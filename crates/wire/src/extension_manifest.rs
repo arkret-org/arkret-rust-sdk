@@ -120,7 +120,9 @@ pub struct ExtensionManifest {
     pub required_actions: Vec<String>,
     pub confidentiality_class: ConfidentialityClass,
     pub transport_rail_ids: Vec<String>,
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_required_nullable")]
     pub recovery_profile_ref: Option<String>,
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_required_nullable")]
     pub federation_profile_ref: Option<String>,
     pub conformance_vector_refs: Vec<RegistryContentRef>,
     pub resource_limits: ManifestResourceLimits,

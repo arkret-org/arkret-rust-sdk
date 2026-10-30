@@ -15,6 +15,8 @@ use crate::objects::relation::RelationEndpoint;
 use crate::objects::view::DashboardConfiguration;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+/// Wire boundary: `query.schema.json#/$defs/field_filter`.
+#[serde(deny_unknown_fields)]
 pub struct FieldFilter {
     pub field: String,
     pub op: FilterOp,

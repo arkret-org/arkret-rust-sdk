@@ -83,20 +83,4 @@ impl Client {
         let builder = self.request(Method::DELETE, path)?;
         self.send_json(builder).await
     }
-
-    /// `DELETE` with a canonical JSON body.
-    ///
-    /// A registered DELETE carries a body when the operation's durable effect is a
-    /// signed Event: the signature has nowhere else to go, and a service MUST NOT
-    /// produce it. `ak.self.keys.backups.resource.delete.v1` was the first such
-    /// endpoint and open-coded this; `ak.self.account_data.resource.delete.v1` is the
-    /// second, so it belongs beside the other verbs instead.
-    pub(crate) async fn delete_with_body<T: Serialize, R: DeserializeOwned>(
-        &self,
-        path: &str,
-        body: &T,
-    ) -> Result<R> {
-        let builder = self.canonical_json_body(self.request(Method::DELETE, path)?, body)?;
-        self.send_json(builder).await
-    }
 }

@@ -1,21 +1,21 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/proof-context-registry.json; version=2026-10-24.1;
-//! sha256=2ec5d58dce86a60c81a64ac5a244275dd86f1bba7915a5ed6bc03fff8031aaac Input: registry/
-//! exporter-label-registry.json; version=2026-10-08;
-//! sha256=10a6708dcbb797f8c4b01d7450b51730945305fff33cf77f9cb14278b3d2b5ea Input: registry/
-//! digest-suite-registry.json; version=2026-09-19.1;
-//! sha256=5beb1a9c98f49df7b091ef2b8798be8f22aa0206452de2e112d833dc4f6e152f Input: registry/
-//! signature-alg-registry.json; version=2026-09-20.1;
-//! sha256=ef58f25cd4bdcc0101dd841d4271b0454f22bef3bb8b3636cb383d10c0b15009 Input: registry/
-//! hpke-suite-registry.json; version=2026-09-23.1;
-//! sha256=a1740d80a9fe630e2d3f32a75f3cd4a270fed17dfb573d119c71365f22e1aafd Input: registry/
-//! mls-ciphersuite-registry.json; version=2026-09-19.1;
-//! sha256=537db5f0e28f156755dfe617a235812eb236e938e9e7d7739e22ab675a63a0ae Input: registry/
-//! mls-extension-registry.json; version=2026-09-24.1;
-//! sha256=f30aa623670389336a25fae1c5e0dc3b0ba1fd3b80468dba57fb984c685996b8 Input: registry/
-//! aead-profile-registry.json; version=2026-08-16.1;
-//! sha256=5cab256353caa112d59f4ba10390715eaa27a3c3b530ee1766f01d35a4ea72de
+//! Input: registry/proof-context-registry.json;
+//! sha256=d24e2c6129242499f8cf1b69da3d1430ae7b6c7f81a16fd1b1705f024a49b0ab Input: registry/
+//! exporter-label-registry.json;
+//! sha256=6bb3622c1e8ef4636d28ed5e0998fdc6fdc755b1b36365e966d0f1f75c1d03f9 Input: registry/
+//! digest-suite-registry.json;
+//! sha256=6b9b7550f45a079a6f68cedadf331309baf338d55d9abae347712f698d1c0a37 Input: registry/
+//! signature-alg-registry.json;
+//! sha256=04cd8b284cae951995e5e9aab071cfdf42fdb3bd1da53ba63e8239a5f66a1107 Input: registry/
+//! hpke-suite-registry.json;
+//! sha256=29c599939382074e8bc8be8507c40279920ca25dec6da345037725c09b932747 Input: registry/
+//! mls-ciphersuite-registry.json;
+//! sha256=0713ff9e2585645cb9526d366aabbd30fe92a672b891d2ba5f9c035d637bc098 Input: registry/
+//! mls-extension-registry.json;
+//! sha256=a07994d12f371db5f415700fa6bb8ae504b35613081f2e808a1cd3cab16d4a65 Input: registry/
+//! aead-profile-registry.json;
+//! sha256=273e1225d568d3d4c39fe2f19c2397b96dfc3e256b6ec1b5b852b43c16550343
 //! Entries: proof_contexts=35, exporter_labels=8, digest_suites=3, signature_algorithms=4,
 //! hpke_suites=4, mls_ciphersuites=4, mls_extensions=2, domain_separations=47, aead_profiles=2
 
@@ -51,12 +51,12 @@ pub enum ProofContextId {
     PrincipalLocatorProofV1,
     PrincipalResolutionProjectionAttestationProofV1,
     PushRegistrationInstallationReceiptProofV1,
+    RealmInviteLinkAcceptProofV1,
+    RealmInviteLinkPreviewProofV1,
     RegistrationDidEvidenceControlProofV1,
     ServiceRegistrationReceiptProofV1,
     SessionGrantAcceptedDevicePossessionProofV1,
     SignalProofV1,
-    ThirdPartyInviteAcceptanceAttestationProofV1,
-    ThirdPartyInviteProvisionRequestProofV1,
 }
 
 impl ProofContextId {
@@ -90,12 +90,12 @@ impl ProofContextId {
         Self::PrincipalLocatorProofV1,
         Self::PrincipalResolutionProjectionAttestationProofV1,
         Self::PushRegistrationInstallationReceiptProofV1,
+        Self::RealmInviteLinkAcceptProofV1,
+        Self::RealmInviteLinkPreviewProofV1,
         Self::RegistrationDidEvidenceControlProofV1,
         Self::ServiceRegistrationReceiptProofV1,
         Self::SessionGrantAcceptedDevicePossessionProofV1,
         Self::SignalProofV1,
-        Self::ThirdPartyInviteAcceptanceAttestationProofV1,
-        Self::ThirdPartyInviteProvisionRequestProofV1,
     ];
 
     pub const ACCOUNT_BINDING_RECEIPT_PROOF_V1: &'static str =
@@ -143,6 +143,10 @@ impl ProofContextId {
         "ak.principal_resolution_projection_attestation_proof.v1";
     pub const PUSH_REGISTRATION_INSTALLATION_RECEIPT_PROOF_V1: &'static str =
         "ak.push_registration_installation_receipt_proof.v1";
+    pub const REALM_INVITE_LINK_ACCEPT_PROOF_V1: &'static str =
+        "ak.realm_invite_link.accept_proof.v1";
+    pub const REALM_INVITE_LINK_PREVIEW_PROOF_V1: &'static str =
+        "ak.realm_invite_link.preview_proof.v1";
     pub const REGISTRATION_DID_EVIDENCE_CONTROL_PROOF_V1: &'static str =
         "ak.registration_did_evidence_control_proof.v1";
     pub const SERVICE_REGISTRATION_RECEIPT_PROOF_V1: &'static str =
@@ -150,10 +154,6 @@ impl ProofContextId {
     pub const SESSION_GRANT_ACCEPTED_DEVICE_POSSESSION_PROOF_V1: &'static str =
         "ak.session_grant_accepted_device_possession_proof.v1";
     pub const SIGNAL_PROOF_V1: &'static str = "ak.signal_proof.v1";
-    pub const THIRD_PARTY_INVITE_ACCEPTANCE_ATTESTATION_PROOF_V1: &'static str =
-        "ak.third_party_invite_acceptance_attestation_proof.v1";
-    pub const THIRD_PARTY_INVITE_PROVISION_REQUEST_PROOF_V1: &'static str =
-        "ak.third_party_invite_provision_request_proof.v1";
 
     pub const fn as_str(self) -> &'static str {
         match self {
@@ -202,6 +202,8 @@ impl ProofContextId {
             Self::PushRegistrationInstallationReceiptProofV1 => {
                 Self::PUSH_REGISTRATION_INSTALLATION_RECEIPT_PROOF_V1
             }
+            Self::RealmInviteLinkAcceptProofV1 => Self::REALM_INVITE_LINK_ACCEPT_PROOF_V1,
+            Self::RealmInviteLinkPreviewProofV1 => Self::REALM_INVITE_LINK_PREVIEW_PROOF_V1,
             Self::RegistrationDidEvidenceControlProofV1 => {
                 Self::REGISTRATION_DID_EVIDENCE_CONTROL_PROOF_V1
             }
@@ -210,12 +212,6 @@ impl ProofContextId {
                 Self::SESSION_GRANT_ACCEPTED_DEVICE_POSSESSION_PROOF_V1
             }
             Self::SignalProofV1 => Self::SIGNAL_PROOF_V1,
-            Self::ThirdPartyInviteAcceptanceAttestationProofV1 => {
-                Self::THIRD_PARTY_INVITE_ACCEPTANCE_ATTESTATION_PROOF_V1
-            }
-            Self::ThirdPartyInviteProvisionRequestProofV1 => {
-                Self::THIRD_PARTY_INVITE_PROVISION_REQUEST_PROOF_V1
-            }
         }
     }
 
@@ -276,6 +272,8 @@ impl ProofContextId {
             Self::PUSH_REGISTRATION_INSTALLATION_RECEIPT_PROOF_V1 => {
                 Some(Self::PushRegistrationInstallationReceiptProofV1)
             }
+            Self::REALM_INVITE_LINK_ACCEPT_PROOF_V1 => Some(Self::RealmInviteLinkAcceptProofV1),
+            Self::REALM_INVITE_LINK_PREVIEW_PROOF_V1 => Some(Self::RealmInviteLinkPreviewProofV1),
             Self::REGISTRATION_DID_EVIDENCE_CONTROL_PROOF_V1 => {
                 Some(Self::RegistrationDidEvidenceControlProofV1)
             }
@@ -286,12 +284,6 @@ impl ProofContextId {
                 Some(Self::SessionGrantAcceptedDevicePossessionProofV1)
             }
             Self::SIGNAL_PROOF_V1 => Some(Self::SignalProofV1),
-            Self::THIRD_PARTY_INVITE_ACCEPTANCE_ATTESTATION_PROOF_V1 => {
-                Some(Self::ThirdPartyInviteAcceptanceAttestationProofV1)
-            }
-            Self::THIRD_PARTY_INVITE_PROVISION_REQUEST_PROOF_V1 => {
-                Some(Self::ThirdPartyInviteProvisionRequestProofV1)
-            }
             _ => None,
         }
     }
@@ -1289,6 +1281,34 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         schema_ref: "schemas/push-operations.schema.json#/$defs/push_registration_installation_receipt",
     },
     ProofContextDescriptor {
+        id: ProofContextId::RealmInviteLinkAcceptProofV1,
+        context: "ak.realm_invite_link.accept_proof.v1",
+        object_family: "realm_invite_link_accept",
+        consumer_operation: None,
+        binding_fields: &[
+            "realm_id",
+            "realm_invite_link_id",
+            "subject_account_id",
+            "request_id",
+            "audience",
+        ],
+        schema_ref: "schemas/realm-invite-link.schema.json#/$defs/proof",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::RealmInviteLinkPreviewProofV1,
+        context: "ak.realm_invite_link.preview_proof.v1",
+        object_family: "realm_invite_link_preview",
+        consumer_operation: None,
+        binding_fields: &[
+            "realm_id",
+            "realm_invite_link_id",
+            "subject_account_id",
+            "request_id",
+            "audience",
+        ],
+        schema_ref: "schemas/realm-invite-link.schema.json#/$defs/proof",
+    },
+    ProofContextDescriptor {
         id: ProofContextId::RegistrationDidEvidenceControlProofV1,
         context: "ak.registration_did_evidence_control_proof.v1",
         object_family: "registration_did_evidence_control",
@@ -1359,38 +1379,6 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "audience?",
         ],
         schema_ref: "schemas/signal-envelope.schema.json",
-    },
-    ProofContextDescriptor {
-        id: ProofContextId::ThirdPartyInviteAcceptanceAttestationProofV1,
-        context: "ak.third_party_invite_acceptance_attestation_proof.v1",
-        object_family: "third_party_invite_acceptance_attestation",
-        consumer_operation: None,
-        binding_fields: &[
-            "payload_digest",
-            "issuer",
-            "operation_id",
-            "verification_method",
-            "created_at",
-            "domain",
-            "audience",
-        ],
-        schema_ref: "schemas/invite.schema.json#/$defs/third_party_invite_acceptance_attestation",
-    },
-    ProofContextDescriptor {
-        id: ProofContextId::ThirdPartyInviteProvisionRequestProofV1,
-        context: "ak.third_party_invite_provision_request_proof.v1",
-        object_family: "third_party_invite_provision_request",
-        consumer_operation: None,
-        binding_fields: &[
-            "payload_digest",
-            "issuer",
-            "operation_id",
-            "verification_method",
-            "created_at",
-            "domain",
-            "audience",
-        ],
-        schema_ref: "schemas/invite.schema.json#/$defs/third_party_invite_provision_request_body",
     },
 ];
 

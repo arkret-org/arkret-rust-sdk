@@ -270,7 +270,7 @@ pub enum AppletEndpointMethod {
 }
 
 /// Auth requirement of a single supported Applet API endpoint
-/// (`applet-package.schema.json#/$defs/endpoint_entry.auth`).
+/// (`applet-package.schema.json#/$defs/endpoint_entry.authentication_kind`).
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -1248,7 +1248,10 @@ pub struct AppletPackage {
     pub widget: Option<Widget>,
     /// Canonical package hash (excludes `package_digest` + `proof`).
     /// `None` until [`stamp_package_digest`](Self::stamp_package_digest).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub package_digest: Option<Hash>,
     /// Canonical security epoch hash. New packages start with the all-zero
     /// sentinel and MUST call
@@ -1261,7 +1264,10 @@ pub struct AppletPackage {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     /// Controller DID detached proof. `None` until [`sign`](Self::sign).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub proof: Option<DetachedProof>,
 }
 

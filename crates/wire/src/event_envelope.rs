@@ -41,7 +41,7 @@ use crate::events::kinds::EventKind;
 use crate::primitives::{
     ActorId, Audience, ProducerEventProof, ProofBindingRequirements, SignatureBindingPayload,
 };
-use crate::{AuthorizationRef, Base64UrlString, DidUrl, MlsGroupId, SchemaId, canonical};
+use crate::{AuthorizationRef, MlsGroupId, SchemaId, canonical};
 
 /// Full canonical Event Envelope bound, measured over the accepted envelope including every
 /// producer proof.
@@ -247,19 +247,6 @@ pub struct DidBindingEvidenceReceipt {
     pub method_proofs: Vec<DidBindingMethodProof>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct RegistrationControlSignature {
-    pub verification_method: DidUrl,
-    #[serde(with = "crate::serde_helpers::canonical_timestamp")]
-    pub created_at: DateTime<Utc>,
-    pub jws: Base64UrlString,
-}
-
-const REGISTRATION_DID_EVIDENCE_CONTROL_PROOF_DOMAIN: &str =
-    "ak.registration_did_evidence_control_proof.v1\n";
-
 /// Client-authored registration evidence before the Account Authority assigns
 /// the registry acceptance time.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -273,7 +260,7 @@ pub struct RegistrationDidEvidenceDraft {
     pub version_id: String,
     pub control_key_digest: Hash,
     pub method_evidence: DidBindingEvidenceReceipt,
-    pub control_proof: RegistrationControlSignature,
+    pub control_proof: crate::ProtocolSignature,
 }
 
 impl RegistrationDidEvidenceDraft {
@@ -308,11 +295,7 @@ impl RegistrationDidEvidenceDraft {
             "verification_method": &self.control_proof.verification_method,
             "created_at": canonical::format_timestamp_canonical(self.control_proof.created_at),
         });
-        let mut bytes = REGISTRATION_DID_EVIDENCE_CONTROL_PROOF_DOMAIN
-            .as_bytes()
-            .to_vec();
-        bytes.extend(canonical::canonical_json_bytes(&value)?);
-        Ok(bytes)
+        Ok(canonical::canonical_json_bytes(&value)?)
     }
 
     /// Attach the registry's own original acceptance time. That instant and
@@ -352,7 +335,7 @@ pub struct RegistrationDidEvidence {
     pub version_id: String,
     pub control_key_digest: Hash,
     pub method_evidence: DidBindingEvidenceReceipt,
-    pub control_proof: RegistrationControlSignature,
+    pub control_proof: crate::ProtocolSignature,
 }
 
 impl RegistrationDidEvidence {
@@ -398,7 +381,7 @@ fn validate_registration_did_evidence_fields(
     method_history_head: &str,
     version_id: &str,
     method_evidence: &DidBindingEvidenceReceipt,
-    control_proof: &RegistrationControlSignature,
+    control_proof: &crate::ProtocolSignature,
 ) -> Result<()> {
     let controller = control_proof
         .verification_method
@@ -415,6 +398,7 @@ fn validate_registration_did_evidence_fields(
         || version_id.trim().is_empty()
         || project_did_to_core_id(did)? != *principal_id
         || controller != did.as_str()
+        || !crate::is_compact_detached_jws(&control_proof.jws)
         || method_evidence.method != did.method()
         || method_evidence.method_proofs.iter().any(|proof| {
             proof.history_head.is_empty()
@@ -1547,7 +1531,7 @@ mod event_wire_surface_tests {
     use serde_json::json;
 
     use super::*;
-    use crate::{AccountId, ProducerEventProof};
+    use crate::{AccountId, DidUrl, ProducerEventProof};
 
     fn realm() -> RealmId {
         RealmId::from_event_id(&EventId::from_digest(

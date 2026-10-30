@@ -297,8 +297,6 @@ def schema_forbidden_property_names(
 
 def load_registry(path: Path) -> dict[str, Any]:
     document = json.loads(path.read_text(encoding="utf-8"))
-    if document.get("version") != 1:
-        raise ValueError("schema struct registry version must be 1")
     return document
 
 
@@ -538,7 +536,7 @@ def bootstrap(registry_path: Path, spec_root: Path) -> None:
                     ),
                 }
             )
-    document = {"version": 1, "mappings": mappings, "exemptions": exemptions}
+    document = {"mappings": mappings, "exemptions": exemptions}
     registry_path.write_text(
         json.dumps(document, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",

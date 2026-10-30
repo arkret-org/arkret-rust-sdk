@@ -73,7 +73,7 @@ def main() -> int:
     )
     write_text(args.out / "bindings.json",
         json.dumps(
-            {"version": 1, "bindings": newtypes, "conflicts": conflicts}, indent=2
+            {"bindings": newtypes, "conflicts": conflicts}, indent=2
         ),
         encoding="utf-8",
         newline="\n",

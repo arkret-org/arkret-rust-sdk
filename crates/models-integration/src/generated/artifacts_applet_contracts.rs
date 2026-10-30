@@ -14,10 +14,10 @@
 // sha256=1583623ed73fa124b97721b286c9174962d3a05c4ee3853bc1bc79bee1b33995
 //
 // Input: schemas/applet-install-plan.schema.json
-// sha256=845b801850c13a0a9041b101915c40ec18b5e6f77a138878abb80768943e0adb
+// sha256=65ffe4d92207054a7570663bc04e97b62f7861fffbca1e66f9e52af0626ca995
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=107c58e1dbd8a2701005c9cd1dc573b3c5e861cc4f3c68403bae0ff3d579bd03
+// sha256=dd0891cd81e0fc2caaf499fd178468a13da86ea101d8780b59ca3e5c661eeecd
 
 /// Counterpart: `applet-edge-operations.schema.json#/$defs/field_definition`.
 /// Counterpart for

@@ -1,5 +1,4 @@
 {
-  "version": 1,
   "description": "Retired owned symbols; a new protocol role requires its own explicit name rather than restoring a compatibility alias.",
   "types": {
     "GrantSnapshot": "AgentGrantView",
@@ -98,6 +97,11 @@
     "WebvhWitnessRow": "DidBindingWitness",
     "AccountDataCasConflict": "AccountDataRevisionProblemExtensions",
     "AccountDataCasConflictDetails": "AccountDataRevisionProblemExtensions",
-    "InviteLiveTargetOccupiedProblem": "InviteLiveTargetOccupiedProblemExtensions"
+    "InviteLiveTargetOccupiedProblem": "InviteLiveTargetOccupiedProblemExtensions",
+    "RegistrationControlSignature": "ProtocolSignature",
+    "KeyBackupDeleteProof": "HighRiskAuthorityProof",
+    "KeyBackupDeleteQuorumSignature": "HighRiskDeviceQuorumSignature",
+    "KeysBackupsDeleteResponseBody": "unit: registered empty_response has no entity body",
+    "SignalRelayResponseBody": "unit: registered HTTP 204 empty_response has no entity body"
   }
 }
