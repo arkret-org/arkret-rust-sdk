@@ -1156,7 +1156,7 @@ mod tests {
             let mut buf = [0u8; 4096];
             let n = socket.read(&mut buf).await.unwrap();
             let raw = buf[..n].to_vec();
-            let body = r#"{"ok":true,"revoked":true}"#;
+            let body = r#"{"revoked":true}"#;
             let response = format!(
                 "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
                 body.len(),

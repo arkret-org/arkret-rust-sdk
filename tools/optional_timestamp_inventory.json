@@ -1,5 +1,4 @@
 {
-  "version": 2,
   "total": 171,
   "counts": {
     "internal": 48,
@@ -844,18 +843,6 @@
       "has_default": true,
       "has_skip": true,
       "schema_pointer": "realm-organization-operations.schema.json#/$defs/realm_organization_relationship_view",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
-    },
-    {
-      "file": "crates/models-collaboration/src/governance/third_party_invite.rs",
-      "line": 807,
-      "struct_name": "ThirdPartyInviteProvisioningStatusResponseBody",
-      "field_name": "activated_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": "invite.schema.json#/$defs/third_party_invite_provisioning_status_response_body",
       "schema_source": "def-index",
       "classification": "optional_has_default"
     },

@@ -143,20 +143,35 @@ fn intake_definition(name: &str) -> Value {
     schema["$defs"][name].clone()
 }
 
-fn assert_carrier_matches(name: &str, carried: &Value) {
+fn assert_carrier_matches(name: &str, carriers: &[Value]) {
     let declared = intake_definition(name)["properties"]
         .as_object()
         .expect("schema properties")
         .keys()
         .cloned()
         .collect::<BTreeSet<_>>();
-    let carried = carried
-        .as_object()
-        .expect("carrier serializes to an object")
-        .keys()
-        .cloned()
-        .collect::<BTreeSet<_>>();
-    assert_eq!(declared, carried, "$defs/{name} and the SDK carrier differ");
+    let (mut registry, _) = registry();
+    registry.register(
+        "test:realm-join-carrier",
+        json!({"$ref": format!("https://arkret.org/v1/schemas/realm-join-intake.schema.json#/$defs/{name}")}),
+    );
+    let mut carried = BTreeSet::new();
+    for carrier in carriers {
+        registry
+            .validate_value("test:realm-join-carrier", carrier)
+            .unwrap_or_else(|error| panic!("$defs/{name} rejected carrier: {error}"));
+        carried.extend(
+            carrier
+                .as_object()
+                .expect("carrier serializes to an object")
+                .keys()
+                .cloned(),
+        );
+    }
+    assert_eq!(
+        declared, carried,
+        "$defs/{name} and the SDK carriers differ"
+    );
 }
 
 fn full_target() -> Value {
@@ -167,38 +182,67 @@ fn full_target() -> Value {
     })
 }
 
+fn link_target() -> Value {
+    let mut target = full_target();
+    target.as_object_mut().unwrap().remove("invite_id");
+    target["realm_invite_link_id"] =
+        json!("ak:realm_invite_link:AUl4PuPYccbXn1G6ELp6eIIBxEMjcgAj8cXBfX9KLb1G");
+    target
+}
+
+fn link_proof_shape() -> Value {
+    json!({
+        "signature_algorithm": "Ed25519",
+        "transcript_digest": format!("sha256:{}", "00".repeat(32)),
+        "signature": "A".repeat(86)
+    })
+}
+
 #[test]
 fn preview_and_prepare_carriers_are_the_single_published_shape() {
-    let target: RealmJoinTarget = serde_json::from_value(full_target()).unwrap();
-    target.validate().unwrap();
-    assert_carrier_matches("join_target", &serde_json::to_value(&target).unwrap());
+    let mut targets = Vec::new();
+    let mut self_previews = Vec::new();
+    let mut peer_previews = Vec::new();
+    for target_value in [full_target(), link_target()] {
+        let target: RealmJoinTarget = serde_json::from_value(target_value.clone()).unwrap();
+        target.validate().unwrap();
+        targets.push(serde_json::to_value(&target).unwrap());
 
-    let self_preview: SelfRealmJoinPreviewRequestBody = serde_json::from_value(json!({
-        "request_id": "ak:request:01999999-0000-7000-8000-000000000002",
-        "target": full_target()
-    }))
-    .unwrap();
-    self_preview.validate().unwrap();
-    assert_carrier_matches(
-        "self_preview_request_body",
-        &serde_json::to_value(&self_preview).unwrap(),
-    );
+        let mut self_preview = json!({
+            "request_id": "ak:request:01999999-0000-7000-8000-000000000002",
+            "target": target_value
+        });
+        let mut peer_preview = json!({
+            "request_id": "ak:request:01999999-0000-7000-8000-000000000003",
+            "realm_id": target.realm_id,
+            "requester_account_id": {
+                "principal_id": "ak:did_core:web:invitee.example",
+                "station_id": "ak:did_core:web:origin.example"
+            }
+        });
+        for name in ["invite_id", "realm_invite_link_id"] {
+            if let Some(value) = target_value.get(name) {
+                peer_preview[name] = value.clone();
+            }
+        }
+        if target.realm_invite_link_id.is_some() {
+            self_preview["link_proof"] = link_proof_shape();
+            peer_preview["link_proof"] = link_proof_shape();
+        }
+        let self_preview: SelfRealmJoinPreviewRequestBody =
+            serde_json::from_value(self_preview).unwrap();
+        self_preview.validate().unwrap();
+        self_previews.push(serde_json::to_value(self_preview).unwrap());
 
-    let peer_preview: PeerRealmJoinPreviewRequestBody = serde_json::from_value(json!({
-        "request_id": "ak:request:01999999-0000-7000-8000-000000000003",
-        "realm_id": "ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5",
-        "requester_account_id": {
-            "principal_id": "ak:did_core:web:invitee.example",
-            "station_id": "ak:did_core:web:origin.example"
-        },
-        "invite_id": "ak:invite:AUl4PuPYccbXn1G6ELp6eIIBxEMjcgAj8cXBfX9KLb1G"
-    }))
-    .unwrap();
-    peer_preview.validate().unwrap();
-    assert_carrier_matches(
-        "peer_preview_request_body",
-        &serde_json::to_value(&peer_preview).unwrap(),
-    );
+        let peer_preview: PeerRealmJoinPreviewRequestBody =
+            serde_json::from_value(peer_preview).unwrap();
+        peer_preview.validate().unwrap();
+        peer_previews.push(serde_json::to_value(peer_preview).unwrap());
+    }
+    // Invitation identities are exclusive, so legal variants jointly cover the closed shape.
+    assert_carrier_matches("join_target", &targets);
+    assert_carrier_matches("self_preview_request_body", &self_previews);
+    assert_carrier_matches("peer_preview_request_body", &peer_previews);
 }
 
 #[test]

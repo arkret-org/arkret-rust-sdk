@@ -4,6 +4,7 @@ members = [
     "crates/bootstrap",
     "crates/canonical",
     "crates/crypto",
+    "crates/deployment-contracts",
     "crates/egress-policy",
     "crates/egress-reqwest",
     "crates/event-draft",
@@ -37,6 +38,7 @@ default-members = [
     "crates/bootstrap",
     "crates/canonical",
     "crates/crypto",
+    "crates/deployment-contracts",
     "crates/egress-policy",
     "crates/egress-reqwest",
     "crates/event-draft",
@@ -67,7 +69,12 @@ resolver = "3"
 
 [workspace.package]
 version = "0.3.0"
+edition = "2024"
 rust-version = "1.98"
+authors = ["Chris Young <chris@veco.id>"]
+license = "Apache-2.0"
+repository = "https://github.com/arkret-org/arkret-rust-sdk"
+homepage = "https://github.com/arkret-org/arkret-rust-sdk"
 
 [workspace.dependencies]
 # AES-128-GCM: the AEAD of the only ACTIVE MLS ciphersuite row
@@ -79,6 +86,7 @@ async-trait = "0.1.92"
 arkret-auth = { version = "0.3.0", path = "crates/auth", default-features = false }
 arkret-bootstrap = { version = "0.3.0", path = "crates/bootstrap", default-features = false }
 arkret-canonical = { version = "0.3.0", path = "crates/canonical", default-features = false }
+arkret-deployment-contracts = { version = "0.3.0", path = "crates/deployment-contracts", default-features = false }
 arkret-crypto = { version = "0.3.0", path = "crates/crypto", default-features = false }
 arkret-egress-policy = { version = "0.3.0", path = "crates/egress-policy", default-features = false }
 arkret-egress-reqwest = { version = "0.3.0", path = "crates/egress-reqwest", default-features = false }
@@ -134,10 +142,10 @@ hpke = { version = "0.14.1", default-features = false, features = ["alloc", "cha
 idna = { version = "1.1.0", default-features = true }
 jsonschema = { version = "0.59.0", default-features = false }
 # Use the latest stable, mutually compatible OpenMLS releases from crates.io.
-openmls = { version = "0.9.1", git = "https://github.com/arkret-org/openmls", rev = "c8baa074b65053fd21fc2711ab15870a1d092b94", default-features = false }
-openmls_basic_credential = { version = "0.6.0", git = "https://github.com/arkret-org/openmls", rev = "c8baa074b65053fd21fc2711ab15870a1d092b94", default-features = false }
-openmls_rust_crypto = { version = "0.6.0", git = "https://github.com/arkret-org/openmls", rev = "c8baa074b65053fd21fc2711ab15870a1d092b94", default-features = false }
-openmls_traits = { version = "0.6.0", git = "https://github.com/arkret-org/openmls", rev = "c8baa074b65053fd21fc2711ab15870a1d092b94", default-features = false }
+openmls = { version = "0.9.1", git = "https://github.com/arkret-org/openmls", rev = "67e25df7f507ac62b27b75cf76981b99a83742a2", default-features = false }
+openmls_basic_credential = { version = "0.6.0", git = "https://github.com/arkret-org/openmls", rev = "67e25df7f507ac62b27b75cf76981b99a83742a2", default-features = false }
+openmls_rust_crypto = { version = "0.6.0", git = "https://github.com/arkret-org/openmls", rev = "67e25df7f507ac62b27b75cf76981b99a83742a2", default-features = false }
+openmls_traits = { version = "0.6.0", git = "https://github.com/arkret-org/openmls", rev = "67e25df7f507ac62b27b75cf76981b99a83742a2", default-features = false }
 p256 = { version = "0.14.0", default-features = false, features = ["ecdsa"] }
 precis-profiles = { version = "0.2.0", default-features = false }
 proptest = { version = "1.12.0", default-features = false }

@@ -13,8 +13,6 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::governance::third_party_invite::ThirdPartyInvite;
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Policy {
     pub schema: String,
@@ -443,19 +441,17 @@ impl PolicyRule {
 /// delivery material never reaches this object either — only the
 /// `introduction_evidence_digest` commitment.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+/// Wire boundary: `invite.schema.json`.
+#[serde(deny_unknown_fields)]
 pub struct Invite {
     pub id: InviteId,
     pub schema: String,
     pub realm_id: RealmId,
     pub inviter_account_id: AccountId,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub invitee_account_id: Option<AccountId>,
+    pub invitee_account_id: AccountId,
     /// Digest of the private invite delivery `introduction_evidence`. Raw
     /// locator tokens MUST NOT appear in durable Realm events.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub introduction_evidence_digest: Option<Hash>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub third_party_invite: Option<ThirdPartyInvite>,
+    pub introduction_evidence_digest: Hash,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub capability_grant_refs: Vec<GrantId>,
     pub state: InviteState,

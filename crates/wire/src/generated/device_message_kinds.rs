@@ -1,6 +1,6 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: schemas/device-message.schema.json; version=unversioned;
+//! Input: schemas/device-message.schema.json;
 //! sha256=08b2a6c7219dc79f3bdcc3b6d0603d7147166845d64e6358e6838583669260b8
 //! Entries: actor_private_update_kinds=2
 

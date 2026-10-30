@@ -35,14 +35,17 @@ The 2026-10-23 tracked workspace lockfile update resolves ctutils 0.4.4
 webpki-root-certs 1.0.10 (RUSTSEC-2026-0383) within existing dependency
 constraints. No workspace package versions or advisory exemptions change.
 
-The same audit also reports RUSTSEC-2026-0330 and RUSTSEC-2026-0331 in
-libcrux-kem 0.0.9. The lockfile path is OpenMLS RustCrypto 0.6.0 -> hpke-rs
-0.7.0 -> optional hpke-rs-libcrux 0.7.0 -> libcrux-kem, pinned exactly to
-0.0.9. The SDK's all-feature, all-target dependency tree does not activate
-that optional backend, but the lockfile audit still fails. Its patched 0.0.10
-cannot be selected by a lockfile-only update under this exact constraint.
-Keep these findings visible until the upstream dependency path is replaced;
-do not remove inactive lockfile packages by hand or add an advisory ignore.
+The OpenMLS fork now uses the `arkret/rustcrypto-constant-time` branch of
+https://github.com/arkret-org/openmls, pinned to
+`67e25df7f507ac62b27b75cf76981b99a83742a2`. Its hpke-rs 0.8 backend removes
+the old libcrux-kem 0.0.9 dependency, resolving RUSTSEC-2026-0330 and
+RUSTSEC-2026-0331. The credential and provider crates use p256/p384 0.14,
+so the locked graph no longer retains crypto-bigint 0.5.5 affected by
+[RUSTSEC-2026-0387](https://rustsec.org/advisories/RUSTSEC-2026-0387.html).
+The locked graph selects crypto-bigint 0.7.10 and tokio 1.54.1, also resolving
+RUSTSEC-2026-0386. No advisory exemptions or workspace package versions change.
+The fork retains the upstream licenses, documents its maintenance, and tests
+P-256/P-384/Ed25519 signature generation, verification and tampering rejection.
 
 RUSTSEC-2026-0370, RUSTSEC-2026-0371 and RUSTSEC-2026-0372 are upstream
 maintenance notices: zvariant, zbus_names and zvariant_derive have been

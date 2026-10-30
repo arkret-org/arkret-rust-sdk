@@ -22,8 +22,6 @@ def check_inputs(artifacts_dir: Path, generation_manifest: Path) -> None:
     artifacts_dir = artifacts_dir.resolve(strict=True)
     manifest = json.loads(generation_manifest.read_text(encoding="utf-8"))
     registry_manifest = read_artifact_json(artifacts_dir / "registry/registry-manifest.json")
-    if registry_manifest.get("source_of_truth") is not True:
-        raise ValueError("registry manifest must be canonical")
 
     registry_roles = {}
     for row in registry_manifest["registries"]:
@@ -48,12 +46,10 @@ def check_inputs(artifacts_dir: Path, generation_manifest: Path) -> None:
                     row = registry_roles.get(relative)
                     if row is None:
                         raise ValueError(f"unregistered registry input: {relative}")
-                    if row.get("source_role") != "canonical" or row.get("source_of_truth") is not True:
+                    if row.get("source_role") != "canonical":
                         raise ValueError(f"derived registry cannot be a generation input: {relative}")
                 if path.suffix == ".json":
-                    artifact = read_artifact_json(path)
-                    if artifact.get("source_of_truth") is False:
-                        raise ValueError(f"derived artifact cannot be a generation input: {relative}")
+                    read_artifact_json(path)
 
 
 def main() -> None:

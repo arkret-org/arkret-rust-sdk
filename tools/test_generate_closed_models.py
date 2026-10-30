@@ -55,7 +55,7 @@ class ClosedModelsTests(unittest.TestCase):
             "required": ["second"],
             "properties": {"second": {"type": "boolean"}, "first": {"type": "integer", "minimum": 1, "maximum": 100, "default": 20}},
         }
-        self.bindings = {"version": 1, "references": {}, "families": [{"output": "out.rs", "types": [{"name": "Example", "schema": "example.schema.json"}]}]}
+        self.bindings = {"references": {}, "families": [{"output": "out.rs", "types": [{"name": "Example", "schema": "example.schema.json"}]}]}
 
     def generate(self):
         (self.root / "example.schema.json").write_text(json.dumps(self.schema), encoding="utf-8")
@@ -218,10 +218,9 @@ class ClosedModelsTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.generate()
 
-    def test_rejects_derived_inputs_and_path_escape(self):
-        self.schema["source_of_truth"] = False
-        with self.assertRaises(ValueError):
-            self.generate()
+    def test_rejects_path_escape(self):
+        with self.assertRaisesRegex(ValueError, "escapes root"):
+            module.Generator(self.root, self.bindings).node("../outside.schema.json")
 
     def test_inline_state_union_requires_a_closed_distinct_required_discriminator(self):
         self.schema = {"oneOf": [

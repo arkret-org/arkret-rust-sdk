@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-24.3;
-//! sha256=486b7d389283a4a7eda54f78979c9d047424a30d0b30b22781e5c8191f2bf963
-//! Entries: active_events=140
+//! Input: registry/contract-registry.json;
+//! sha256=4603ea9c66ada9ca9e09db7ccce8dfd3b0ba0675ac2f67bdeaba66402115762c
+//! Entries: active_events=141
 
 use arkret_wire::event_kind_str;
 
@@ -235,11 +235,6 @@ pub const EVENT_RUNTIME_CONTRACTS: &[EventRuntimeContractDescriptor] = &[
         derived_id_kinds: &[],
     },
     EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::INVITE_CLAIM,
-        id_source: None,
-        derived_id_kinds: &[],
-    },
-    EventRuntimeContractDescriptor {
         event_kind: event_kind_str::INVITE_CREATE,
         id_source: Some(EventIdSource::EventDerived),
         derived_id_kinds: &["invite"],
@@ -248,11 +243,6 @@ pub const EVENT_RUNTIME_CONTRACTS: &[EventRuntimeContractDescriptor] = &[
         event_kind: event_kind_str::INVITE_REVOKE,
         id_source: None,
         derived_id_kinds: &[],
-    },
-    EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::INVITE_THIRD_PARTY,
-        id_source: Some(EventIdSource::EventDerived),
-        derived_id_kinds: &["invite"],
     },
     EventRuntimeContractDescriptor {
         event_kind: event_kind_str::KEY_BACKUP_ACTIVE_SERIES,
@@ -561,6 +551,21 @@ pub const EVENT_RUNTIME_CONTRACTS: &[EventRuntimeContractDescriptor] = &[
     },
     EventRuntimeContractDescriptor {
         event_kind: event_kind_str::REALM_UNFREEZE,
+        id_source: None,
+        derived_id_kinds: &[],
+    },
+    EventRuntimeContractDescriptor {
+        event_kind: event_kind_str::REALM_INVITE_LINK_ACCEPT,
+        id_source: None,
+        derived_id_kinds: &[],
+    },
+    EventRuntimeContractDescriptor {
+        event_kind: event_kind_str::REALM_INVITE_LINK_CREATE,
+        id_source: Some(EventIdSource::EventDerived),
+        derived_id_kinds: &["realm_invite_link"],
+    },
+    EventRuntimeContractDescriptor {
+        event_kind: event_kind_str::REALM_INVITE_LINK_REVOKE,
         id_source: None,
         derived_id_kinds: &[],
     },

@@ -17,6 +17,158 @@ const LIST_A: &str = "ak:space:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7";
 const LIST_B: &str = "ak:space:AZ6GqZWWvnQ2KFwbBD-MenomzWNz-31MUAuKzBXIP0zv";
 
 #[test]
+fn action_requirements_keep_admission_and_description_exercise_aligned() {
+    let action = "ak.strand.update";
+    let resources = [realm()];
+    assert!(!capability_grant_action_requirements_declared(
+        action,
+        &resources,
+        &[]
+    ));
+    let mut fields = constraint(
+        GrantConstraintKind::FieldAccess,
+        GrantConstraintEffect::Allow,
+    );
+    assert!(!capability_grant_action_requirements_declared(
+        action,
+        &resources,
+        &[fields.clone()]
+    ));
+    fields.allowed_write_fields = vec!["content".into(), "encrypted_content".into()];
+    assert!(capability_grant_action_requirements_declared(
+        action,
+        &resources,
+        &[fields.clone()]
+    ));
+    let grants = [grant(211, &[action], realm_wide(), vec![fields.clone()])];
+    let target = strand(STRAND_A);
+    let mut facts = OperationFacts {
+        write_fields: Some(vec!["encrypted_content".into()]),
+        ..Default::default()
+    };
+    assert!(allowed(&evaluate(
+        &grants,
+        action,
+        &target,
+        &facts,
+        at("2026-10-01T00:00:00.000Z")
+    )));
+    facts.write_fields = Some(vec!["tracks.synthesis.encrypted_content".into()]);
+    assert!(!allowed(&evaluate(
+        &grants,
+        action,
+        &target,
+        &facts,
+        at("2026-10-01T00:00:00.000Z")
+    )));
+    fields.applies_to_actions = vec!["ak.morph.update".into()];
+    assert!(!capability_grant_action_requirements_declared(
+        action,
+        &resources,
+        &[fields.clone()]
+    ));
+    fields.applies_to_actions.clear();
+    fields.constraint_kind = GrantConstraintKind::Temporal;
+    assert!(!capability_grant_action_requirements_declared(
+        action,
+        &resources,
+        &[fields.clone()]
+    ));
+    fields.constraint_kind = GrantConstraintKind::FieldAccess;
+    fields.effect = GrantConstraintEffect::Deny;
+    assert!(!capability_grant_action_requirements_declared(
+        action,
+        &resources,
+        &[fields]
+    ));
+}
+
+#[test]
+fn action_requirements_preserve_closed_selector_and_unbounded_window_exceptions() {
+    assert!(capability_grant_action_requirements_declared(
+        "ak.circle.member.manage",
+        &[circle(CIRCLE_A)],
+        &[]
+    ));
+    assert!(!capability_grant_action_requirements_declared(
+        "ak.circle.member.manage",
+        &[circle(CIRCLE_A), realm()],
+        &[]
+    ));
+    assert!(!capability_grant_action_requirements_declared(
+        "ak.circle.member.manage",
+        &[],
+        &[]
+    ));
+    assert!(capability_grant_action_requirements_declared(
+        "ak.agent.sidecar.write",
+        &[strand(STRAND_A)],
+        &[]
+    ));
+    assert!(!capability_grant_action_requirements_declared(
+        "ak.agent.sidecar.write",
+        &[realm()],
+        &[]
+    ));
+    assert!(capability_grant_action_requirements_declared(
+        "ak.message.revise.own",
+        &[realm()],
+        &[]
+    ));
+    assert!(!capability_grant_action_requirements_declared(
+        "ak.unregistered.action",
+        &[realm()],
+        &[]
+    ));
+}
+
+#[test]
+fn action_requirements_need_a_global_expiry_not_a_local_or_refusal_window() {
+    let action = "ak.agent.sidecar.publish";
+    let mut expiry = window(None, Some("2026-10-06T00:00:00.000Z"));
+    let mut approval = constraint(
+        GrantConstraintKind::ClaimBased,
+        GrantConstraintEffect::Allow,
+    );
+    approval.constraint_subkind = Some(GrantConstraintSubkind::Approval);
+    approval.approval_required = Some(true);
+    assert!(capability_grant_action_requirements_declared(
+        action,
+        &[realm()],
+        &[expiry.clone(), approval.clone()]
+    ));
+    assert_eq!(
+        capability_constraints_expires_at(&[expiry.clone()]),
+        expiry.expires_at
+    );
+    expiry.applies_to_actions = vec![action.into()];
+    assert!(!capability_grant_action_requirements_declared(
+        action,
+        &[realm()],
+        &[expiry.clone(), approval.clone()]
+    ));
+    assert!(capability_constraints_expires_at(&[expiry.clone()]).is_none());
+    expiry.applies_to_actions.clear();
+    expiry.effect = GrantConstraintEffect::Deny;
+    assert!(!capability_grant_action_requirements_declared(
+        action,
+        &[realm()],
+        &[expiry.clone(), approval.clone()]
+    ));
+    expiry.effect = GrantConstraintEffect::Allow;
+    expiry.recurrence = Some(GrantConstraintRecurrence {
+        frequency: Some(GrantConstraintRecurrenceFrequency::Daily),
+        timezone: Some("UTC".into()),
+        ..Default::default()
+    });
+    assert!(!capability_grant_action_requirements_declared(
+        action,
+        &[realm()],
+        &[expiry, approval]
+    ));
+}
+
+#[test]
 fn applet_authority_requires_exact_service_and_registration_epoch() {
     let applet = arkret_wire::AppletId::new_v7_at(1_790_876_000_000);
     let executor = ActorId::service("ak:did_core:web:bridge.example".parse().unwrap());

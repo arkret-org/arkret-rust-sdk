@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-10-25.1;
-//! sha256=c9a7e8316205f0ae51c8f39f038f65fc0b73e714e21015f81ed260fca41db8e7
-//! Entries: reason_codes=306, reserved_not_emitted=67
+//! Input: registry/error-code-registry.json;
+//! sha256=b806a829f23fae90f1ce24f2691ed3f7c797293bb779ffc3d4f3e2298b8defc1
+//! Entries: reason_codes=295, reserved_not_emitted=66
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -99,7 +99,6 @@ pub enum ReasonCode {
     ErasureRequestAlreadyPending,
     EventIdDigestMismatch,
     EvidenceRecipientMismatch,
-    ExpiredInviteToken,
     ExternalRateLimited,
     FocusMismatch,
     FocusUnavailableForClient,
@@ -127,12 +126,9 @@ pub enum ReasonCode {
     InvalidCursor,
     InvalidEncoding,
     InvalidMembershipTransition,
-    InvalidatedByRateLimit,
     InviteAlreadyTerminal,
     InviteDirectedInviteeMismatch,
-    InviteKindRequiresRevoke,
     InviteLiveTargetOccupied,
-    InviteOobEntropyTooLow,
     JoinPolicyDuplicateGateId,
     JoinRulePolicyMismatch,
     KeyBackupWireSchemaRequired,
@@ -249,7 +245,6 @@ pub enum ReasonCode {
     SegmentSequenceInvalid,
     SegmentStreamTruncated,
     SelectorActorWildcardForbidden,
-    SendFailed,
     SeriesChainBroken,
     SeriesPredecessorNotFound,
     SeriesSeqNotMonotonic,
@@ -280,12 +275,6 @@ pub enum ReasonCode {
     Superseded,
     SupersededByRepairing,
     TestSigningMaterialDenied,
-    ThirdPartyInviteAcceptanceMissing,
-    ThirdPartyInviteAcceptanceStale,
-    ThirdPartyInviteMaterialMismatch,
-    ThirdPartyInviteProvisioningAlreadyBound,
-    ThirdPartyInviteProvisioningExpired,
-    ThirdPartyInviteTokenInQuery,
     TokenIssuerUnauthorised,
     TranscriptionArtifactPipelineBypassed,
     TranscriptionDenied,
@@ -442,7 +431,6 @@ impl ReasonCode {
     pub const ERASURE_REQUEST_ALREADY_PENDING: &'static str = "erasure_request_already_pending";
     pub const EVENT_ID_DIGEST_MISMATCH: &'static str = "event_id_digest_mismatch";
     pub const EVIDENCE_RECIPIENT_MISMATCH: &'static str = "evidence_recipient_mismatch";
-    pub const EXPIRED_INVITE_TOKEN: &'static str = "expired_invite_token";
     pub const EXTERNAL_RATE_LIMITED: &'static str = "external_rate_limited";
     pub const FOCUS_MISMATCH: &'static str = "focus_mismatch";
     pub const FOCUS_UNAVAILABLE_FOR_CLIENT: &'static str = "focus_unavailable_for_client";
@@ -474,12 +462,9 @@ impl ReasonCode {
     pub const INVALID_CURSOR: &'static str = "invalid_cursor";
     pub const INVALID_ENCODING: &'static str = "invalid_encoding";
     pub const INVALID_MEMBERSHIP_TRANSITION: &'static str = "invalid_membership_transition";
-    pub const INVALIDATED_BY_RATE_LIMIT: &'static str = "invalidated_by_rate_limit";
     pub const INVITE_ALREADY_TERMINAL: &'static str = "invite_already_terminal";
     pub const INVITE_DIRECTED_INVITEE_MISMATCH: &'static str = "invite_directed_invitee_mismatch";
-    pub const INVITE_KIND_REQUIRES_REVOKE: &'static str = "invite_kind_requires_revoke";
     pub const INVITE_LIVE_TARGET_OCCUPIED: &'static str = "invite_live_target_occupied";
-    pub const INVITE_OOB_ENTROPY_TOO_LOW: &'static str = "invite_oob_entropy_too_low";
     pub const JOIN_POLICY_DUPLICATE_GATE_ID: &'static str = "join_policy_duplicate_gate_id";
     pub const JOIN_RULE_POLICY_MISMATCH: &'static str = "join_rule_policy_mismatch";
     pub const KEY_BACKUP_WIRE_SCHEMA_REQUIRED: &'static str = "key_backup_wire_schema_required";
@@ -615,7 +600,6 @@ impl ReasonCode {
     pub const SEGMENT_SEQUENCE_INVALID: &'static str = "segment_sequence_invalid";
     pub const SEGMENT_STREAM_TRUNCATED: &'static str = "segment_stream_truncated";
     pub const SELECTOR_ACTOR_WILDCARD_FORBIDDEN: &'static str = "selector_actor_wildcard_forbidden";
-    pub const SEND_FAILED: &'static str = "send_failed";
     pub const SERIES_CHAIN_BROKEN: &'static str = "series_chain_broken";
     pub const SERIES_PREDECESSOR_NOT_FOUND: &'static str = "series_predecessor_not_found";
     pub const SERIES_SEQ_NOT_MONOTONIC: &'static str = "series_seq_not_monotonic";
@@ -646,17 +630,6 @@ impl ReasonCode {
     pub const SUPERSEDED: &'static str = "superseded";
     pub const SUPERSEDED_BY_REPAIRING: &'static str = "superseded_by_repairing";
     pub const TEST_SIGNING_MATERIAL_DENIED: &'static str = "test_signing_material_denied";
-    pub const THIRD_PARTY_INVITE_ACCEPTANCE_MISSING: &'static str =
-        "third_party_invite_acceptance_missing";
-    pub const THIRD_PARTY_INVITE_ACCEPTANCE_STALE: &'static str =
-        "third_party_invite_acceptance_stale";
-    pub const THIRD_PARTY_INVITE_MATERIAL_MISMATCH: &'static str =
-        "third_party_invite_material_mismatch";
-    pub const THIRD_PARTY_INVITE_PROVISIONING_ALREADY_BOUND: &'static str =
-        "third_party_invite_provisioning_already_bound";
-    pub const THIRD_PARTY_INVITE_PROVISIONING_EXPIRED: &'static str =
-        "third_party_invite_provisioning_expired";
-    pub const THIRD_PARTY_INVITE_TOKEN_IN_QUERY: &'static str = "third_party_invite_token_in_query";
     pub const TOKEN_ISSUER_UNAUTHORISED: &'static str = "token_issuer_unauthorised";
     pub const TRANSCRIPTION_ARTIFACT_PIPELINE_BYPASSED: &'static str =
         "transcription_artifact_pipeline_bypassed";
@@ -810,7 +783,6 @@ impl ReasonCode {
             Self::ErasureRequestAlreadyPending => Self::ERASURE_REQUEST_ALREADY_PENDING,
             Self::EventIdDigestMismatch => Self::EVENT_ID_DIGEST_MISMATCH,
             Self::EvidenceRecipientMismatch => Self::EVIDENCE_RECIPIENT_MISMATCH,
-            Self::ExpiredInviteToken => Self::EXPIRED_INVITE_TOKEN,
             Self::ExternalRateLimited => Self::EXTERNAL_RATE_LIMITED,
             Self::FocusMismatch => Self::FOCUS_MISMATCH,
             Self::FocusUnavailableForClient => Self::FOCUS_UNAVAILABLE_FOR_CLIENT,
@@ -840,12 +812,9 @@ impl ReasonCode {
             Self::InvalidCursor => Self::INVALID_CURSOR,
             Self::InvalidEncoding => Self::INVALID_ENCODING,
             Self::InvalidMembershipTransition => Self::INVALID_MEMBERSHIP_TRANSITION,
-            Self::InvalidatedByRateLimit => Self::INVALIDATED_BY_RATE_LIMIT,
             Self::InviteAlreadyTerminal => Self::INVITE_ALREADY_TERMINAL,
             Self::InviteDirectedInviteeMismatch => Self::INVITE_DIRECTED_INVITEE_MISMATCH,
-            Self::InviteKindRequiresRevoke => Self::INVITE_KIND_REQUIRES_REVOKE,
             Self::InviteLiveTargetOccupied => Self::INVITE_LIVE_TARGET_OCCUPIED,
-            Self::InviteOobEntropyTooLow => Self::INVITE_OOB_ENTROPY_TOO_LOW,
             Self::JoinPolicyDuplicateGateId => Self::JOIN_POLICY_DUPLICATE_GATE_ID,
             Self::JoinRulePolicyMismatch => Self::JOIN_RULE_POLICY_MISMATCH,
             Self::KeyBackupWireSchemaRequired => Self::KEY_BACKUP_WIRE_SCHEMA_REQUIRED,
@@ -980,7 +949,6 @@ impl ReasonCode {
             Self::SegmentSequenceInvalid => Self::SEGMENT_SEQUENCE_INVALID,
             Self::SegmentStreamTruncated => Self::SEGMENT_STREAM_TRUNCATED,
             Self::SelectorActorWildcardForbidden => Self::SELECTOR_ACTOR_WILDCARD_FORBIDDEN,
-            Self::SendFailed => Self::SEND_FAILED,
             Self::SeriesChainBroken => Self::SERIES_CHAIN_BROKEN,
             Self::SeriesPredecessorNotFound => Self::SERIES_PREDECESSOR_NOT_FOUND,
             Self::SeriesSeqNotMonotonic => Self::SERIES_SEQ_NOT_MONOTONIC,
@@ -1011,16 +979,6 @@ impl ReasonCode {
             Self::Superseded => Self::SUPERSEDED,
             Self::SupersededByRepairing => Self::SUPERSEDED_BY_REPAIRING,
             Self::TestSigningMaterialDenied => Self::TEST_SIGNING_MATERIAL_DENIED,
-            Self::ThirdPartyInviteAcceptanceMissing => Self::THIRD_PARTY_INVITE_ACCEPTANCE_MISSING,
-            Self::ThirdPartyInviteAcceptanceStale => Self::THIRD_PARTY_INVITE_ACCEPTANCE_STALE,
-            Self::ThirdPartyInviteMaterialMismatch => Self::THIRD_PARTY_INVITE_MATERIAL_MISMATCH,
-            Self::ThirdPartyInviteProvisioningAlreadyBound => {
-                Self::THIRD_PARTY_INVITE_PROVISIONING_ALREADY_BOUND
-            }
-            Self::ThirdPartyInviteProvisioningExpired => {
-                Self::THIRD_PARTY_INVITE_PROVISIONING_EXPIRED
-            }
-            Self::ThirdPartyInviteTokenInQuery => Self::THIRD_PARTY_INVITE_TOKEN_IN_QUERY,
             Self::TokenIssuerUnauthorised => Self::TOKEN_ISSUER_UNAUTHORISED,
             Self::TranscriptionArtifactPipelineBypassed => {
                 Self::TRANSCRIPTION_ARTIFACT_PIPELINE_BYPASSED
@@ -1180,7 +1138,6 @@ impl ReasonCode {
             Self::ERASURE_REQUEST_ALREADY_PENDING => Self::ErasureRequestAlreadyPending,
             Self::EVENT_ID_DIGEST_MISMATCH => Self::EventIdDigestMismatch,
             Self::EVIDENCE_RECIPIENT_MISMATCH => Self::EvidenceRecipientMismatch,
-            Self::EXPIRED_INVITE_TOKEN => Self::ExpiredInviteToken,
             Self::EXTERNAL_RATE_LIMITED => Self::ExternalRateLimited,
             Self::FOCUS_MISMATCH => Self::FocusMismatch,
             Self::FOCUS_UNAVAILABLE_FOR_CLIENT => Self::FocusUnavailableForClient,
@@ -1210,12 +1167,9 @@ impl ReasonCode {
             Self::INVALID_CURSOR => Self::InvalidCursor,
             Self::INVALID_ENCODING => Self::InvalidEncoding,
             Self::INVALID_MEMBERSHIP_TRANSITION => Self::InvalidMembershipTransition,
-            Self::INVALIDATED_BY_RATE_LIMIT => Self::InvalidatedByRateLimit,
             Self::INVITE_ALREADY_TERMINAL => Self::InviteAlreadyTerminal,
             Self::INVITE_DIRECTED_INVITEE_MISMATCH => Self::InviteDirectedInviteeMismatch,
-            Self::INVITE_KIND_REQUIRES_REVOKE => Self::InviteKindRequiresRevoke,
             Self::INVITE_LIVE_TARGET_OCCUPIED => Self::InviteLiveTargetOccupied,
-            Self::INVITE_OOB_ENTROPY_TOO_LOW => Self::InviteOobEntropyTooLow,
             Self::JOIN_POLICY_DUPLICATE_GATE_ID => Self::JoinPolicyDuplicateGateId,
             Self::JOIN_RULE_POLICY_MISMATCH => Self::JoinRulePolicyMismatch,
             Self::KEY_BACKUP_WIRE_SCHEMA_REQUIRED => Self::KeyBackupWireSchemaRequired,
@@ -1350,7 +1304,6 @@ impl ReasonCode {
             Self::SEGMENT_SEQUENCE_INVALID => Self::SegmentSequenceInvalid,
             Self::SEGMENT_STREAM_TRUNCATED => Self::SegmentStreamTruncated,
             Self::SELECTOR_ACTOR_WILDCARD_FORBIDDEN => Self::SelectorActorWildcardForbidden,
-            Self::SEND_FAILED => Self::SendFailed,
             Self::SERIES_CHAIN_BROKEN => Self::SeriesChainBroken,
             Self::SERIES_PREDECESSOR_NOT_FOUND => Self::SeriesPredecessorNotFound,
             Self::SERIES_SEQ_NOT_MONOTONIC => Self::SeriesSeqNotMonotonic,
@@ -1381,16 +1334,6 @@ impl ReasonCode {
             Self::SUPERSEDED => Self::Superseded,
             Self::SUPERSEDED_BY_REPAIRING => Self::SupersededByRepairing,
             Self::TEST_SIGNING_MATERIAL_DENIED => Self::TestSigningMaterialDenied,
-            Self::THIRD_PARTY_INVITE_ACCEPTANCE_MISSING => Self::ThirdPartyInviteAcceptanceMissing,
-            Self::THIRD_PARTY_INVITE_ACCEPTANCE_STALE => Self::ThirdPartyInviteAcceptanceStale,
-            Self::THIRD_PARTY_INVITE_MATERIAL_MISMATCH => Self::ThirdPartyInviteMaterialMismatch,
-            Self::THIRD_PARTY_INVITE_PROVISIONING_ALREADY_BOUND => {
-                Self::ThirdPartyInviteProvisioningAlreadyBound
-            }
-            Self::THIRD_PARTY_INVITE_PROVISIONING_EXPIRED => {
-                Self::ThirdPartyInviteProvisioningExpired
-            }
-            Self::THIRD_PARTY_INVITE_TOKEN_IN_QUERY => Self::ThirdPartyInviteTokenInQuery,
             Self::TOKEN_ISSUER_UNAUTHORISED => Self::TokenIssuerUnauthorised,
             Self::TRANSCRIPTION_ARTIFACT_PIPELINE_BYPASSED => {
                 Self::TranscriptionArtifactPipelineBypassed
@@ -1839,7 +1782,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::DIRECT_CONVERSATION_INVITE_FORBIDDEN,
         applies_to: &["event_envelope", "auth_decision"],
-        description: "The ak.self.events.command.submit.v1 active-profile invite guard rejected an ak.invite.create or ak.invite.third_party Event targeting a Direct Conversation. A pair-external candidate is classified earlier as direct_conversation_third_party_member_forbidden; the atomic founding peer join is not an invite. The rejection writes nothing; see contract-registry.json operation_registry.direct_conversation_admission_mappings.",
+        description: "The ak.self.events.command.submit.v1 active-profile invite guard rejected an ak.invite.create Event targeting a Direct Conversation. A pair-external candidate is classified earlier as direct_conversation_third_party_member_forbidden; the atomic founding peer join is not an invite. Realm invite links are restricted to ordinary Collaboration Realms by their independent admission contract. The rejection writes nothing; see contract-registry.json operation_registry.direct_conversation_admission_mappings and zh/sync/realm-invite-links.md.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::DIRECT_CONVERSATION_MEMBER_COUNT_INVALID,
@@ -1950,11 +1893,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::EVIDENCE_RECIPIENT_MISMATCH,
         applies_to: &["moderation_decision", "moderation_report"],
         description: "A moderation evidence package's encrypted_to recipient does not match the declared recipient_public_key_ref binding. The submission MUST reject. See governance/content-moderation.md.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::EXPIRED_INVITE_TOKEN,
-        applies_to: &["state_resolution"],
-        description: "Invite token's expires_at has passed when claim is attempted. Internal-only reason code; the wire response MUST be the unified non-enumerable `not_found` per zh/sync/third-party-invites.md §6.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::EXTERNAL_RATE_LIMITED,
@@ -2096,11 +2034,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "Realm or Circle membership admission rejects an illegal FSM edge with failed_precondition and zero writes; see models/common-fields.md section 4.5.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::INVALIDATED_BY_RATE_LIMIT,
-        applies_to: &["auth_decision"],
-        description: "An out-of-band invite code attempt was invalidated because the per-code attempt rate limit was exceeded. See zh/conformance/conformance-vectors.md §3.11 (ak.vector.invite.oob_code_entropy.v1).",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::INVITE_ALREADY_TERMINAL,
         applies_to: &["event_envelope", "auth_decision"],
         description: "An Invite state transition is rejected because the target Invite is already in a terminal flow state (`accepted` / `rejected` / `revoked` / `expired`). Note the Invite `state` is the invite flow axis (not the generic object lifecycle axis); see zh/models/governance-objects.md §5.3.",
@@ -2111,19 +2044,9 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "The invitee account carried by an ak.invite.accept / cancel / revoke payload and the invite_directed_invitee record stored for that InviteId are not both absent and not both present and byte-equal. It closes both directions of zh/models/governance-objects.md section 5.3: a third-party Invite cannot release another account's directed slot with a forged invitee, and a directed Invite cannot hold its slot forever by omitting the field.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::INVITE_KIND_REQUIRES_REVOKE,
-        applies_to: &["event_envelope", "auth_decision"],
-        description: "ak.invite.cancel targeted a token/3PID Invite without a stored direct invitee binding. Only ak.invite.revoke may terminate that Invite class.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::INVITE_LIVE_TARGET_OCCUPIED,
         applies_to: &["event_envelope", "auth_decision"],
         description: "Sub-reason for failed_precondition when ak.invite.create targets an account whose Realm live-target slot invite_live_target is already claimed by another live directed Invite. The Event is not accepted, enters no canonical history and derives no current state write; the closed top-level Problem extensions is InviteLiveTargetOccupiedProblemExtensions carrying the occupying invite_id and create_event_id. See zh/models/governance-objects.md section 5.3.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::INVITE_OOB_ENTROPY_TOO_LOW,
-        applies_to: &["auth_decision"],
-        description: "An out-of-band invite code was rejected because its entropy is below the required floor. See zh/conformance/conformance-vectors.md §3.11 (ak.vector.invite.oob_code_entropy.v1).",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::JOIN_POLICY_DUPLICATE_GATE_ID,
@@ -2715,11 +2638,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "The resource selector attempted to use actor:*. v1 actor selectors MUST name a concrete DID; universal subject grants are not accepted.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::SEND_FAILED,
-        applies_to: &["state_resolution"],
-        description: "Invite delivery to the private target failed after the delivery service exhausted the retry budget. Used as a stable invite transition reason for ak.invite state projections; see zh/models/governance-objects.md and zh/sync/third-party-invites.md §6.1.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::SERIES_CHAIN_BROKEN,
         applies_to: &["schema_validation", "state_resolution", "device_recovery"],
         description: "ak.schema.key_backup.v1 envelope chain failed verification: a `supersedes_digest` does not match the canonical_json digest of its predecessor, or a non-genesis envelope is missing a predecessor accessible to the caller. See zh/identity/key-management.md §7.6 and zh/crypto-media/device-lifecycle.md §12 / §12.1.",
@@ -2873,36 +2791,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
             "crypto",
         ],
         description: "The presented signing material or identifier is registered in artifacts/registry/test-material-registry.json as published test material or as a reserved test identifier, so it MUST NOT be admitted on a formal verification, authorization or trust-admission path even when the signature verifies: its private key ships with the specification. The refusal is fail-closed and MUST NOT leave a verified binding, a resolution cache entry or accepted auth state behind, MUST NOT degrade to a weaker evidence class, a limited_trust pin or a retryable unavailable, and MUST NOT be reachable through a configuration switch on the formal API. See zh/identity/did-usage-and-verification.md §8.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::THIRD_PARTY_INVITE_ACCEPTANCE_MISSING,
-        applies_to: &["service_call", "auth_decision"],
-        description: "Sub-reason for failed_precondition when ak.open.third_party_invite.command.activate.v1 has no usable Station acceptance attestation for the named invite: the attestation signature does not verify against the attesting Station service identity, its audience or verification_id is not this service, or it does not attest a pending ak.invite.third_party on an accepted basis. A caller-reported invite id, a caller-computed invite digest, an Event signature or an HTTP success MUST NOT be accepted in its place. See zh/sync/third-party-invites.md section 7.5.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::THIRD_PARTY_INVITE_ACCEPTANCE_STALE,
-        applies_to: &["service_call", "auth_decision"],
-        description: "Sub-reason for failed_precondition when a Station acceptance attestation is structurally valid but its signed expires_at has passed, observed_at is later than expires_at, or expires_at exceeds invite_expires_at. The verification service MUST fail closed rather than bind private invite material with an invalid or expired attestation. See zh/sync/third-party-invites.md section 7.5.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::THIRD_PARTY_INVITE_MATERIAL_MISMATCH,
-        applies_to: &["service_call", "auth_decision"],
-        description: "Sub-reason for failed_precondition when the accepted ak.invite.third_party attested for activation differs from the frozen provisioning record in author, Realm, expiry or any member of the public third_party_invite object. The verification service MUST refuse rather than adopt the accepted current state values, because its private token, salt or pepper and ephemeral key were generated for the frozen material. See zh/sync/third-party-invites.md section 7.5.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::THIRD_PARTY_INVITE_PROVISIONING_ALREADY_BOUND,
-        applies_to: &["service_call", "auth_decision"],
-        description: "Sub-reason for duplicate_conflict when an activation attempt would bind an already bound provisioning record to a different invite, Realm or author. One provisioning record binds to exactly one invite for its whole life; the service MUST NOT rebind, rotate the ephemeral key or reissue the token. See zh/sync/third-party-invites.md section 7.5.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::THIRD_PARTY_INVITE_PROVISIONING_EXPIRED,
-        applies_to: &["service_call", "auth_decision"],
-        description: "Sub-reason for failed_precondition when activation is attempted after the provisioning record activation_expires_at. The record is cleaned up on the zh/sync/third-party-invites.md section 6.1 schedule and MUST NOT be revived; the inviter provisions fresh material and authors a new invite.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::THIRD_PARTY_INVITE_TOKEN_IN_QUERY,
-        applies_to: &["service_call", "auth_decision"],
-        description: "A 3PID invite claim arrived with the invite_token sourced from a URL query string or path segment instead of from a URL fragment or out-of-band code, in violation of zh/sync/third-party-invites.md §3.2. The verification service MUST reject and SHOULD invalidate the token to prevent referer / log replay.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::TOKEN_ISSUER_UNAUTHORISED,

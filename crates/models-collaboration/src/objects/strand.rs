@@ -236,7 +236,6 @@ pub struct Strand {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub encrypted_content: Option<EncryptedEnvelope>,
     /// Strand collaboration surfaces keyed by canonical track name.
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub tracks: BTreeMap<String, StrandTrack>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub state: Option<ObjectState>,

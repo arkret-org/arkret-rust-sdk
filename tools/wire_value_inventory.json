@@ -68,16 +68,16 @@
       "server": 1,
       "services": 15,
       "signatures": 18,
-      "storage": 68,
+      "storage": 67,
       "storage-postgres": 1,
       "wire": 12
     },
     "by_category": {
-      "closed_dispatch": 3,
+      "closed_dispatch": 4,
       "json_authoring": 118,
       "json_path_mutation": 68,
       "paired_api": 13,
-      "public_value_field": 337
+      "public_value_field": 336
     },
     "by_classification": {
       "independent": 14,
@@ -98,11 +98,11 @@
       "bridges": 7,
       "chime": 3,
       "coauth": 48,
-      "coland": 238,
+      "coland": 237,
       "flagon": 1,
       "floria": 12,
       "garth": 3,
-      "inkson": 44
+      "inkson": 45
     },
     "by_schema_shape": {
       "closed": 9,
@@ -364,7 +364,7 @@
       "evidence": "match source.kind() { EventKind::SpaceCreate => { let payload = source.typed_payload::<event_spec::SpaceCreate>()?; create( &[\"title\", \"summary\", \"labels\", \"avatar_blob_ref\"], payload.object.encrypted_metadata, )? } EventKind::StrandCreate => { let payload = source.typed_paylo..."
     },
     {
-      "finding": "closed_dispatch:inkson/src/bin/inkson-wire/realm_fixture.rs::project:78658b8b7a682ee1",
+      "finding": "closed_dispatch:inkson/src/bin/inkson-wire/realm_fixture.rs::project:fce253a306263c65",
       "category": "closed_dispatch",
       "rust_field": null,
       "crate": null,
@@ -387,6 +387,31 @@
       "test": "Inkson playwright.contract.config.ts: Self Watch current; Watch read controls; Watch CAS validation; python tools/wire_value_audit.py --check",
       "reason": "Exact mock-realm CLI fixture projection, not a production admission model. It dispatches on the SDK EventKind and decodes SDK payloads/current values, including typed StrandWatchSet and StrandWatchValue, before updating its SDK CurrentState collection. Retain this one internal fixture boundary; no directory exemption or protocol DTO is introduced.",
       "evidence": "match full.event.kind { EventKind::RealmCreate => { let payload: RealmCreatePayload = serde_json::from_value(payload)?; self.row(full, CurrentSelector::RealmGenesis, payload.object)?; self.row( full, CurrentSelector::RealmAuthorityRoot, arkret_wire::RealmAuthorityRootValue { c..."
+    },
+    {
+      "finding": "closed_dispatch:inkson/src/state/realm_membership.rs::local_membership_fact_from_raw_operation:3b382fde3bf8abeb",
+      "category": "closed_dispatch",
+      "rust_field": null,
+      "crate": null,
+      "file": "inkson/src/state/realm_membership.rs",
+      "path": "inkson/src/state/realm_membership.rs",
+      "owner": "local_membership_fact_from_raw_operation",
+      "owner_repository": "inkson",
+      "symbol": "local_membership_fact_from_raw_operation",
+      "field": "body,payload",
+      "discriminator": "raw_operation_payload_kind(payload).as_deref()?",
+      "data_field": "body,payload",
+      "rust_type": null,
+      "spec_pointer": null,
+      "schema_shape": "unknown",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "arkret_wire::EventKind; arkret_sdk::RealmInviteLinkAcceptPayload; garth::mls::membership::MembershipFact",
+      "action": "Decode the accepted exact-Realm raw operation through SDK RealmInviteLinkAcceptPayload before deriving the local membership hint. Require synced write state and an exact actor/account subject match for invite-link acceptance.",
+      "test": "cargo test -p inkson --lib state::realm_membership; python tools/wire_value_audit.py --check",
+      "reason": "This exact dispatch reads bounded persisted RawOperationRecord facts after acceptance, projects them to Garth MembershipFact, and does not author network bodies or decide admission. The invite-link branch uses the SDK payload and rejects mismatched subjects.",
+      "evidence": "match raw_operation_payload_kind(payload).as_deref()? { event_kind_str::MEMBER_STATE => { let actor_id = raw_member_actor_id(payload)?; let membership = raw_member_membership(payload)?; let mut profile = MembershipFact::bare(actor_id); profile.membership = Some(membership); pr..."
     },
     {
       "finding": "coauth/crates/account-types/src/passkey.rs::PasskeyAuthFinishRequestBody.assertion",
@@ -4462,31 +4487,6 @@
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic.",
       "evidence": "public serde_json::Value field"
-    },
-    {
-      "finding": "coland/crates/storage/src/unit_of_work.rs::InviteClaimProofCommit.subject_control_history",
-      "category": "public_value_field",
-      "rust_field": "coland/crates/storage/src/unit_of_work.rs::InviteClaimProofCommit.subject_control_history",
-      "crate": "storage",
-      "file": "coland/crates/storage/src/unit_of_work.rs",
-      "path": "coland/crates/storage/src/unit_of_work.rs",
-      "owner": "InviteClaimProofCommit",
-      "owner_repository": "coland",
-      "symbol": "InviteClaimProofCommit.subject_control_history",
-      "field": "subject_control_history",
-      "discriminator": null,
-      "data_field": "subject_control_history",
-      "rust_type": "Option<serde_json::Value>",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Option<serde_json::Value>",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic.",
-      "evidence": "public Option<serde_json::Value> field"
     },
     {
       "finding": "crates/event-draft/src/operation.rs::ProjectedEventOperation.payload",
@@ -11514,7 +11514,7 @@
       "evidence": "json!({ \"kind\": event_kind_str::INVITE_CREATE, \"invite_id\": invite_id.clone(), \"invitee_account_id\": invitee.account_id().clone(), \"invitee_label\": invitee_label.clone(), \"state\": \"pending\", \"event_id\": submitted.event_id, })"
     },
     {
-      "finding": "json_authoring:inkson/src/views/realm_admin/members_panel/controller.rs::terminate_pending_invite:c3de5c3e6643d488",
+      "finding": "json_authoring:inkson/src/views/realm_admin/members_panel/controller.rs::terminate_pending_invite:1dbc1dc7206edced",
       "category": "json_authoring",
       "rust_field": null,
       "crate": null,
@@ -11536,7 +11536,7 @@
       "action": "Accepted cancel/revoke receipt updates the local pending-member projection. This exact JSON is written to the bounded local raw-operation cache after submission succeeds; it is not a POST body and must not be mistaken for an authoritative wire DTO.",
       "test": "cargo test -p inkson --lib state::to_device_raw",
       "reason": "Accepted cancel/revoke receipt updates the local pending-member projection. This exact JSON is written to the bounded local raw-operation cache after submission succeeds; it is not a POST body and must not be mistaken for an authoritative wire DTO.",
-      "evidence": "json!({ \"kind\": if is_direct { event_kind_str::INVITE_CANCEL } else { event_kind_str::INVITE_REVOKE }, \"invite_id\": invite_id.clone(), \"invitee_id\": direct_invitee, \"state\": \"revoked\", \"event_id\": resp.event_id, })"
+      "evidence": "json!({ \"kind\": event_kind_str::INVITE_CANCEL, \"invite_id\": invite_id.clone(), \"invitee_id\": direct_invitee, \"state\": \"revoked\", \"event_id\": resp.event_id, })"
     },
     {
       "finding": "json_path_mutation:bridges/crates/runtime/src/managed_actor_authoring/control/manager.rs::prepare_manager_event:599dbb488095911d",

@@ -43,6 +43,7 @@ fn validate_leaf_key(key: &Base64UrlString) -> Result<()> {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MlsAddAuthorityAttestation {
     pub attestor_station_id: DidCoreId,
     pub realm_id: RealmId,
@@ -52,6 +53,7 @@ pub struct MlsAddAuthorityAttestation {
     pub commit_event_ref: EventId,
     pub commit_stream_position: u64,
     #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
     pub epoch: u64,
     pub welcome_id: MlsWelcomeDeliveryId,
     pub claim_id: KeypackageClaimId,
@@ -129,6 +131,7 @@ impl MlsAddAuthorityAttestation {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MlsAttestAddRequestBody {
     pub attestation: MlsAddAuthorityAttestation,
     pub claim_outcome: KeyPackagesClaimResponseBody,
@@ -211,6 +214,7 @@ impl MlsAttestAddRequestBody {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MlsAttestAddResponseBody {
     pub status: MlsAttestAddStatus,
     pub attestation_digest: Hash,
@@ -218,6 +222,7 @@ pub struct MlsAttestAddResponseBody {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum MlsAttestAddStatus {
     Installed,
     Duplicate,
@@ -487,4 +492,48 @@ pub struct MlsSelfRosterAuthorityReadResponseBody {
     pub roster: MlsRosterAuthorityReadResponseBody,
     pub manifest_signing_key: MlsRosterSigningKey,
     pub add_signing_keys: Vec<MlsRosterAddSigningKeys>,
+}
+
+#[cfg(all(test, feature = "openapi"))]
+mod openapi_tests {
+    use serde_json::{Value, json};
+
+    use super::*;
+
+    fn resolve<'a>(schema: &'a Value, document: &'a Value) -> &'a Value {
+        match schema.get("$ref").and_then(Value::as_str) {
+            Some(reference) => document
+                .pointer(reference.strip_prefix('#').unwrap())
+                .expect("SDK schema reference"),
+            None => schema,
+        }
+    }
+
+    #[test]
+    fn add_attestation_openapi_preserves_typed_fields_and_decimal_epoch() {
+        let mut components = salvo_oapi::Components::new();
+        let request = serde_json::to_value(
+            <MlsAttestAddRequestBody as salvo_oapi::ToSchema>::to_schema(&mut components),
+        )
+        .unwrap();
+        let response = serde_json::to_value(
+            <MlsAttestAddResponseBody as salvo_oapi::ToSchema>::to_schema(&mut components),
+        )
+        .unwrap();
+        let document = json!({"components":components});
+        let request = resolve(&request, &document);
+        assert_eq!(request["required"], json!(["attestation", "claim_outcome"]));
+        let attestation = resolve(&request["properties"]["attestation"], &document);
+        assert_eq!(attestation["properties"]["epoch"]["type"], "string");
+        assert!(
+            attestation["properties"]["claim_receipt"]
+                .get("$ref")
+                .is_some()
+        );
+        let outcome = resolve(&request["properties"]["claim_outcome"], &document);
+        assert!(outcome["properties"].get("claims").is_some());
+        let response = resolve(&response, &document);
+        let status = resolve(&response["properties"]["status"], &document);
+        assert_eq!(status["enum"], json!(["installed", "duplicate"]));
+    }
 }

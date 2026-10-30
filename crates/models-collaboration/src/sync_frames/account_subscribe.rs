@@ -546,57 +546,80 @@ impl RealmDetailBaseline {
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct EventContainer {
-    #[serde(default)]
     pub events: Vec<Event>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
+/// Wire boundary: `account-subscribe-frame.schema.json#/$defs/recipient_delivery_container`.
+#[serde(deny_unknown_fields)]
 pub struct RecipientDeliveryContainer {
-    #[serde(default)]
     pub deliveries: Vec<RecipientDelivery>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub acknowledgement_token: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub lost: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub limited: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub next_cursor: Option<String>,
 }
 
 #[cfg(test)]
-mod open_container_tests {
+mod container_contract_tests {
     use serde_json::json;
 
     use super::{EventContainer, RecipientDeliveryContainer};
 
     #[test]
-    fn account_subscribe_open_containers_accept_extensions_without_re_emitting_them() {
-        let events: EventContainer = serde_json::from_value(json!({
-            "events": [],
-            "x_future_delivery_hint": {"enabled": true}
-        }))
-        .unwrap();
+    fn event_container_preserves_the_registered_open_boundary() {
+        let events: EventContainer =
+            serde_json::from_value(json!({"events":[],"x_future_delivery_hint":{"enabled":true}}))
+                .unwrap();
         assert!(events.events.is_empty());
-        assert_eq!(serde_json::to_value(events).unwrap(), json!({"events": []}));
+        assert_eq!(serde_json::to_value(events).unwrap(), json!({"events":[]}));
+        for invalid in [json!({}), json!({"events":false})] {
+            assert!(serde_json::from_value::<EventContainer>(invalid).is_err());
+        }
+    }
 
-        let messages: RecipientDeliveryContainer = serde_json::from_value(json!({
-            "deliveries": [],
-            "limited": false,
-            "x_future_queue_hint": 1
-        }))
-        .unwrap();
+    #[test]
+    fn recipient_delivery_container_preserves_the_registered_closed_boundary() {
+        let complete = json!({"deliveries":[],"limited":false});
+        let messages: RecipientDeliveryContainer =
+            serde_json::from_value(complete.clone()).unwrap();
         assert!(messages.deliveries.is_empty());
-        assert_eq!(
-            serde_json::to_value(messages).unwrap(),
-            json!({"deliveries": [], "limited": false})
-        );
-
-        assert!(serde_json::from_value::<EventContainer>(json!({"events": false})).is_err());
-        assert!(
-            serde_json::from_value::<RecipientDeliveryContainer>(json!({"deliveries": false}))
-                .is_err()
-        );
+        assert_eq!(serde_json::to_value(messages).unwrap(), complete);
+        for invalid in [
+            json!({}),
+            json!({"deliveries":false}),
+            json!({"deliveries":[],"x_future_queue_hint":1}),
+        ] {
+            assert!(serde_json::from_value::<RecipientDeliveryContainer>(invalid).is_err());
+        }
+        for field in ["acknowledgement_token", "lost", "limited", "next_cursor"] {
+            let mut invalid = complete.clone();
+            invalid[field] = json!(null);
+            assert!(
+                serde_json::from_value::<RecipientDeliveryContainer>(invalid).is_err(),
+                "{field}"
+            );
+        }
     }
 }
 
@@ -619,7 +642,6 @@ impl AccountSubscribeDeviceListChanges {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AccountDataContainer {
-    #[serde(default)]
     pub events: Vec<Event>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub station_cas: Option<StationCasAccountDataContainer>,
@@ -640,9 +662,8 @@ impl AccountDataContainer {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StationCasAccountDataContainer {
-    #[serde(default)]
     pub upserts: Vec<AccountDataEntry>,
-    #[serde(default)]
+
     pub removals: Vec<StationCasAccountDataRemoval>,
 }
 

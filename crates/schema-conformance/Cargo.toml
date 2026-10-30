@@ -1,14 +1,14 @@
 [package]
-authors = ["Chris Young <chris@sonc.ai>"]
+authors.workspace = true
 categories = ["development-tools", "testing"]
 description = "Filesystem-backed Arkret spec drift and conformance tooling."
-edition = "2024"
-homepage = "https://github.com/arkret-org/arkret-rust-sdk"
+edition.workspace = true
+homepage.workspace = true
 keywords = ["arkret", "schema", "conformance"]
-license = "Apache-2.0"
+license.workspace = true
 name = "arkret-schema-conformance"
 publish = false
-repository = "https://github.com/arkret-org/arkret-rust-sdk"
+repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
 

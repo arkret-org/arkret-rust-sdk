@@ -25,7 +25,7 @@ pub struct AccountView {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub handle_claim_digests: Vec<Hash>,
     pub state: AccountStatus,
-    #[serde(default)]
+
     pub devices: Vec<AccountDeviceSummary>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub profile: Option<AccountMaterializedProfile>,
@@ -94,7 +94,7 @@ impl AccountRegisterRequestBody {
 pub struct AccountRegisterResponseBody {
     pub principal_id: DidCoreId,
     pub state: AccountStatus,
-    #[serde(default)]
+
     pub devices: Vec<AccountDeviceSummary>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub primary_handle_claim: Option<HandleClaim>,

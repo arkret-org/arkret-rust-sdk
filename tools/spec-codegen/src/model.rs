@@ -10,7 +10,6 @@ use sha2::{Digest, Sha256};
 #[derive(Clone, Debug)]
 pub struct LoadedArtifact {
     pub relative_path: &'static str,
-    pub version: String,
     pub digest: String,
 }
 
@@ -23,17 +22,11 @@ impl LoadedArtifact {
         let bytes = fs::read(&path).with_context(|| format!("read {}", path.display()))?;
         let value: serde_json::Value =
             serde_json::from_slice(&bytes).with_context(|| format!("parse {}", path.display()))?;
-        let version = value
-            .get("version")
-            .and_then(serde_json::Value::as_str)
-            .unwrap_or("unversioned")
-            .to_owned();
         let typed =
             serde_json::from_value(value).with_context(|| format!("decode {}", path.display()))?;
         Ok((
             Self {
                 relative_path,
-                version,
                 digest: hex::encode(Sha256::digest(bytes)),
             },
             typed,
@@ -77,11 +70,9 @@ impl SpecInputs {
         let id_kinds = contracts.id_kind_registry.clone();
         let schemas_source = contracts_source.clone();
         let schemas = contracts.schema_registry.clone();
-        let mut operations_source = contracts_source.clone();
-        operations_source.version = contracts.operation_registry.version.clone();
+        let operations_source = contracts_source.clone();
         let operations = contracts.operation_registry.clone();
-        let mut event_kinds_source = contracts_source.clone();
-        event_kinds_source.version = contracts.event_kind_registry.version.clone();
+        let event_kinds_source = contracts_source.clone();
         let event_kinds = contracts.event_kind_registry.clone();
         let (deployment_probes_source, deployment_probes) =
             LoadedArtifact::read(artifacts_dir, "deployment-probes.json")?;
@@ -352,7 +343,6 @@ pub struct RealmBootstrapFirstContact {
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct OperationRegistry {
-    pub version: String,
     pub operations: Vec<OperationRegistration>,
     pub surface_groups: Vec<OperationSurfaceGroup>,
     pub high_security_session_authentication_policy: HighSecuritySessionAuthenticationPolicy,
@@ -388,7 +378,6 @@ pub struct OperationSurfaceGroup {
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct EventKindRegistry {
-    pub version: String,
     pub event_kinds: Vec<EventKindRegistration>,
 }
 

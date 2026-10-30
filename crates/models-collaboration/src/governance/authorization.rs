@@ -15,6 +15,8 @@ use crate::governance::operation_wire::Invite;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+/// Wire boundary: `service-operation-dtos.schema.json#/$defs/AuthorizationCheckRequestBody`.
+#[serde(deny_unknown_fields)]
 pub struct AuthorizationCheckRequestBody {
     pub actor_id: ActorId,
     pub action: String,
@@ -118,8 +120,9 @@ pub struct EffectiveGrantSnapshot {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+/// Wire boundary: `authorization-operations.schema.json#/$defs/authorization_invite_page`.
+#[serde(deny_unknown_fields)]
 pub struct AuthorizationInvitePage {
-    #[serde(default)]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub invites: Vec<Invite>,
     #[serde(skip_serializing_if = "Option::is_none")]

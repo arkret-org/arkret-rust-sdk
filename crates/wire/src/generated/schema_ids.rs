@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-25.2;
-//! sha256=486b7d389283a4a7eda54f78979c9d047424a30d0b30b22781e5c8191f2bf963 Entries: schema_ids=230,
-//! active=230
+//! Input: registry/contract-registry.json;
+//! sha256=4603ea9c66ada9ca9e09db7ccce8dfd3b0ba0675ac2f67bdeaba66402115762c Entries: schema_ids=232,
+//! active=232
 
 use serde::{Deserialize, Serialize};
 
@@ -177,6 +177,8 @@ pub enum SchemaId {
     RealmAuthorityHandoffV1,
     RealmCommitV1,
     RealmGenesisV1,
+    RealmInviteLinkV1,
+    RealmInviteLinkTokenV1,
     RealmJoinBootstrapRequestV1,
     RealmJoinBootstrapResponseBodyV1,
     RealmJoinCandidateV1,
@@ -411,6 +413,8 @@ impl SchemaId {
         Self::RealmAuthorityHandoffV1,
         Self::RealmCommitV1,
         Self::RealmGenesisV1,
+        Self::RealmInviteLinkV1,
+        Self::RealmInviteLinkTokenV1,
         Self::RealmJoinBootstrapRequestV1,
         Self::RealmJoinBootstrapResponseBodyV1,
         Self::RealmJoinCandidateV1,
@@ -645,6 +649,8 @@ impl SchemaId {
         Self::RealmAuthorityHandoffV1,
         Self::RealmCommitV1,
         Self::RealmGenesisV1,
+        Self::RealmInviteLinkV1,
+        Self::RealmInviteLinkTokenV1,
         Self::RealmJoinBootstrapRequestV1,
         Self::RealmJoinBootstrapResponseBodyV1,
         Self::RealmJoinCandidateV1,
@@ -1196,6 +1202,9 @@ impl SchemaId {
     /// Authority-signed finality record for one Realm, Circle or Sidecar stream.
     pub const REALM_COMMIT_V1: &'static str = "ak.schema.realm_commit.v1";
     pub const REALM_GENESIS_V1: &'static str = "ak.schema.realm_genesis.v1";
+    pub const REALM_INVITE_LINK_V1: &'static str = "ak.schema.realm_invite_link.v1";
+    /// Client-only fragment credential; forbidden on HTTP request and response surfaces.
+    pub const REALM_INVITE_LINK_TOKEN_V1: &'static str = "ak.schema.realm_invite_link_token.v1";
     /// Authenticated service-to-service request for the bounded material required to author and
     /// verify exactly one first-contact Realm join attempt.
     pub const REALM_JOIN_BOOTSTRAP_REQUEST_V1: &'static str =
@@ -1578,6 +1587,8 @@ impl SchemaId {
             Self::RealmAuthorityHandoffV1 => Self::REALM_AUTHORITY_HANDOFF_V1,
             Self::RealmCommitV1 => Self::REALM_COMMIT_V1,
             Self::RealmGenesisV1 => Self::REALM_GENESIS_V1,
+            Self::RealmInviteLinkV1 => Self::REALM_INVITE_LINK_V1,
+            Self::RealmInviteLinkTokenV1 => Self::REALM_INVITE_LINK_TOKEN_V1,
             Self::RealmJoinBootstrapRequestV1 => Self::REALM_JOIN_BOOTSTRAP_REQUEST_V1,
             Self::RealmJoinBootstrapResponseBodyV1 => Self::REALM_JOIN_BOOTSTRAP_RESPONSE_BODY_V1,
             Self::RealmJoinCandidateV1 => Self::REALM_JOIN_CANDIDATE_V1,
@@ -1869,6 +1880,8 @@ impl SchemaId {
             Self::RealmAuthorityHandoffV1 => "schemas/realm-authority-handoff.schema.json",
             Self::RealmCommitV1 => "schemas/realm-commit.schema.json",
             Self::RealmGenesisV1 => "schemas/realm-genesis.schema.json",
+            Self::RealmInviteLinkV1 => "schemas/realm-invite-link.schema.json",
+            Self::RealmInviteLinkTokenV1 => "schemas/realm-invite-link-token.schema.json",
             Self::RealmJoinBootstrapRequestV1 => "schemas/realm-join-intake.schema.json",
             Self::RealmJoinBootstrapResponseBodyV1 => "schemas/realm-join-intake.schema.json",
             Self::RealmJoinCandidateV1 => "schemas/realm-join-candidate.schema.json",
@@ -2142,6 +2155,8 @@ impl SchemaId {
             Self::REALM_AUTHORITY_HANDOFF_V1 => Some(Self::RealmAuthorityHandoffV1),
             Self::REALM_COMMIT_V1 => Some(Self::RealmCommitV1),
             Self::REALM_GENESIS_V1 => Some(Self::RealmGenesisV1),
+            Self::REALM_INVITE_LINK_V1 => Some(Self::RealmInviteLinkV1),
+            Self::REALM_INVITE_LINK_TOKEN_V1 => Some(Self::RealmInviteLinkTokenV1),
             Self::REALM_JOIN_BOOTSTRAP_REQUEST_V1 => Some(Self::RealmJoinBootstrapRequestV1),
             Self::REALM_JOIN_BOOTSTRAP_RESPONSE_BODY_V1 => {
                 Some(Self::RealmJoinBootstrapResponseBodyV1)

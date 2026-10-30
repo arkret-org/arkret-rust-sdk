@@ -123,7 +123,6 @@ Headline additions:
   `AnonymousHealth`),
   `FederationServiceBindingRef` (6 required fields),
   `EventsSubmitBatchRequestBody` / `EventsSubmitFederationRequestBody`,
-  `ThirdPartyInvite{oob_code_kind}`, `SpaceStateTransitionPayload` /
   `SpaceObjectTombstonePayload`, `AppletId` enum.
 - **DID method-name regex** tightened to `^did:[a-z0-9]+:[^\s]+$`
   (method segment lowercase alnum only).

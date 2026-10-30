@@ -1,14 +1,14 @@
 [package]
-authors = ["Chris Young <chris@sonc.ai>"]
+authors.workspace = true
 categories = ["api-bindings", "network-programming", "cryptography"]
 description = "Arkret v1 decentralized collaboration protocol SDK."
-edition = "2024"
-homepage = "https://github.com/arkret-org/arkret-rust-sdk"
+edition.workspace = true
+homepage.workspace = true
 keywords = ["arkret", "collaboration", "did", "sdk"]
-license = "Apache-2.0"
+license.workspace = true
 name = "arkret"
 readme = "README.md"
-repository = "https://github.com/arkret-org/arkret-rust-sdk"
+repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
 

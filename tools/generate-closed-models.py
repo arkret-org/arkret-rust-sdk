@@ -40,8 +40,6 @@ class Generator:
         return None
 
     def __init__(self, schemas: Path, bindings: dict):
-        if bindings["version"] != 1:
-            raise ValueError("unsupported bindings version")
         self.schemas = schemas
         self.bindings = bindings
         for family in bindings['families']:
@@ -64,8 +62,6 @@ class Generator:
         raw = (self.schemas / file).read_bytes()
         self.inputs[file] = raw
         node = json.loads(raw)
-        if node.get("source_of_truth") is False:
-            raise ValueError(f"derived schema cannot own generated fields: {file}")
         def rebase(value):
             if isinstance(value, dict):
                 return {key: normalize(child, file) if key == "$ref" else rebase(child)

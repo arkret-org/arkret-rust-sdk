@@ -60,24 +60,6 @@ impl Artifact {
             })
             .collect()
     }
-
-    fn with_section_version(mut self, section: &str) -> Result<Self> {
-        self.source.version = self
-            .value
-            .get(section)
-            .and_then(Value::as_object)
-            .with_context(|| format!("{} missing {section} object", self.source.relative_path))?
-            .get("version")
-            .and_then(Value::as_str)
-            .with_context(|| {
-                format!(
-                    "{} missing {section}.version string",
-                    self.source.relative_path
-                )
-            })?
-            .to_owned();
-        Ok(self)
-    }
 }
 
 fn field<'a>(row: &'a Map<String, Value>, key: &str) -> Result<&'a Value> {
@@ -255,7 +237,6 @@ impl SchemaRepository {
         }
         LoadedArtifact {
             relative_path: "reachable event schema closure",
-            version: "aggregate".to_owned(),
             digest: hex::encode(digest.finalize()),
         }
     }
@@ -435,8 +416,7 @@ fn collect_preimage_commitments(
 }
 
 fn generate_preimage_commitments(artifacts_dir: &Path) -> Result<GeneratedOutput> {
-    let event_kinds = Artifact::load(artifacts_dir, "registry/contract-registry.json")?
-        .with_section_version("event_kind_registry")?;
+    let event_kinds = Artifact::load(artifacts_dir, "registry/contract-registry.json")?;
     let mut repository = SchemaRepository::default();
     let mut roots = BTreeSet::from(["schemas/event-envelope.schema.json".to_owned()]);
     for row in event_kinds.section_array("event_kind_registry", "event_kinds")? {
@@ -659,8 +639,7 @@ fn durable_effect(row: &Map<String, Value>) -> Result<String> {
 }
 
 fn generate_operations(artifacts_dir: &Path) -> Result<GeneratedOutput> {
-    let artifact = Artifact::load(artifacts_dir, "registry/contract-registry.json")?
-        .with_section_version("operation_registry")?;
+    let artifact = Artifact::load(artifacts_dir, "registry/contract-registry.json")?;
     let rows = sorted_rows(
         artifact.section_array("operation_registry", "operations")?,
         "operation_id",

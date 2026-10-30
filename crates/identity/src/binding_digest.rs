@@ -199,7 +199,6 @@ impl MethodEvidence {
 ///
 /// The receipt itself MUST be retained: "auditable" means "recomputable", and an
 /// auditor recomputes the digest from this object.
-
 pub trait DidBindingEvidenceReceiptExt {
     fn new(method: &str, document_digest: Hash, evidence: &MethodEvidence) -> Self;
     fn canonical_value(&self) -> Result<Value, DigestError>;

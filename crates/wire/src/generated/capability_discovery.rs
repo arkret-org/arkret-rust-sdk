@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-10-25.2;
-//! sha256=486b7d389283a4a7eda54f78979c9d047424a30d0b30b22781e5c8191f2bf963
-//! Entries: operation_bundles=44 features=12
+//! Input: registry/contract-registry.json;
+//! sha256=4603ea9c66ada9ca9e09db7ccce8dfd3b0ba0675ac2f67bdeaba66402115762c
+//! Entries: operation_bundles=42 features=12
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
 
@@ -1198,40 +1198,6 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
         }],
     },
     OperationBundleDescriptor {
-        operation_bundle_id: "ak.operation_bundle.station.third_party_invite_acceptance_attestation.v1",
-        service_kind: ServiceKind::Station,
-        members: &[OperationBindingPair {
-            operation_id: ServiceOperationId::SelfThirdPartyInviteReadAcceptanceAttestationV1,
-            binding_kind: BindingKind::HttpJson,
-        }],
-    },
-    OperationBundleDescriptor {
-        operation_bundle_id: "ak.operation_bundle.station.third_party_invite_handoff.v1",
-        service_kind: ServiceKind::Station,
-        members: &[
-            OperationBindingPair {
-                operation_id: ServiceOperationId::OpenThirdPartyInviteCommandActivateV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::OpenThirdPartyInviteCommandPresentTokenV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::OpenThirdPartyInviteCommandProvisionV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::OpenThirdPartyInviteReadProvisioningStatusV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::SelfThirdPartyInviteReadAcceptanceAttestationV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-        ],
-    },
-    OperationBundleDescriptor {
         operation_bundle_id: "ak.operation_bundle.station.tus_upload.v1",
         service_kind: ServiceKind::Station,
         members: &[OperationBindingPair {
@@ -1567,10 +1533,6 @@ impl OperationBundleDescriptor {
         "ak.operation_bundle.station.realm_authority_handoff.v1";
     pub const STATION_SNAPSHOT_EXACT_READ_V1: &'static str =
         "ak.operation_bundle.station.snapshot_exact_read.v1";
-    pub const STATION_THIRD_PARTY_INVITE_ACCEPTANCE_ATTESTATION_V1: &'static str =
-        "ak.operation_bundle.station.third_party_invite_acceptance_attestation.v1";
-    pub const STATION_THIRD_PARTY_INVITE_HANDOFF_V1: &'static str =
-        "ak.operation_bundle.station.third_party_invite_handoff.v1";
     pub const STATION_TUS_UPLOAD_V1: &'static str = "ak.operation_bundle.station.tus_upload.v1";
     pub const STATION_WEBSOCKET_V1: &'static str = "ak.operation_bundle.station.websocket.v1";
     pub const TURN_SERVICE_DESCRIBE_V1: &'static str =

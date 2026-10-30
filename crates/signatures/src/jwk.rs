@@ -9,7 +9,7 @@ use crate::{Error, Result};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum JsonWebKeyUse {
-    #[serde(rename = "signature")]
+    #[serde(rename = "sig")]
     Signature,
     #[serde(rename = "enc")]
     Encryption,
@@ -202,5 +202,29 @@ impl JsonWebKeySet {
 
     pub fn keys(&self) -> &[JsonWebKey] {
         &self.keys
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn public_key_use_round_trips_rfc7517_names_without_private_aliases() {
+        for (usage, wire) in [
+            (JsonWebKeyUse::Signature, "sig"),
+            (JsonWebKeyUse::Encryption, "enc"),
+        ] {
+            assert_eq!(serde_json::to_value(usage).unwrap(), json!(wire));
+            assert_eq!(
+                serde_json::from_value::<JsonWebKeyUse>(json!(wire)).unwrap(),
+                usage
+            );
+        }
+        for unsupported in ["signature", "encryption", "Sig"] {
+            assert!(serde_json::from_value::<JsonWebKeyUse>(json!(unsupported)).is_err());
+        }
     }
 }

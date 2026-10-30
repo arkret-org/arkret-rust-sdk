@@ -259,6 +259,10 @@ fn ordinary_realm_bootstrap_current_selectors_match_closed_result_shapes() {
         (CurrentSelector::RealmJoinRule, "realm_join_rule"),
         (CurrentSelector::RealmHistoryAccess, "realm_history_access"),
         (CurrentSelector::RealmPreviewPolicy, "realm_preview_policy"),
+        (
+            CurrentSelector::RealmAssetPrivacyPolicy,
+            "realm_asset_privacy_policy",
+        ),
         (CurrentSelector::RealmTombstone, "realm_tombstone"),
         (CurrentSelector::RealmArchive, "realm_archive"),
         (CurrentSelector::RealmFreeze, "realm_freeze"),
@@ -1849,8 +1853,7 @@ fn authority_bundle_request_requires_the_canonical_32_byte_nonce() {
     for size in [16usize, 31, 32, 33] {
         let request = RealmAuthorityBundleRequestBody {
             realm_id: realm_id.clone(),
-            nonce: crate::Base64UrlString::new(arkret_canonical::base64url_encode(vec![7; size]))
-                .unwrap(),
+            nonce: Base64UrlString::new(arkret_canonical::base64url_encode(vec![7; size])).unwrap(),
         };
         assert_eq!(
             request.validate().is_ok(),

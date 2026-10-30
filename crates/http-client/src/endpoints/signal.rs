@@ -77,15 +77,22 @@ impl SignalSubscribeFrameStream {
 
 impl Client {
     /// Relay an exact peer Signal batch under its registered retry policy.
-    pub async fn relay_signals(
-        &self,
-        request: &arkret_wire::SignalRelayRequestBody,
-    ) -> Result<arkret_wire::SignalRelayResponseBody> {
+    pub async fn relay_signals(&self, request: &arkret_wire::SignalRelayRequestBody) -> Result<()> {
         request.validate()?;
-        let outcome: arkret_wire::SignalRelayResponseBody =
-            self.post("/_arkret/peer/signal", request).await?;
-        outcome.validate()?;
-        Ok(outcome)
+        let builder =
+            self.canonical_json_body(self.request(Method::POST, "/_arkret/peer/signal")?, request)?;
+        let response = self.send_response(builder).await?;
+        if response.status() != reqwest::StatusCode::NO_CONTENT {
+            return Err(Error::Protocol(
+                "peer Signal success must use its registered HTTP 204 status".into(),
+            ));
+        }
+        if !read_body_limited(response, 1024).await?.is_empty() {
+            return Err(Error::Protocol(
+                "peer Signal success must have no entity body".into(),
+            ));
+        }
+        Ok(())
     }
 
     /// Send one encrypted Signal envelope.

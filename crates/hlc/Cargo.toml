@@ -1,13 +1,13 @@
 [package]
-authors = ["Chris Young <chris@sonc.ai>"]
+authors.workspace = true
 categories = ["data-structures", "encoding"]
 description = "Arkret v1 clock- and entropy-backed protocol value generators: the monotonic HLC generator and the sync cursor mint/validate surface."
-edition = "2024"
-homepage = "https://github.com/arkret-org/arkret-rust-sdk"
+edition.workspace = true
+homepage.workspace = true
 keywords = ["arkret", "hlc", "cursor", "protocol"]
-license = "Apache-2.0"
+license.workspace = true
 name = "arkret-hlc"
-repository = "https://github.com/arkret-org/arkret-rust-sdk"
+repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
 
