@@ -237,7 +237,7 @@ fn realm_device_delivery_retains_the_exact_original_fact_and_acceptance_cut() {
     pair.commit.event_ref = pair.event.event_id.clone();
     pair.commit.producer_signer_fact_digest = Some(fact.digest().unwrap());
     pair.commit.commit_id = RealmCommitId::from_digest(arkret_canonical::sha256_bytes(
-        &pair.commit.canonical_id_bytes().unwrap(),
+        pair.commit.canonical_id_bytes().unwrap(),
     ));
     let unsigned = arkret_canonical::unsigned_value(&pair.commit, &["signature"]).unwrap();
     pair.commit.signature = arkret_signatures::detached_object::sign_detached_object(

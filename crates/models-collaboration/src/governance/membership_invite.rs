@@ -495,7 +495,8 @@ mod invite_accept_payload_tests {
     fn previous_state_is_required_and_closed_on_the_wire() {
         let invite_id =
             InviteId::new("ak:invite:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7").unwrap();
-        for (state, wire) in [(InvitePreviousState::Pending, "pending")] {
+        {
+            let (state, wire) = (InvitePreviousState::Pending, "pending");
             let payload = InviteAcceptPayload::directed(
                 invite_id.clone(),
                 AccountId::new(
@@ -528,7 +529,8 @@ mod invite_accept_payload_tests {
             DidCoreId::new("ak:did_core:web:bob.example").unwrap(),
             DidCoreId::new("ak:did_core:web:station.example").unwrap(),
         );
-        for state in [InvitePreviousState::Pending] {
+        {
+            let state = InvitePreviousState::Pending;
             let payload = InviteCancelPayload::new(
                 invite_id.clone(),
                 state,
@@ -550,11 +552,12 @@ mod invite_accept_payload_tests {
         missing["previous_state"] = serde_json::json!("send_failed");
         assert!(serde_json::from_value::<InviteCancelPayload>(missing).is_err());
 
-        for state in [InvitePreviousState::Pending] {
+        {
+            let state = InvitePreviousState::Pending;
             let payload = InviteRevokePayload::new(
                 invite_id.clone(),
                 state,
-                invitee.clone(),
+                invitee,
                 InviteRevokeTargetState::Revoked,
             );
             let value = payload.to_value().unwrap();

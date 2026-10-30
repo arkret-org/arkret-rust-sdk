@@ -2867,14 +2867,15 @@ mod historical_verification_tests {
         let prepared = prepare_organization_inception(&input).unwrap();
         let did = Did::new(&prepared.did).unwrap();
         let point =
-            validate_webvh_history_at(&did, &[prepared.log_entry.clone()], Utc::now()).unwrap();
+            validate_webvh_history_at(&did, std::slice::from_ref(&prepared.log_entry), Utc::now())
+                .unwrap();
         assert!(point.document.get("service").is_none());
         assert!(point.document.get("registration_receipt").is_none());
         let future_key = encode_ed25519_pubkey_multibase(&public(&future));
         let rotated = prepare_organization_rotation(&PrincipalRotationInput {
             did: &prepared.did,
             local_id: "organization",
-            previous_entries: &[prepared.log_entry.clone()],
+            previous_entries: std::slice::from_ref(&prepared.log_entry),
             version_created_at: Utc::now(),
             current_root_seed: &next,
             next_root_public_key_multibase: &future_key,
@@ -3166,7 +3167,7 @@ mod historical_verification_tests {
             object["context"],
             "ak.registration_did_evidence_control_proof.v1"
         );
-        let mut legacy = draft.clone();
+        let mut legacy = draft;
         legacy.control_proof.jws =
             base64url_encode(SigningKey::from_bytes(&root_seed).sign(&binding).to_bytes());
         assert!(
