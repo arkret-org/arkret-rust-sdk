@@ -1557,6 +1557,31 @@ fn required_constraints_declared(
     action: &str,
     grant: &CapabilityGrant,
 ) -> bool {
+    let covering = grant
+        .resources
+        .iter()
+        .filter(|resource| resource_selector_covers(resource, operation.target))
+        .collect::<Vec<_>>();
+    action_requirements_declared(action, &covering, &grant.constraints)
+}
+
+/// Check the registered declarations before accepting a typed grant. This is
+/// the same contract used when exercising it, over its complete resource set.
+/// It does not replace issuer, validity-window or operation-specific checks.
+pub fn capability_grant_action_requirements_declared(
+    action: &str,
+    resources: &[WireResourceSelector],
+    constraints: &[GrantConstraint],
+) -> bool {
+    let resources = resources.iter().collect::<Vec<_>>();
+    action_requirements_declared(action, &resources, constraints)
+}
+
+fn action_requirements_declared(
+    action: &str,
+    resources: &[&WireResourceSelector],
+    constraints: &[GrantConstraint],
+) -> bool {
     let Some(descriptor) = arkret_schema::capability_action(action) else {
         return false;
     };
@@ -1566,48 +1591,111 @@ fn required_constraints_declared(
         .all(|shorthand| match *shorthand {
             // §14.2: no declared window is an unbounded window.
             "message_edit_window" | "message_redact_window" => true,
-            "expires_at" => capability_grant_expires_at(grant).is_some(),
+            "expires_at" => capability_constraints_expires_at(constraints).is_some(),
             "allowed_circle_ids" => {
-                grant_declares(grant, shorthand)
-                    || covered_by_narrowed_selector(grant, operation.target, |resource| {
+                constraint_declares_for_action(constraints, action, shorthand)
+                    || all_resources_narrowed(resources, |resource| {
                         resource.kind == ResourceSelectorKind::Circle
                             && resource.circle_id.is_some()
                     })
             }
             "allowed_strand_ids" => {
-                grant_declares(grant, shorthand)
-                    || covered_by_narrowed_selector(grant, operation.target, |resource| {
+                constraint_declares_for_action(constraints, action, shorthand)
+                    || all_resources_narrowed(resources, |resource| {
                         resource.kind == ResourceSelectorKind::Strand
                             && resource.strand_id.is_some()
                     })
             }
-            other => grant_declares(grant, other),
+            other => constraint_declares_for_action(constraints, action, other),
         })
 }
 
-/// Whether an `allow` constraint of `grant` carries the member `shorthand`.
-fn grant_declares(grant: &CapabilityGrant, shorthand: &str) -> bool {
-    grant
-        .constraints
+/// An unrelated action, refusal effect or different family cannot declare
+/// the required allow member. The family map is capabilities.md section 6.
+fn constraint_declares_for_action(
+    constraints: &[GrantConstraint],
+    action: &str,
+    shorthand: &str,
+) -> bool {
+    constraints
         .iter()
         .filter(|constraint| constraint.effect == GrantConstraintEffect::Allow)
-        .filter_map(|constraint| serde_json::to_value(constraint).ok())
-        .any(|value| value.get(shorthand).is_some_and(|member| !member.is_null()))
+        .filter(|constraint| {
+            constraint.applies_to_actions.is_empty()
+                || constraint
+                    .applies_to_actions
+                    .iter()
+                    .any(|governed| governed == action)
+        })
+        .any(|constraint| {
+            use GrantConstraintKind as Kind;
+            use GrantConstraintSubkind as Subkind;
+            match shorthand {
+                "allowed_write_fields" => {
+                    constraint.constraint_kind == Kind::FieldAccess
+                        && !constraint.allowed_write_fields.is_empty()
+                }
+                "allowed_circle_ids" => {
+                    constraint.constraint_kind == Kind::ScopeLimitation
+                        && !constraint.allowed_circle_ids.is_empty()
+                }
+                "allowed_strand_ids" => {
+                    constraint.constraint_kind == Kind::ScopeLimitation
+                        && !constraint.allowed_strand_ids.is_empty()
+                }
+                "allowed_morph_kinds" => {
+                    constraint.constraint_kind == Kind::KindRestriction
+                        && !constraint.allowed_morph_kinds.is_empty()
+                }
+                "allowed_space_kinds" => {
+                    constraint.constraint_kind == Kind::KindRestriction
+                        && !constraint.allowed_space_kinds.is_empty()
+                }
+                "blob_presign_scope" => {
+                    constraint.constraint_kind == Kind::ScopeLimitation
+                        && constraint.blob_presign_scope.is_some()
+                }
+                "blob_max_bytes" | "blob_presign_max_ttl_seconds" => {
+                    constraint.constraint_kind == Kind::Quota
+                        && constraint.constraint_subkind == Some(Subkind::Resource)
+                        && match shorthand {
+                            "blob_max_bytes" => constraint.blob_max_bytes.is_some(),
+                            _ => constraint.blob_presign_max_ttl_seconds.is_some(),
+                        }
+                }
+                "max_operation_count" | "period" | "constraint_scope" => {
+                    constraint.constraint_kind == Kind::Quota
+                        && constraint.constraint_subkind == Some(Subkind::Rate)
+                        && match shorthand {
+                            "max_operation_count" => constraint.max_operation_count.is_some(),
+                            "period" => constraint.period.is_some(),
+                            _ => constraint.constraint_scope.is_some(),
+                        }
+                }
+                "applet_id" | "executed_by" | "registration_epoch" => {
+                    constraint.constraint_kind == Kind::AuthorityControl
+                        && constraint.constraint_subkind == Some(Subkind::AppletAuthority)
+                        && match shorthand {
+                            "applet_id" => constraint.applet_id.is_some(),
+                            "executed_by" => constraint.executed_by.is_some(),
+                            _ => constraint.registration_epoch.is_some(),
+                        }
+                }
+                "approval_required" => {
+                    constraint.constraint_kind == Kind::ClaimBased
+                        && constraint.constraint_subkind == Some(Subkind::Approval)
+                        && constraint.approval_required.is_some()
+                }
+                _ => false,
+            }
+        })
 }
 
-/// Whether every resource of `grant` covering `target` is narrowed as
-/// `narrowed` describes.
-fn covered_by_narrowed_selector(
-    grant: &CapabilityGrant,
-    target: &WireResourceSelector,
+fn all_resources_narrowed(
+    resources: &[&WireResourceSelector],
     narrowed: impl Fn(&WireResourceSelector) -> bool,
 ) -> bool {
-    let mut covering = grant
-        .resources
-        .iter()
-        .filter(|resource| resource_selector_covers(resource, target))
-        .peekable();
-    covering.peek().is_some() && covering.all(narrowed)
+    !resources.is_empty() && resources.iter().all(|resource| narrowed(resource))
 }
 
 #[cfg(test)]
@@ -1619,11 +1707,20 @@ mod tests;
 mod constraint_ceiling_tests;
 
 pub fn capability_grant_expires_at(grant: &CapabilityGrant) -> Option<DateTime<Utc>> {
-    use arkret_models_collaboration::governance::grant_constraint::GrantConstraintKind;
-    grant
-        .constraints
+    capability_constraints_expires_at(&grant.constraints)
+}
+
+/// Only an independent global allow window bounds the grant itself
+/// (capabilities.md section 6.1); per-action and recurring windows do not.
+pub fn capability_constraints_expires_at(constraints: &[GrantConstraint]) -> Option<DateTime<Utc>> {
+    constraints
         .iter()
-        .filter(|constraint| constraint.constraint_kind == GrantConstraintKind::Temporal)
+        .filter(|constraint| {
+            constraint.constraint_kind == GrantConstraintKind::Temporal
+                && constraint.effect == GrantConstraintEffect::Allow
+                && constraint.applies_to_actions.is_empty()
+                && constraint.recurrence.is_none()
+        })
         .filter_map(|constraint| constraint.expires_at)
         .min()
 }
