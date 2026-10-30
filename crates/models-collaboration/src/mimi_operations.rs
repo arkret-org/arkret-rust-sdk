@@ -63,8 +63,10 @@ impl MimiRoomUpdateRequestBody {
 pub struct MimiRoomUpdateResponseBody {
     pub accepted: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
     pub room_state_ref: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
     pub rejections: Option<Vec<MimiFailure>>,
 }
 
@@ -74,6 +76,7 @@ pub struct MimiRoomUpdateResponseBody {
 pub struct MimiNotifyResponseBody {
     pub accepted: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = u64)))]
     pub retry_after_ms: Option<NonZeroU64>,
 }
@@ -99,12 +102,15 @@ pub struct MimiReportClaim {
     pub target_ref: ObjectRef,
     pub report_reason_code: MimiReportReasonCode,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
     pub description: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub evidence_refs: Vec<ObjectRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
     pub evidence_package: Option<crate::events_payloads::ModerationEvidencePackage>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
     pub franking_proof: Option<crate::events_payloads::FrankingProof>,
 }
 
@@ -304,11 +310,13 @@ pub struct MimiRequestConsentRequestBody {
     /// widens nor narrows the consent scope; when present it is covered by the
     /// unsigned-body digest like every other member.
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
     pub strand_id: Option<StrandId>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        with = "arkret_wire::serde_helpers::optional_canonical_timestamp"
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional_timestamp"
     )]
     pub expires_at: Option<DateTime<Utc>>,
     /// Required requester operation proof over
@@ -395,11 +403,13 @@ pub struct MimiUpdateConsentRequestBody {
     pub consent_event: EventAdmissionSubmission,
     pub signature: PayloadProof,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
     pub reason: Option<AuditReasonText>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        with = "arkret_wire::serde_helpers::optional_canonical_timestamp"
+        serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional_timestamp"
     )]
     pub expires_at: Option<DateTime<Utc>>,
 }
@@ -1023,8 +1033,10 @@ pub struct MimiIdentifierQueryRequestBody {
     #[serde(deserialize_with = "deserialize_identifier_query_identifiers")]
     pub identifiers: Vec<MimiIdentifier>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
     pub requester_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
     pub privacy_profile: Option<NonEmptyString>,
     #[serde(
         default,
@@ -1147,10 +1159,13 @@ pub struct MimiProxyDownloadRequestBody {
     pub asset_ref: NonEmptyString,
     pub requester_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
     pub strand_id: Option<StrandId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
     pub ohttp_context: Option<MimiOhttpContext>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
     pub range: Option<NonEmptyString>,
 }
 

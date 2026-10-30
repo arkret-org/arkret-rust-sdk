@@ -2,10 +2,10 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/current-state.schema.json
-// sha256=7f7c4f2664ee79f2bda622abea13f8bbb119a2387d89cbe4eeb9af4f3c087428
+// sha256=b3cb719af901c84d50427c0d94de8900dfb1572ee60d81cd331187225388756d
 //
 // Input: schemas/event-payload.schema.json
-// sha256=6e557b3350ecfe34a8c4836bb00abf61dce039fa6a5fbbc58b07ec74dbaaba7f
+// sha256=5d51dfc7bb9e654a8c467a057b1df9d91741203447e09c3aff43e05fb8e76a4f
 //
 // Input: schemas/account-operations.schema.json
 // sha256=09a9261669e5c9730cf71fb0ac935cd8bcb4d6d937273778151f9a58495bf5f6
@@ -20,7 +20,7 @@
 // sha256=0aeb76477ec3d0ff335ea072a019a0b7d4371ff5890add72cf986fe5167e8de3
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=107c58e1dbd8a2701005c9cd1dc573b3c5e861cc4f3c68403bae0ff3d579bd03
+// sha256=dd0891cd81e0fc2caaf499fd178468a13da86ea101d8780b59ca3e5c661eeecd
 
 /// Counterpart: `current-state.schema.json#/$defs/invite_directed_invitee_value`.
 /// Closed value of the `invite_directed_invitee` current state
@@ -28,8 +28,6 @@
 ///
 /// It is the create-locked reverse index of the `invite_live_target` slot:
 /// written once by a directed `ak.invite.create` from that Event's own payload
-/// and never by `ak.invite.third_party`, so a third-party Invite's stored
-/// invitee is absent rather than null.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct InviteDirectedInviteeValue {

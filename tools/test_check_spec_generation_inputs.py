@@ -21,17 +21,15 @@ class GenerationInputTests(unittest.TestCase):
         self.manifest = self.root / "sdk-manifest.json"
         self.registry_manifest = self.root / "registry/registry-manifest.json"
         self.registry_input = self.root / "registry/canonical.json"
-        self.write_json(self.registry_input, {"source_of_truth": True})
+        self.write_json(self.registry_input, {})
         self.write_json(
             self.registry_manifest,
             {
-                "source_of_truth": True,
                 "registries": [
                     {
                         "file": "registry/canonical.json",
                         "source_role": "canonical",
-                        "source_of_truth": True,
-                    }
+                            }
                 ],
             },
         )
@@ -68,14 +66,14 @@ class GenerationInputTests(unittest.TestCase):
         self.assertEqual(self.registry_manifest.read_bytes(), source)
 
     def test_escaped_payload_carriage_return_is_not_an_artifact_line_ending(self):
-        self.write_json(self.registry_input, {"source_of_truth": True, "payload": "a\r\nb"})
+        self.write_json(self.registry_input, {"payload": "a\r\nb"})
         source = self.registry_input.read_bytes()
         self.assertNotIn(b"\r", source)
         self.check()
         self.assertEqual(self.registry_input.read_bytes(), source)
 
     def test_non_registry_json_inputs_require_lf_too(self):
-        source = b'{\r\n  "source_of_truth": true\r\n}\r\n'
+        source = b'{\r\n  "payload": true\r\n}\r\n'
         artifact = self.root / "schema.json"
         artifact.write_bytes(source)
         self.write_json(self.manifest, {"entries": [{"artifacts": ["schema.json"]}]})
@@ -88,11 +86,6 @@ class GenerationInputTests(unittest.TestCase):
         value["registries"][0]["source_role"] = "generated"
         self.write_json(self.registry_manifest, value)
         with self.assertRaisesRegex(ValueError, "derived registry"):
-            self.check()
-
-    def test_derived_artifact_flag_is_rejected(self):
-        self.write_json(self.registry_input, {"source_of_truth": False})
-        with self.assertRaisesRegex(ValueError, "derived artifact"):
             self.check()
 
     def test_unregistered_registry_is_rejected(self):

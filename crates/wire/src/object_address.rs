@@ -135,7 +135,7 @@ impl RealmRef {
 
 /// A parsed shareable address. `strand` / `message` are bare token strings (the
 /// `ak:<kind>:` sigil is stripped on the wire).
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct ParsedAddress {
     pub realm: RealmRef,
     /// Sigil-stripped strand Event token; `Some` for strand + message targets.
@@ -147,6 +147,19 @@ pub struct ParsedAddress {
     /// Opaque invite / preview token; present iff `address_link_kind == Invite` or
     /// `address_link_kind == Preview`.
     pub token: Option<String>,
+}
+
+impl std::fmt::Debug for ParsedAddress {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ParsedAddress")
+            .field("realm", &self.realm)
+            .field("strand", &self.strand)
+            .field("message", &self.message)
+            .field("action", &self.action)
+            .field("address_link_kind", &self.address_link_kind)
+            .field("token", &self.token.as_ref().map(|_| "[REDACTED]"))
+            .finish()
+    }
 }
 
 impl ParsedAddress {

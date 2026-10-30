@@ -69,8 +69,6 @@ def operation_id_spellings(operation_id: str) -> tuple[str, str]:
 def validate_evidence(
     evidence: dict[str, Any], operation_ids: set[str]
 ) -> dict[str, dict[str, list[str]]]:
-    if evidence.get("schema") != "arkret.sdk-operation-coverage-evidence.v1":
-        raise ValueError("operation coverage evidence schema mismatch")
     operations = evidence.get("operations")
     if not isinstance(operations, dict):
         raise ValueError("operation coverage evidence missing operations object")

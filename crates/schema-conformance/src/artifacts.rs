@@ -596,6 +596,7 @@ pub const SUPPORTED_ID_KINDS: &[&str] = &[
     "policy",
     "presentation",
     "realm",
+    "realm_invite_link",
     "realm_state_snapshot",
     "receipt",
     "recovery_session",

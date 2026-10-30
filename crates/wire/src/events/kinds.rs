@@ -152,10 +152,11 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         }
         EventKind::InviteAccept
         | EventKind::InviteCancel
-        | EventKind::InviteClaim
         | EventKind::InviteCreate
         | EventKind::InviteRevoke
-        | EventKind::InviteThirdParty => EventProductClass::Invite,
+        | EventKind::RealmInviteLinkCreate
+        | EventKind::RealmInviteLinkRevoke
+        | EventKind::RealmInviteLinkAccept => EventProductClass::Invite,
         EventKind::MemberIdentityUpdate | EventKind::MemberState => EventProductClass::Membership,
         EventKind::MessageCreate
         | EventKind::MessageRedact

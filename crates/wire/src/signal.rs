@@ -653,27 +653,6 @@ impl SignalRelayRequestBody {
     }
 }
 
-/// Opaque success body for `ak.peer.signal.command.relay.v1`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SignalRelayResponseBody {
-    pub accepted: bool,
-}
-
-impl SignalRelayResponseBody {
-    pub const ACCEPTED: Self = Self { accepted: true };
-
-    pub fn validate(self) -> Result<()> {
-        if !self.accepted {
-            return Err(WireError::Protocol(
-                "signal relay outcome accepted must be true".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use chrono::TimeZone;
@@ -832,11 +811,6 @@ mod tests {
             signals: vec![signal.clone()],
         };
         request.validate().unwrap();
-        assert_eq!(
-            serde_json::to_value(SignalRelayResponseBody::ACCEPTED).unwrap(),
-            serde_json::json!({"accepted": true})
-        );
-        SignalRelayResponseBody::ACCEPTED.validate().unwrap();
 
         let empty = SignalRelayRequestBody {
             realm_id: realm(),

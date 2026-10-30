@@ -275,7 +275,6 @@ pub struct ReadMarkerResponseBody {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ReadCursorList {
-    #[serde(default)]
     pub markers: Vec<ReadMarkerResponseBody>,
 }
 

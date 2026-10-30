@@ -1,7 +1,5 @@
 //! Realm lifecycle, policy, and organization event payloads.
 
-use std::collections::BTreeSet;
-
 use arkret_models_identity::primary_handle::HandleIssuerPolicyEntry;
 use arkret_wire::{ActorId, DidCoreId, DomainSeparationId};
 
@@ -126,7 +124,7 @@ pub struct RealmPolicyBundlePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub preauth: Option<RealmPreauthPolicy>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub allowed_third_party_invite_verification_ids: Option<Vec<DidCoreId>>,
+    pub invite_link_limits: Option<crate::governance::realm_invite_link::RealmInviteLinkLimits>,
 }
 
 impl RealmPolicyBundlePayload {
@@ -148,7 +146,7 @@ impl RealmPolicyBundlePayload {
             agent_participation: None,
             account_deactivation: None,
             preauth: None,
-            allowed_third_party_invite_verification_ids: None,
+            invite_link_limits: None,
         }
     }
 
@@ -186,19 +184,8 @@ impl RealmPolicyBundlePayload {
                     .to_owned(),
             ));
         }
-        if let Some(service_ids) = &self.allowed_third_party_invite_verification_ids {
-            if service_ids.len() > 256 {
-                return Err(WireError::Protocol(
-                    "realm policy third-party invite verification allowset exceeds 256 services"
-                        .to_owned(),
-                ));
-            }
-            if service_ids.iter().collect::<BTreeSet<_>>().len() != service_ids.len() {
-                return Err(WireError::Protocol(
-                    "realm policy third-party invite verification allowset must be unique"
-                        .to_owned(),
-                ));
-            }
+        if let Some(limits) = &self.invite_link_limits {
+            limits.validate()?;
         }
         Ok(())
     }

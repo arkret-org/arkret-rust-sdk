@@ -376,6 +376,7 @@ pub struct AppletInstallResponseBody {
     pub registration_epoch: Hash,
     pub capability_grant_refs: Vec<GrantId>,
     pub e2ee_authorization_refs: Vec<EventId>,
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_required_nullable")]
     pub widget_policy_ref: Option<EventId>,
     pub effective_status: AppletInstallEffectiveStatus,
     pub rejections: Vec<AppletScopeRejection>,
@@ -907,6 +908,8 @@ mod actor_view_tests {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+/// Wire boundary: `applet-edge-operations.schema.json#/$defs/applet_realm_view`.
+#[serde(deny_unknown_fields)]
 pub struct AppletRealmView {
     pub exists: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -919,6 +922,8 @@ pub struct AppletRealmView {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+/// Wire boundary: `applet-edge-operations.schema.json#/$defs/applet_protocol_metadata`.
+#[serde(deny_unknown_fields)]
 pub struct AppletProtocolMetadata {
     pub protocol: String,
     pub display_name: String,

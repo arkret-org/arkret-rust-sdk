@@ -33,7 +33,7 @@ impl ExactModerationTargetRef {
         let pattern = OBJECT_REF.get_or_init(|| {
             Regex::new(concat!(
                 r"^((?:ak:realm:[A-Za-z0-9_-]{44}|",
-                r"ak:(circle|space|actor_profile|strand|message|morph|relation|view|event|grant|invite|call|report):[A-Za-z0-9_-]{44}|",
+                r"ak:(circle|space|actor_profile|strand|message|morph|relation|view|event|grant|invite|realm_invite_link|call|report):[A-Za-z0-9_-]{44}|",
                 r"ak:(policy|blob):[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})|",
                 r"ak:blob:(sha256|blake3):[0-9a-f]{64}|did:[^\s]+|(sha256|blake3):[0-9a-f]{64})$"
             ))

@@ -287,7 +287,7 @@ fn verify_ed25519_detached_jws_proof_inner(
 /// Shared detached-JWS tail: parse the protected header, reject every
 /// extension this profile does not accept, and verify the signature over
 /// `header.base64url(binding_bytes)`.
-fn verify_detached_jws_over(
+pub(crate) fn verify_detached_jws_over(
     jws: &str,
     binding_bytes: &[u8],
     public_key: &PublicKeyMaterial,

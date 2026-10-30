@@ -127,7 +127,7 @@ class DepMatrixArtifactBytesTest(unittest.TestCase):
     def test_json_artifact_has_no_carriage_returns(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "dep-matrix.json"
-            dep_matrix.write_json(path, {"version": 1, "crates": self.CRATES})
+            dep_matrix.write_json(path, {"crates": self.CRATES})
             written = path.read_bytes()
         self.assertNotIn(b"\r", written)
         self.assertTrue(written.endswith(b"\n"))

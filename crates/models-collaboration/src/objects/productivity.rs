@@ -346,6 +346,7 @@ pub struct RsvpSetPayload {
     pub event_ref: StrandId,
     /// `None` is the whole series; `Some` is a canonical recurrence instance
     /// key produced by [`CalendarEventFields::canonical_occurrence_key`].
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_required_nullable")]
     pub occurrence: Option<String>,
     pub entry: RsvpEntry,
 }

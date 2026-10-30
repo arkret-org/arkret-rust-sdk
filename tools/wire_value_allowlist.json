@@ -114,7 +114,7 @@
       "adjudication": "manual"
     },
     {
-      "finding": "closed_dispatch:inkson/src/bin/inkson-wire/realm_fixture.rs::project:78658b8b7a682ee1",
+      "finding": "closed_dispatch:inkson/src/bin/inkson-wire/realm_fixture.rs::project:fce253a306263c65",
       "classification": "internal_or_fixture",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -123,6 +123,18 @@
       "action": "Exact mock-realm CLI fixture projection, not a production admission model. It dispatches on the SDK EventKind and decodes SDK payloads/current values, including typed StrandWatchSet and StrandWatchValue, before updating its SDK CurrentState collection. Retain this one internal fixture boundary; no directory exemption or protocol DTO is introduced.",
       "test": "Inkson playwright.contract.config.ts: Self Watch current; Watch read controls; Watch CAS validation; python tools/wire_value_audit.py --check",
       "reason": "Exact mock-realm CLI fixture projection, not a production admission model. It dispatches on the SDK EventKind and decodes SDK payloads/current values, including typed StrandWatchSet and StrandWatchValue, before updating its SDK CurrentState collection. Retain this one internal fixture boundary; no directory exemption or protocol DTO is introduced.",
+      "adjudication": "manual"
+    },
+    {
+      "finding": "closed_dispatch:inkson/src/state/realm_membership.rs::local_membership_fact_from_raw_operation:3b382fde3bf8abeb",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "arkret_wire::EventKind; arkret_sdk::RealmInviteLinkAcceptPayload; garth::mls::membership::MembershipFact",
+      "owner_repository": "inkson",
+      "action": "Decode the accepted exact-Realm raw operation through SDK RealmInviteLinkAcceptPayload before deriving the local membership hint. Require synced write state and an exact actor/account subject match for invite-link acceptance.",
+      "test": "cargo test -p inkson --lib state::realm_membership; python tools/wire_value_audit.py --check",
+      "reason": "This exact dispatch reads bounded persisted RawOperationRecord facts after acceptance, projects them to Garth MembershipFact, and does not author network bodies or decide admission. The invite-link branch uses the SDK payload and rejects mismatched subjects.",
       "adjudication": "manual"
     },
     {
@@ -1964,17 +1976,6 @@
       "lifecycle": "retained_boundary",
       "decision": "raw",
       "authority": "serde_json::Value",
-      "owner_repository": "coland",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
-    },
-    {
-      "finding": "coland/crates/storage/src/unit_of_work.rs::InviteClaimProofCommit.subject_control_history",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Option<serde_json::Value>",
       "owner_repository": "coland",
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
@@ -5190,7 +5191,7 @@
       "adjudication": "manual"
     },
     {
-      "finding": "json_authoring:inkson/src/views/realm_admin/members_panel/controller.rs::terminate_pending_invite:c3de5c3e6643d488",
+      "finding": "json_authoring:inkson/src/views/realm_admin/members_panel/controller.rs::terminate_pending_invite:1dbc1dc7206edced",
       "classification": "internal_or_fixture",
       "lifecycle": "retained_boundary",
       "decision": "raw",

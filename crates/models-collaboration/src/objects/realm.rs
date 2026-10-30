@@ -29,7 +29,7 @@ pub struct Realm {
     pub governance_station_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub owning_organization_ids: Vec<DidCoreId>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+
     pub schema_refs: Vec<String>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub fields: BTreeMap<String, Value>,

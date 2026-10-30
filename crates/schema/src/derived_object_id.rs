@@ -99,7 +99,7 @@ mod tests {
             ("ak.message.create", "ak:message:"),
             ("ak.profile.create", "ak:actor_profile:"),
             ("ak.capability.grant", "ak:grant:"),
-            ("ak.invite.third_party", "ak:invite:"),
+            ("ak.realm_invite_link.create", "ak:realm_invite_link:"),
         ] {
             assert_eq!(
                 derived_object_id_for_kind(kind, &event_id).as_deref(),
