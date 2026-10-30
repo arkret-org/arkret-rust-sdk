@@ -2,11 +2,12 @@
 name = "arkret-deployment-contracts"
 version.workspace = true
 rust-version.workspace = true
-edition = "2024"
-license = "Apache-2.0"
-authors = ["Chris Young <chris@sonc.ai>"]
-repository = "https://github.com/arkret-org/arkret-rust-sdk"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
 description = "Pure transport contracts for separately deployed Arkret products; not canonical protocol operations."
+homepage.workspace = true
 
 [features]
 default = []

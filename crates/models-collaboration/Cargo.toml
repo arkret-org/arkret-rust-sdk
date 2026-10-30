@@ -1,13 +1,13 @@
 [package]
-authors = ["Chris Young <chris@sonc.ai>"]
+authors.workspace = true
 categories = ["api-bindings", "data-structures"]
 description = "Arkret v1 collaboration domain models: governance, collaboration objects, event payloads, sync and federation frames."
-edition = "2024"
-homepage = "https://github.com/arkret-org/arkret-rust-sdk"
+edition.workspace = true
+homepage.workspace = true
 keywords = ["arkret", "collaboration", "governance", "wire"]
-license = "Apache-2.0"
+license.workspace = true
 name = "arkret-models-collaboration"
-repository = "https://github.com/arkret-org/arkret-rust-sdk"
+repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
 
