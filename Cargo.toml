@@ -140,7 +140,7 @@ hmac = { version = "0.13.0", default-features = false }
 # RFC 9180 HPKE (rozbb/rust-hpke), using the SDK's pure Rust crypto stack.
 hpke = { version = "0.14.1", default-features = false, features = ["alloc", "chacha", "getrandom", "x25519"] }
 idna = { version = "1.1.0", default-features = true }
-jsonschema = { version = "0.59.0", default-features = false }
+jsonschema = { version = "0.60.1", default-features = false }
 # Use the latest stable, mutually compatible OpenMLS releases from crates.io.
 openmls = { version = "0.9.1", git = "https://github.com/arkret-org/openmls", rev = "67e25df7f507ac62b27b75cf76981b99a83742a2", default-features = false }
 openmls_basic_credential = { version = "0.6.0", git = "https://github.com/arkret-org/openmls", rev = "67e25df7f507ac62b27b75cf76981b99a83742a2", default-features = false }
