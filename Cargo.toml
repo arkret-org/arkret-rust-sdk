@@ -138,7 +138,7 @@ hex = "0.4.3"
 hkdf = { version = "0.13.0", default-features = false }
 hmac = { version = "0.13.0", default-features = false }
 # RFC 9180 HPKE (rozbb/rust-hpke), using the SDK's pure Rust crypto stack.
-hpke = { version = "0.14.1", default-features = false, features = ["alloc", "chacha", "getrandom", "x25519"] }
+hpke = { version = "0.15.1", default-features = false, features = ["alloc", "chacha", "getrandom", "x25519"] }
 idna = { version = "1.1.0", default-features = true }
 jsonschema = { version = "0.60.1", default-features = false }
 # Use the latest stable, mutually compatible OpenMLS releases from crates.io.
