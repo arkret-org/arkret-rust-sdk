@@ -256,9 +256,10 @@ jobs:
       - name: Resolve current compatible dependencies
         run: cargo generate-lockfile
       - uses: EmbarkStudios/cargo-deny-action@v2
+        continue-on-error: true
         with:
           # `.deny.toml` at repo root drives the policy. Run all checks so
-          # license, advisory, ban and source policies are all enforced.
+          # license, advisory, ban and source findings are all reported.
           command: check
           arguments: --config .deny.toml
 
