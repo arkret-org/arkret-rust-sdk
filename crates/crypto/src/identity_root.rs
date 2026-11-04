@@ -164,19 +164,21 @@ pub fn derive_identity_recovery_key_material(
 
     type BackupKem = hpke::kem::X25519HkdfSha256;
     let backup_hpke_derived_private_key = derive_hpke_x25519_raw_private_key(&backup_hpke_ikm)?;
-    let (backup_private_key, backup_public_key) =
-        <BackupKem as Kem>::derive_keypair(&backup_hpke_ikm);
-    let backup_private_key_bytes = backup_private_key.to_bytes();
-    let hpke_derived_private_key: [u8; 32] = backup_private_key_bytes[..]
-        .try_into()
-        .expect("X25519 private keys are exactly 32 bytes");
-    if hpke_derived_private_key != backup_hpke_derived_private_key {
-        return Err(IdentityRecoveryKdfError::HpkeDerivationMismatch);
-    }
     let mut backup_hpke_serialized_private_key = backup_hpke_derived_private_key;
     backup_hpke_serialized_private_key[0] &= 248;
     backup_hpke_serialized_private_key[31] &= 127;
     backup_hpke_serialized_private_key[31] |= 64;
+    let (backup_private_key, backup_public_key) =
+        <BackupKem as Kem>::derive_keypair(&backup_hpke_ikm);
+    let backup_private_key_bytes = backup_private_key.to_bytes();
+    let hpke_serialized_private_key: [u8; 32] = backup_private_key_bytes[..]
+        .try_into()
+        .expect("X25519 private keys are exactly 32 bytes");
+    // hpke 0.15 serializes X25519 private keys with RFC 7748 clamping.
+    // Compare serialized keys while preserving the raw RFC 9180 KDF output.
+    if hpke_serialized_private_key != backup_hpke_serialized_private_key {
+        return Err(IdentityRecoveryKdfError::HpkeDerivationMismatch);
+    }
     let backup_public_key_bytes = backup_public_key.to_bytes();
     let backup_hpke_public_key: [u8; 32] = backup_public_key_bytes[..]
         .try_into()
@@ -288,6 +290,25 @@ fn multikey(prefix: &[u8; 2], public_key: &[u8; 32]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn recovery_schedule_preserves_raw_and_clamped_hpke_fixture_keys() {
+        // identity-recovery-kdf-fixture.json, raw_uniform_secret case.
+        let secret: Vec<u8> = (0..32).collect();
+        let material = derive_identity_recovery_key_material(&secret, 0).unwrap();
+        assert_eq!(
+            hex::encode(material.backup_hpke_derived_private_key),
+            "a544154ac9fa66b100ef81aac4646cb2219d1b2d543267d655ee8f9a93983efe"
+        );
+        assert_eq!(
+            hex::encode(material.backup_hpke_serialized_private_key),
+            "a044154ac9fa66b100ef81aac4646cb2219d1b2d543267d655ee8f9a93983e7e"
+        );
+        assert_eq!(
+            hex::encode(material.backup_hpke_public_key),
+            "d6b62463f35e292735477b8bafa89e226fdfe445a136d46919a7606969664234"
+        );
+    }
 
     #[test]
     fn mnemonic_helpers_share_one_canonical_24_word_representation() {
