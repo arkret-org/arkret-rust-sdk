@@ -20,7 +20,7 @@ REPO = Path(__file__).resolve().parent.parent
 DEFAULT_ARTIFACTS = REPO.parent / "arkret-spec" / "spec" / "v1" / "artifacts"
 DEFAULT_EVIDENCE = REPO / "tools" / "operation-coverage-evidence.json"
 DEFAULT_OUTPUT = REPO / "docs" / "operation-coverage-matrix.md"
-AUDITED_CLAIMABLE_PROFILES = 59
+AUDITED_CLAIMABLE_PROFILES = 58
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -167,6 +167,7 @@ def generate(artifacts: Path, evidence_path_value: Path) -> str:
     # profile and the security-frontier profiles along with the mechanisms they
     # claimed, leaving 60 claimable profiles. The committed-event protocol
     # clean break then removed one more obsolete profile, leaving 59. Their
+    # Reporting retirement removed the franking profile, leaving 58. Their
     # former matrix rows named
     # operations that no longer exist and must disappear with them.
     # The guard is here so a silent catalog change cannot slip into the matrix, not
