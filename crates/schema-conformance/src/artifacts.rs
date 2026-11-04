@@ -600,7 +600,6 @@ pub const SUPPORTED_ID_KINDS: &[&str] = &[
     "receipt",
     "recovery_session",
     "relation",
-    "report",
     "request",
     "rtc_participant",
     "scheduled_send",
