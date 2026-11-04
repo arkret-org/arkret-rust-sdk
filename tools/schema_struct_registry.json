@@ -325,10 +325,6 @@
       "schema": "event-payload.schema.json#/$defs/join_gate_proof"
     },
     {
-      "rust_type": "crates/models-collaboration/src/governance/generated/moderation_queue_contracts.rs::ModerationQueueItem",
-      "schema": "moderation-queue-item.schema.json"
-    },
-    {
       "rust_type": "crates/models-collaboration/src/governance/generated/operation_wire_contracts.rs::PolicyRule",
       "schema": "policy.schema.json#/$defs/policy_rule"
     },
@@ -2230,20 +2226,12 @@
       "schema": "event-payload.schema.json#/$defs/organization_moderation_policy_rule"
     },
     {
-      "rust_type": "crates/models-collaboration/src/events_payloads/moderation.rs::FrankingProof",
-      "schema": "moderation-evidence.schema.json#/$defs/franking_proof"
-    },
-    {
       "rust_type": "crates/models-collaboration/src/events_payloads/moderation.rs::ModerationDecisionLiftPayload",
       "schema": "event-payload.schema.json#/$defs/moderation_decision_lift_payload"
     },
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/moderation.rs::ModerationDecisionPayload",
       "schema": "event-payload.schema.json#/$defs/moderation_decision_payload"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/events_payloads/moderation.rs::ModerationReportPayload",
-      "schema": "event-payload.schema.json#/$defs/moderation_report_payload"
     },
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/morph.rs::MorphUpdatePayload",
@@ -2474,10 +2462,6 @@
       "reason": "The named core is checked exactly against the canonical schema; serde(flatten) carries the registered variant payload or extension slot and cannot justify excluding any named Rust field."
     },
     {
-      "rust_type": "crates/models-collaboration/src/governance/moderation.rs::ModerationReportRequestBody",
-      "schema": "moderation-report.schema.json#/$defs/moderation_report_request_body"
-    },
-    {
       "rust_type": "crates/models-collaboration/src/governance/operation_wire.rs::Policy",
       "schema": "policy.schema.json",
       "comparison": "rust_fields_subset",
@@ -2530,22 +2514,6 @@
     {
       "rust_type": "crates/models-collaboration/src/mimi_operations.rs::MimiNotifyResponseBody",
       "schema": "mimi-operations.schema.json#/$defs/mimi_notify_response_body"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/mimi_operations.rs::MimiReporterAuthority",
-      "schema": "mimi-operations.schema.json#/$defs/mimi_reporter_authority"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/mimi_operations.rs::MimiReportClaim",
-      "schema": "mimi-operations.schema.json#/$defs/mimi_report_claim"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/mimi_operations.rs::MimiReportAbuseRequestBody",
-      "schema": "mimi-operations.schema.json#/$defs/mimi_report_abuse_request_body"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/mimi_operations.rs::MimiReportAbuseResponseBody",
-      "schema": "mimi-operations.schema.json#/$defs/mimi_report_abuse_response_body"
     },
     {
       "rust_type": "crates/models-collaboration/src/mimi_operations.rs::MimiRequestConsentRequestBody",
@@ -3796,10 +3764,6 @@
     {
       "rust_type": "crates/models-collaboration/src/governance/invite_addressing.rs::InviteLocatorRevokeResponseBody",
       "schema": "principal-locator.schema.json#/$defs/invite_locator_revoke_response_body"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/moderation.rs::ModerationReportResponseBody",
-      "schema": "service-operation-dtos.schema.json#/$defs/ModerationReportResponseBody"
     },
     {
       "rust_type": "crates/models-collaboration/src/governance/realm_governance.rs::RealmLinkPayload",

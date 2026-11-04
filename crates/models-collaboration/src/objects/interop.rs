@@ -150,7 +150,6 @@ impl ProviderDirectory {
             "key_material",
             "notify",
             "proxy_download",
-            "report_abuse",
             "room_update",
             "submit_message",
         ];

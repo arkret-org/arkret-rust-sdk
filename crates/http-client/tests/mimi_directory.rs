@@ -182,11 +182,6 @@ fn current_assertion_authority_and_requested_bindings_are_independent() {
             )
             .is_err()
     );
-    assert!(
-        authority()
-            .verify(directory(), None, &["report_abuse".into()], now())
-            .is_err()
-    );
     let mut value = directory();
     value.service_id = "ak:did_core:web:other.example".parse().unwrap();
     assert!(!accepts(sign(value)));

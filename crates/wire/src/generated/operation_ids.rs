@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json;
-//! sha256=4603ea9c66ada9ca9e09db7ccce8dfd3b0ba0675ac2f67bdeaba66402115762c Entries: registered=220
+//! sha256=0c45feb83576757e83d3be4b71330fcb8a607e77b2aa85798b1f98960fef0df1 Entries: registered=218
 
 use serde::{Deserialize, Serialize};
 
@@ -51,7 +51,6 @@ pub enum ServiceOperationId {
     OpenInviteLocatorReadResolveV1,
     OpenMimiCommandNotifyV1,
     OpenMimiCommandProxyDownloadV1,
-    OpenMimiCommandReportAbuseV1,
     OpenMimiCommandRequestConsentV1,
     OpenMimiCommandSubmitMessageV1,
     OpenMimiCommandUpdateConsentV1,
@@ -202,7 +201,6 @@ pub enum ServiceOperationId {
     SelfMediaServiceBindingReadResolveV1,
     SelfMlsReadGroupStateMaterialV1,
     SelfMlsReadRosterAuthorityV1,
-    SelfModerationCommandReportV1,
     SelfMorphReadListV1,
     SelfMorphResourceGetV1,
     SelfReadCursorCommandAdvanceV1,
@@ -274,7 +272,6 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::OPEN_INVITE_LOCATOR_READ_RESOLVE_V1,
     ServiceOperationId::OPEN_MIMI_COMMAND_NOTIFY_V1,
     ServiceOperationId::OPEN_MIMI_COMMAND_PROXY_DOWNLOAD_V1,
-    ServiceOperationId::OPEN_MIMI_COMMAND_REPORT_ABUSE_V1,
     ServiceOperationId::OPEN_MIMI_COMMAND_REQUEST_CONSENT_V1,
     ServiceOperationId::OPEN_MIMI_COMMAND_SUBMIT_MESSAGE_V1,
     ServiceOperationId::OPEN_MIMI_COMMAND_UPDATE_CONSENT_V1,
@@ -425,7 +422,6 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_MEDIA_SERVICE_BINDING_READ_RESOLVE_V1,
     ServiceOperationId::SELF_MLS_READ_GROUP_STATE_MATERIAL_V1,
     ServiceOperationId::SELF_MLS_READ_ROSTER_AUTHORITY_V1,
-    ServiceOperationId::SELF_MODERATION_COMMAND_REPORT_V1,
     ServiceOperationId::SELF_MORPH_READ_LIST_V1,
     ServiceOperationId::SELF_MORPH_RESOURCE_GET_V1,
     ServiceOperationId::SELF_READ_CURSOR_COMMAND_ADVANCE_V1,
@@ -539,7 +535,6 @@ impl ServiceOperationId {
         Self::OpenInviteLocatorReadResolveV1,
         Self::OpenMimiCommandNotifyV1,
         Self::OpenMimiCommandProxyDownloadV1,
-        Self::OpenMimiCommandReportAbuseV1,
         Self::OpenMimiCommandRequestConsentV1,
         Self::OpenMimiCommandSubmitMessageV1,
         Self::OpenMimiCommandUpdateConsentV1,
@@ -690,7 +685,6 @@ impl ServiceOperationId {
         Self::SelfMediaServiceBindingReadResolveV1,
         Self::SelfMlsReadGroupStateMaterialV1,
         Self::SelfMlsReadRosterAuthorityV1,
-        Self::SelfModerationCommandReportV1,
         Self::SelfMorphReadListV1,
         Self::SelfMorphResourceGetV1,
         Self::SelfReadCursorCommandAdvanceV1,
@@ -797,8 +791,6 @@ impl ServiceOperationId {
     pub const OPEN_MIMI_COMMAND_NOTIFY_V1: &'static str = "ak.open.mimi.command.notify.v1";
     pub const OPEN_MIMI_COMMAND_PROXY_DOWNLOAD_V1: &'static str =
         "ak.open.mimi.command.proxy_download.v1";
-    pub const OPEN_MIMI_COMMAND_REPORT_ABUSE_V1: &'static str =
-        "ak.open.mimi.command.report_abuse.v1";
     pub const OPEN_MIMI_COMMAND_REQUEST_CONSENT_V1: &'static str =
         "ak.open.mimi.command.request_consent.v1";
     pub const OPEN_MIMI_COMMAND_SUBMIT_MESSAGE_V1: &'static str =
@@ -1051,8 +1043,6 @@ impl ServiceOperationId {
         "ak.self.mls.read.group_state_material.v1";
     pub const SELF_MLS_READ_ROSTER_AUTHORITY_V1: &'static str =
         "ak.self.mls.read.roster_authority.v1";
-    pub const SELF_MODERATION_COMMAND_REPORT_V1: &'static str =
-        "ak.self.moderation.command.report.v1";
     pub const SELF_MORPH_READ_LIST_V1: &'static str = "ak.self.morph.read.list.v1";
     pub const SELF_MORPH_RESOURCE_GET_V1: &'static str = "ak.self.morph.resource.get.v1";
     pub const SELF_READ_CURSOR_COMMAND_ADVANCE_V1: &'static str =
@@ -1170,7 +1160,6 @@ impl ServiceOperationId {
             Self::OpenInviteLocatorReadResolveV1 => Self::OPEN_INVITE_LOCATOR_READ_RESOLVE_V1,
             Self::OpenMimiCommandNotifyV1 => Self::OPEN_MIMI_COMMAND_NOTIFY_V1,
             Self::OpenMimiCommandProxyDownloadV1 => Self::OPEN_MIMI_COMMAND_PROXY_DOWNLOAD_V1,
-            Self::OpenMimiCommandReportAbuseV1 => Self::OPEN_MIMI_COMMAND_REPORT_ABUSE_V1,
             Self::OpenMimiCommandRequestConsentV1 => Self::OPEN_MIMI_COMMAND_REQUEST_CONSENT_V1,
             Self::OpenMimiCommandSubmitMessageV1 => Self::OPEN_MIMI_COMMAND_SUBMIT_MESSAGE_V1,
             Self::OpenMimiCommandUpdateConsentV1 => Self::OPEN_MIMI_COMMAND_UPDATE_CONSENT_V1,
@@ -1391,7 +1380,6 @@ impl ServiceOperationId {
             }
             Self::SelfMlsReadGroupStateMaterialV1 => Self::SELF_MLS_READ_GROUP_STATE_MATERIAL_V1,
             Self::SelfMlsReadRosterAuthorityV1 => Self::SELF_MLS_READ_ROSTER_AUTHORITY_V1,
-            Self::SelfModerationCommandReportV1 => Self::SELF_MODERATION_COMMAND_REPORT_V1,
             Self::SelfMorphReadListV1 => Self::SELF_MORPH_READ_LIST_V1,
             Self::SelfMorphResourceGetV1 => Self::SELF_MORPH_RESOURCE_GET_V1,
             Self::SelfReadCursorCommandAdvanceV1 => Self::SELF_READ_CURSOR_COMMAND_ADVANCE_V1,
@@ -1527,7 +1515,6 @@ impl ServiceOperationId {
             Self::OPEN_INVITE_LOCATOR_READ_RESOLVE_V1 => Some(Self::OpenInviteLocatorReadResolveV1),
             Self::OPEN_MIMI_COMMAND_NOTIFY_V1 => Some(Self::OpenMimiCommandNotifyV1),
             Self::OPEN_MIMI_COMMAND_PROXY_DOWNLOAD_V1 => Some(Self::OpenMimiCommandProxyDownloadV1),
-            Self::OPEN_MIMI_COMMAND_REPORT_ABUSE_V1 => Some(Self::OpenMimiCommandReportAbuseV1),
             Self::OPEN_MIMI_COMMAND_REQUEST_CONSENT_V1 => {
                 Some(Self::OpenMimiCommandRequestConsentV1)
             }
@@ -1818,7 +1805,6 @@ impl ServiceOperationId {
                 Some(Self::SelfMlsReadGroupStateMaterialV1)
             }
             Self::SELF_MLS_READ_ROSTER_AUTHORITY_V1 => Some(Self::SelfMlsReadRosterAuthorityV1),
-            Self::SELF_MODERATION_COMMAND_REPORT_V1 => Some(Self::SelfModerationCommandReportV1),
             Self::SELF_MORPH_READ_LIST_V1 => Some(Self::SelfMorphReadListV1),
             Self::SELF_MORPH_RESOURCE_GET_V1 => Some(Self::SelfMorphResourceGetV1),
             Self::SELF_READ_CURSOR_COMMAND_ADVANCE_V1 => Some(Self::SelfReadCursorCommandAdvanceV1),
@@ -2948,31 +2934,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
-            branch_contract_json: None,
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::OpenMimiCommandReportAbuseV1,
-        http_method: "POST",
-        http_path: "/_arkret/open/mimi/report-abuse",
-        grpc: Some("OpenMimi/ReportAbuse"),
-        mq: Some("open.mimi.command.report_abuse"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("canonical_hash"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/mimi-operations.schema.json#/$defs/mimi_report_abuse_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/mimi-operations.schema.json#/$defs/mimi_report_abuse_response_body",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::EventLog,
-            target: Some(DurableEventTarget::Static(&["ak.self.moderation.report"])),
-            rationale: None,
             branch_contract_json: None,
         }),
     },
@@ -6397,31 +6358,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         uncertain_outcome: None,
         durable_effect: None,
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfModerationCommandReportV1,
-        http_method: "POST",
-        http_path: "/_arkret/self/moderation/report",
-        grpc: Some("SelfModeration/Report"),
-        mq: Some("self.moderation.command.report"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("object_id"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/moderation-report.schema.json#/$defs/moderation_report_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/ModerationReportResponseBody",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::EventLog,
-            target: Some(DurableEventTarget::Static(&["ak.self.moderation.report"])),
-            rationale: None,
-            branch_contract_json: None,
-        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfMorphReadListV1,

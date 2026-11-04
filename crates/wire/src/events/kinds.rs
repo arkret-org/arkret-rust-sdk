@@ -165,10 +165,9 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::ReactionRemove
         | EventKind::Redaction => EventProductClass::Message,
         EventKind::MimiRoomBinding => EventProductClass::Mimi,
-        EventKind::ModerationDecision
-        | EventKind::ModerationDecisionLift
-        | EventKind::ModerationFrankingProof
-        | EventKind::SelfModerationReport => EventProductClass::Moderation,
+        EventKind::ModerationDecision | EventKind::ModerationDecisionLift => {
+            EventProductClass::Moderation
+        }
         EventKind::MorphArchive
         | EventKind::MorphCreate
         | EventKind::MorphRestore

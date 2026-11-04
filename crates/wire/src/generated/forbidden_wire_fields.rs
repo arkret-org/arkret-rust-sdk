@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/forbidden-wire-fields.json;
-//! sha256=0910c509d86ac4569c43870e015922228c18cd107f4d37d247ec7dcc2d600c6e
-//! Entries: forbidden_wire_fields=245
+//! sha256=462f6ccbe51d42333d0dc907311099103983e337020a909ee8e17a09bbebca2d
+//! Entries: forbidden_wire_fields=237
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ForbiddenWireSelector {
@@ -1974,20 +1974,6 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
         value_pointer: "",
     },
     ForbiddenWireFieldDescriptor {
-        id: "requires_franking_proof_verification",
-        context: "all_arkret_owned_wire_contexts",
-        rejection_level: "hard_reject",
-        selectors: &[ForbiddenWireSelector {
-            document_kind: "wire",
-            schema_ref: "*",
-            instance_pointer: "",
-            match_scope: "descendants",
-        }],
-        match_kind: "field",
-        match_values: &["requires_franking_proof_verification"],
-        value_pointer: "",
-    },
-    ForbiddenWireFieldDescriptor {
         id: "requires_fresh_authentication",
         context: "all_arkret_owned_wire_contexts",
         rejection_level: "hard_reject",
@@ -2321,20 +2307,6 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
         }],
         match_kind: "value",
         match_values: &["delta_contains_data_event"],
-        value_pointer: "",
-    },
-    ForbiddenWireFieldDescriptor {
-        id: "frank_unavailable",
-        context: "error_code",
-        rejection_level: "hard_reject",
-        selectors: &[ForbiddenWireSelector {
-            document_kind: "error_code_value",
-            schema_ref: "*",
-            instance_pointer: "",
-            match_scope: "descendants",
-        }],
-        match_kind: "value",
-        match_values: &["frank_unavailable"],
         value_pointer: "",
     },
     ForbiddenWireFieldDescriptor {
@@ -2818,76 +2790,6 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
         }],
         match_kind: "field",
         match_values: &["actor"],
-        value_pointer: "",
-    },
-    ForbiddenWireFieldDescriptor {
-        id: "queue_item_id",
-        context: "moderation_queue_item",
-        rejection_level: "hard_reject",
-        selectors: &[ForbiddenWireSelector {
-            document_kind: "schema_instance",
-            schema_ref: "moderation-queue-item.schema.json",
-            instance_pointer: "",
-            match_scope: "root",
-        }],
-        match_kind: "field",
-        match_values: &["queue_item_id"],
-        value_pointer: "",
-    },
-    ForbiddenWireFieldDescriptor {
-        id: "requires_frank_verification",
-        context: "moderation_queue_item.evidence_policy",
-        rejection_level: "hard_reject",
-        selectors: &[ForbiddenWireSelector {
-            document_kind: "schema_instance",
-            schema_ref: "moderation-queue-item.schema.json",
-            instance_pointer: "/evidence_policy",
-            match_scope: "root",
-        }],
-        match_kind: "field",
-        match_values: &["requires_frank_verification"],
-        value_pointer: "",
-    },
-    ForbiddenWireFieldDescriptor {
-        id: "retention_until",
-        context: "moderation_queue_item.evidence_policy",
-        rejection_level: "hard_reject",
-        selectors: &[ForbiddenWireSelector {
-            document_kind: "schema_instance",
-            schema_ref: "moderation-queue-item.schema.json",
-            instance_pointer: "/evidence_policy",
-            match_scope: "root",
-        }],
-        match_kind: "field",
-        match_values: &["retention_until"],
-        value_pointer: "",
-    },
-    ForbiddenWireFieldDescriptor {
-        id: "frank_only",
-        context: "moderation_queue_item.visibility",
-        rejection_level: "hard_reject",
-        selectors: &[ForbiddenWireSelector {
-            document_kind: "schema_instance",
-            schema_ref: "moderation-queue-item.schema.json",
-            instance_pointer: "",
-            match_scope: "root",
-        }],
-        match_kind: "value",
-        match_values: &["frank_only"],
-        value_pointer: "/visibility",
-    },
-    ForbiddenWireFieldDescriptor {
-        id: "frank",
-        context: "moderation_report_payload",
-        rejection_level: "hard_reject",
-        selectors: &[ForbiddenWireSelector {
-            document_kind: "schema_instance",
-            schema_ref: "event-payload.schema.json#/$defs/moderation_report_payload",
-            instance_pointer: "",
-            match_scope: "root",
-        }],
-        match_kind: "field",
-        match_values: &["frank"],
         value_pointer: "",
     },
     ForbiddenWireFieldDescriptor {
@@ -4227,20 +4129,6 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
         }],
         match_kind: "prefix",
         match_values: &["ak:devmsg:"],
-        value_pointer: "",
-    },
-    ForbiddenWireFieldDescriptor {
-        id: "ak:modq:",
-        context: "typed_id_prefix",
-        rejection_level: "hard_reject",
-        selectors: &[ForbiddenWireSelector {
-            document_kind: "typed_id_value",
-            schema_ref: "*",
-            instance_pointer: "",
-            match_scope: "root",
-        }],
-        match_kind: "prefix",
-        match_values: &["ak:modq:"],
         value_pointer: "",
     },
     ForbiddenWireFieldDescriptor {

@@ -329,51 +329,6 @@ fn message_revision_selector_is_exact_derived_identity() {
 }
 
 #[test]
-fn moderation_report_selector_is_the_report_event_identity() {
-    let event_id = EventId::from_digest(
-        arkret_canonical::DigestSuite::Sha256,
-        arkret_canonical::sha256_bytes(b"moderation report selector"),
-    );
-    let selector = CurrentSelector::ModerationReport {
-        event_id: event_id.clone(),
-    };
-    let wire = json!({"kind":"moderation_report","event_id":event_id});
-    assert_eq!(serde_json::to_value(&selector).unwrap(), wire);
-    assert_eq!(
-        serde_json::from_value::<CurrentSelector>(wire).unwrap(),
-        selector
-    );
-    for invalid in [
-        json!({"kind":"moderation_report"}),
-        json!({"kind":"moderation_report","event_id":event_id,"report_id":"forged"}),
-        json!({"kind":"moderation_report","event_id":MessageId::from_event_id(&event_id)}),
-    ] {
-        assert!(serde_json::from_value::<CurrentSelector>(invalid).is_err());
-    }
-}
-
-#[test]
-fn franking_selector_is_the_encrypted_target_event_identity() {
-    let event_id = EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [43; 32]);
-    let selector = CurrentSelector::ModerationFrankingProof {
-        event_id: event_id.clone(),
-    };
-    let wire = json!({"kind":"moderation_franking_proof","event_id":event_id});
-    assert_eq!(serde_json::to_value(&selector).unwrap(), wire);
-    assert_eq!(
-        serde_json::from_value::<CurrentSelector>(wire).unwrap(),
-        selector
-    );
-    for invalid in [
-        json!({"kind":"moderation_franking_proof"}),
-        json!({"kind":"moderation_franking_proof","event_id":event_id,"proof_event_id":event_id}),
-        json!({"kind":"moderation_franking_proof","event_id":MessageId::from_event_id(&event_id)}),
-    ] {
-        assert!(serde_json::from_value::<CurrentSelector>(invalid).is_err());
-    }
-}
-
-#[test]
 fn organization_selector_binds_the_existing_relationship_cell() {
     let organization = DidCoreId::new("ak:did_core:web:organization.example").unwrap();
     for relationship in [

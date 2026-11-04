@@ -1,6 +1,6 @@
 use arkret_wire::events::kinds::{EventWireScope, event_wire_scope};
 use arkret_wire::generated::{
-    DurableEffectKind, DurableEventTarget, SERVICE_OPERATION_DESCRIPTORS, ServiceOperationId,
+    DurableEffectKind, DurableEventTarget, SERVICE_OPERATION_DESCRIPTORS,
 };
 
 #[test]
@@ -56,17 +56,4 @@ fn every_write_operation_has_a_closed_durable_effect_descriptor() {
             other => panic!("{} has malformed durable_effect {other:?}", operation.id),
         }
     }
-}
-
-#[test]
-fn moderation_report_operation_names_its_durable_event() {
-    let effect = ServiceOperationId::SelfModerationCommandReportV1
-        .descriptor()
-        .durable_effect
-        .unwrap();
-    assert_eq!(effect.kind, DurableEffectKind::EventLog);
-    assert_eq!(
-        effect.target,
-        Some(DurableEventTarget::Static(&["ak.self.moderation.report"]))
-    );
 }

@@ -945,21 +945,6 @@
     {
       "generator": "closed-models",
       "outputs": [
-        "crates/models-collaboration/src/governance/generated/moderation_queue_contracts.rs"
-      ],
-      "owner": "arkret-models-collaboration",
-      "mode": "closed-schema-model",
-      "artifacts": [
-        "schemas/moderation-queue-item.schema.json",
-        "schemas/time.schema.json"
-      ],
-      "provides": [
-        "ModerationQueueItem"
-      ]
-    },
-    {
-      "generator": "closed-models",
-      "outputs": [
         "crates/models-collaboration/src/governance/generated/operation_wire_contracts.rs"
       ],
       "owner": "arkret-models-collaboration",

@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json;
-//! sha256=4603ea9c66ada9ca9e09db7ccce8dfd3b0ba0675ac2f67bdeaba66402115762c Input: registry/
+//! sha256=0c45feb83576757e83d3be4b71330fcb8a607e77b2aa85798b1f98960fef0df1 Input: registry/
 //! account-data-key-registry.json;
-//! sha256=0989a67abbe00359bf0974896a84210791dd75c26b7d77d8eb1bee7fcd70370e Entries: id_kinds=49,
-//! special_forms=15, actions=154, approval_carriers=2, schemas=232, account_data_patterns=24
+//! sha256=0989a67abbe00359bf0974896a84210791dd75c26b7d77d8eb1bee7fcd70370e Entries: id_kinds=47,
+//! special_forms=15, actions=154, approval_carriers=2, schemas=229, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -229,11 +229,6 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
         wire_form: "ak:mls_welcome_delivery:<uuidv7>",
     },
     IdKindDescriptor {
-        kind: "moderation_queue_item",
-        category: "moderation",
-        wire_form: "ak:moderation_queue_item:<44-char-event-token>",
-    },
-    IdKindDescriptor {
         kind: "morph",
         category: "core_object",
         wire_form: "ak:morph:<44-char-event-token>",
@@ -287,11 +282,6 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
         kind: "relation",
         category: "core_object",
         wire_form: "ak:relation:<44-char-event-token>",
-    },
-    IdKindDescriptor {
-        kind: "report",
-        category: "moderation",
-        wire_form: "ak:report:<44-char-event-token>",
     },
     IdKindDescriptor {
         kind: "request",
@@ -3804,18 +3794,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::MLS_WELCOME_DELIVERY_V1,
         file: "schemas/mls-welcome-delivery.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::MODERATION_EVIDENCE_V1,
-        file: "schemas/moderation-evidence.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::MODERATION_QUEUE_ITEM_V1,
-        file: "schemas/moderation-queue-item.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::MODERATION_REPORT_V1,
-        file: "schemas/moderation-report.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::MORPH_CUSTOMER_RISK_V1,

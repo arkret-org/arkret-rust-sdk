@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/error-code-registry.json;
-//! sha256=b806a829f23fae90f1ce24f2691ed3f7c797293bb779ffc3d4f3e2298b8defc1
-//! Entries: reason_codes=295, reserved_not_emitted=66
+//! sha256=d8b59ba963a979c5f74d2a6fe1a57ed4a15415b4389ad1b0c4fa8a535e0c70e5
+//! Entries: reason_codes=286, reserved_not_emitted=66
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -98,7 +98,6 @@ pub enum ReasonCode {
     ErasureReceiptStubDigestMismatch,
     ErasureRequestAlreadyPending,
     EventIdDigestMismatch,
-    EvidenceRecipientMismatch,
     ExternalRateLimited,
     FocusMismatch,
     FocusUnavailableForClient,
@@ -109,15 +108,12 @@ pub enum ReasonCode {
     GrantRelinquishNotSubject,
     GrantValidityWindowEmpty,
     HandleHomographForbidden,
-    Harassment,
-    HateSpeech,
     HumanApprovalRequired,
     IdentityCreationAlreadyAccepted,
     IdentityCreationChallengeAlreadyConsumed,
     IdentityCreationChallengeExpired,
     IdentityCreationLeaseFenced,
     IdentityMethodEvidenceInvalid,
-    Illegal,
     InitialSessionRequestMismatch,
     IntegrityFailed,
     InternalError,
@@ -157,8 +153,6 @@ pub enum ReasonCode {
     MimiRoomBindingMigrationProofInvalid,
     MimiRoomBindingStatusTransitionInvalid,
     MimiRoomStateIncompatible,
-    MinimalDisclosureViolation,
-    Misinformation,
     MlsActivationIrreversible,
     MlsActivationRequired,
     MlsGovernanceBindingStale,
@@ -167,11 +161,9 @@ pub enum ReasonCode {
     MorphAlreadyTerminal,
     MorphNotActive,
     MorphNotArchived,
-    Nsfw,
     ObjectIdNotEventDerived,
     Ok,
     OperatorRejected,
-    Other,
     PairingExpired,
     PairingRequestExpired,
     ParticipantBindingInvalid,
@@ -264,7 +256,6 @@ pub enum ReasonCode {
     SpaceParentMismatch,
     SpaceParentUnreadable,
     SpaceRealmMismatch,
-    Spam,
     StateMismatch,
     StorageFailed,
     StrandAlreadyTerminal,
@@ -430,7 +421,6 @@ impl ReasonCode {
         "erasure_receipt_stub_digest_mismatch";
     pub const ERASURE_REQUEST_ALREADY_PENDING: &'static str = "erasure_request_already_pending";
     pub const EVENT_ID_DIGEST_MISMATCH: &'static str = "event_id_digest_mismatch";
-    pub const EVIDENCE_RECIPIENT_MISMATCH: &'static str = "evidence_recipient_mismatch";
     pub const EXTERNAL_RATE_LIMITED: &'static str = "external_rate_limited";
     pub const FOCUS_MISMATCH: &'static str = "focus_mismatch";
     pub const FOCUS_UNAVAILABLE_FOR_CLIENT: &'static str = "focus_unavailable_for_client";
@@ -442,8 +432,6 @@ impl ReasonCode {
     pub const GRANT_RELINQUISH_NOT_SUBJECT: &'static str = "grant_relinquish_not_subject";
     pub const GRANT_VALIDITY_WINDOW_EMPTY: &'static str = "grant_validity_window_empty";
     pub const HANDLE_HOMOGRAPH_FORBIDDEN: &'static str = "handle_homograph_forbidden";
-    pub const HARASSMENT: &'static str = "harassment";
-    pub const HATE_SPEECH: &'static str = "hate_speech";
     pub const HUMAN_APPROVAL_REQUIRED: &'static str = "human_approval_required";
     pub const IDENTITY_CREATION_ALREADY_ACCEPTED: &'static str =
         "identity_creation_already_accepted";
@@ -453,7 +441,6 @@ impl ReasonCode {
         "identity_creation_challenge_expired";
     pub const IDENTITY_CREATION_LEASE_FENCED: &'static str = "identity_creation_lease_fenced";
     pub const IDENTITY_METHOD_EVIDENCE_INVALID: &'static str = "identity_method_evidence_invalid";
-    pub const ILLEGAL: &'static str = "illegal";
     pub const INITIAL_SESSION_REQUEST_MISMATCH: &'static str = "initial_session_request_mismatch";
     pub const INTEGRITY_FAILED: &'static str = "integrity_failed";
     pub const INTERNAL_ERROR: &'static str = "internal_error";
@@ -499,8 +486,6 @@ impl ReasonCode {
     pub const MIMI_ROOM_BINDING_STATUS_TRANSITION_INVALID: &'static str =
         "mimi_room_binding_status_transition_invalid";
     pub const MIMI_ROOM_STATE_INCOMPATIBLE: &'static str = "mimi_room_state_incompatible";
-    pub const MINIMAL_DISCLOSURE_VIOLATION: &'static str = "minimal_disclosure_violation";
-    pub const MISINFORMATION: &'static str = "misinformation";
     pub const MLS_ACTIVATION_IRREVERSIBLE: &'static str = "mls_activation_irreversible";
     pub const MLS_ACTIVATION_REQUIRED: &'static str = "mls_activation_required";
     pub const MLS_GOVERNANCE_BINDING_STALE: &'static str = "mls_governance_binding_stale";
@@ -509,11 +494,9 @@ impl ReasonCode {
     pub const MORPH_ALREADY_TERMINAL: &'static str = "morph_already_terminal";
     pub const MORPH_NOT_ACTIVE: &'static str = "morph_not_active";
     pub const MORPH_NOT_ARCHIVED: &'static str = "morph_not_archived";
-    pub const NSFW: &'static str = "nsfw";
     pub const OBJECT_ID_NOT_EVENT_DERIVED: &'static str = "object_id_not_event_derived";
     pub const OK: &'static str = "ok";
     pub const OPERATOR_REJECTED: &'static str = "operator_rejected";
-    pub const OTHER: &'static str = "other";
     pub const PAIRING_EXPIRED: &'static str = "pairing_expired";
     pub const PAIRING_REQUEST_EXPIRED: &'static str = "pairing_request_expired";
     pub const PARTICIPANT_BINDING_INVALID: &'static str = "participant_binding_invalid";
@@ -619,7 +602,6 @@ impl ReasonCode {
     pub const SPACE_PARENT_MISMATCH: &'static str = "space_parent_mismatch";
     pub const SPACE_PARENT_UNREADABLE: &'static str = "space_parent_unreadable";
     pub const SPACE_REALM_MISMATCH: &'static str = "space_realm_mismatch";
-    pub const SPAM: &'static str = "spam";
     pub const STATE_MISMATCH: &'static str = "state_mismatch";
     pub const STORAGE_FAILED: &'static str = "storage_failed";
     pub const STRAND_ALREADY_TERMINAL: &'static str = "strand_already_terminal";
@@ -782,7 +764,6 @@ impl ReasonCode {
             Self::ErasureReceiptStubDigestMismatch => Self::ERASURE_RECEIPT_STUB_DIGEST_MISMATCH,
             Self::ErasureRequestAlreadyPending => Self::ERASURE_REQUEST_ALREADY_PENDING,
             Self::EventIdDigestMismatch => Self::EVENT_ID_DIGEST_MISMATCH,
-            Self::EvidenceRecipientMismatch => Self::EVIDENCE_RECIPIENT_MISMATCH,
             Self::ExternalRateLimited => Self::EXTERNAL_RATE_LIMITED,
             Self::FocusMismatch => Self::FOCUS_MISMATCH,
             Self::FocusUnavailableForClient => Self::FOCUS_UNAVAILABLE_FOR_CLIENT,
@@ -793,8 +774,6 @@ impl ReasonCode {
             Self::GrantRelinquishNotSubject => Self::GRANT_RELINQUISH_NOT_SUBJECT,
             Self::GrantValidityWindowEmpty => Self::GRANT_VALIDITY_WINDOW_EMPTY,
             Self::HandleHomographForbidden => Self::HANDLE_HOMOGRAPH_FORBIDDEN,
-            Self::Harassment => Self::HARASSMENT,
-            Self::HateSpeech => Self::HATE_SPEECH,
             Self::HumanApprovalRequired => Self::HUMAN_APPROVAL_REQUIRED,
             Self::IdentityCreationAlreadyAccepted => Self::IDENTITY_CREATION_ALREADY_ACCEPTED,
             Self::IdentityCreationChallengeAlreadyConsumed => {
@@ -803,7 +782,6 @@ impl ReasonCode {
             Self::IdentityCreationChallengeExpired => Self::IDENTITY_CREATION_CHALLENGE_EXPIRED,
             Self::IdentityCreationLeaseFenced => Self::IDENTITY_CREATION_LEASE_FENCED,
             Self::IdentityMethodEvidenceInvalid => Self::IDENTITY_METHOD_EVIDENCE_INVALID,
-            Self::Illegal => Self::ILLEGAL,
             Self::InitialSessionRequestMismatch => Self::INITIAL_SESSION_REQUEST_MISMATCH,
             Self::IntegrityFailed => Self::INTEGRITY_FAILED,
             Self::InternalError => Self::INTERNAL_ERROR,
@@ -851,8 +829,6 @@ impl ReasonCode {
                 Self::MIMI_ROOM_BINDING_STATUS_TRANSITION_INVALID
             }
             Self::MimiRoomStateIncompatible => Self::MIMI_ROOM_STATE_INCOMPATIBLE,
-            Self::MinimalDisclosureViolation => Self::MINIMAL_DISCLOSURE_VIOLATION,
-            Self::Misinformation => Self::MISINFORMATION,
             Self::MlsActivationIrreversible => Self::MLS_ACTIVATION_IRREVERSIBLE,
             Self::MlsActivationRequired => Self::MLS_ACTIVATION_REQUIRED,
             Self::MlsGovernanceBindingStale => Self::MLS_GOVERNANCE_BINDING_STALE,
@@ -861,11 +837,9 @@ impl ReasonCode {
             Self::MorphAlreadyTerminal => Self::MORPH_ALREADY_TERMINAL,
             Self::MorphNotActive => Self::MORPH_NOT_ACTIVE,
             Self::MorphNotArchived => Self::MORPH_NOT_ARCHIVED,
-            Self::Nsfw => Self::NSFW,
             Self::ObjectIdNotEventDerived => Self::OBJECT_ID_NOT_EVENT_DERIVED,
             Self::Ok => Self::OK,
             Self::OperatorRejected => Self::OPERATOR_REJECTED,
-            Self::Other => Self::OTHER,
             Self::PairingExpired => Self::PAIRING_EXPIRED,
             Self::PairingRequestExpired => Self::PAIRING_REQUEST_EXPIRED,
             Self::ParticipantBindingInvalid => Self::PARTICIPANT_BINDING_INVALID,
@@ -968,7 +942,6 @@ impl ReasonCode {
             Self::SpaceParentMismatch => Self::SPACE_PARENT_MISMATCH,
             Self::SpaceParentUnreadable => Self::SPACE_PARENT_UNREADABLE,
             Self::SpaceRealmMismatch => Self::SPACE_REALM_MISMATCH,
-            Self::Spam => Self::SPAM,
             Self::StateMismatch => Self::STATE_MISMATCH,
             Self::StorageFailed => Self::STORAGE_FAILED,
             Self::StrandAlreadyTerminal => Self::STRAND_ALREADY_TERMINAL,
@@ -1137,7 +1110,6 @@ impl ReasonCode {
             Self::ERASURE_RECEIPT_STUB_DIGEST_MISMATCH => Self::ErasureReceiptStubDigestMismatch,
             Self::ERASURE_REQUEST_ALREADY_PENDING => Self::ErasureRequestAlreadyPending,
             Self::EVENT_ID_DIGEST_MISMATCH => Self::EventIdDigestMismatch,
-            Self::EVIDENCE_RECIPIENT_MISMATCH => Self::EvidenceRecipientMismatch,
             Self::EXTERNAL_RATE_LIMITED => Self::ExternalRateLimited,
             Self::FOCUS_MISMATCH => Self::FocusMismatch,
             Self::FOCUS_UNAVAILABLE_FOR_CLIENT => Self::FocusUnavailableForClient,
@@ -1148,8 +1120,6 @@ impl ReasonCode {
             Self::GRANT_RELINQUISH_NOT_SUBJECT => Self::GrantRelinquishNotSubject,
             Self::GRANT_VALIDITY_WINDOW_EMPTY => Self::GrantValidityWindowEmpty,
             Self::HANDLE_HOMOGRAPH_FORBIDDEN => Self::HandleHomographForbidden,
-            Self::HARASSMENT => Self::Harassment,
-            Self::HATE_SPEECH => Self::HateSpeech,
             Self::HUMAN_APPROVAL_REQUIRED => Self::HumanApprovalRequired,
             Self::IDENTITY_CREATION_ALREADY_ACCEPTED => Self::IdentityCreationAlreadyAccepted,
             Self::IDENTITY_CREATION_CHALLENGE_ALREADY_CONSUMED => {
@@ -1158,7 +1128,6 @@ impl ReasonCode {
             Self::IDENTITY_CREATION_CHALLENGE_EXPIRED => Self::IdentityCreationChallengeExpired,
             Self::IDENTITY_CREATION_LEASE_FENCED => Self::IdentityCreationLeaseFenced,
             Self::IDENTITY_METHOD_EVIDENCE_INVALID => Self::IdentityMethodEvidenceInvalid,
-            Self::ILLEGAL => Self::Illegal,
             Self::INITIAL_SESSION_REQUEST_MISMATCH => Self::InitialSessionRequestMismatch,
             Self::INTEGRITY_FAILED => Self::IntegrityFailed,
             Self::INTERNAL_ERROR => Self::InternalError,
@@ -1206,8 +1175,6 @@ impl ReasonCode {
                 Self::MimiRoomBindingStatusTransitionInvalid
             }
             Self::MIMI_ROOM_STATE_INCOMPATIBLE => Self::MimiRoomStateIncompatible,
-            Self::MINIMAL_DISCLOSURE_VIOLATION => Self::MinimalDisclosureViolation,
-            Self::MISINFORMATION => Self::Misinformation,
             Self::MLS_ACTIVATION_IRREVERSIBLE => Self::MlsActivationIrreversible,
             Self::MLS_ACTIVATION_REQUIRED => Self::MlsActivationRequired,
             Self::MLS_GOVERNANCE_BINDING_STALE => Self::MlsGovernanceBindingStale,
@@ -1216,11 +1183,9 @@ impl ReasonCode {
             Self::MORPH_ALREADY_TERMINAL => Self::MorphAlreadyTerminal,
             Self::MORPH_NOT_ACTIVE => Self::MorphNotActive,
             Self::MORPH_NOT_ARCHIVED => Self::MorphNotArchived,
-            Self::NSFW => Self::Nsfw,
             Self::OBJECT_ID_NOT_EVENT_DERIVED => Self::ObjectIdNotEventDerived,
             Self::OK => Self::Ok,
             Self::OPERATOR_REJECTED => Self::OperatorRejected,
-            Self::OTHER => Self::Other,
             Self::PAIRING_EXPIRED => Self::PairingExpired,
             Self::PAIRING_REQUEST_EXPIRED => Self::PairingRequestExpired,
             Self::PARTICIPANT_BINDING_INVALID => Self::ParticipantBindingInvalid,
@@ -1323,7 +1288,6 @@ impl ReasonCode {
             Self::SPACE_PARENT_MISMATCH => Self::SpaceParentMismatch,
             Self::SPACE_PARENT_UNREADABLE => Self::SpaceParentUnreadable,
             Self::SPACE_REALM_MISMATCH => Self::SpaceRealmMismatch,
-            Self::SPAM => Self::Spam,
             Self::STATE_MISMATCH => Self::StateMismatch,
             Self::STORAGE_FAILED => Self::StorageFailed,
             Self::STRAND_ALREADY_TERMINAL => Self::StrandAlreadyTerminal,
@@ -1890,11 +1854,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "Sub-reason for schema_violation when the carried event_id does not equal the value re-derived from the Event's own canonical content per zh/conformance/encoding.md section 4.0. Receivers MUST re-derive and compare before using event_id for deduplication, indexing, routing, idempotency or authorization, and MUST NOT report this as proof_invalid: the distinct code is what localises cross-implementation canonical-JSON divergence and what prevents a forged event_id from entering the duplicate_conflict quarantine path.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::EVIDENCE_RECIPIENT_MISMATCH,
-        applies_to: &["moderation_decision", "moderation_report"],
-        description: "A moderation evidence package's encrypted_to recipient does not match the declared recipient_public_key_ref binding. The submission MUST reject. See governance/content-moderation.md.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::EXTERNAL_RATE_LIMITED,
         applies_to: &["service_call"],
         description: "Bridge / applet transaction failed because the external upstream service rate-limited the request, distinct from the local `rate_limited` (this service's own limit). Carried as a bridge_error error_code with error_class=rate_limit; the caller MAY retry after retry_after_ms. See zh/extensions/applet-schema.md §7.",
@@ -1949,16 +1908,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "Handle registration collided with the same authority-local handle-namespace UTS #39 skeleton index or failed the authority's declared Highly Restrictive registration policy. This is registration policy, not canonical equality; the skeleton never enters wire or proof bytes. See zh/identity/identity-handles.md §17.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::HARASSMENT,
-        applies_to: &["moderation_report"],
-        description: "Standard moderation reason: harassment.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::HATE_SPEECH,
-        applies_to: &["moderation_report"],
-        description: "Standard moderation reason: hate speech / targeted attacks against a protected group.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::HUMAN_APPROVAL_REQUIRED,
         applies_to: &["auth_decision", "service_call"],
         description: "The sole missing explicit owned-Agent content grant can be supplied by the controller while all other current gates are satisfied. The top-level service error is HTTP403 claim_required; RFC9457 direct extensions carry reason_code=human_approval_required and an opaque approval_request_id. The identifier is correlation only, not a bearer, authority source or private-intent lookup. The controller supplies an accepted capability/delegation Event and the runtime retries with signed accepted Event references. No CAPTCHA, OTP, browser challenge or independent approval permission system is introduced. See zh/authz/owned-agent-authority.md section 2.",
@@ -1987,11 +1936,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::IDENTITY_METHOD_EVIDENCE_INVALID,
         applies_to: &["identity_resolution", "auth_decision"],
         description: "Submitted method_history_evidence fails independent verification: broken inception/current hash chain, SCID mismatch, invalid controller proof, unmet witness threshold, or stale evidence. An Applet-managed principal MUST carry a complete webvh_log; did:web snapshots, did:key expansion and service attestation are not substitutes. See zh/extensions/applet-integration.md.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::ILLEGAL,
-        applies_to: &["moderation_report"],
-        description: "Standard moderation reason: content alleged to violate applicable law (CSAM, threats, IP infringement, etc.).",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::INITIAL_SESSION_REQUEST_MISMATCH,
@@ -2189,16 +2133,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "Incoming MIMI room state uses lifecycle, membership, policy, or extension shape not supported by the declared Arkret MIMI interop profile. Facade MUST reject or require a newer profile. See zh/extensions/mimi-interop.md §4.1.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::MINIMAL_DISCLOSURE_VIOLATION,
-        applies_to: &["moderation_decision", "moderation_report"],
-        description: "A moderation evidence package discloses material beyond the minimal-disclosure obligation (for example unrelated plaintext message bodies or MLS private state). The evidence submission MUST reject. See governance/content-moderation.md.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::MISINFORMATION,
-        applies_to: &["moderation_report"],
-        description: "Standard moderation reason: misleading / false information posing harm.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::MLS_ACTIVATION_IRREVERSIBLE,
         applies_to: &["state_resolution"],
         description: "Sub-reason for failed_precondition when an Event would deactivate, replace or re-run the accepted ak.mls.genesis of an already activated Realm, Circle or Sidecar scope. Activation is a one-way transition with no protocol path back to plaintext. See zh/models/realm-and-space.md section 2.3.",
@@ -2239,11 +2173,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "`ak.morph.restore` rejected because the target Morph is not in `archived` state.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::NSFW,
-        applies_to: &["moderation_report"],
-        description: "Standard moderation reason: not-safe-for-work / explicit adult content posted outside permitted contexts.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::OBJECT_ID_NOT_EVENT_DERIVED,
         applies_to: &["event_envelope"],
         description: "Sub-reason for schema_violation when a create Event carries an object identifier in its payload for an object kind whose id MUST be derived from the create Event's event_id. Create payloads MUST omit the id; the reducer materialises it by retyping the complete event-derived EventId token. See zh/models/common-fields.md.",
@@ -2257,11 +2186,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::OPERATOR_REJECTED,
         applies_to: &["device_recovery"],
         description: "Recovery-session `rejection_reason_code` value: an operator / admin surface explicitly rejected the session. Closed value set defined in artifacts/schemas/recovery-session.schema.json; completion ownership is defined in zh/identity/security-transactions.md §2.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::OTHER,
-        applies_to: &["moderation_report"],
-        description: "Standard moderation reason: catch-all for reports that do not fit the named categories. MUST be accompanied by a free-text `description` field. See zh/governance/content-moderation.md §3.2.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::PAIRING_EXPIRED,
@@ -2731,11 +2655,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::SPACE_REALM_MISMATCH,
         applies_to: &["event_envelope", "auth_decision"],
         description: "A verified canonical Space parent or Board/List/Strand placement crosses actual Realm identities. Reject with failed_precondition after target readability and evidence checks; no profile exception or automatic Realm rewrite.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::SPAM,
-        applies_to: &["moderation_report"],
-        description: "Standard moderation reason: spam content.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::STATE_MISMATCH,

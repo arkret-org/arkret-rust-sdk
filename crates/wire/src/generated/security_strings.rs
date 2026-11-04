@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/proof-context-registry.json;
-//! sha256=d24e2c6129242499f8cf1b69da3d1430ae7b6c7f81a16fd1b1705f024a49b0ab Input: registry/
+//! sha256=56191a28852805b7a1afd2278bea5b77c86e7a286d39285ee987205177b8259a Input: registry/
 //! exporter-label-registry.json;
 //! sha256=6bb3622c1e8ef4636d28ed5e0998fdc6fdc755b1b36365e966d0f1f75c1d03f9 Input: registry/
 //! digest-suite-registry.json;
@@ -17,7 +17,7 @@
 //! aead-profile-registry.json;
 //! sha256=273e1225d568d3d4c39fe2f19c2397b96dfc3e256b6ec1b5b852b43c16550343
 //! Entries: proof_contexts=35, exporter_labels=8, digest_suites=3, signature_algorithms=4,
-//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=2, domain_separations=47, aead_profiles=2
+//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=2, domain_separations=45, aead_profiles=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(usize)]
@@ -312,7 +312,6 @@ pub enum DomainSeparationId {
     DeviceAuthorizePossessionProofV1,
     DeviceAuthorizeRealmActorPossessionProofV1,
     DeviceAuthorizeRecoveryPossessionProofV1,
-    FrankingProofSignatureV1,
     HttpMessageSignatureV1,
     IdentityRecoveryDevicePossessionV1,
     IdentityRecoveryPolicySignatureV1,
@@ -322,7 +321,6 @@ pub enum DomainSeparationId {
     IdentityLinkV1,
     KeypackageClaimTerminalReceiptV1,
     KeypackageConsumeReceiptV1,
-    MimiReporterAuthorityProofV1,
     MlsRecipientDurableReceiptV1,
     MlsWelcomeDeliverySignatureV1,
     PeerContactControlReceiptV1,
@@ -363,7 +361,6 @@ impl DomainSeparationId {
         Self::DeviceAuthorizePossessionProofV1,
         Self::DeviceAuthorizeRealmActorPossessionProofV1,
         Self::DeviceAuthorizeRecoveryPossessionProofV1,
-        Self::FrankingProofSignatureV1,
         Self::HttpMessageSignatureV1,
         Self::IdentityRecoveryDevicePossessionV1,
         Self::IdentityRecoveryPolicySignatureV1,
@@ -373,7 +370,6 @@ impl DomainSeparationId {
         Self::IdentityLinkV1,
         Self::KeypackageClaimTerminalReceiptV1,
         Self::KeypackageConsumeReceiptV1,
-        Self::MimiReporterAuthorityProofV1,
         Self::MlsRecipientDurableReceiptV1,
         Self::MlsWelcomeDeliverySignatureV1,
         Self::PeerContactControlReceiptV1,
@@ -422,7 +418,6 @@ impl DomainSeparationId {
         "ak.device_authorize_realm_actor_possession_proof.v1";
     pub const DEVICE_AUTHORIZE_RECOVERY_POSSESSION_PROOF_V1: &'static str =
         "ak.device_authorize_recovery_possession_proof.v1";
-    pub const FRANKING_PROOF_SIGNATURE_V1: &'static str = "ak.franking_proof.signature.v1";
     pub const HTTP_MESSAGE_SIGNATURE_V1: &'static str = "ak.http_message_signature.v1";
     pub const IDENTITY_RECOVERY_DEVICE_POSSESSION_V1: &'static str =
         "ak.identity.recovery_device_possession.v1";
@@ -437,8 +432,6 @@ impl DomainSeparationId {
     pub const KEYPACKAGE_CLAIM_TERMINAL_RECEIPT_V1: &'static str =
         "ak.keypackage.claim_terminal_receipt.v1";
     pub const KEYPACKAGE_CONSUME_RECEIPT_V1: &'static str = "ak.keypackage.consume_receipt.v1";
-    pub const MIMI_REPORTER_AUTHORITY_PROOF_V1: &'static str =
-        "ak.mimi_reporter_authority_proof.v1";
     pub const MLS_RECIPIENT_DURABLE_RECEIPT_V1: &'static str =
         "ak.mls.recipient_durable_receipt.v1";
     pub const MLS_WELCOME_DELIVERY_SIGNATURE_V1: &'static str =
@@ -496,7 +489,6 @@ impl DomainSeparationId {
             Self::DeviceAuthorizeRecoveryPossessionProofV1 => {
                 Self::DEVICE_AUTHORIZE_RECOVERY_POSSESSION_PROOF_V1
             }
-            Self::FrankingProofSignatureV1 => Self::FRANKING_PROOF_SIGNATURE_V1,
             Self::HttpMessageSignatureV1 => Self::HTTP_MESSAGE_SIGNATURE_V1,
             Self::IdentityRecoveryDevicePossessionV1 => {
                 Self::IDENTITY_RECOVERY_DEVICE_POSSESSION_V1
@@ -510,7 +502,6 @@ impl DomainSeparationId {
             Self::IdentityLinkV1 => Self::IDENTITY_LINK_V1,
             Self::KeypackageClaimTerminalReceiptV1 => Self::KEYPACKAGE_CLAIM_TERMINAL_RECEIPT_V1,
             Self::KeypackageConsumeReceiptV1 => Self::KEYPACKAGE_CONSUME_RECEIPT_V1,
-            Self::MimiReporterAuthorityProofV1 => Self::MIMI_REPORTER_AUTHORITY_PROOF_V1,
             Self::MlsRecipientDurableReceiptV1 => Self::MLS_RECIPIENT_DURABLE_RECEIPT_V1,
             Self::MlsWelcomeDeliverySignatureV1 => Self::MLS_WELCOME_DELIVERY_SIGNATURE_V1,
             Self::PeerContactControlReceiptV1 => Self::PEER_CONTACT_CONTROL_RECEIPT_V1,
@@ -578,7 +569,6 @@ impl DomainSeparationId {
             Self::DEVICE_AUTHORIZE_RECOVERY_POSSESSION_PROOF_V1 => {
                 Some(Self::DeviceAuthorizeRecoveryPossessionProofV1)
             }
-            Self::FRANKING_PROOF_SIGNATURE_V1 => Some(Self::FrankingProofSignatureV1),
             Self::HTTP_MESSAGE_SIGNATURE_V1 => Some(Self::HttpMessageSignatureV1),
             Self::IDENTITY_RECOVERY_DEVICE_POSSESSION_V1 => {
                 Some(Self::IdentityRecoveryDevicePossessionV1)
@@ -596,7 +586,6 @@ impl DomainSeparationId {
                 Some(Self::KeypackageClaimTerminalReceiptV1)
             }
             Self::KEYPACKAGE_CONSUME_RECEIPT_V1 => Some(Self::KeypackageConsumeReceiptV1),
-            Self::MIMI_REPORTER_AUTHORITY_PROOF_V1 => Some(Self::MimiReporterAuthorityProofV1),
             Self::MLS_RECIPIENT_DURABLE_RECEIPT_V1 => Some(Self::MlsRecipientDurableReceiptV1),
             Self::MLS_WELCOME_DELIVERY_SIGNATURE_V1 => Some(Self::MlsWelcomeDeliverySignatureV1),
             Self::PEER_CONTACT_CONTROL_RECEIPT_V1 => Some(Self::PeerContactControlReceiptV1),

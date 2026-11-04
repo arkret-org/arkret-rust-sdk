@@ -83,7 +83,7 @@ pub fn direct_conversation_structure_admits(
             .and_then(serde_json::Value::as_str)
             .and_then(|id| SpaceId::new(id).ok())
             .and_then(|id| spaces.get(&id))
-            .is_some_and(&topic)
+            .is_some_and(topic)
     };
     let metadata_op = |op: &arkret_wire::patch::PatchOp| {
         op.op() == PatchOpKind::Set
@@ -137,7 +137,7 @@ pub fn direct_conversation_structure_admits(
                 })
         }
         EventKind::StrandArchive | EventKind::StrandRestore => {
-            target_chat("target_ref").is_some_and(&chat)
+            target_chat("target_ref").is_some_and(chat)
                 && payload
                     .get("target_ref")
                     .and_then(serde_json::Value::as_str)

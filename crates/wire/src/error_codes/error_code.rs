@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/error-code-registry.json;
-//! sha256=b806a829f23fae90f1ce24f2691ed3f7c797293bb779ffc3d4f3e2298b8defc1
-//! Entries: error_codes=158, reserved_not_emitted=94
+//! sha256=d8b59ba963a979c5f74d2a6fe1a57ed4a15415b4389ad1b0c4fa8a535e0c70e5
+//! Entries: error_codes=157, reserved_not_emitted=92
 
 use serde::{Deserialize, Serialize};
 
@@ -88,7 +88,6 @@ pub enum ErrorCode {
     EpochMismatch,
     FailedPlane,
     FailedPrecondition,
-    FrankingProofUnavailable,
     GrantAlreadyConsumed,
     HistoricalDidEvidenceInvalid,
     HistoricalOnly,
@@ -262,7 +261,6 @@ impl ErrorCode {
         Self::EpochMismatch,
         Self::FailedPlane,
         Self::FailedPrecondition,
-        Self::FrankingProofUnavailable,
         Self::GrantAlreadyConsumed,
         Self::HistoricalDidEvidenceInvalid,
         Self::HistoricalOnly,
@@ -424,7 +422,6 @@ impl ErrorCode {
     pub const EPOCH_MISMATCH: &'static str = "epoch_mismatch";
     pub const FAILED_PLANE: &'static str = "failed_plane";
     pub const FAILED_PRECONDITION: &'static str = "failed_precondition";
-    pub const FRANKING_PROOF_UNAVAILABLE: &'static str = "franking_proof_unavailable";
     pub const GRANT_ALREADY_CONSUMED: &'static str = "grant_already_consumed";
     pub const HISTORICAL_DID_EVIDENCE_INVALID: &'static str = "historical_did_evidence_invalid";
     pub const HISTORICAL_ONLY: &'static str = "historical_only";
@@ -595,7 +592,6 @@ impl ErrorCode {
             Self::EpochMismatch => "epoch_mismatch",
             Self::FailedPlane => "failed_plane",
             Self::FailedPrecondition => "failed_precondition",
-            Self::FrankingProofUnavailable => "franking_proof_unavailable",
             Self::GrantAlreadyConsumed => "grant_already_consumed",
             Self::HistoricalDidEvidenceInvalid => "historical_did_evidence_invalid",
             Self::HistoricalOnly => "historical_only",
@@ -770,7 +766,6 @@ impl ErrorCode {
             "epoch_mismatch" => Some(Self::EpochMismatch),
             "failed_plane" => Some(Self::FailedPlane),
             "failed_precondition" => Some(Self::FailedPrecondition),
-            "franking_proof_unavailable" => Some(Self::FrankingProofUnavailable),
             "grant_already_consumed" => Some(Self::GrantAlreadyConsumed),
             "historical_did_evidence_invalid" => Some(Self::HistoricalDidEvidenceInvalid),
             "historical_only" => Some(Self::HistoricalOnly),
@@ -1474,16 +1469,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "both",
         applies_to: &[],
         description: "Reducer state-machine or typed CAS precondition failed. A stale typed revision writes nothing and does not carry a generic current/current_state Problem extension; authorized current is obtained only through a separately registered read. Other failures may carry a registered reason_code in the {strand,space,morph}_not_active / _not_archived or {strand,space,morph,message,relation}_already_terminal families, or an object-specific reason such as space_parent_cycle. See zh/models/common-fields.md §5.1 and zh/sync/current-state.md §2.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::FrankingProofUnavailable,
-        type_uri: "https://arkret.org/problems/franking_proof_unavailable",
-        title: "Franking proof unavailable",
-        http_status: 503,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &[],
-        description: "E2EE franking proof cannot be produced for the requested ciphertext (sender did not include franking sidecar). See zh/governance/content-moderation.md §3.4.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::GrantAlreadyConsumed,
