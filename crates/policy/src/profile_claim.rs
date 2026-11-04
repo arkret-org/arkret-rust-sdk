@@ -19,8 +19,7 @@
 //!
 //! Roles partition the profile namespace into:
 //!
-//! * `client` — locally implemented end-user surface (chat, kanban, e2ee,
-//!   commitment, …).
+//! * `client` — locally implemented end-user surface (chat, kanban, e2ee, commitment, …).
 //! * `server` — wire-conformance principal / federation / agent runtime surfaces (core event store,
 //!   Station, agent workspace flavours, …).
 //! * `gateway` — push / blob / media relay surfaces.

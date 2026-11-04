@@ -151,7 +151,7 @@ jobs:
           python-version: "3.13"
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: "1.98"
+          toolchain: "1.99"
           targets: wasm32-unknown-unknown
       - uses: actions/setup-node@v7
         with:
