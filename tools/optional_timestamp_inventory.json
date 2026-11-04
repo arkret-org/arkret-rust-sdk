@@ -1,5 +1,5 @@
 {
-  "total": 171,
+  "total": 168,
   "counts": {
     "internal": 48,
     "optional_has_default": 120,
@@ -643,18 +643,6 @@
       "classification": "optional_has_default"
     },
     {
-      "file": "crates/models-collaboration/src/governance/generated/moderation_queue_contracts.rs",
-      "line": 45,
-      "struct_name": "ModerationQueueItem",
-      "field_name": "updated_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": "moderation-queue-item.schema.json",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
-    },
-    {
       "file": "crates/models-collaboration/src/governance/grant_constraint.rs",
       "line": 371,
       "struct_name": "GrantConstraint",
@@ -725,18 +713,6 @@
       "schema_pointer": "invite-delivery-request.schema.json#/$defs/invite_delivery_response_body",
       "schema_source": "def-index",
       "classification": "optional_has_default"
-    },
-    {
-      "file": "crates/models-collaboration/src/governance/moderation_queue.rs",
-      "line": 56,
-      "struct_name": "ModerationEvidencePolicy",
-      "field_name": "retention_expires_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/governance/operation_wire.rs",

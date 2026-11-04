@@ -1,6 +1,6 @@
 //! @generated; do not edit by hand.
 //! Input: registry/proof-context-registry.json
-//! sha256=d24e2c6129242499f8cf1b69da3d1430ae7b6c7f81a16fd1b1705f024a49b0ab
+//! sha256=56191a28852805b7a1afd2278bea5b77c86e7a286d39285ee987205177b8259a
 
 pub struct DomainPrefix;
 

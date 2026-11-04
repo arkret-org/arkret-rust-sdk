@@ -4554,106 +4554,6 @@
       ]
     },
     {
-      "output": "crates/models-collaboration/src/governance/generated/moderation_queue_contracts.rs",
-      "inline": true,
-      "types": [
-        {
-          "name": "ModerationQueueItem",
-          "schema": "moderation-queue-item.schema.json",
-          "rust": {
-            "signature": "pub struct ModerationQueueItem",
-            "attributes": [
-              "/// One report item of the moderation queue View",
-              "/// (`moderation-queue-item.schema.json`).",
-              "///",
-              "/// The item is a read-side View over the accepted `moderation_report` typed",
-              "/// current result and the `moderation_state` records that point at it, not a",
-              "/// second stored state (content-moderation.md Â§3.3): `id` is the report Event",
-              "/// id retyped to `moderation_queue_item`, `report` is the complete accepted",
-              "/// report payload and `created_at` the accepting Commit time.",
-              "#[derive(Clone, Debug, Serialize, Deserialize)]",
-              "#[serde(deny_unknown_fields)]"
-            ],
-            "members": {
-              "id": {
-                "name": "id",
-                "visibility": "pub",
-                "type": "ModerationQueueItemId",
-                "attributes": []
-              },
-              "report": {
-                "name": "report",
-                "visibility": "pub",
-                "type": "ModerationReportPayload",
-                "attributes": []
-              },
-              "status": {
-                "name": "status",
-                "visibility": "pub",
-                "type": "ModerationQueueStatus",
-                "attributes": []
-              },
-              "priority": {
-                "name": "priority",
-                "visibility": "pub",
-                "type": "Option<ModerationQueuePriority>",
-                "attributes": [
-                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
-                ]
-              },
-              "visibility": {
-                "name": "visibility",
-                "visibility": "pub",
-                "type": "ModerationQueueVisibility",
-                "attributes": []
-              },
-              "assigned_to_ids": {
-                "name": "assigned_to_ids",
-                "visibility": "pub",
-                "type": "Option<Vec<DidCoreId>>",
-                "attributes": [
-                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
-                ]
-              },
-              "evidence_policy": {
-                "name": "evidence_policy",
-                "visibility": "pub",
-                "type": "Option<ModerationEvidencePolicy>",
-                "attributes": [
-                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
-                ]
-              },
-              "audit_refs": {
-                "name": "audit_refs",
-                "visibility": "pub",
-                "type": "Option<Vec<EventId>>",
-                "attributes": [
-                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
-                ]
-              },
-              "created_at": {
-                "name": "created_at",
-                "visibility": "pub",
-                "type": "DateTime<Utc>",
-                "attributes": [
-                  "#[serde(with = \"arkret_canonical::serde_helpers::canonical_timestamp\")]"
-                ]
-              },
-              "updated_at": {
-                "name": "updated_at",
-                "visibility": "pub",
-                "type": "Option<DateTime<Utc>>",
-                "attributes": [
-                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]",
-                  "#[serde(with = \"arkret_canonical::serde_helpers::optional_canonical_timestamp\")]"
-                ]
-              }
-            }
-          }
-        }
-      ]
-    },
-    {
       "output": "crates/models-collaboration/src/governance/generated/operation_wire_contracts.rs",
       "inline": true,
       "types": [
@@ -18463,12 +18363,6 @@
       "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
     },
     {
-      "rust_type": "crates/models-collaboration/src/events_payloads/moderation.rs::FrankingProof",
-      "schema": "moderation-evidence.schema.json#/$defs/franking_proof",
-      "category": "domain_semantics",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
-    },
-    {
       "rust_type": "crates/models-collaboration/src/events_payloads/moderation.rs::ModerationDecisionLiftPayload",
       "schema": "event-payload.schema.json#/$defs/moderation_decision_lift_payload",
       "category": "domain_semantics",
@@ -18477,12 +18371,6 @@
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/moderation.rs::ModerationDecisionPayload",
       "schema": "event-payload.schema.json#/$defs/moderation_decision_payload",
-      "category": "domain_semantics",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/events_payloads/moderation.rs::ModerationReportPayload",
-      "schema": "event-payload.schema.json#/$defs/moderation_report_payload",
       "category": "domain_semantics",
       "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
     },
@@ -18825,12 +18713,6 @@
       "category": "domain_semantics"
     },
     {
-      "rust_type": "crates/models-collaboration/src/governance/moderation.rs::ModerationReportRequestBody",
-      "schema": "moderation-report.schema.json#/$defs/moderation_report_request_body",
-      "category": "domain_semantics",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
-    },
-    {
       "rust_type": "crates/models-collaboration/src/governance/operation_wire.rs::Policy",
       "schema": "policy.schema.json",
       "comparison": "rust_fields_subset",
@@ -18906,30 +18788,6 @@
     {
       "rust_type": "crates/models-collaboration/src/mimi_operations.rs::MimiNotifyResponseBody",
       "schema": "mimi-operations.schema.json#/$defs/mimi_notify_response_body",
-      "category": "domain_semantics",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/mimi_operations.rs::MimiReporterAuthority",
-      "schema": "mimi-operations.schema.json#/$defs/mimi_reporter_authority",
-      "category": "domain_semantics",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/mimi_operations.rs::MimiReportClaim",
-      "schema": "mimi-operations.schema.json#/$defs/mimi_report_claim",
-      "category": "domain_semantics",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/mimi_operations.rs::MimiReportAbuseRequestBody",
-      "schema": "mimi-operations.schema.json#/$defs/mimi_report_abuse_request_body",
-      "category": "domain_semantics",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/mimi_operations.rs::MimiReportAbuseResponseBody",
-      "schema": "mimi-operations.schema.json#/$defs/mimi_report_abuse_response_body",
       "category": "domain_semantics",
       "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
     },
@@ -20787,12 +20645,6 @@
     {
       "rust_type": "crates/models-collaboration/src/governance/invite_addressing.rs::InviteLocatorRevokeResponseBody",
       "schema": "principal-locator.schema.json#/$defs/invite_locator_revoke_response_body",
-      "category": "domain_semantics",
-      "reason": "Retain the existing typed public declaration and its domain methods at the owning module. Exact canonical fields and scalar encodings are enforced by the shared field-set gate without replacing its validating serde behavior."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/moderation.rs::ModerationReportResponseBody",
-      "schema": "service-operation-dtos.schema.json#/$defs/ModerationReportResponseBody",
       "category": "domain_semantics",
       "reason": "Retain the existing typed public declaration and its domain methods at the owning module. Exact canonical fields and scalar encodings are enforced by the shared field-set gate without replacing its validating serde behavior."
     },

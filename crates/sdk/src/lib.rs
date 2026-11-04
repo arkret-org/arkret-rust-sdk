@@ -95,12 +95,11 @@ pub use arkret_identifiers::{
     ActorProfileId, AppletId, BackupId, BackupSeriesId, BatchId, BlobId, BlobRef, BlockId, CallId,
     CapabilityId, ChunkId, CircleId, ClaimId, ConsentId, DeviceId, DeviceMessageId,
     DeviceMessageTransactionId, Did, DidCoreId, EventId, FilterId, FrameId, GrantId, Hash, Hlc,
-    InviteId, InviteLocatorId, MessageId, MessageStreamId, ModerationQueueItemId, MorphId,
-    NotificationId, NotificationProjectionId, OperationId, PolicyId, PresentationId,
-    RealmAuthorityHandoffId, RealmCommitId, RealmId, RealmInviteLinkId, RealmSnapshotId, ReceiptId,
-    RecoverySessionId, RelationId, ReportId, RequestId, RtcParticipantId, SidecarId, SpaceId,
-    StrandId, SubscriptionId, TransactionId, TrustDomainId, ViewId, WebOrigin, new_prefixed_uuid7,
-    project_did_to_core_id,
+    InviteId, InviteLocatorId, MessageId, MessageStreamId, MorphId, NotificationId,
+    NotificationProjectionId, OperationId, PolicyId, PresentationId, RealmAuthorityHandoffId,
+    RealmCommitId, RealmId, RealmInviteLinkId, RealmSnapshotId, ReceiptId, RecoverySessionId,
+    RelationId, RequestId, RtcParticipantId, SidecarId, SpaceId, StrandId, SubscriptionId,
+    TransactionId, TrustDomainId, ViewId, WebOrigin, new_prefixed_uuid7, project_did_to_core_id,
 };
 pub use arkret_identity as identity;
 pub use arkret_identity::service_identity::{
@@ -176,7 +175,6 @@ pub use arkret_models_collaboration::governance::grant_constraint::*;
 pub use arkret_models_collaboration::governance::invite_addressing::*;
 pub use arkret_models_collaboration::governance::membership_invite::*;
 pub use arkret_models_collaboration::governance::moderation::*;
-pub use arkret_models_collaboration::governance::moderation_queue::*;
 pub use arkret_models_collaboration::governance::operation_wire::*;
 pub use arkret_models_collaboration::governance::peer_contact::*;
 pub use arkret_models_collaboration::governance::plaintext_visibility::*;

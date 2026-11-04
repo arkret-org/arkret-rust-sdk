@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/operations-error-mapping.json;
-//! sha256=a2de3a07bf2d6f599c6a3043d568552af236d354cd097705b4acf1edbe1801e7 Input: registry/
-//! contract-registry.json; sha256=4603ea9c66ada9ca9e09db7ccce8dfd3b0ba0675ac2f67bdeaba66402115762c
+//! sha256=8de9d321845f77b8bcb1584ac46d105ae85356fc77ff4b735262514e9274a980 Input: registry/
+//! contract-registry.json; sha256=0c45feb83576757e83d3be4b71330fcb8a607e77b2aa85798b1f98960fef0df1
 //! Input: registry/error-code-registry.json;
-//! sha256=b806a829f23fae90f1ce24f2691ed3f7c797293bb779ffc3d4f3e2298b8defc1 Entries: operations=220
+//! sha256=d8b59ba963a979c5f74d2a6fe1a57ed4a15415b4389ad1b0c4fa8a535e0c70e5 Entries: operations=218
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -217,12 +217,6 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Code(ErrorCode::HttpSignatureInvalid),
         OperationSpecificError::Code(ErrorCode::SignatureWindowInvalid),
         OperationSpecificError::Reason(ReasonCode::EgressPolicyDenied),
-    ],
-    &[
-        OperationSpecificError::Code(ErrorCode::HttpSignatureRequired),
-        OperationSpecificError::Code(ErrorCode::HttpSignatureInvalid),
-        OperationSpecificError::Code(ErrorCode::SignatureWindowInvalid),
-        OperationSpecificError::Reason(ReasonCode::SnapshotCapacityExceeded),
     ],
     &[
         OperationSpecificError::Code(ErrorCode::HttpSignatureRequired),
@@ -854,12 +848,6 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Code(ErrorCode::RevisionUnavailable),
         OperationSpecificError::Code(ErrorCode::CursorInvalid),
         OperationSpecificError::Code(ErrorCode::NotFound),
-    ],
-    &[
-        OperationSpecificError::Code(ErrorCode::NotFound),
-        OperationSpecificError::Reason(ReasonCode::EvidenceRecipientMismatch),
-        OperationSpecificError::Code(ErrorCode::DuplicateConflict),
-        OperationSpecificError::Reason(ReasonCode::SnapshotCapacityExceeded),
     ],
     &[],
     &[],

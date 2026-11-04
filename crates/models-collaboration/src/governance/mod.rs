@@ -18,7 +18,6 @@ pub mod holder_quarantine;
 pub mod invite_addressing;
 pub mod membership_invite;
 pub mod moderation;
-pub mod moderation_queue;
 pub mod operation_wire;
 pub mod peer_contact;
 pub mod plaintext_visibility;

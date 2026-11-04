@@ -26,7 +26,8 @@
       "schema-conformance": 1,
       "signatures": 6,
       "wire": 119
-    }
+    },
+    "total_entries": 1514
   },
   "entries": [
     {
@@ -4736,19 +4737,6 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/models-collaboration/src/events_payloads/moderation.rs::FrankingProof",
-      "crate": "models-collaboration",
-      "file": "crates/models-collaboration/src/events_payloads/moderation.rs",
-      "line": 193,
-      "kind": "struct",
-      "value_kind": "FrankingProof",
-      "spec_pointer": "moderation-evidence.schema.json#/$defs/franking_proof",
-      "schema_openness": "closed",
-      "classification": "B",
-      "cfg_gated": false,
-      "flatten_extra": false
-    },
-    {
       "rust_type": "crates/models-collaboration/src/events_payloads/moderation.rs::ModerationDecisionLiftPayload",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/events_payloads/moderation.rs",
@@ -4769,19 +4757,6 @@
       "kind": "struct",
       "value_kind": "ModerationDecisionPayload",
       "spec_pointer": "event-payload.schema.json#/$defs/moderation_decision_payload",
-      "schema_openness": "closed",
-      "classification": "B",
-      "cfg_gated": false,
-      "flatten_extra": false
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/events_payloads/moderation.rs::ModerationReportPayload",
-      "crate": "models-collaboration",
-      "file": "crates/models-collaboration/src/events_payloads/moderation.rs",
-      "line": 344,
-      "kind": "struct",
-      "value_kind": "ModerationReportPayload",
-      "spec_pointer": "event-payload.schema.json#/$defs/moderation_report_payload",
       "schema_openness": "closed",
       "classification": "B",
       "cfg_gated": false,
@@ -7362,19 +7337,6 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/models-collaboration/src/governance/generated/moderation_queue_contracts.rs::ModerationQueueItem",
-      "crate": "models-collaboration",
-      "file": "crates/models-collaboration/src/governance/generated/moderation_queue_contracts.rs",
-      "line": 23,
-      "kind": "struct",
-      "value_kind": "ModerationQueueItem",
-      "spec_pointer": "moderation-queue-item.schema.json",
-      "schema_openness": "closed",
-      "classification": "B",
-      "cfg_gated": false,
-      "flatten_extra": false
-    },
-    {
       "rust_type": "crates/models-collaboration/src/governance/generated/operation_wire_contracts.rs::PolicyResourceSelector",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/governance/generated/operation_wire_contracts.rs",
@@ -7986,45 +7948,6 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/models-collaboration/src/governance/moderation.rs::ModerationReportResponseBody",
-      "crate": "models-collaboration",
-      "file": "crates/models-collaboration/src/governance/moderation.rs",
-      "line": 10,
-      "kind": "struct",
-      "value_kind": "ModerationReportResponseBody",
-      "spec_pointer": "service-operation-dtos.schema.json#/$defs/ModerationReportResponseBody",
-      "schema_openness": "closed",
-      "classification": "B",
-      "cfg_gated": false,
-      "flatten_extra": false
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/moderation.rs::ModerationReportRequestBody",
-      "crate": "models-collaboration",
-      "file": "crates/models-collaboration/src/governance/moderation.rs",
-      "line": 50,
-      "kind": "struct",
-      "value_kind": "ModerationReportRequestBody",
-      "spec_pointer": "moderation-report.schema.json#/$defs/moderation_report_request_body",
-      "schema_openness": "closed",
-      "classification": "B",
-      "cfg_gated": false,
-      "flatten_extra": false
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/moderation_queue.rs::ModerationEvidencePolicy",
-      "crate": "models-collaboration",
-      "file": "crates/models-collaboration/src/governance/moderation_queue.rs",
-      "line": 50,
-      "kind": "struct",
-      "value_kind": "ModerationEvidencePolicy",
-      "spec_pointer": null,
-      "schema_openness": "unresolved",
-      "classification": "needs_review",
-      "cfg_gated": false,
-      "flatten_extra": false
-    },
-    {
       "rust_type": "crates/models-collaboration/src/governance/operation_wire.rs::AgentPolicyTarget",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/governance/operation_wire.rs",
@@ -8565,58 +8488,6 @@
       "kind": "struct",
       "value_kind": "MimiNotifyResponseBody",
       "spec_pointer": "mimi-operations.schema.json#/$defs/mimi_notify_response_body",
-      "schema_openness": "closed",
-      "classification": "B",
-      "cfg_gated": false,
-      "flatten_extra": false
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/mimi_operations.rs::MimiReporterAuthority",
-      "crate": "models-collaboration",
-      "file": "crates/models-collaboration/src/mimi_operations.rs",
-      "line": 86,
-      "kind": "struct",
-      "value_kind": "MimiReporterAuthority",
-      "spec_pointer": "mimi-operations.schema.json#/$defs/mimi_reporter_authority",
-      "schema_openness": "closed",
-      "classification": "B",
-      "cfg_gated": false,
-      "flatten_extra": false
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/mimi_operations.rs::MimiReportClaim",
-      "crate": "models-collaboration",
-      "file": "crates/models-collaboration/src/mimi_operations.rs",
-      "line": 97,
-      "kind": "struct",
-      "value_kind": "MimiReportClaim",
-      "spec_pointer": "mimi-operations.schema.json#/$defs/mimi_report_claim",
-      "schema_openness": "closed",
-      "classification": "B",
-      "cfg_gated": false,
-      "flatten_extra": false
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/mimi_operations.rs::MimiReportAbuseRequestBody",
-      "crate": "models-collaboration",
-      "file": "crates/models-collaboration/src/mimi_operations.rs",
-      "line": 132,
-      "kind": "struct",
-      "value_kind": "MimiReportAbuseRequestBody",
-      "spec_pointer": "mimi-operations.schema.json#/$defs/mimi_report_abuse_request_body",
-      "schema_openness": "closed",
-      "classification": "B",
-      "cfg_gated": false,
-      "flatten_extra": false
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/mimi_operations.rs::MimiReportAbuseResponseBody",
-      "crate": "models-collaboration",
-      "file": "crates/models-collaboration/src/mimi_operations.rs",
-      "line": 278,
-      "kind": "struct",
-      "value_kind": "MimiReportAbuseResponseBody",
-      "spec_pointer": "mimi-operations.schema.json#/$defs/mimi_report_abuse_response_body",
       "schema_openness": "closed",
       "classification": "B",
       "cfg_gated": false,

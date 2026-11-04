@@ -216,8 +216,6 @@
 | `ak.profile.file_transfer.v1` | `client` | `ak.self.device_messages.command.send.v1` | `POST /_arkret/self/device_messages` | — | — | — | gap |
 | `ak.profile.file_transfer.v1` | `client` | `ak.self.device_messages.read.list.v1` | `GET /_arkret/self/device_messages` | — | — | — | gap |
 | `ak.profile.file_transfer.v1` | `client` | `ak.self.events.command.submit.v1` | `POST /_arkret/self/events` | — | — | — | gap |
-| `ak.profile.franking.v1` | `server` | `ak.self.account.stream.subscribe.v1` | `GET /_arkret/self/account/subscribe` | — | — | — | gap |
-| `ak.profile.franking.v1` | `server` | `ak.self.events.command.submit.v1` | `POST /_arkret/self/events` | — | — | — | gap |
 | `ak.profile.full_client.v1` | `client` | `ak.root.identity.read.resolve.v1` | `POST /_arkret/root/identity/resolve` | — | — | — | gap |
 | `ak.profile.full_client.v1` | `client` | `ak.self.account.stream.subscribe.v1` | `GET /_arkret/self/account/subscribe` | — | — | — | gap |
 | `ak.profile.full_client.v1` | `client` | `ak.self.authz.grants.read.effective.v1` | `GET /_arkret/self/authz/effective-grants` | — | — | — | gap |

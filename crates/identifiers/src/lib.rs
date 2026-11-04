@@ -628,12 +628,10 @@ pub const EVENT_DERIVED_ID_KIND_PREFIXES: &[&str] = &[
     "ak:grant:",
     "ak:invite:",
     "ak:message:",
-    "ak:moderation_queue_item:",
     "ak:morph:",
     "ak:realm:",
     "ak:realm_invite_link:",
     "ak:relation:",
-    "ak:report:",
     "ak:sidecar:",
     "ak:space:",
     "ak:strand:",
@@ -943,10 +941,8 @@ declare_event_token_id_kinds! {
     InviteId, "ak:invite:";
     RealmInviteLinkId, "ak:realm_invite_link:";
     MessageId, "ak:message:";
-    ModerationQueueItemId, "ak:moderation_queue_item:";
     MorphId, "ak:morph:";
     RelationId, "ak:relation:";
-    ReportId, "ak:report:";
     SidecarId, "ak:sidecar:";
     SpaceId, "ak:space:";
     StrandId, "ak:strand:";
@@ -1741,7 +1737,6 @@ mod tests {
         assert_id!(InviteId, "ak:invite:");
         assert_id!(MessageId, "ak:message:");
         assert_id!(MessageStreamId, "ak:message_stream:");
-        assert_id!(ModerationQueueItemId, "ak:moderation_queue_item:");
         assert_id!(MorphId, "ak:morph:");
         assert_id!(NotificationId, "ak:notification:");
         assert_id!(RealmId, "ak:realm:");
@@ -1751,7 +1746,6 @@ mod tests {
         assert_id!(ReceiptId, "ak:receipt:");
         assert_id!(RelationId, "ak:relation:");
         assert_id!(SidecarId, "ak:sidecar:");
-        assert_id!(ReportId, "ak:report:");
         assert_id!(RequestId, "ak:request:");
         assert_id!(ScheduledSendId, "ak:scheduled_send:");
         assert_id!(RealmStateSnapshotId, "ak:realm_state_snapshot:");

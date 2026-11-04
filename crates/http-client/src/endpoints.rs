@@ -16,7 +16,6 @@ mod media;
 mod message_authoring;
 mod mimi;
 mod mls;
-mod moderation;
 mod organization_registration;
 mod peer;
 mod push;

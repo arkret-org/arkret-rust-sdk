@@ -1808,15 +1808,6 @@ pub enum CurrentSelector {
         call_id: CallId,
     },
     RealmMediaService,
-    /// The accepted `ak.self.moderation.report` Event's own id
-    /// (`current-state.schema.json#/$defs/current_moderation_report`).
-    ModerationReport {
-        event_id: EventId,
-    },
-    /// The encrypted target Event identity, not the proof carrier Event.
-    ModerationFrankingProof {
-        event_id: EventId,
-    },
     /// The moderated target of `ak.moderation.decision` and its lift
     /// (`current-state.schema.json#/$defs/current_moderation_state`).
     ModerationState {
@@ -2051,14 +2042,6 @@ enum FlatCurrentSelector {
         call_id: CallId,
     },
     RealmMediaService,
-    /// The accepted `ak.self.moderation.report` Event's own id
-    /// (`current-state.schema.json#/$defs/current_moderation_report`).
-    ModerationReport {
-        event_id: EventId,
-    },
-    ModerationFrankingProof {
-        event_id: EventId,
-    },
     /// The moderated target of `ak.moderation.decision` and its lift
     /// (`current-state.schema.json#/$defs/current_moderation_state`).
     ModerationState {
@@ -2434,12 +2417,6 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                         Self::CallModeration { call_id }
                     }
                     FlatCurrentSelector::RealmMediaService => Self::RealmMediaService,
-                    FlatCurrentSelector::ModerationReport { event_id } => {
-                        Self::ModerationReport { event_id }
-                    }
-                    FlatCurrentSelector::ModerationFrankingProof { event_id } => {
-                        Self::ModerationFrankingProof { event_id }
-                    }
                     FlatCurrentSelector::ModerationState { target_ref } => {
                         Self::ModerationState { target_ref }
                     }

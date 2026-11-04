@@ -23,10 +23,7 @@ use crate::generated::{EventIdSource, event_runtime_contract};
 /// raw sync JSON, for example.
 ///
 /// Returns `None` for a kind whose registry row is not `event_derived`, for an
-/// unregistered kind, and for a multi-output kind such as
-/// `ak.self.moderation.report`, which retypes the same token into two distinct
-/// typed namespaces and therefore has no single answer. Use
-/// [`derived_object_ids_for_kind`] there.
+/// unregistered kind, and for a multi-output kind, which has no single answer.
 pub fn derived_object_id_for_kind(kind: &str, event_id: &EventId) -> Option<String> {
     let mut ids = derived_object_ids_for_kind(kind, event_id);
     (ids.len() == 1).then(|| ids.pop().expect("length checked"))
@@ -124,28 +121,5 @@ mod tests {
             derived_object_id_for_kind("ak.not.a.registered.kind", &event_id),
             None
         );
-        // Two declared targets, so there is no single answer.
-        assert_eq!(
-            derived_object_id_for_kind("ak.self.moderation.report", &event_id),
-            None
-        );
-    }
-
-    #[test]
-    fn a_multi_output_kind_retypes_one_token_into_each_declared_namespace() {
-        let event_id = event_id(0x53);
-        let token = event_id
-            .as_str()
-            .strip_prefix(EventId::KIND_PREFIX)
-            .expect("typed event id");
-
-        assert_eq!(
-            derived_object_ids_for_kind("ak.self.moderation.report", &event_id),
-            vec![
-                format!("ak:report:{token}"),
-                format!("ak:moderation_queue_item:{token}"),
-            ]
-        );
-        assert!(derived_object_ids_for_kind("ak.strand.update", &event_id).is_empty());
     }
 }

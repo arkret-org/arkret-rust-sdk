@@ -32,8 +32,6 @@ EXCEPTIONS = {
         "Domain subject: a candidate service for joining a Realm.",
     ("models-collaboration/src/call_signal.rs", "IceCandidate"):
         "External ICE candidate term.",
-    ("models-collaboration/src/governance/generated/moderation_queue_contracts.rs", "ModerationQueueItem"):
-        "First-class moderation queue object with its own registered identifier and schema.",
     ("models-collaboration/src/governance/realm_governance.rs", "RealmLinkTransitionCandidate"):
         "Non-wire borrowed input to the local transition evaluator.",
     ("models-collaboration/src/objects/productivity.rs", "RsvpResponse"):

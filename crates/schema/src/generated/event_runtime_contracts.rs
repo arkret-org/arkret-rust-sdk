@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json;
-//! sha256=4603ea9c66ada9ca9e09db7ccce8dfd3b0ba0675ac2f67bdeaba66402115762c
-//! Entries: active_events=141
+//! sha256=0c45feb83576757e83d3be4b71330fcb8a607e77b2aa85798b1f98960fef0df1
+//! Entries: active_events=139
 
 use arkret_wire::event_kind_str;
 
@@ -296,11 +296,6 @@ pub const EVENT_RUNTIME_CONTRACTS: &[EventRuntimeContractDescriptor] = &[
     },
     EventRuntimeContractDescriptor {
         event_kind: event_kind_str::MODERATION_DECISION_LIFT,
-        id_source: None,
-        derived_id_kinds: &[],
-    },
-    EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::MODERATION_FRANKING_PROOF,
         id_source: None,
         derived_id_kinds: &[],
     },
@@ -618,11 +613,6 @@ pub const EVENT_RUNTIME_CONTRACTS: &[EventRuntimeContractDescriptor] = &[
         event_kind: event_kind_str::SELF_AGENT_RESUME,
         id_source: None,
         derived_id_kinds: &[],
-    },
-    EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::SELF_MODERATION_REPORT,
-        id_source: Some(EventIdSource::EventDerived),
-        derived_id_kinds: &["report", "moderation_queue_item"],
     },
     EventRuntimeContractDescriptor {
         event_kind: event_kind_str::SIDECAR_CONTEXT_ATTACH,

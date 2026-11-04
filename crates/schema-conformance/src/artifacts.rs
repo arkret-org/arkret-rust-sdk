@@ -588,7 +588,6 @@ pub const SUPPORTED_ID_KINDS: &[&str] = &[
     "message",
     "message_stream",
     "mls_welcome_delivery",
-    "moderation_queue_item",
     "morph",
     "notification",
     "notification_projection",

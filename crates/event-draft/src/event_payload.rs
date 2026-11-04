@@ -305,8 +305,6 @@ event_payload_accessors! {
     event_spec::MlsCommit => (as_mls_commit, MlsCommitPayload, MlsCommitPayload::validate),
     event_spec::AuditAccessed => (as_audit_accessed, AuditAccessedPayload),
     event_spec::AuditErasureReceipt => (as_audit_erasure_receipt, ErasureReceipt),
-    event_spec::SelfModerationReport => (as_self_moderation_report, ModerationReportPayload),
-    event_spec::ModerationFrankingProof => (as_moderation_franking_proof, FrankingProof),
     event_spec::ModerationDecision => (as_moderation_decision, ModerationDecisionPayload),
     event_spec::ModerationDecisionLift => (as_moderation_decision_lift, ModerationDecisionLiftPayload),
     event_spec::ReadCursorAdvance => (as_read_cursor_advance, ReadCursor),

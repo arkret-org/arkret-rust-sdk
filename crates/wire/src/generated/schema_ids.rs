@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json;
-//! sha256=4603ea9c66ada9ca9e09db7ccce8dfd3b0ba0675ac2f67bdeaba66402115762c Entries: schema_ids=232,
-//! active=232
+//! sha256=0c45feb83576757e83d3be4b71330fcb8a607e77b2aa85798b1f98960fef0df1 Entries: schema_ids=229,
+//! active=229
 
 use serde::{Deserialize, Serialize};
 
@@ -147,9 +147,6 @@ pub enum SchemaId {
     MlsCommitSubmissionV1,
     MlsRosterAuthorityV1,
     MlsWelcomeDeliveryV1,
-    ModerationEvidenceV1,
-    ModerationQueueItemV1,
-    ModerationReportV1,
     MorphCustomerRiskV1,
     MorphV1,
     NotificationV1,
@@ -383,9 +380,6 @@ impl SchemaId {
         Self::MlsCommitSubmissionV1,
         Self::MlsRosterAuthorityV1,
         Self::MlsWelcomeDeliveryV1,
-        Self::ModerationEvidenceV1,
-        Self::ModerationQueueItemV1,
-        Self::ModerationReportV1,
         Self::MorphCustomerRiskV1,
         Self::MorphV1,
         Self::NotificationV1,
@@ -619,9 +613,6 @@ impl SchemaId {
         Self::MlsCommitSubmissionV1,
         Self::MlsRosterAuthorityV1,
         Self::MlsWelcomeDeliveryV1,
-        Self::ModerationEvidenceV1,
-        Self::ModerationQueueItemV1,
-        Self::ModerationReportV1,
         Self::MorphCustomerRiskV1,
         Self::MorphV1,
         Self::NotificationV1,
@@ -1132,9 +1123,6 @@ impl SchemaId {
     pub const MLS_ROSTER_AUTHORITY_V1: &'static str = "ak.schema.mls_roster_authority.v1";
     /// Producer-signed recipient Welcome delivery.
     pub const MLS_WELCOME_DELIVERY_V1: &'static str = "ak.schema.mls_welcome_delivery.v1";
-    pub const MODERATION_EVIDENCE_V1: &'static str = "ak.schema.moderation_evidence.v1";
-    pub const MODERATION_QUEUE_ITEM_V1: &'static str = "ak.schema.moderation_queue_item.v1";
-    pub const MODERATION_REPORT_V1: &'static str = "ak.schema.moderation_report.v1";
     /// Reference business-field schema used by the Morph type-system example. It validates the
     /// customer_risk fields.status / fields.severity payload carried inside ak.schema.morph.v1
     /// containers.
@@ -1557,9 +1545,6 @@ impl SchemaId {
             Self::MlsCommitSubmissionV1 => Self::MLS_COMMIT_SUBMISSION_V1,
             Self::MlsRosterAuthorityV1 => Self::MLS_ROSTER_AUTHORITY_V1,
             Self::MlsWelcomeDeliveryV1 => Self::MLS_WELCOME_DELIVERY_V1,
-            Self::ModerationEvidenceV1 => Self::MODERATION_EVIDENCE_V1,
-            Self::ModerationQueueItemV1 => Self::MODERATION_QUEUE_ITEM_V1,
-            Self::ModerationReportV1 => Self::MODERATION_REPORT_V1,
             Self::MorphCustomerRiskV1 => Self::MORPH_CUSTOMER_RISK_V1,
             Self::MorphV1 => Self::MORPH_V1,
             Self::NotificationV1 => Self::NOTIFICATION_V1,
@@ -1848,9 +1833,6 @@ impl SchemaId {
             Self::MlsCommitSubmissionV1 => "schemas/mls-commit-submission.schema.json",
             Self::MlsRosterAuthorityV1 => "schemas/mls-roster-authority.schema.json",
             Self::MlsWelcomeDeliveryV1 => "schemas/mls-welcome-delivery.schema.json",
-            Self::ModerationEvidenceV1 => "schemas/moderation-evidence.schema.json",
-            Self::ModerationQueueItemV1 => "schemas/moderation-queue-item.schema.json",
-            Self::ModerationReportV1 => "schemas/moderation-report.schema.json",
             Self::MorphCustomerRiskV1 => "schemas/morph-customer-risk.schema.json",
             Self::MorphV1 => "schemas/morph.schema.json",
             Self::NotificationV1 => "schemas/notification.schema.json",
@@ -2125,9 +2107,6 @@ impl SchemaId {
             Self::MLS_COMMIT_SUBMISSION_V1 => Some(Self::MlsCommitSubmissionV1),
             Self::MLS_ROSTER_AUTHORITY_V1 => Some(Self::MlsRosterAuthorityV1),
             Self::MLS_WELCOME_DELIVERY_V1 => Some(Self::MlsWelcomeDeliveryV1),
-            Self::MODERATION_EVIDENCE_V1 => Some(Self::ModerationEvidenceV1),
-            Self::MODERATION_QUEUE_ITEM_V1 => Some(Self::ModerationQueueItemV1),
-            Self::MODERATION_REPORT_V1 => Some(Self::ModerationReportV1),
             Self::MORPH_CUSTOMER_RISK_V1 => Some(Self::MorphCustomerRiskV1),
             Self::MORPH_V1 => Some(Self::MorphV1),
             Self::NOTIFICATION_V1 => Some(Self::NotificationV1),

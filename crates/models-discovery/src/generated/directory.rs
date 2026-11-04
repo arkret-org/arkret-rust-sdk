@@ -2,7 +2,7 @@
 //! Generator: tools/generate-closed-models.py
 //!
 //! Input: schemas/service-operation-dtos.schema.json
-//! sha256=820d763125038f2777a3fc00ba30173c5a5d85cf50f6047457416eff7523d4d3
+//! sha256=54d17f55b547b2252e2405b51debd065b89fdcc79e3fa00317bfa88d05a69f96
 //!
 //! Input: schemas/directory-operations.schema.json
 //! sha256=2dcbff9f2c3fadf2c539a08da77cbca00448f8b643cc95a0c727a08b840e9d08
@@ -11,7 +11,7 @@
 //! sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
 //!
 //! Bindings: tools/closed-model-bindings.json
-//! sha256=dd0891cd81e0fc2caaf499fd178468a13da86ea101d8780b59ca3e5c661eeecd
+//! sha256=3d8286ffa86f9dd01d3c540d77924093bfc6e9642d4effb361307f36e3ffd625
 
 /// Counterpart: `service-operation-dtos.schema.json#/$defs/PublicRealmMetadata`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

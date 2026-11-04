@@ -1,9 +1,9 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json;
-//! sha256=4603ea9c66ada9ca9e09db7ccce8dfd3b0ba0675ac2f67bdeaba66402115762c Input: reachable event
-//! schema closure; sha256=3506c1a2a2b3941a464a4a719cb6a77950f3548945661fe0fa4613ed16a76e92 Entries:
-//! preimage_commitments=43
+//! sha256=0c45feb83576757e83d3be4b71330fcb8a607e77b2aa85798b1f98960fef0df1 Input: reachable event
+//! schema closure; sha256=f7ecea601e2d9c7dfafd3ed9d54c7cfa446418a9b1425da54faa2622acc092ac Entries:
+//! preimage_commitments=42
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PreimageCommitment {
@@ -216,11 +216,6 @@ pub const PREIMAGE_COMMITMENT_FIELDS: &[PreimageCommitmentField] = &[
     PreimageCommitmentField {
         schema_file: "schemas/key-backup-active-series.schema.json",
         json_pointer: "/properties/signature_proof/properties/device_authorize_event_id",
-        commitment: PreimageCommitment::FixedEvent,
-    },
-    PreimageCommitmentField {
-        schema_file: "schemas/moderation-evidence.schema.json",
-        json_pointer: "/$defs/franking_proof/properties/event_id",
         commitment: PreimageCommitment::FixedEvent,
     },
     PreimageCommitmentField {

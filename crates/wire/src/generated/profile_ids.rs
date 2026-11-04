@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: profiles/conformance-profiles.json;
-//! sha256=78cce8e66eb2e95dd90342612e11934dc2147ee5aeeb6f9b2ea8e7d8c7b29c53 Entries: profile_ids=78
+//! sha256=2b3d98567e30fdcb316c40af79cf96061b4867a2edf8cc8c3c4623d35d647a1e Entries: profile_ids=77
 
 use serde::{Deserialize, Serialize};
 
@@ -43,7 +43,6 @@ pub enum ProfileId {
     EnterpriseClientV1,
     FederationMinimalV1,
     FileTransferV1,
-    FrankingV1,
     FullClientV1,
     HashBlake3V1,
     HighSecurityOrganizationV1,
@@ -163,7 +162,6 @@ impl ProfileId {
         Self::EnterpriseClientV1,
         Self::FederationMinimalV1,
         Self::FileTransferV1,
-        Self::FrankingV1,
         Self::FullClientV1,
         Self::HashBlake3V1,
         Self::HighSecurityOrganizationV1,
@@ -251,7 +249,6 @@ impl ProfileId {
     pub const ENTERPRISE_CLIENT_V1: &'static str = "ak.profile.enterprise_client.v1";
     pub const FEDERATION_MINIMAL_V1: &'static str = "ak.profile.federation_minimal.v1";
     pub const FILE_TRANSFER_V1: &'static str = "ak.profile.file_transfer.v1";
-    pub const FRANKING_V1: &'static str = "ak.profile.franking.v1";
     pub const FULL_CLIENT_V1: &'static str = "ak.profile.full_client.v1";
     pub const HASH_BLAKE3_V1: &'static str = "ak.profile.hash.blake3.v1";
     pub const HIGH_SECURITY_ORGANIZATION_V1: &'static str =
@@ -343,7 +340,6 @@ impl ProfileId {
             Self::EnterpriseClientV1 => Self::ENTERPRISE_CLIENT_V1,
             Self::FederationMinimalV1 => Self::FEDERATION_MINIMAL_V1,
             Self::FileTransferV1 => Self::FILE_TRANSFER_V1,
-            Self::FrankingV1 => Self::FRANKING_V1,
             Self::FullClientV1 => Self::FULL_CLIENT_V1,
             Self::HashBlake3V1 => Self::HASH_BLAKE3_V1,
             Self::HighSecurityOrganizationV1 => Self::HIGH_SECURITY_ORGANIZATION_V1,
@@ -428,7 +424,6 @@ impl ProfileId {
             Self::EnterpriseClientV1 => ProfileRole::Client,
             Self::FederationMinimalV1 => ProfileRole::Server,
             Self::FileTransferV1 => ProfileRole::Client,
-            Self::FrankingV1 => ProfileRole::Server,
             Self::FullClientV1 => ProfileRole::Client,
             Self::HashBlake3V1 => ProfileRole::Interop,
             Self::HighSecurityOrganizationV1 => ProfileRole::Admin,
@@ -520,7 +515,6 @@ impl ProfileId {
             Self::ENTERPRISE_CLIENT_V1 => Some(Self::EnterpriseClientV1),
             Self::FEDERATION_MINIMAL_V1 => Some(Self::FederationMinimalV1),
             Self::FILE_TRANSFER_V1 => Some(Self::FileTransferV1),
-            Self::FRANKING_V1 => Some(Self::FrankingV1),
             Self::FULL_CLIENT_V1 => Some(Self::FullClientV1),
             Self::HASH_BLAKE3_V1 => Some(Self::HashBlake3V1),
             Self::HIGH_SECURITY_ORGANIZATION_V1 => Some(Self::HighSecurityOrganizationV1),

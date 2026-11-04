@@ -21,7 +21,6 @@ use arkret_models_collaboration::governance::circle::{
     CircleCreateRequestBody, CircleMemberDeleteRequestBody, CircleMemberRequestBody,
     CircleScopeRotateRequestBody,
 };
-use arkret_models_collaboration::governance::moderation::ModerationReportRequestBody;
 use arkret_models_collaboration::message_authoring::MessageSubmitRequestBody;
 use arkret_models_collaboration::objects::read_receipts::ReadCursorAdvanceRequestBody;
 use arkret_models_collaboration::sidecar_operations::SidecarEnsureRequestBody;
@@ -197,12 +196,6 @@ request!(
     AgentDeactivateRequestBody,
     self,
     vec![&self.lifecycle_event.event],
-    canonical_shape(self)
-);
-request!(
-    ModerationReportRequestBody,
-    self,
-    vec![&self.report_event.event],
     canonical_shape(self)
 );
 request!(

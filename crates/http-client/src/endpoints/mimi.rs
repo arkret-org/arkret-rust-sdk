@@ -2,10 +2,9 @@
 use arkret_models_collaboration::mimi_operations::{
     MimiIdentifierQueryRequestBody, MimiIdentifierQueryResponseBody, MimiNotifyRequestBody,
     MimiNotifyResponseBody, MimiProxyDownloadRequestBody, MimiProxyDownloadResponseBody,
-    MimiReportAbuseRequestBody, MimiReportAbuseResponseBody, MimiRequestConsentRequestBody,
-    MimiRequestConsentResponseBody, MimiRoomUpdateRequestBody, MimiRoomUpdateResponseBody,
-    MimiSubmitMessageRequestBody, MimiSubmitMessageResponseBody, MimiUpdateConsentRequestBody,
-    MimiUpdateConsentResponseBody,
+    MimiRequestConsentRequestBody, MimiRequestConsentResponseBody, MimiRoomUpdateRequestBody,
+    MimiRoomUpdateResponseBody, MimiSubmitMessageRequestBody, MimiSubmitMessageResponseBody,
+    MimiUpdateConsentRequestBody, MimiUpdateConsentResponseBody,
 };
 use arkret_models_collaboration::objects::interop::ProviderDirectory;
 use arkret_models_crypto::{KeyPackagesClaimRequestBody, PeerKeyPackagesClaimQueryResponseBody};
@@ -361,15 +360,6 @@ impl Client {
             builder = builder.query(&[("features", feature)]);
         }
         self.send_json(builder).await
-    }
-
-    pub async fn mimi_report_abuse(
-        &self,
-        request: &MimiReportAbuseRequestBody,
-    ) -> Result<MimiReportAbuseResponseBody> {
-        request.validate()?;
-        self.mimi_post("/_arkret/open/mimi/report-abuse", request, false, true)
-            .await
     }
 }
 
