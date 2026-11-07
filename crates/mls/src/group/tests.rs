@@ -1339,8 +1339,13 @@ fn outbound_commit_stays_pending_until_authority_acceptance() {
 }
 
 fn application_message_pair() -> (ArkretMlsGroup, ArkretMlsGroup) {
+    application_message_pair_with_member(second_identity())
+}
+
+fn application_message_pair_with_member(
+    member: ArkretMlsIdentity,
+) -> (ArkretMlsGroup, ArkretMlsGroup) {
     let scope = realm_scope();
-    let member = second_identity();
     let mut creator = identity()
         .create_group_with_governance_binding(&scope, &genesis_binding(&scope))
         .unwrap();
@@ -1376,6 +1381,149 @@ fn application_message_pair() -> (ArkretMlsGroup, ArkretMlsGroup) {
         .unwrap();
     joined.install_test_leaf_bindings(endpoints).unwrap();
     (creator, joined)
+}
+
+#[test]
+fn signal_audit_reproduces_same_actor_device_key_nonce_collision() {
+    use arkret_crypto::AeadNonceReplayTracker;
+    use arkret_wire::{
+        RealmCommitId, SIGNAL_AEAD_PURPOSE, SIGNAL_AEAD_SCHEME, SignalAeadBinding, SignalClass,
+        SignalKeyRef,
+    };
+
+    // Diagnostic counterexample, not a security acceptance test. Once the
+    // protocol corrects the sender domain, replace these collision assertions
+    // with a regression proving independent endpoint keys and replay domains.
+    let member = ArkretMlsIdentity::new_test_human_device(
+        identity().actor_id,
+        DeviceId::new("ak:device:01904100-0000-7000-8000-000000000076").unwrap(),
+    )
+    .unwrap();
+    let (mut first, mut second) = application_message_pair_with_member(member);
+    assert_eq!(first.identity.actor_id, second.identity.actor_id);
+    assert_ne!(
+        first.identity.signer.public(),
+        second.identity.signer.public()
+    );
+    assert_eq!(
+        first.local_content_sender_domain().unwrap(),
+        second.local_content_sender_domain().unwrap()
+    );
+    assert_eq!(first.epoch(), second.epoch());
+    assert_eq!(first.signal_nonce_counter(), 0);
+    assert_eq!(second.signal_nonce_counter(), 0);
+
+    let scope = realm_scope();
+    let actor = first.identity.actor_id.clone();
+    let MlsEndpointIdentity::HumanDevice {
+        device_id: first_device,
+        ..
+    } = first.identity.endpoint.clone()
+    else {
+        panic!("expected first Human Device");
+    };
+    let MlsEndpointIdentity::HumanDevice {
+        device_id: second_device,
+        ..
+    } = second.identity.endpoint.clone()
+    else {
+        panic!("expected second Human Device");
+    };
+    assert_ne!(first_device, second_device);
+    let authority_head = RealmCommitId::from_digest([0x6a; 32]);
+    let key_ref = SignalKeyRef {
+        group_state_ref: event(1).to_string(),
+    };
+    let binding = |device_id| SignalAeadBinding {
+        realm_id: scope.realm_id_opt().unwrap(),
+        scope_ref: &scope,
+        sender_actor_id: &actor,
+        sender_device_id: Some(device_id),
+        authority_commit_id: &authority_head,
+        parent_realm_authority_commit_id: None,
+        signal_class: SignalClass::Session,
+        sent_at: "2026-11-08T00:00:00Z".parse().unwrap(),
+        expires_at: "2026-11-08T00:00:20Z".parse().unwrap(),
+        scheme: SIGNAL_AEAD_SCHEME,
+        key_ref: &key_ref,
+        purpose: SIGNAL_AEAD_PURPOSE,
+        aead_profile: ARKRET_MLS_CIPHERSUITE_CANONICAL_ID,
+        epoch: first.epoch(),
+    };
+    let first_binding = binding(&first_device);
+    let second_binding = binding(&second_device);
+    let first_plaintext = b"first device confidential Signal";
+    let second_plaintext = b"other device different Signal!!";
+    let first_payload = first
+        .encrypt_signal_payload(&first_binding, first_plaintext)
+        .unwrap();
+    let second_payload = second
+        .encrypt_signal_payload(&second_binding, second_plaintext)
+        .unwrap();
+    assert_eq!(first_payload.nonce_counter, second_payload.nonce_counter);
+    assert_eq!(
+        first_payload.encrypted_payload.nonce,
+        second_payload.encrypted_payload.nonce
+    );
+    assert_ne!(
+        first_binding
+            .aad_bytes(&first_payload.encrypted_payload.nonce)
+            .unwrap(),
+        second_binding
+            .aad_bytes(&second_payload.encrypted_payload.nonce)
+            .unwrap()
+    );
+    let first_ciphertext = base64url_decode(&first_payload.encrypted_payload.ciphertext).unwrap();
+    let second_ciphertext = base64url_decode(&second_payload.encrypted_payload.ciphertext).unwrap();
+    let length = first_plaintext.len().min(second_plaintext.len());
+    let ciphertext_xor = first_ciphertext[..length]
+        .iter()
+        .zip(&second_ciphertext[..length])
+        .map(|(a, b)| a ^ b)
+        .collect::<Vec<_>>();
+    let plaintext_xor = first_plaintext[..length]
+        .iter()
+        .zip(&second_plaintext[..length])
+        .map(|(a, b)| a ^ b)
+        .collect::<Vec<_>>();
+    assert_eq!(ciphertext_xor, plaintext_xor);
+
+    let mut replay = AeadNonceReplayTracker::default();
+    assert_eq!(
+        first
+            .decrypt_signal_payload(
+                &first_binding,
+                &first_payload.encrypted_payload.nonce,
+                &first_payload.encrypted_payload.ciphertext,
+                &mut replay
+            )
+            .unwrap(),
+        first_plaintext
+    );
+    assert!(
+        first
+            .decrypt_signal_payload(
+                &second_binding,
+                &second_payload.encrypted_payload.nonce,
+                &second_payload.encrypted_payload.ciphertext,
+                &mut replay
+            )
+            .is_err()
+    );
+    assert_eq!(
+        first
+            .decrypt_signal_payload(
+                &second_binding,
+                &second_payload.encrypted_payload.nonce,
+                &second_payload.encrypted_payload.ciphertext,
+                &mut AeadNonceReplayTracker::default()
+            )
+            .unwrap(),
+        second_plaintext
+    );
+    println!(
+        "confirmed: same Actor, distinct Device/key, same epoch and counter => Signal key/nonce reuse despite different AAD; ciphertext XOR leaks plaintext XOR; shared replay domain rejects second device"
+    );
 }
 
 fn application_header(
