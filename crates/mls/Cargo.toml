@@ -51,6 +51,7 @@ openmls = { workspace = true }
 openmls = { workspace = true, features = ["js"] }
 
 [dev-dependencies]
+arkret-crypto = { workspace = true, features = ["hpke", "identity-root"] }
 arkret-schema-conformance = { workspace = true }
 # Spec fixture tests load the private-kdf artifact from the explicit spec checkout.
 arkret-schema = { workspace = true }

@@ -30,6 +30,9 @@ const PROBE_NONCE: [u8; 12] = [0x37; 12];
 const BEFORE: &[u8] = b"positive control: external join alone does not evict old devices";
 const AFTER: &[u8] = b"recovered PCR message after every old endpoint was removed";
 
+#[path = "support/archive_recovery.rs"]
+mod archive_recovery;
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Binding {
@@ -353,6 +356,15 @@ fn external_join(
 }
 
 fn recover(capsule: PublicCapsule, expected: Binding, expected_epoch: u64) -> PublicResult {
+    recover_with_observer(capsule, expected, expected_epoch, |_, _, _| {})
+}
+
+fn recover_with_observer(
+    capsule: PublicCapsule,
+    expected: Binding,
+    expected_epoch: u64,
+    observe_isolated: impl FnOnce(&Endpoint, &mut MlsGroup, &[u8]),
+) -> PublicResult {
     let (endpoint, mut group, external_commit) =
         external_join(&capsule, &expected, expected_epoch).unwrap();
     let joined_epoch = group.epoch().as_u64();
@@ -389,6 +401,8 @@ fn recover(capsule: PublicCapsule, expected: Binding, expected_epoch: u64) -> Pu
             .unwrap(),
         AFTER
     );
+
+    observe_isolated(&endpoint, &mut group, &after_removal_message);
 
     let peer = Endpoint::fresh(&expected);
     let package = peer.key_package();
@@ -500,8 +514,24 @@ fn all_old_endpoints_lost(kind: &str, count: usize) {
     let (capsule, mut attacker_copies) = original_devices(&binding, count);
     let directory = evidence_directory(kind, count);
     let result = run_child(&capsule, kind, &directory);
-    assert_eq!(result.binding, binding);
-    assert_eq!(result.removed_leaves, count);
+    assert_old_endpoints_excluded(&binding, &capsule, &result, &mut attacker_copies);
+    println!(
+        "{kind}: {count} old endpoints; epochs {} -> {} -> {}; fresh-process recovery; all old keys denied; {}",
+        result.base_epoch,
+        result.joined_epoch,
+        result.isolated_epoch,
+        directory.display()
+    );
+}
+
+fn assert_old_endpoints_excluded(
+    binding: &Binding,
+    capsule: &PublicCapsule,
+    result: &PublicResult,
+    attacker_copies: &mut [(Endpoint, MlsGroup)],
+) {
+    assert_eq!(&result.binding, binding);
+    assert_eq!(result.removed_leaves, attacker_copies.len());
     assert!(result.restart_and_bidirectional_messages);
     assert!(result.old_history_not_recovered);
     assert!(
@@ -509,7 +539,7 @@ fn all_old_endpoints_lost(kind: &str, count: usize) {
             .retired_signature_keys
             .contains(&result.new_signature_key)
     );
-    for (endpoint, old_group) in &mut attacker_copies {
+    for (endpoint, old_group) in attacker_copies {
         let original_key = exported_key(endpoint, old_group);
         apply_commit(endpoint, old_group, &result.external_commit);
         assert!(old_group.is_active());
@@ -560,13 +590,6 @@ fn all_old_endpoints_lost(kind: &str, count: usize) {
             );
         }
     }
-    println!(
-        "{kind}: {count} old endpoints; epochs {} -> {} -> {}; fresh-process recovery; all old keys denied; {}",
-        result.base_epoch,
-        result.joined_epoch,
-        result.isolated_epoch,
-        directory.display()
-    );
 }
 
 #[test]
