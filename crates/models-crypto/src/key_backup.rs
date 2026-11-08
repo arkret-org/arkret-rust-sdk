@@ -16,7 +16,10 @@ use serde::ser::Error as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 
-use crate::RecoveryPolicyRef;
+use crate::{
+    RecoveryBackupHpkeSuite, RecoveryKeyAgreementUse, RecoveryMethod, RecoveryPolicy,
+    RecoveryPolicyRef,
+};
 
 fn is_false(value: &bool) -> bool {
     !*value
@@ -240,6 +243,105 @@ impl KeyBackup {
         self.domain_separation.validate()?;
         for item in &self.contents {
             item.validate()?;
+        }
+        Ok(())
+    }
+
+    /// Verify the immutable ciphertext against its signed SHA-256 address.
+    pub fn validate_ciphertext_digest(&self) -> Result<()> {
+        let ciphertext = arkret_canonical::base64url_decode(self.ciphertext.as_str())
+            .map_err(|error| WireError::Protocol(error.to_string()))?;
+        if arkret_canonical::base64url_encode(&ciphertext) != self.ciphertext.as_str()
+            || arkret_canonical::sha256_digest(&ciphertext) != self.ciphertext_digest.as_str()
+        {
+            return protocol("backup ciphertext does not match its canonical SHA-256 address");
+        }
+        Ok(())
+    }
+
+    /// Bind a recovery-public-key envelope to an independently authenticated
+    /// policy. The caller must establish that this is the accepted current
+    /// policy in the same authority transaction as admission; this pure check
+    /// neither verifies its signature nor grants cross-subject custody.
+    pub fn validate_recovery_recipient(
+        &self,
+        policy: &RecoveryPolicy,
+        evaluated_at: DateTime<Utc>,
+    ) -> Result<()> {
+        self.validate()?;
+        policy.validate_shape()?;
+        let mismatch = |message: &str| WireError::ProtocolCode {
+            code: arkret_wire::ErrorCode::RecoveryPolicyMismatch,
+            message: message.to_owned(),
+        };
+        if self.encryption.recipient_method != KeyBackupRecipientMethod::RecoveryPublicKey {
+            return Err(mismatch("backup does not select a recovery public key"));
+        }
+        let policy_subject = self.custodian_actor_id.as_ref().unwrap_or(&self.actor_id);
+        let reference = self.recovery_policy_ref.as_ref().ok_or_else(|| {
+            mismatch("recovery public key backup has no recovery policy reference")
+        })?;
+        if policy_subject.as_account_id() != Some(&policy.account_id)
+            || reference.policy_id != policy.policy_id
+            || reference.policy_version != policy.version
+        {
+            return Err(mismatch(
+                "backup does not identify the accepted subject policy",
+            ));
+        }
+        if policy.issued_at > evaluated_at
+            || policy.not_before.is_some_and(|at| at > evaluated_at)
+            || policy.expires_at.is_some_and(|at| at <= evaluated_at)
+        {
+            return Err(mismatch(
+                "backup recipient policy is outside its validity window",
+            ));
+        }
+        let recipient = self
+            .encryption
+            .recipient_key_ref
+            .as_deref()
+            .unwrap_or_default();
+        let suite_id = self
+            .encryption
+            .hpke_suite
+            .as_deref()
+            .unwrap_or(HPKE_SUITE_X25519_CHACHA20POLY1305_V1);
+        let suite: RecoveryBackupHpkeSuite =
+            serde_json::from_value(Value::String(suite_id.to_owned())).map_err(|_| {
+                WireError::ProtocolCode {
+                    code: arkret_wire::ErrorCode::UnsupportedHpkeSuite,
+                    message: "unsupported backup HPKE suite".to_owned(),
+                }
+            })?;
+        let mut matches = policy
+            .methods
+            .iter()
+            .filter_map(|method| match method {
+                RecoveryMethod::RecoveryUnlock { keys } => Some(keys),
+                _ => None,
+            })
+            .flatten()
+            .map(|key| &key.backup_hpke)
+            .filter(|entry| entry.key_agreement_ref.as_str() == recipient);
+        let agreement = matches
+            .next()
+            .ok_or_else(|| mismatch("backup recipient is not an inline backup HPKE agreement"))?;
+        if matches.next().is_some()
+            || agreement.r#use != RecoveryKeyAgreementUse::BackupHpke
+            || agreement.revoked_at.is_some()
+            || agreement.not_before > evaluated_at
+            || agreement.expires_at <= evaluated_at
+        {
+            return Err(mismatch(
+                "backup recipient is ambiguous or not currently usable",
+            ));
+        }
+        if !agreement.hpke_suites.contains(&suite) {
+            return Err(WireError::ProtocolCode {
+                code: arkret_wire::ErrorCode::UnsupportedHpkeSuite,
+                message: "backup HPKE suite is not allowed by its recipient".to_owned(),
+            });
         }
         Ok(())
     }
