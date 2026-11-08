@@ -409,7 +409,7 @@ pub fn validate_path(path: &str) -> Result<()> {
 /// the collection as a map, use a profile-registered move/update event, or an
 /// explicit API field). A selector segment fails closed with
 /// `patch_path_invalid`.
-fn parse_object_path(path: &str) -> Result<Vec<String>> {
+pub fn parse_object_path(path: &str) -> Result<Vec<String>> {
     validate_path(path)?;
     let bytes = path.as_bytes();
     let mut segments: Vec<String> = Vec::new();

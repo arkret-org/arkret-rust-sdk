@@ -6,7 +6,7 @@
 use std::collections::BTreeMap;
 
 use arkret_models_crypto::EncryptedEnvelope;
-use arkret_wire::patch::{Patch, PatchOp, PatchOpKind};
+use arkret_wire::patch::{Patch, PatchOp, PatchOpKind, parse_object_path};
 use arkret_wire::{Event, EventKind, Result, WireError, event_spec};
 use serde_json::Value;
 
@@ -136,7 +136,8 @@ fn project_patch(patch: &Patch) -> Result<EventMetadataSendGate> {
         user_metadata_present: false,
     };
     for (path, operation) in patch.iter() {
-        let root = path.split('.').next().unwrap_or_default();
+        let segments = parse_object_path(path)?;
+        let root = segments.first().map(String::as_str).unwrap_or_default();
         if root == "encrypted_metadata" {
             let PatchOp::Explicit {
                 op: PatchOpKind::Set,
@@ -147,7 +148,7 @@ fn project_patch(patch: &Patch) -> Result<EventMetadataSendGate> {
                     "encrypted metadata requires whole-envelope set".into(),
                 ));
             };
-            if path != "encrypted_metadata" {
+            if segments.len() != 1 {
                 return Err(WireError::Protocol(
                     "encrypted metadata requires whole-envelope set".into(),
                 ));

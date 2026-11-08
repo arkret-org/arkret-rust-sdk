@@ -154,17 +154,17 @@ pub struct MemberIdentityReplacementRef {
 
 /// Carrier for the actual `member_identity` segment body. Mirrors the
 /// `oneOf` in the spec schema: plaintext [`MemberIdentity`] OR encrypted
-/// envelope (carried as raw [`Value`] because the SDK does not yet ship
-/// a typed `EncryptedEnvelope`).
-// API-stable carrier wrapper consumed by inkson/cotest. Boxing
-// `MemberIdentity` would be a breaking change for the constructor
-// pattern `IdentityPayloadCarrier::MemberIdentity { member_identity }`.
+/// envelope. The encrypted branch uses the exact registered wire member.
 #[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(untagged)]
+#[serde(untagged, deny_unknown_fields)]
 pub enum IdentityPayloadCarrier {
-    MemberIdentity { member_identity: MemberIdentity },
-    EncryptedContent { encrypted_content: Value },
+    MemberIdentity {
+        member_identity: MemberIdentity,
+    },
+    EncryptedPayload {
+        encrypted_payload: arkret_models_crypto::EncryptedEnvelope,
+    },
 }
 
 impl IdentityPayloadCarrier {
