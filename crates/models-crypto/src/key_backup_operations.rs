@@ -233,7 +233,7 @@ where
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeysBackupsIssueUnlockChallengeRequestBody {
     pub request_id: Base64UrlString,
@@ -318,6 +318,17 @@ pub struct KeysBackupsUnlockChallenge {
 }
 
 impl KeysBackupsUnlockChallenge {
+    /// Recover the complete closed issuance request for durable idempotency.
+    /// Fresh challenge bytes and issuance timestamps are server outputs.
+    pub fn request_body(&self) -> KeysBackupsIssueUnlockChallengeRequestBody {
+        KeysBackupsIssueUnlockChallengeRequestBody {
+            request_id: self.request_id.clone(),
+            subject_actor_id: self.subject_actor_id.clone(),
+            custody_authorization_ref: self.custody_authorization_ref.clone(),
+            content_history: self.content_history.clone(),
+        }
+    }
+
     pub fn validate_for_request(
         &self,
         request: &KeysBackupsIssueUnlockChallengeRequestBody,

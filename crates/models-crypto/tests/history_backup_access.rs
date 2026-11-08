@@ -54,8 +54,14 @@ fn current_device_challenge_binds_history_selection_and_freshness_exactly() {
     challenge
         .validate_for_request(&request, &challenge.backup_id)
         .unwrap();
+    assert_eq!(challenge.request_body(), request);
     let mut changed = request.clone();
     changed.content_history = None;
+    assert_ne!(challenge.request_body(), changed);
+    assert_eq!(
+        serde_json::to_value(&changed).unwrap(),
+        json!({"request_id":request.request_id})
+    );
     assert!(
         challenge
             .validate_for_request(&changed, &challenge.backup_id)
