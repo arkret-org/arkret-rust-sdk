@@ -200,7 +200,6 @@ struct GrantHeader<'a> {
     recipient_hpke_key_base64url: &'a str,
     recipient_key_event_ref: &'a arkret_wire::EventId,
     history_cut: &'a arkret_wire::CommittedEventRef,
-    authorization_event_ref: &'a arkret_wire::EventId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     expires_at: &'a chrono::DateTime<chrono::Utc>,
     selector: &'a HistoryKeySelector,
@@ -216,7 +215,6 @@ pub fn history_grant_header(
         recipient_hpke_key_base64url: &grant.recipient_hpke_key_base64url,
         recipient_key_event_ref: &grant.recipient_key_event_ref,
         history_cut: &grant.history_cut,
-        authorization_event_ref: &grant.authorization_event_ref,
         expires_at: &grant.expires_at,
         selector,
     })?)

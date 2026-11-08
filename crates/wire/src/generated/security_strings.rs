@@ -9,7 +9,7 @@
 //! signature-alg-registry.json;
 //! sha256=04cd8b284cae951995e5e9aab071cfdf42fdb3bd1da53ba63e8239a5f66a1107 Input: registry/
 //! hpke-suite-registry.json;
-//! sha256=f54d872b32547b358930f5ab49933cb6eabd1cf256c0d2016459d04f6ea187c8 Input: registry/
+//! sha256=3511e9f27b66cbf59cfb53a349cf1797572df454dc18334de3545f9e40abb045 Input: registry/
 //! mls-ciphersuite-registry.json;
 //! sha256=0713ff9e2585645cb9526d366aabbd30fe92a672b891d2ba5f9c035d637bc098 Input: registry/
 //! mls-extension-registry.json;

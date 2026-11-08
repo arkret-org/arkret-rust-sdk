@@ -75,6 +75,23 @@ pub fn x25519_public_key(private_key: &[u8]) -> Result<[u8; 32]> {
         .map_err(|_| Error::Crypto("HPKE returned a non-X25519 public key".into()))
 }
 
+/// Validate a recipient by performing a fresh base-mode KEM encapsulation.
+/// The unused shared secret is zeroized by the HPKE library on drop. This
+/// rejects low-order/noncontributory keys before accepting a public request.
+pub fn validate_x25519_recipient_key(public_key: &[u8]) -> Result<()> {
+    let public_key = <HpkeKem as hpke::Kem>::PublicKey::from_bytes(public_key)
+        .map_err(|_| Error::Protocol("recipient HPKE public key must be 32-byte X25519".into()))?;
+    let mut entropy_probe = [0_u8; 1];
+    getrandom::fill(&mut entropy_probe).map_err(|error| {
+        Error::Crypto(format!(
+            "OS CSPRNG unavailable for HPKE validation: {error}"
+        ))
+    })?;
+    <HpkeKem as hpke::Kem>::encap(&public_key, None)
+        .map_err(|_| Error::Protocol("noncontributory X25519 recipient".into()))?;
+    Ok(())
+}
+
 /// Encrypt one plaintext with RFC 9180 base mode using
 /// DHKEM(X25519, HKDF-SHA256), HKDF-SHA256, and ChaCha20-Poly1305.
 ///
@@ -210,6 +227,29 @@ mod tests {
             .step_by(2)
             .map(|index| u8::from_str_radix(&value[index..index + 2], 16).unwrap())
             .collect()
+    }
+
+    #[test]
+    fn recipient_validation_rejects_noncontributory_keys_before_acceptance() {
+        let (_, public) = keypair();
+        validate_x25519_recipient_key(&public).unwrap();
+        for encoded in [
+            "0000000000000000000000000000000000000000000000000000000000000000",
+            "0100000000000000000000000000000000000000000000000000000000000000",
+            "e0eb7a7c3b41b8ae1656e3faf19fc46ada098deb9c32b1fd866205165f49b800",
+            "5f9c95bca3508c24b1d0b1559c83ef5b04445cc4581c8e86d8224eddd09f1157",
+            "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+            "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+            "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+        ] {
+            let error = validate_x25519_recipient_key(&unhex(encoded)).unwrap_err();
+            assert!(
+                error
+                    .to_string()
+                    .contains("noncontributory X25519 recipient")
+            );
+        }
+        assert!(validate_x25519_recipient_key(&public[..31]).is_err());
     }
 
     #[test]

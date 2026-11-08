@@ -114,6 +114,25 @@ impl HistoryRequest {
         bytes32(&self.recipient_hpke_key_base64url)?;
         Ok(())
     }
+
+    /// Validate the signed request window for new issuance or delivery.
+    /// Native signer/leaf binding and current read permission are checked separately.
+    pub fn validate_at(
+        &self,
+        created_at: chrono::DateTime<chrono::Utc>,
+        evaluated_at: chrono::DateTime<chrono::Utc>,
+    ) -> Result<()> {
+        self.validate()?;
+        let ttl = self.expires_at - created_at;
+        if ttl <= chrono::Duration::zero()
+            || ttl > chrono::Duration::seconds(900)
+            || evaluated_at < created_at
+            || evaluated_at >= self.expires_at
+        {
+            return protocol("history request is outside its bounded validity window");
+        }
+        Ok(())
+    }
 }
 
 impl HistoryKeySelector {
@@ -146,6 +165,26 @@ impl HistoryKeySelector {
 }
 
 impl HistoryGrant {
+    /// Match the exact independently accepted request, without asserting native authority.
+    /// Current read/disclosure, selection and request freshness remain caller obligations.
+    pub fn validate_for_request(
+        &self,
+        request_event_ref: &arkret_wire::EventId,
+        request: &HistoryRequest,
+    ) -> Result<()> {
+        self.validate()?;
+        request.validate()?;
+        if self.recipient_key_event_ref != *request_event_ref
+            || self.recipient != request.recipient
+            || self.recipient_hpke_key_base64url != request.recipient_hpke_key_base64url
+            || self.history_cut != request.history_cut
+            || self.expires_at != request.expires_at
+        {
+            return protocol("history grant differs from its exact accepted request");
+        }
+        Ok(())
+    }
+
     pub fn validate(&self) -> Result<()> {
         self.recipient.validate()?;
         bytes32(&self.recipient_hpke_key_base64url)?;

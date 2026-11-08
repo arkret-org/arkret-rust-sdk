@@ -2,7 +2,7 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/content-encryption.schema.json
-// sha256=4b35dddbd4c0ab2741ca1d4d633cb3d210db1ac24a9c5cecdbad143e7b9a6efc
+// sha256=ccb35fae085d742868258a8ab9b934a8f08c0448058484a4c08439b172d9f25e
 //
 // Input: schemas/decimal-integers.schema.json
 // sha256=7ea09c46f777e010c72a1fd069b7fbefc7d66924e7b3ad5a5961ce9914858987
@@ -160,7 +160,6 @@ pub struct HistoryGrant {
     pub recipient_hpke_key_base64url: String,
     pub recipient_key_event_ref: arkret_wire::EventId,
     pub history_cut: arkret_wire::CommittedEventRef,
-    pub authorization_event_ref: arkret_wire::EventId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: chrono::DateTime<chrono::Utc>,
     pub entries: Vec<HistoryGrantEntry>,
@@ -246,7 +245,6 @@ pub struct HistoryRequest {
     pub recipient: ContentEndpoint,
     pub recipient_hpke_key_base64url: String,
     pub history_cut: arkret_wire::CommittedEventRef,
-    pub authorization_event_ref: arkret_wire::EventId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: chrono::DateTime<chrono::Utc>,
 }

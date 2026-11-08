@@ -2,8 +2,8 @@
 //! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json;
 //! sha256=c7366b7cc0653b17d2a0a627fa7a2fdf0a2a27f69f272bf6d28805d5b8e3f44f Input: reachable event
-//! schema closure; sha256=e89a87bad1da4aca08ebcfaf610f3b1d1dba768b208d38c9ff3126fe3caf7a4a Entries:
-//! preimage_commitments=53
+//! schema closure; sha256=397c678e248b936495d13980c64026184bb03e6d6f016c99af32ad2e39246d77 Entries:
+//! preimage_commitments=51
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PreimageCommitment {
@@ -80,17 +80,7 @@ pub const PREIMAGE_COMMITMENT_FIELDS: &[PreimageCommitmentField] = &[
     },
     PreimageCommitmentField {
         schema_file: "schemas/content-encryption.schema.json",
-        json_pointer: "/$defs/history_grant/properties/authorization_event_ref",
-        commitment: PreimageCommitment::FixedEvent,
-    },
-    PreimageCommitmentField {
-        schema_file: "schemas/content-encryption.schema.json",
         json_pointer: "/$defs/history_grant/properties/recipient_key_event_ref",
-        commitment: PreimageCommitment::FixedEvent,
-    },
-    PreimageCommitmentField {
-        schema_file: "schemas/content-encryption.schema.json",
-        json_pointer: "/$defs/history_request/properties/authorization_event_ref",
         commitment: PreimageCommitment::FixedEvent,
     },
     PreimageCommitmentField {
