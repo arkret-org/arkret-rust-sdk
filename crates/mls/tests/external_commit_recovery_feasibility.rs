@@ -33,6 +33,9 @@ const AFTER: &[u8] = b"recovered PCR message after every old endpoint was remove
 #[path = "support/archive_recovery.rs"]
 mod archive_recovery;
 
+#[path = "support/epoch_content_recovery.rs"]
+mod epoch_content_recovery;
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Binding {
@@ -274,6 +277,15 @@ fn external_join(
     expected: &Binding,
     expected_epoch: u64,
 ) -> Result<(Endpoint, MlsGroup, Vec<u8>), String> {
+    external_join_with_endpoint(capsule, expected, expected_epoch, Endpoint::fresh(expected))
+}
+
+fn external_join_with_endpoint(
+    capsule: &PublicCapsule,
+    expected: &Binding,
+    expected_epoch: u64,
+    fresh: Endpoint,
+) -> Result<(Endpoint, MlsGroup, Vec<u8>), String> {
     if &capsule.binding != expected || capsule.epoch != expected_epoch {
         return Err("independent expected identity/scope/current-epoch mismatch".into());
     }
@@ -289,7 +301,6 @@ fn external_join(
     }
     let tree = RatchetTreeIn::tls_deserialize_exact(&capsule.ratchet_tree)
         .map_err(|error| format!("tree decode: {error:?}"))?;
-    let fresh = Endpoint::fresh(expected);
     if capsule
         .retired_signature_keys
         .iter()
@@ -365,8 +376,25 @@ fn recover_with_observer(
     expected_epoch: u64,
     observe_isolated: impl FnOnce(&Endpoint, &mut MlsGroup, &[u8]),
 ) -> PublicResult {
+    let endpoint = Endpoint::fresh(&expected);
+    recover_with_endpoint(
+        capsule,
+        expected,
+        expected_epoch,
+        endpoint,
+        observe_isolated,
+    )
+}
+
+fn recover_with_endpoint(
+    capsule: PublicCapsule,
+    expected: Binding,
+    expected_epoch: u64,
+    endpoint: Endpoint,
+    observe_isolated: impl FnOnce(&Endpoint, &mut MlsGroup, &[u8]),
+) -> PublicResult {
     let (endpoint, mut group, external_commit) =
-        external_join(&capsule, &expected, expected_epoch).unwrap();
+        external_join_with_endpoint(&capsule, &expected, expected_epoch, endpoint).unwrap();
     let joined_epoch = group.epoch().as_u64();
     let old_history_not_recovered = group
         .process_message(&endpoint.provider, protocol(&capsule.old_ciphertext))
