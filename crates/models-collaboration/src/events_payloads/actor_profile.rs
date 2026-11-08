@@ -24,13 +24,14 @@ impl ActorProfileCreatePayload {
 
 /// Root members the registered `ak.profile.update` `apply_patch` projection
 /// may write; every other member is create-locked or reducer managed.
-const UPDATE_ALLOWED_ROOTS: [&str; 6] = [
+const UPDATE_ALLOWED_ROOTS: [&str; 7] = [
     "display_name",
     "handle",
     "agent_slug",
     "avatar_blob_ref",
     "accountable_principal_ids",
     "profile_fields",
+    "encrypted_private_fields",
 ];
 
 impl ActorProfileUpdatePayload {
@@ -51,7 +52,7 @@ impl ActorProfileUpdatePayload {
     /// reducer-managed `resolution` subtree.
     pub fn validate_paths(&self) -> Result<()> {
         self.patch.validate()?;
-        for (path, _) in self.patch.iter() {
+        for (path, operation) in self.patch.iter() {
             let root = path.split('.').next().unwrap_or(path.as_str());
             if !UPDATE_ALLOWED_ROOTS.contains(&root)
                 || reducer_managed_patch_reason("actor_profile", path).is_some()
@@ -59,6 +60,18 @@ impl ActorProfileUpdatePayload {
                 return Err(WireError::Protocol(format!(
                     "actor profile update patch path `{path}` is not an allowed display path"
                 )));
+            }
+            if root == "encrypted_private_fields" {
+                if path != root || operation.op() != PatchOpKind::Set {
+                    return Err(WireError::Protocol(
+                        "private Profile requires a whole-envelope set".into(),
+                    ));
+                }
+                let value: EncryptedEnvelope =
+                    serde_json::from_value(operation.value().cloned().ok_or_else(|| {
+                        WireError::Protocol("private Profile envelope is absent".into())
+                    })?)?;
+                value.validate()?;
             }
         }
         Ok(())
@@ -117,7 +130,10 @@ impl ActorProfileUpdatePayload {
 }
 
 fn account_profile_patch_path_allowed(path: &str) -> bool {
-    if matches!(path, "display_name" | "avatar_blob_ref") {
+    if matches!(
+        path,
+        "display_name" | "avatar_blob_ref" | "encrypted_private_fields"
+    ) {
         return true;
     }
     let Some(key) = path.strip_prefix("profile_fields.") else {
@@ -181,6 +197,66 @@ mod tests {
         assert_eq!(profile.realm_id.as_ref().map(RealmId::as_str), Some(REALM));
         assert_eq!(profile.schema, ActorProfile::SCHEMA);
         assert!(profile.updated_by.is_none() && profile.updated_at.is_none());
+    }
+
+    #[test]
+    fn private_profile_whole_set_survives_display_updates_without_rebinding_original() {
+        let fixture: Value = serde_json::from_str(include_str!(
+            "../../../../../arkret-spec/spec/v1/artifacts/fixtures/content-history-fixture.json"
+        ))
+        .unwrap();
+        let mut current = created();
+        for slot in [
+            fixture["kat"]["envelope"].clone(),
+            json!({"$op":"set","value":fixture["kat"]["envelope"]}),
+        ] {
+            let payload: ActorProfileUpdatePayload = serde_json::from_value(json!({
+                "target_ref":current.id,"patch":{"encrypted_private_fields":slot}
+            }))
+            .unwrap();
+            payload.validate_for_account_self_service().unwrap();
+            current = payload
+                .apply(
+                    &event(
+                        "ak.profile.update",
+                        serde_json::to_value(&payload).unwrap(),
+                        "2026-04-26T00:01:00.000Z",
+                    ),
+                    &current,
+                )
+                .unwrap();
+            assert_eq!(
+                serde_json::to_value(&current.encrypted_private_fields).unwrap(),
+                fixture["kat"]["envelope"]
+            );
+        }
+        let retained = current.encrypted_private_fields.clone();
+        let display: ActorProfileUpdatePayload = serde_json::from_value(json!({
+            "target_ref":current.id,"patch":{"display_name":"Public update"}
+        }))
+        .unwrap();
+        let next = display
+            .apply(
+                &event(
+                    "ak.profile.update",
+                    serde_json::to_value(&display).unwrap(),
+                    "2026-04-26T00:02:00.000Z",
+                ),
+                &current,
+            )
+            .unwrap();
+        assert_eq!(next.encrypted_private_fields, retained);
+        for patch in [
+            json!({"encrypted_private_fields":{"$op":"unset"}}),
+            json!({"encrypted_private_fields.ciphertext":"AA"}),
+            json!({"encrypted_private_fields":null}),
+        ] {
+            let payload: ActorProfileUpdatePayload = serde_json::from_value(json!({
+                "target_ref":current.id,"patch":patch
+            }))
+            .unwrap();
+            assert!(payload.validate_paths().is_err());
+        }
     }
 
     #[test]

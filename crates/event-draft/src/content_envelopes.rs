@@ -40,6 +40,8 @@ impl EventContentEnvelopesExt for Event {
                 | EventKind::MorphUpdate
                 | EventKind::StrandUpdate
                 | EventKind::StrandTracksUpdate
+                | EventKind::ProfileCreate
+                | EventKind::ProfileUpdate
         ) {
             return Ok(Vec::new());
         }
@@ -123,6 +125,12 @@ fn project(kind: &EventKind, payload: &Value) -> Result<Vec<EventContentEnvelope
             "/payload/identity_payload",
             &mut out,
         )?,
+        EventKind::ProfileCreate => optional(
+            &payload["object"],
+            "encrypted_private_fields",
+            "/payload/object",
+            &mut out,
+        )?,
         EventKind::SpaceCreate | EventKind::MorphCreate | EventKind::StrandCreate => {
             let object = &payload["object"];
             optional(object, "encrypted_metadata", "/payload/object", &mut out)?;
@@ -146,7 +154,8 @@ fn project(kind: &EventKind, payload: &Value) -> Result<Vec<EventContentEnvelope
         EventKind::SpaceUpdate
         | EventKind::MorphUpdate
         | EventKind::StrandUpdate
-        | EventKind::StrandTracksUpdate => {
+        | EventKind::StrandTracksUpdate
+        | EventKind::ProfileUpdate => {
             if let Some(patch) = payload.get("patch") {
                 project_patch(kind, patch, &mut out)?;
             }
@@ -163,17 +172,21 @@ fn project_patch(kind: &EventKind, raw: &Value, out: &mut Vec<EventContentEnvelo
         let segments = parse_object_path(path)?;
         let fields = segments.iter().map(String::as_str).collect::<Vec<_>>();
         let slot = match fields.as_slice() {
+            ["encrypted_private_fields"] => *kind == EventKind::ProfileUpdate,
+            _ if *kind == EventKind::ProfileUpdate => false,
             ["encrypted_metadata"] => true,
             ["encrypted_content"] => *kind != EventKind::SpaceUpdate,
             ["tracks", "synthesis", "encrypted_content"] => *kind == EventKind::StrandUpdate,
             _ => false,
         };
         // Patching inside an envelope is never a new complete content intent.
-        let partial = matches!(
-            fields.as_slice(),
-            ["encrypted_content" | "encrypted_metadata", _, ..]
-                | ["tracks", "synthesis", "encrypted_content", _, ..]
-        );
+        let partial = (*kind == EventKind::ProfileUpdate
+            && matches!(fields.as_slice(), ["encrypted_private_fields", _, ..]))
+            || matches!(
+                fields.as_slice(),
+                ["encrypted_content" | "encrypted_metadata", _, ..]
+                    | ["tracks", "synthesis", "encrypted_content", _, ..]
+            );
         if partial {
             return Err(invalid(
                 "encrypted carrier requires a whole-envelope replacement",
@@ -243,6 +256,11 @@ mod tests {
     fn registered_slots_include_non_message_carriers_and_original_paths() {
         for (kind, payload, path) in [
             (
+                EventKind::ProfileCreate,
+                json!({"object":{"encrypted_private_fields":encrypted()}}),
+                "/payload/object/encrypted_private_fields",
+            ),
+            (
                 EventKind::PinAdd,
                 json!({"note": encrypted()}),
                 "/payload/note",
@@ -272,6 +290,35 @@ mod tests {
             assert_eq!(result.len(), 1);
             assert_eq!(result[0].content_path, path);
         }
+    }
+
+    #[test]
+    fn private_profile_projects_only_its_registered_whole_slot() {
+        for value in [encrypted(), json!({"$op":"set","value":encrypted()})] {
+            let payload = json!({"patch":{"encrypted_private_fields": value}});
+            let entries = project(&EventKind::ProfileUpdate, &payload).unwrap();
+            assert_eq!(entries.len(), 1);
+            let entry = &entries[0];
+            assert_eq!(
+                payload
+                    .pointer(entry.content_path.strip_prefix("/payload").unwrap())
+                    .unwrap(),
+                &serde_json::to_value(&entry.envelope).unwrap()
+            );
+        }
+        for patch in [
+            json!({"encrypted_private_fields.ciphertext":"AA"}),
+            json!({"encrypted_private_fields":{"$op":"unset"}}),
+            json!({"encrypted_private_fields":null}),
+        ] {
+            assert!(project(&EventKind::ProfileUpdate, &json!({"patch":patch})).is_err());
+        }
+        let opaque = json!({"patch":{"profile_fields.private":encrypted()}});
+        assert!(
+            project(&EventKind::ProfileUpdate, &opaque)
+                .unwrap()
+                .is_empty()
+        );
     }
 
     #[test]

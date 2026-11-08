@@ -1875,7 +1875,8 @@
         "schemas/string-profiles.schema.json"
       ],
       "provides": [
-        "ActorProfileDefinition"
+        "ActorProfileDefinition",
+        "PrivateProfileFields"
       ]
     },
     {

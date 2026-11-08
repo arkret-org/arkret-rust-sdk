@@ -2,7 +2,7 @@
 //! Generator: tools/spec-codegen
 //! Input: registry/applet-managed-authority-registry.json;
 //! sha256=a596ae7994158e3e446ac7f41bdb70743b021854c79cd9efd632ac7fbd8aca67 Input: registry/
-//! contract-registry.json; sha256=c7366b7cc0653b17d2a0a627fa7a2fdf0a2a27f69f272bf6d28805d5b8e3f44f
+//! contract-registry.json; sha256=4d1c57ec4e94ec7a358bb25bf00ec807d9c3426c9db7002f38656928850fc0c8
 //! Entries: managed_device_operations=22
 
 use super::{CapabilityActionId, ServiceOperationId};

@@ -29,7 +29,7 @@
 // sha256=6652f814405afb672ebc20ca69bdd58f47a3847606d5f5b890b3306b5949d947
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=c118dc80d3979cf43e74a8ebd793a80ebb67f13c08db276c8d2c87279bae1b20
+// sha256=f277aac30f4b23b2e663aeb5c59ddf9a6e2b3af9eb64854335f03d715718292a
 
 /// Counterpart: `agent-sidecar-view-state.schema.json`.
 /// Controller-private encrypted account-data plaintext for one hosted Sidecar

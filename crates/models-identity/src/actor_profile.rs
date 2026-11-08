@@ -3,6 +3,7 @@
 use std::collections::BTreeMap;
 use std::ops::Deref;
 
+use arkret_models_crypto::EncryptedEnvelope;
 use arkret_wire::{
     ActorId, ActorKind, ActorProfileId, BlobRef, DidCoreId, RealmId, SchemaId, WireError,
 };
@@ -49,6 +50,12 @@ pub struct ActorProfile {
     pub resolution: Option<crate::PrincipalResolutionProjection>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub profile_fields: BTreeMap<String, Value>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub encrypted_private_fields: Option<EncryptedEnvelope>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -103,6 +110,7 @@ impl ActorProfile {
             accountable_principal_ids: definition.accountable_principal_ids,
             resolution: None,
             profile_fields: definition.profile_fields,
+            encrypted_private_fields: definition.encrypted_private_fields,
             created_at,
             updated_by: None,
             updated_at: None,
@@ -113,6 +121,10 @@ impl ActorProfile {
     /// Validate the display members every materialized value must satisfy
     /// (`actor-profile.schema.json`).
     pub fn validate_display_members(&self) -> arkret_wire::Result<()> {
+        validate_private_envelope(
+            self.encrypted_private_fields.as_ref(),
+            self.actor_id.as_ref(),
+        )?;
         validate_profile_owner(
             self.principal_id.as_ref(),
             self.actor_id.as_ref(),
@@ -139,6 +151,10 @@ impl ActorProfile {
 
 impl ActorProfileDefinition {
     pub fn validate(&self) -> arkret_wire::Result<()> {
+        validate_private_envelope(
+            self.encrypted_private_fields.as_ref(),
+            self.actor_id.as_ref(),
+        )?;
         validate_profile_owner(
             self.principal_id.as_ref(),
             self.actor_id.as_ref(),
@@ -155,6 +171,27 @@ impl ActorProfileDefinition {
             self.agent_slug.as_deref(),
             &self.profile_fields,
         )
+    }
+}
+
+fn validate_private_envelope(
+    value: Option<&EncryptedEnvelope>,
+    realm_actor: Option<&ActorId>,
+) -> arkret_wire::Result<()> {
+    if let Some(value) = value {
+        if realm_actor.is_some() {
+            return Err(WireError::Protocol(
+                "private Profile envelope requires an original Account PCR".into(),
+            ));
+        }
+        value.validate()?;
+    }
+    Ok(())
+}
+
+impl PrivateProfileFields {
+    pub fn validate(&self) -> arkret_wire::Result<()> {
+        validate_profile_text_fields(&self.profile_fields)
     }
 }
 
@@ -218,6 +255,12 @@ fn validate_display_members(
             ));
         }
     }
+    validate_profile_text_fields(profile_fields)
+}
+
+fn validate_profile_text_fields(
+    profile_fields: &BTreeMap<String, Value>,
+) -> arkret_wire::Result<()> {
     for member in ["biography", "status_message"] {
         match profile_fields.get(member) {
             None => {}

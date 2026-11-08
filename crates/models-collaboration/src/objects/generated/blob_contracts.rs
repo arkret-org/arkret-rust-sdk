@@ -5,7 +5,7 @@
 // sha256=22ea9fba9b25f14681d440a87a556beed4b74611057513e66a5178d01fdfa094
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=c118dc80d3979cf43e74a8ebd793a80ebb67f13c08db276c8d2c87279bae1b20
+// sha256=f277aac30f4b23b2e663aeb5c59ddf9a6e2b3af9eb64854335f03d715718292a
 
 /// Counterpart: `blob-operations.schema.json#/$defs/signature`.
 /// Counterpart for `spec/v1/artifacts/schemas/blob-operations.schema.json#/$defs/upload_receipt`.

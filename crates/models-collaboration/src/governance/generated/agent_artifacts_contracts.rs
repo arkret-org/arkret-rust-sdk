@@ -14,7 +14,7 @@
 // sha256=5eeab77475a955f40077ebca872da1800d5159f072b38e40b72c2dddc9013c87
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=c118dc80d3979cf43e74a8ebd793a80ebb67f13c08db276c8d2c87279bae1b20
+// sha256=f277aac30f4b23b2e663aeb5c59ddf9a6e2b3af9eb64854335f03d715718292a
 
 /// Counterpart: `agent-operations.schema.json#/$defs/agent_grant_view`.
 /// Counterpart for

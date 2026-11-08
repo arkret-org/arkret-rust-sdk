@@ -92,6 +92,7 @@ impl GhostActorProfileRequest {
             avatar_blob_ref: self.avatar_blob_ref.clone(),
             accountable_principal_ids: None,
             profile_fields,
+            encrypted_private_fields: None,
         })
     }
 

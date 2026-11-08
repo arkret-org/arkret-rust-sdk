@@ -4180,6 +4180,10 @@
     {
       "rust_type": "crates/models-collaboration/src/generated/mls_roster_authority_contracts.rs::MlsRosterRecoverySigningKey",
       "schema": "mls-roster-authority.schema.json#/$defs/roster_recovery_signing_key"
+    },
+    {
+      "rust_type": "crates/models-identity/src/generated/actor_profile_contracts.rs::PrivateProfileFields",
+      "schema": "actor-profile.schema.json#/$defs/private_profile_fields"
     }
   ],
   "exemptions": [

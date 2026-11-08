@@ -77,6 +77,96 @@ fn claimed_keypackage(identity: &ArkretMlsIdentity) -> MlsKeyPackageRecord {
 }
 
 #[test]
+fn controller_and_runtime_keep_distinct_rfc_credentials_in_one_scope() {
+    // This proves the RFC/key-ownership construction, not native Agent PCR
+    // delegation, accepted provisioning, pairing or Station admission.
+    let scope = realm_scope();
+    let controller = identity();
+    let controller_actor = controller.actor_id.clone();
+    let runtime = ArkretMlsIdentity::new_agent(
+        ActorId::account(arkret_wire::AccountId::new(
+            DidCoreId::new("ak:did_core:web:controlled-agent.example").unwrap(),
+            controller_actor.as_account_id().unwrap().station_id.clone(),
+        )),
+        arkret_wire::DidUrl::new("did:web:controlled-agent.example#runtime").unwrap(),
+        event(181),
+        crate::ArkretMlsSigner::from_ed25519_signing_key(ed25519_dalek::SigningKey::from_bytes(
+            &[182; 32],
+        )),
+    )
+    .unwrap();
+    let mut group = controller
+        .create_group_with_governance_binding(&scope, &genesis_binding(&scope))
+        .unwrap();
+    assert!(
+        group
+            .install_local_creator_binding(runtime.actor_id.clone(), Some(event(183)))
+            .is_err()
+    );
+    group
+        .install_local_creator_binding(controller_actor.clone(), Some(event(183)))
+        .unwrap();
+    let (info, tree) = group.public_group_state_bytes().unwrap();
+    let mut tracker =
+        crate::MlsPublicGroupTracker::from_external(&info, &tree, group.group_id().as_str(), 0)
+            .unwrap();
+    assert_eq!(tracker.leaves().unwrap()[0].actor_id, controller_actor);
+    let next = transition_binding(&scope, event(184), 0);
+    let added = group
+        .add_member_with_governance_binding(&claimed_keypackage(&runtime), &next)
+        .unwrap();
+    tracker
+        .process_public_handshake(&decode(&added.commit.commit).unwrap())
+        .unwrap();
+    group
+        .merge_accepted_commit_envelope(
+            &added.commit,
+            &MlsGovernanceBindingPublicState::new(scope.clone(), Some(event(184)), 0, 0),
+            &next,
+        )
+        .unwrap();
+    let leaves = tracker.leaves().unwrap();
+    assert_eq!(leaves.len(), 2);
+    assert!(leaves.iter().any(|leaf| leaf.actor_id == controller_actor));
+    assert!(leaves.iter().any(|leaf| leaf.actor_id == runtime.actor_id));
+    assert_ne!(leaves[0].signature_key, leaves[1].signature_key);
+    // Install the exact public transition's endpoint bindings before another
+    // handshake; merge deliberately invalidates the old attribution map.
+    let bindings = leaves
+        .iter()
+        .map(|leaf| {
+            let is_controller = leaf.actor_id == controller_actor;
+            assert!(is_controller || leaf.actor_id == runtime.actor_id);
+            MlsVerifiedLeafBinding {
+                leaf_index: leaf.leaf_index,
+                actor_id: leaf.actor_id.clone(),
+                endpoint: if is_controller {
+                    group.identity.endpoint.clone()
+                } else {
+                    runtime.endpoint.clone()
+                },
+                signature_key: leaf.signature_key.clone(),
+                device_authorize_event_id: is_controller.then(|| event(183)),
+            }
+        })
+        .collect();
+    group.install_verified_leaf_bindings(bindings).unwrap();
+    let cleanup = binding_for_epochs(&scope, event(185), 1, 2, 0);
+    let removed = group
+        .remove_members_by_actor_with_governance_binding(
+            std::slice::from_ref(&runtime.actor_id),
+            &cleanup,
+        )
+        .unwrap();
+    tracker
+        .process_public_handshake(&decode(&removed.commit.commit).unwrap())
+        .unwrap();
+    let survivors = tracker.leaves().unwrap();
+    assert_eq!(survivors.len(), 1);
+    assert_eq!(survivors[0].actor_id, controller_actor);
+}
+
+#[test]
 fn external_recovery_governance_binding_uses_rfc_authenticated_data_without_gce() {
     use openmls::prelude::{ProtocolMessage, RatchetTreeIn};
     let scope = realm_scope();

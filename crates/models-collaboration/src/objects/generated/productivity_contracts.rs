@@ -5,7 +5,7 @@
 // sha256=b8ff86553e660cc671db516597984cb9a27dc88da77b423869bb2aaaaf1ed452
 //
 // Input: schemas/event-payload.schema.json
-// sha256=ad0a6afcb615a15924cab022e1c499da750e70b2f9c1bcc0cc6b25a3de3e450e
+// sha256=c1b7f6c9f9f4ceb88c4b7c2924da91d09b11c7dd9ef63fe1e1097a133c1d6fe0
 //
 // Input: schemas/time.schema.json
 // sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
@@ -17,7 +17,7 @@
 // sha256=79f44b93062a197a5ed0854fa6ae7b113f028dd8e38369f40276457d00d93e0b
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=c118dc80d3979cf43e74a8ebd793a80ebb67f13c08db276c8d2c87279bae1b20
+// sha256=f277aac30f4b23b2e663aeb5c59ddf9a6e2b3af9eb64854335f03d715718292a
 
 /// Counterpart: `account-blocklist.schema.json`.
 /// Decrypted plaintext value of the holder-private `ak.account.blocklist`
