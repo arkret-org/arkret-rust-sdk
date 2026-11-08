@@ -306,7 +306,6 @@ impl KeyBackup {
         evaluated_at: DateTime<Utc>,
     ) -> Result<()> {
         self.validate()?;
-        policy.validate_shape()?;
         let mismatch = |message: &str| WireError::ProtocolCode {
             code: arkret_wire::ErrorCode::RecoveryPolicyMismatch,
             message: message.to_owned(),
@@ -314,10 +313,52 @@ impl KeyBackup {
         if self.encryption.recipient_method != KeyBackupRecipientMethod::RecoveryPublicKey {
             return Err(mismatch("backup does not select a recovery public key"));
         }
-        let policy_subject = self.custodian_actor_id.as_ref().unwrap_or(&self.actor_id);
-        let reference = self.recovery_policy_ref.as_ref().ok_or_else(|| {
-            mismatch("recovery public key backup has no recovery policy reference")
-        })?;
+        BackupRecoveryRecipient {
+            subject: self.custodian_actor_id.as_ref().unwrap_or(&self.actor_id),
+            policy_ref: self.recovery_policy_ref.as_ref().ok_or_else(|| {
+                mismatch("recovery public key backup has no recovery policy reference")
+            })?,
+            key_agreement_ref: self
+                .encryption
+                .recipient_key_ref
+                .as_deref()
+                .unwrap_or_default(),
+            hpke_suite: self.encryption.hpke_suite.as_deref(),
+        }
+        .validate(policy, evaluated_at)
+    }
+
+    pub fn signing_payload_bytes(&self) -> Result<Vec<u8>> {
+        self.validate()?;
+        let mut value = serde_json::to_value(self)?;
+        value
+            .get_mut("signature_proof")
+            .and_then(Value::as_object_mut)
+            .ok_or_else(|| WireError::Protocol("missing key backup signature_proof".to_owned()))?
+            .remove("signature");
+        Ok(arkret_canonical::canonical_json_bytes(&value)?)
+    }
+}
+
+/// Borrowed SDK-local recipient inputs from an independently authenticated
+/// immutable envelope or admission record. This is not a wire carrier or a
+/// proof of native storage, policy freshness or cross-subject custody.
+pub struct BackupRecoveryRecipient<'a> {
+    pub subject: &'a ActorId,
+    pub policy_ref: &'a RecoveryPolicyRef,
+    pub key_agreement_ref: &'a str,
+    pub hpke_suite: Option<&'a str>,
+}
+
+impl BackupRecoveryRecipient<'_> {
+    pub fn validate(&self, policy: &RecoveryPolicy, evaluated_at: DateTime<Utc>) -> Result<()> {
+        policy.validate_shape()?;
+        let mismatch = |message: &str| WireError::ProtocolCode {
+            code: arkret_wire::ErrorCode::RecoveryPolicyMismatch,
+            message: message.to_owned(),
+        };
+        let policy_subject = self.subject;
+        let reference = self.policy_ref;
         if policy_subject.as_account_id() != Some(&policy.account_id)
             || reference.policy_id != policy.policy_id
             || reference.policy_version != policy.version
@@ -334,15 +375,9 @@ impl KeyBackup {
                 "backup recipient policy is outside its validity window",
             ));
         }
-        let recipient = self
-            .encryption
-            .recipient_key_ref
-            .as_deref()
-            .unwrap_or_default();
+        let recipient = self.key_agreement_ref;
         let suite_id = self
-            .encryption
             .hpke_suite
-            .as_deref()
             .unwrap_or(HPKE_SUITE_X25519_CHACHA20POLY1305_V1);
         let suite: RecoveryBackupHpkeSuite =
             serde_json::from_value(Value::String(suite_id.to_owned())).map_err(|_| {
@@ -381,17 +416,6 @@ impl KeyBackup {
             });
         }
         Ok(())
-    }
-
-    pub fn signing_payload_bytes(&self) -> Result<Vec<u8>> {
-        self.validate()?;
-        let mut value = serde_json::to_value(self)?;
-        value
-            .get_mut("signature_proof")
-            .and_then(Value::as_object_mut)
-            .ok_or_else(|| WireError::Protocol("missing key backup signature_proof".to_owned()))?
-            .remove("signature");
-        Ok(arkret_canonical::canonical_json_bytes(&value)?)
     }
 }
 
