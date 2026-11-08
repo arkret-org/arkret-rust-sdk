@@ -1812,7 +1812,10 @@ fn application_header(
         outer_event: serde_json::json!({"kind": EventKind::MessageCreate.as_str(), "scope_ref": group.scope(), "actor_id": actor}),
         protection: ContentProtection {
             root_refs: vec![context.root_ref.clone()],
-            backup_refs: vec![],
+            backup_refs: vec![
+                arkret_wire::BackupId::new("ak:backup:01904100-0000-7000-8000-000000000001")
+                    .unwrap(),
+            ],
             blob_refs: vec![],
         },
         content_context: context,
@@ -1876,6 +1879,23 @@ fn application_sender_binding_survives_private_restart() {
     let private = receiver.export_state_record().unwrap();
     let mut restored = ArkretMlsGroup::restore_from_state_record(&private).unwrap();
     assert_eq!(restored.decrypt_payload(&payload).unwrap(), plaintext);
+}
+
+#[test]
+fn application_without_backup_dependency_is_rejected_before_private_state_mutates() {
+    let (_, mut sender) = application_message_pair();
+    let mut header = application_header(&sender, sender.local_content_sender_domain().unwrap());
+    header.material.protection.backup_refs.clear();
+    let before = sender.export_state_record().unwrap().serialized_state;
+    assert!(
+        sender
+            .encrypt_payload(header, b"missing durable root backup")
+            .is_err()
+    );
+    assert_eq!(
+        sender.export_state_record().unwrap().serialized_state,
+        before
+    );
 }
 
 #[test]

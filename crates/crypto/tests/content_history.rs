@@ -78,6 +78,16 @@ fn formal_exporter_root_body_kdf_aad_and_aead_are_byte_exact() {
 }
 
 #[test]
+fn missing_backup_dependency_refuses_seal_and_historical_open() {
+    let f = fixture();
+    let mut h = header(&f);
+    h.material.protection.backup_refs.clear();
+    let r = root(&f);
+    assert!(seal_content(&r, &h, b"content without recoverability").is_err());
+    assert!(open_content(&r, &h, f["kat"]["envelope"]["ciphertext"].as_str().unwrap()).is_err());
+}
+
+#[test]
 fn original_metadata_endpoint_key_and_root_changes_fail_closed() {
     let f = fixture();
     let r = root(&f);

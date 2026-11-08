@@ -192,6 +192,7 @@ fn unique<T: Ord>(values: &[T]) -> bool {
 impl ContentProtection {
     pub fn validate(&self) -> Result<()> {
         if self.root_refs.is_empty()
+            || self.backup_refs.is_empty()
             || self.root_refs.len() > 256
             || self.blob_refs.len() > 256
             || self.backup_refs.len() > 256

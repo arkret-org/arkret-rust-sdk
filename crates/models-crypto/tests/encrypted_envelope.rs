@@ -96,6 +96,30 @@ fn encrypted_envelope_round_trip_matches_closed_schema_and_authenticated_header(
 }
 
 #[test]
+fn encrypted_content_requires_a_nonempty_backup_dependency_before_seal_or_open() {
+    let mut wire = serde_json::to_value(envelope(4, false)).unwrap();
+    wire["encryption_context"]["protection"]["backup_refs"] = json!([]);
+    assert!(!schema_accepts(&wire));
+    let decoded: EncryptedEnvelope = serde_json::from_value(wire).unwrap();
+    assert!(decoded.validate().is_err());
+    let scope = ScopeRef::Realm {
+        realm_id: RealmId::new("ak:realm:AW-eYHZqTc5zBim-zkto9i7ELc_x5Idz3ZVEWb2fBGBj").unwrap(),
+    };
+    assert!(
+        decoded
+            .reconstruct_pre_encryption_header(
+                EncryptedPayloadScheme::EpochContentAead,
+                scope.clone(),
+                event_kind_str::MESSAGE_CREATE,
+                support::sender_domain(),
+                None,
+                support::material(&decoded, &scope, event_kind_str::MESSAGE_CREATE),
+            )
+            .is_err()
+    );
+}
+
+#[test]
 fn encrypted_envelope_rejects_retired_counter_and_unknown_context_fields() {
     for counter in [
         json!(null),
