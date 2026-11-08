@@ -69,14 +69,18 @@ impl Client {
         request: &KeysBackupsIssueUnlockChallengeRequestBody,
     ) -> Result<KeysBackupsUnlockChallenge> {
         reject_path_segment(backup_id.as_str())?;
-        self.post(
-            &format!(
-                "/_arkret/self/keys/backups/{}/unlock-challenge",
-                backup_id.as_str()
-            ),
-            request,
-        )
-        .await
+        request.validate()?;
+        let challenge: KeysBackupsUnlockChallenge = self
+            .post(
+                &format!(
+                    "/_arkret/self/keys/backups/{}/unlock-challenge",
+                    backup_id.as_str()
+                ),
+                request,
+            )
+            .await?;
+        challenge.validate_for_request(request, backup_id)?;
+        Ok(challenge)
     }
 
     pub async fn unlock_key_backup(

@@ -37,7 +37,7 @@ pub fn encrypted_envelope_to_payload_with_verified_header(
             "reconstructed pre-encryption header does not match the minimal envelope".to_owned(),
         ));
     }
-    Ok(EncryptedPayload {
+    let payload = EncryptedPayload {
         scheme: header.scheme.clone(),
         group_id: header.mls_group_id.clone(),
         epoch,
@@ -45,7 +45,13 @@ pub fn encrypted_envelope_to_payload_with_verified_header(
         ciphertext: envelope.ciphertext.clone(),
         pre_encryption_header: header,
         payload_digest: envelope.payload_digest()?,
-    })
+    };
+    if payload.to_envelope()? != *envelope {
+        return Err(Error::Protocol(
+            "verified content material differs from original envelope".to_owned(),
+        ));
+    }
+    Ok(payload)
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

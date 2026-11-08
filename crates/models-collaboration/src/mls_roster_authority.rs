@@ -320,10 +320,6 @@ impl MlsRosterAuthorityReadRequestBody {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-#[expect(
-    clippy::large_enum_variant,
-    reason = "Keep schema-mapped wire variants inline; transport and runtime containers own allocation policy."
-)]
 pub enum MlsRosterRecord {
     Genesis {
         genesis_event_ref: EventId,
@@ -346,10 +342,56 @@ pub enum MlsRosterRecord {
         claim_issuer_resolution: Option<AuthenticatedServiceResolution>,
         attestor_resolution: AuthenticatedServiceResolution,
     },
+    Recovery {
+        commit_event: arkret_wire::Event,
+        covering_commit: arkret_wire::RealmCommit,
+        producer_signer_fact: crate::authority_commit::HistoricalProducerSignerFact,
+        recovery_source: crate::content_history::ContentRecoverySource,
+        base_group_info_ref: BlobRef,
+        base_ratchet_tree_ref: BlobRef,
+    },
 }
 
 impl MlsRosterRecord {
     pub fn validate_shape(&self) -> Result<()> {
+        if let Self::Recovery {
+            commit_event,
+            covering_commit,
+            producer_signer_fact,
+            recovery_source,
+            base_group_info_ref,
+            base_ratchet_tree_ref,
+        } = self
+        {
+            crate::mls_group_state_material::material_digest_from_ref(base_group_info_ref)?;
+            crate::mls_group_state_material::material_digest_from_ref(base_ratchet_tree_ref)?;
+            if commit_event.kind != arkret_wire::EventKind::MlsCommit
+                || !commit_event.semantic_refs.is_empty()
+                || commit_event.external_ref.is_some()
+            {
+                return Err(WireError::Protocol(
+                    "recovery roster discloses an invalid Commit Event".into(),
+                ));
+            }
+            let full = arkret_wire::CommittedEventFullView {
+                event: commit_event.clone(),
+                commit: covering_commit.clone(),
+            };
+            producer_signer_fact
+                .validate_commit_binding(&full, arkret_canonical::DigestSuite::Sha256)?;
+            let payload: arkret_models_crypto::MlsCommitPayload =
+                serde_json::from_value(serde_json::to_value(&commit_event.payload)?)?;
+            if payload.recovery_binding().is_none() {
+                return Err(WireError::Protocol(
+                    "recovery roster lacks replacement binding".into(),
+                ));
+            }
+            recovery_source.validate_original_binding(
+                commit_event,
+                covering_commit.committed_at,
+                producer_signer_fact,
+            )?;
+        }
         if let Self::Add {
             proposal_wire_base64url,
             attestation,
@@ -485,6 +527,8 @@ pub struct MlsRosterAddSigningKeys {
     pub attestation_signing_key: MlsRosterSigningKey,
 }
 
+include!("generated/mls_roster_authority_contracts.rs");
+
 /// Exact non-portable key result from the authenticated own Account Station.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -492,6 +536,12 @@ pub struct MlsSelfRosterAuthorityReadResponseBody {
     pub roster: MlsRosterAuthorityReadResponseBody,
     pub manifest_signing_key: MlsRosterSigningKey,
     pub add_signing_keys: Vec<MlsRosterAddSigningKeys>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub recovery_signing_keys: Option<Vec<MlsRosterRecoverySigningKey>>,
 }
 
 #[cfg(all(test, feature = "openapi"))]

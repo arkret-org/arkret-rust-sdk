@@ -16,15 +16,13 @@
 //! this module cannot derive under an unregistered label at all — the label
 //! argument is [`arkret_wire::ExporterLabelId`], not a free string.
 //!
-//! The prior-epoch history / content exporter scheme (`ak.epoch-content-root-v1`
-//! and `ak.content-v1`) is gone from the registry and is deliberately absent
-//! here: this module offers no epoch content root or recovery-hierarchy root.
-//! Attachment callers restore an independently authorized exact checkpoint;
-//! the registered per-object exporter never grants history access.
+//! Content roots are exported once per accepted epoch context. Body and
+//! attachment keys expand that root with the hash of their exact object context.
+//! Restored roots grant history decryption without restoring MLS membership.
 
 use arkret_canonical::canonical::canonical_json_bytes;
 use arkret_models_collaboration::events_payloads::call::CallRecordingId;
-use arkret_models_crypto::AttachmentContentKeyContext;
+use arkret_models_crypto::{AttachmentContentKeyContext, ContentRootContext};
 use arkret_wire::{
     CallId, DidCoreId, EventId, ExporterLabelDescriptor, ExporterLabelId, RealmId, ReasonCode,
     ScopeRef, exporter_label_descriptor,
@@ -44,25 +42,26 @@ pub const RTC_ARTIFACT_KEY_LEN: usize = 32;
 /// Output width of the one-hour reaction routing HMAC key.
 pub const REACTION_ROUTING_KEY_LEN: usize = 32;
 
-/// Derive an attachment key from an authorized exact epoch checkpoint.
+/// Derive an attachment key from an authorized original epoch content root.
 /// The caller resolves immutable genesis and winning state before constructing Context.
 pub fn derive_attachment_content_key(
     group: &ArkretMlsGroup,
+    root_context: &ContentRootContext,
     context: &AttachmentContentKeyContext,
 ) -> Result<Zeroizing<[u8; 32]>> {
     context.validate()?;
-    if group.scope() != &context.effective_scope || group.epoch() != context.epoch {
+    if group.scope() != &context.effective_scope
+        || root_context.effective_scope != context.effective_scope
+        || root_context.genesis_event_ref != context.genesis_event_ref
+        || root_context.epoch != context.epoch
+    {
         return Err(Error::Protocol(
             "attachment_group_state_unresolved: scope/epoch mismatch".into(),
         ));
     }
-    let bytes = canonical_json_bytes(context)?;
-    let key = export_registered_secret(group, ExporterLabelId::BlobContentKeyV1, &bytes, 32)?;
-    let key: [u8; 32] = key
-        .as_slice()
-        .try_into()
-        .map_err(|_| Error::Crypto("attachment exporter output length mismatch".into()))?;
-    Ok(Zeroizing::new(key))
+    let root = group.export_content_root(root_context)?;
+    arkret_crypto::content_history::derive_attachment_content_key(&root, context)
+        .map_err(|error| Error::Crypto(error.to_string()))
 }
 
 const PRIMITIVE_MLS_EXPORTER: &str = "MLS-Exporter";
@@ -300,9 +299,17 @@ mod tests {
 
     use super::*;
 
+    fn context_hash(bytes: &[u8], hash: arkret_crypto::mls_exporter::MlsExporterHash) -> Vec<u8> {
+        use sha2::{Digest, Sha256, Sha384};
+        match hash {
+            arkret_crypto::mls_exporter::MlsExporterHash::Sha256 => Sha256::digest(bytes).to_vec(),
+            arkret_crypto::mls_exporter::MlsExporterHash::Sha384 => Sha384::digest(bytes).to_vec(),
+        }
+    }
+
     #[test]
     fn attachment_content_key_matches_the_frozen_spec_kats() {
-        use arkret_crypto::mls_exporter::{MlsExporterHash, mls_exporter_from_secret_with_hash};
+        use arkret_crypto::mls_exporter::{MlsExporterHash, mls_expand_with_label_with_hash};
         let artifacts = std::env::var_os("ARKRET_SPEC_ARTIFACTS_DIR")
             .map(std::path::PathBuf::from)
             .unwrap_or_else(|| {
@@ -320,17 +327,23 @@ mod tests {
             context.validate().unwrap();
             let bytes = canonical_json_bytes(&context).unwrap();
             assert_eq!(bytes, kat["context_utf8"].as_str().unwrap().as_bytes());
-            ensure_registered(label, PRIMITIVE_MLS_EXPORTER, &bytes).unwrap();
+            ensure_registered(label, PRIMITIVE_EXPAND_WITH_LABEL, &bytes).unwrap();
             let hash = match kat["hash"].as_str().unwrap() {
                 "sha256" => MlsExporterHash::Sha256,
                 "sha384" => MlsExporterHash::Sha384,
                 _ => panic!("unregistered KAT hash"),
             };
-            let secret = hex::decode(kat["exporter_secret_hex"].as_str().unwrap()).unwrap();
+            let secret = hex::decode(kat["content_root_hex"].as_str().unwrap()).unwrap();
             let expected = hex::decode(kat["content_key_hex"].as_str().unwrap()).unwrap();
             assert_eq!(
-                mls_exporter_from_secret_with_hash(&secret, label.as_str(), &bytes, 32, hash)
-                    .unwrap(),
+                mls_expand_with_label_with_hash(
+                    &secret,
+                    label.as_str(),
+                    &context_hash(&bytes, hash),
+                    32,
+                    hash
+                )
+                .unwrap(),
                 expected
             );
             for (field, replacement) in kat["separation_inputs"].as_object().unwrap() {
@@ -338,8 +351,14 @@ mod tests {
                 altered[field] = replacement.clone();
                 let bytes = canonical_json_bytes(&altered).unwrap();
                 assert_ne!(
-                    mls_exporter_from_secret_with_hash(&secret, label.as_str(), &bytes, 32, hash)
-                        .unwrap(),
+                    mls_expand_with_label_with_hash(
+                        &secret,
+                        label.as_str(),
+                        &context_hash(&bytes, hash),
+                        32,
+                        hash
+                    )
+                    .unwrap(),
                     expected
                 );
             }
@@ -484,11 +503,19 @@ mod tests {
     }
 
     #[test]
-    fn history_and_content_exporter_labels_are_not_registered() {
-        // The deleted prior-epoch scheme must stay deleted: neither label
-        // resolves, so no code path in this module can reach it.
-        assert!(ExporterLabelId::from_wire("ak.epoch-content-root-v1").is_none());
-        assert!(ExporterLabelId::from_wire("ak.content-v1").is_none());
+    fn content_labels_use_the_registered_root_then_expand_primitives() {
+        assert_eq!(
+            descriptor(ExporterLabelId::EpochContentRootV1).primitive,
+            Some(PRIMITIVE_MLS_EXPORTER)
+        );
+        assert_eq!(
+            descriptor(ExporterLabelId::ContentV1).primitive,
+            Some(PRIMITIVE_EXPAND_WITH_LABEL)
+        );
+        assert_eq!(
+            descriptor(ExporterLabelId::BlobContentKeyV1).primitive,
+            Some(PRIMITIVE_EXPAND_WITH_LABEL)
+        );
         assert!(ExporterLabelId::from_wire("ak.history-v1").is_none());
     }
 

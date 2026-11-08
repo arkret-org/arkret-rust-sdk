@@ -1721,7 +1721,7 @@
         "schemas/common-ids.schema.json"
       ],
       "provides": [
-        "MlsGenesisMaterial",
+        "MlsGroupStateMaterial",
         "AccountDeviceHistoricalSignerFact",
         "HistoricalProducerSignerFactEntry",
         "PeerStreamScanResponseBody",
@@ -1734,7 +1734,9 @@
         "RealmControlHistoricalSignerFactKind",
         "RealmControlHistoricalSignerFact",
         "RealmRecoveryServiceHistoricalSignerFactKind",
-        "RealmRecoveryServiceHistoricalSignerFact"
+        "RealmRecoveryServiceHistoricalSignerFact",
+        "AgentRuntimeHistoricalSignerFactKind",
+        "AgentRuntimeHistoricalSignerFact"
       ]
     },
     {
@@ -2167,6 +2169,72 @@
         "RealmInviteLinkDefinitionValue",
         "RealmInviteLinkUseRecord",
         "RealmInviteLinkView"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-crypto/src/generated/content_history_contracts.rs"
+      ],
+      "owner": "arkret-models-crypto",
+      "mode": "schema-closed-models",
+      "artifacts": [
+        "schemas/content-encryption.schema.json"
+      ],
+      "provides": [
+        "ContentRootContext",
+        "ContentEndpoint",
+        "ContentPurpose",
+        "ContentEncryptionAlgorithm",
+        "ContentContext",
+        "ContentRootItemKind",
+        "ContentRootBackupEntry",
+        "ContentCoverageEntry",
+        "ContentCoveragePage",
+        "HistoryKeySelector",
+        "HistoryGrantEntry",
+        "HistoryGrant",
+        "ContentRecoveryBinding",
+        "AgentHistoryCustody",
+        "ContentRecoveryState",
+        "ContentRecoveryCheckpoint",
+        "ContentProtection",
+        "HistoryRequest",
+        "ContentHistoryBackupAccess",
+        "ContentRecoveryOldLeaf",
+        "ContentRecoveryInventoryEntry",
+        "ContentRecoveryInventory",
+        "ContentScopeCleanup",
+        "ContentCleanupInventory",
+        "ContentRecoverySourceAttestation"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/generated/content_history_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "schema-closed-models",
+      "artifacts": [
+        "schemas/content-encryption.schema.json"
+      ],
+      "provides": [
+        "ContentRecoverySource"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/generated/mls_roster_authority_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "schema-closed-models",
+      "artifacts": [
+        "schemas/mls-roster-authority.schema.json"
+      ],
+      "provides": [
+        "MlsRosterRecoverySigningKey"
       ]
     }
   ]

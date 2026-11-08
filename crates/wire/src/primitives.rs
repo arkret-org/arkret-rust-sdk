@@ -1107,19 +1107,34 @@ pub enum RelationDirection {
     Both,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 /// The only registered Event content encryption scheme in v1.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum EncryptedPayloadScheme {
-    #[serde(rename = "mls_rfc9420")]
-    MlsRfc9420,
+    #[serde(rename = "ak.encryption.epoch_content_aead.v1")]
+    EpochContentAead,
 }
 
 impl EncryptedPayloadScheme {
     pub fn as_str(&self) -> &'static str {
         match self {
-            Self::MlsRfc9420 => "mls_rfc9420",
+            Self::EpochContentAead => "ak.encryption.epoch_content_aead.v1",
         }
+    }
+}
+
+/// Create-locked Realm content-backup strategy, independent of the message codec.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum EncryptionBackupStrategy {
+    #[serde(rename = "ak.encryption_backup.epoch_content_roots.v1")]
+    EpochContentRoots,
+}
+
+impl EncryptionBackupStrategy {
+    pub const fn as_str(self) -> &'static str {
+        "ak.encryption_backup.epoch_content_roots.v1"
     }
 }
 

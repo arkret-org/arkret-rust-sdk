@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json;
-//! sha256=0c45feb83576757e83d3be4b71330fcb8a607e77b2aa85798b1f98960fef0df1 Entries: schema_ids=229,
-//! active=229
+//! sha256=c7366b7cc0653b17d2a0a627fa7a2fdf0a2a27f69f272bf6d28805d5b8e3f44f Entries: schema_ids=231,
+//! active=231
 
 use serde::{Deserialize, Serialize};
 
@@ -81,6 +81,8 @@ pub enum SchemaId {
     ContactRemarkV1,
     ContactScopeUpdateV1,
     ContentBlockPollV1,
+    ContentEncryptionV1,
+    ContentEncryptionContextV1,
     ControllerAccountGateAttestationV1,
     ControllerAccountGateAttestationIssueRequestBodyV1,
     ControllerAccountGateAttestationIssueResponseBodyV1,
@@ -314,6 +316,8 @@ impl SchemaId {
         Self::ContactRemarkV1,
         Self::ContactScopeUpdateV1,
         Self::ContentBlockPollV1,
+        Self::ContentEncryptionV1,
+        Self::ContentEncryptionContextV1,
         Self::ControllerAccountGateAttestationV1,
         Self::ControllerAccountGateAttestationIssueRequestBodyV1,
         Self::ControllerAccountGateAttestationIssueResponseBodyV1,
@@ -547,6 +551,8 @@ impl SchemaId {
         Self::ContactRemarkV1,
         Self::ContactScopeUpdateV1,
         Self::ContentBlockPollV1,
+        Self::ContentEncryptionV1,
+        Self::ContentEncryptionContextV1,
         Self::ControllerAccountGateAttestationV1,
         Self::ControllerAccountGateAttestationIssueRequestBodyV1,
         Self::ControllerAccountGateAttestationIssueResponseBodyV1,
@@ -939,6 +945,12 @@ impl SchemaId {
     pub const CONTACT_SCOPE_UPDATE_V1: &'static str = "ak.schema.contact_scope_update.v1";
     /// Canonical content-block schema for ak.content.poll and ak.content.poll.response.
     pub const CONTENT_BLOCK_POLL_V1: &'static str = "ak.schema.content_block_poll.v1";
+    /// Closed recoverable application root, grant, coverage and recovery-binding carriers.
+    pub const CONTENT_ENCRYPTION_V1: &'static str = "ak.schema.content_encryption.v1";
+    /// Closed reconstructed application-content KDF and AAD context, never caller asserted wire
+    /// authority.
+    pub const CONTENT_ENCRYPTION_CONTEXT_V1: &'static str =
+        "ak.schema.content_encryption_context.v1";
     /// Account Authority controller-account eligibility gate signed under
     /// ak.controller_account_gate.v1; privacy minimised and valid for at most 300 seconds.
     pub const CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1: &'static str =
@@ -1471,6 +1483,8 @@ impl SchemaId {
             Self::ContactRemarkV1 => Self::CONTACT_REMARK_V1,
             Self::ContactScopeUpdateV1 => Self::CONTACT_SCOPE_UPDATE_V1,
             Self::ContentBlockPollV1 => Self::CONTENT_BLOCK_POLL_V1,
+            Self::ContentEncryptionV1 => Self::CONTENT_ENCRYPTION_V1,
+            Self::ContentEncryptionContextV1 => Self::CONTENT_ENCRYPTION_CONTEXT_V1,
             Self::ControllerAccountGateAttestationV1 => {
                 Self::CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1
             }
@@ -1751,6 +1765,8 @@ impl SchemaId {
             Self::ContactRemarkV1 => "schemas/contact-remark.schema.json",
             Self::ContactScopeUpdateV1 => "schemas/contact-operations.schema.json",
             Self::ContentBlockPollV1 => "schemas/content-block-poll.schema.json",
+            Self::ContentEncryptionV1 => "schemas/content-encryption.schema.json",
+            Self::ContentEncryptionContextV1 => "schemas/content-encryption.schema.json",
             Self::ControllerAccountGateAttestationV1 => {
                 "schemas/agent-authority-evidence.schema.json"
             }
@@ -2031,6 +2047,8 @@ impl SchemaId {
             Self::CONTACT_REMARK_V1 => Some(Self::ContactRemarkV1),
             Self::CONTACT_SCOPE_UPDATE_V1 => Some(Self::ContactScopeUpdateV1),
             Self::CONTENT_BLOCK_POLL_V1 => Some(Self::ContentBlockPollV1),
+            Self::CONTENT_ENCRYPTION_V1 => Some(Self::ContentEncryptionV1),
+            Self::CONTENT_ENCRYPTION_CONTEXT_V1 => Some(Self::ContentEncryptionContextV1),
             Self::CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1 => {
                 Some(Self::ControllerAccountGateAttestationV1)
             }

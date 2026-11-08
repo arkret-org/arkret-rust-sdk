@@ -569,6 +569,10 @@ pub struct MlsCommitPayload {
     #[serde(skip)]
     commit_digest: Hash,
     governance_binding: MlsGovernanceBindingPayload,
+    group_info_ref: BlobRef,
+    ratchet_tree_ref: BlobRef,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    recovery_binding: Option<crate::ContentRecoveryBinding>,
 }
 
 #[derive(Deserialize)]
@@ -585,6 +589,13 @@ struct MlsCommitPayloadWire {
     #[serde(default)]
     commit_message_ref: Option<BlobRef>,
     governance_binding: MlsGovernanceBindingPayload,
+    group_info_ref: BlobRef,
+    ratchet_tree_ref: BlobRef,
+    #[serde(
+        default,
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    recovery_binding: Option<crate::ContentRecoveryBinding>,
 }
 
 impl<'de> Deserialize<'de> for MlsCommitPayload {
@@ -606,6 +617,9 @@ impl<'de> Deserialize<'de> for MlsCommitPayload {
             commit_message_ref: wire.commit_message_ref,
             commit_digest,
             governance_binding: wire.governance_binding,
+            group_info_ref: wire.group_info_ref,
+            ratchet_tree_ref: wire.ratchet_tree_ref,
+            recovery_binding: wire.recovery_binding,
         };
         payload.validate().map_err(serde::de::Error::custom)?;
         Ok(payload)
@@ -618,6 +632,8 @@ impl MlsCommitPayload {
         covers_key_access_revision: u64,
         commit: &MlsCommitEnvelope,
         governance_binding: MlsGovernanceBindingPayload,
+        group_info_ref: BlobRef,
+        ratchet_tree_ref: BlobRef,
     ) -> Result<Self> {
         governance_binding.validate()?;
         if governance_binding.base_group_state_ref() != Some(&base_group_state_ref)
@@ -635,6 +651,9 @@ impl MlsCommitPayload {
             commit_message_ref: None,
             commit_digest: commit.commit_digest.clone(),
             governance_binding,
+            group_info_ref,
+            ratchet_tree_ref,
+            recovery_binding: None,
         };
         payload.validate()?;
         Ok(payload)
@@ -642,6 +661,14 @@ impl MlsCommitPayload {
 
     pub fn validate(&self) -> Result<()> {
         self.governance_binding.validate()?;
+        if let Some(binding) = &self.recovery_binding {
+            binding.validate()?;
+            if binding.base_group_state_ref != self.base_group_state_ref
+                || binding.expected_epoch != self.previous_epoch
+            {
+                return protocol("recovery binding differs from exact MLS Commit base");
+            }
+        }
         if self.previous_epoch != self.governance_binding.previous_epoch()
             || self.next_epoch != self.governance_binding.next_epoch()
             || self.governance_binding.base_group_state_ref() != Some(&self.base_group_state_ref)
@@ -668,6 +695,20 @@ impl MlsCommitPayload {
 
     pub fn event_kind(&self) -> &'static str {
         arkret_wire::event_kind_str::MLS_COMMIT
+    }
+    pub fn with_recovery_binding(mut self, binding: crate::ContentRecoveryBinding) -> Result<Self> {
+        self.recovery_binding = Some(binding);
+        self.validate()?;
+        Ok(self)
+    }
+    pub fn recovery_binding(&self) -> Option<&crate::ContentRecoveryBinding> {
+        self.recovery_binding.as_ref()
+    }
+    pub fn group_info_ref(&self) -> &BlobRef {
+        &self.group_info_ref
+    }
+    pub fn ratchet_tree_ref(&self) -> &BlobRef {
+        &self.ratchet_tree_ref
     }
     pub fn base_group_state_ref(&self) -> &EventId {
         &self.base_group_state_ref

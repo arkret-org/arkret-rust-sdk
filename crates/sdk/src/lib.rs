@@ -131,9 +131,11 @@ pub use arkret_models_collaboration::agent_scope::{
 pub use arkret_models_collaboration::agent_sidecar::*;
 pub use arkret_models_collaboration::applet_installation_authority::*;
 pub use arkret_models_collaboration::authority_commit::{
-    AccountDeviceHistoricalSignerFact, HistoricalProducerSignerFactEntry,
-    PeerStreamScanResponseBody, authority_forward_body_digest, historical_signer_facts_digest,
-    validate_historical_signer_fact_inventory, validate_new_account_device_admission_fact,
+    AccountDeviceHistoricalSignerFact, AgentRuntimeHistoricalSignerFact,
+    AgentRuntimeHistoricalSignerFactKind, HistoricalProducerSignerFact,
+    HistoricalProducerSignerFactEntry, PeerStreamScanResponseBody, authority_forward_body_digest,
+    historical_signer_facts_digest, validate_historical_signer_fact_inventory,
+    validate_new_account_device_admission_fact,
     validate_new_account_device_admission_fact_for_purpose,
 };
 pub use arkret_models_collaboration::call_invitation::*;
@@ -148,6 +150,7 @@ pub use arkret_models_collaboration::call_signal::{
 };
 pub use arkret_models_collaboration::consent_operations::*;
 pub use arkret_models_collaboration::contact_operations::*;
+pub use arkret_models_collaboration::content_history::*;
 pub use arkret_models_collaboration::device_messages::*;
 pub use arkret_models_collaboration::device_pairing::*;
 pub use arkret_models_collaboration::direct_conversation::*;
@@ -455,16 +458,20 @@ pub use keypackage_claim_receipt::{
     verify_peer_keypackage_terminal_receipt_signature,
 };
 pub use managed_actor_authoring::author_realm_actor_create;
+pub use mls_roster_authority::{
+    VerifiedMlsRosterRecoveryRecord, mls_self_roster_authority_page_encoded_size,
+    project_mls_self_roster_authority_page, project_mls_self_roster_authority_page_with_recovery,
+    verify_mls_add_authority_attestation_signature, verify_mls_attest_add_request,
+    verify_mls_member_roster_authority_pages, verify_mls_roster_authority_manifest_signature,
+    verify_mls_roster_authority_pages, verify_mls_roster_authority_pages_with_recovery,
+    verify_mls_self_roster_authority_pages,
+};
 #[cfg(feature = "mls")]
 pub use mls_roster_authority::{
     install_verified_mls_roster_bindings, install_verified_mls_self_roster_bindings,
-    mls_roster_genesis_material_request,
-};
-pub use mls_roster_authority::{
-    mls_self_roster_authority_page_encoded_size, project_mls_self_roster_authority_page,
-    verify_mls_add_authority_attestation_signature, verify_mls_attest_add_request,
-    verify_mls_member_roster_authority_pages, verify_mls_roster_authority_manifest_signature,
-    verify_mls_roster_authority_pages, verify_mls_self_roster_authority_pages,
+    install_verified_mls_self_roster_bindings_with_recovery, mls_roster_genesis_material_request,
+    mls_roster_recovery_material_request, verify_mls_recovery_roster_path,
+    verify_mls_roster_recovery_record,
 };
 pub use push_registration_receipt::verify_push_registration_installation_receipt;
 pub use sdk_error::{Error, Result};

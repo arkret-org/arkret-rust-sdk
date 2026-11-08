@@ -255,6 +255,11 @@ fn agent_provision_intent_is_an_unordered_realm_event() {
         AgentProvisionIntentOptions {
             controller_station_id: DidCoreId::new("ak:did_core:web:station.example").unwrap(),
             created_at: "2026-09-16T00:02:00Z".parse().unwrap(),
+            history_custody: serde_json::from_value(serde_json::json!({
+                "custodian_actor_id": {"kind":"account", "account_id": {"principal_id": controller, "station_id": "ak:did_core:web:station.example"}},
+                "recovery_policy_ref": {"policy_id":"ak:policy:019a0000-0000-7000-8000-000000000001", "policy_version":1},
+                "recipient_key_ref":"did:web:controller.example#backup-hpke"
+            })).unwrap(),
         },
     )
     .unwrap();

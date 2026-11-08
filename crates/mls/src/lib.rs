@@ -2,8 +2,8 @@
 //!
 //! The crate owns member-held MLS state, Genesis/Commit processing, live
 //! Signal encryption and authority-issued Welcome delivery consumption. It
-//! does not expose prior-epoch keys or implement a network recovery
-//! protocol.
+//! retains only registered content roots for authorized history, separately
+//! from current MLS membership. Network recovery orchestration belongs to callers.
 
 mod error;
 pub mod exporter_kdf;

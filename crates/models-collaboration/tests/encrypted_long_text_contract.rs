@@ -6,6 +6,9 @@ use arkret_schema_conformance::{default_spec_artifacts_dir, schema_registry_from
 use serde_json::{Value, json};
 
 fn attachment() -> Value {
+    let fixture =
+        arkret_schema_conformance::spec_json_artifact("fixtures/blob-content-key-fixture.json")
+            .unwrap();
     json!({
         "blob_ref": format!("ak:blob:sha256:{}", "ab".repeat(32)),
         "encrypted": true,
@@ -13,6 +16,8 @@ fn attachment() -> Value {
         "encryption_algorithm": "mls_exporter_aead_xchacha20poly1305_stream",
         "key_ref": {"algorithm": "MLS", "group_state_ref": "ak:event:AQNy1zG98lAoTz0YOf-2Yp2-GXeJioPlyg8nW6qxW-OB"},
         "content_key_salt": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+        "producer": fixture["kats"][0]["context"]["producer"],
+        "key_commitment": format!("sha256:{}", "77".repeat(32)),
         "nonce_prefix": "AAAAAAAAAAAAAAAAAAAAAAAAAA",
         "segment_bytes": 262144,
         "size_bytes": 300000,

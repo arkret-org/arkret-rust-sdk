@@ -1,3 +1,4 @@
+mod support;
 use arkret_models_crypto::encrypted_envelope::{
     EncryptedEnvelope, EncryptedEnvelopeEncryptionContext, EncryptedEnvelopeRoutingContext,
 };
@@ -10,12 +11,18 @@ fn event() -> EventId {
 }
 
 fn envelope(epoch: u64, reaction: bool) -> EncryptedEnvelope {
+    let wire = support::fixture()["kat"]["envelope"]["encryption_context"].clone();
     EncryptedEnvelope {
         version: "1.0".to_owned(),
+        encryption_scheme: EncryptedPayloadScheme::EpochContentAead,
         content_type: "application/vnd.arkret.message+json".to_owned(),
-        encryption_context: EncryptedEnvelopeEncryptionContext::StandardMls {
+        encryption_context: EncryptedEnvelopeEncryptionContext::EpochContent {
             epoch,
             group_state_ref: event(),
+            content_key_salt: wire["content_key_salt"].as_str().unwrap().to_owned(),
+            root_ref: serde_json::from_value(wire["root_ref"].clone()).unwrap(),
+            key_commitment: serde_json::from_value(wire["key_commitment"].clone()).unwrap(),
+            protection: serde_json::from_value(wire["protection"].clone()).unwrap(),
             routing_context: reaction.then(|| EncryptedEnvelopeRoutingContext {
                 target_ref: event(),
                 routing_tag: "A".repeat(43),
@@ -60,15 +67,24 @@ fn encrypted_envelope_round_trip_matches_closed_schema_and_authenticated_header(
             let header = |value: &EncryptedEnvelope| {
                 value
                     .reconstruct_pre_encryption_header(
-                        EncryptedPayloadScheme::MlsRfc9420,
+                        EncryptedPayloadScheme::EpochContentAead,
                         scope.clone(),
                         if reaction {
                             event_kind_str::REACTION_ADD
                         } else {
                             event_kind_str::MESSAGE_CREATE
                         },
-                        "ak:device:01a0676d-bc3a-70b2-909e-d8914c3d1828",
+                        support::sender_domain(),
                         reaction.then_some(42),
+                        support::material(
+                            value,
+                            &scope,
+                            if reaction {
+                                event_kind_str::REACTION_ADD
+                            } else {
+                                event_kind_str::MESSAGE_CREATE
+                            },
+                        ),
                     )
                     .unwrap()
                     .canonical_bytes()

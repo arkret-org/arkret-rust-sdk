@@ -12,8 +12,22 @@ use arkret_wire::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::{ContentContext, ContentProtection};
+
 /// Purpose fixed by `encryption-and-audit.md` §2.3 for RFC 9420 content.
-pub const EVENT_CONTENT_ENCRYPTION_PURPOSE: &str = "arkret_event_content";
+pub const EVENT_CONTENT_ENCRYPTION_PURPOSE: &str = "event_body";
+
+/// Required, pre-frozen inputs resolved from original accepted authority.
+/// This local staging carrier is never accepted as independent source evidence.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EventContentMaterial {
+    pub content_context: ContentContext,
+    pub outer_event: Value,
+    pub protection: ContentProtection,
+    pub key_commitment: Hash,
+}
 
 /// Reaction-only routing fields carried by the minimal encrypted envelope.
 ///
@@ -62,6 +76,7 @@ pub struct EventContentPreEncryptionHeader {
     pub group_state_ref: EventId,
     pub sender_domain: String,
     pub routing_context: EventContentRoutingContext,
+    pub material: EventContentMaterial,
 }
 
 impl EventContentPreEncryptionHeader {
@@ -76,6 +91,7 @@ impl EventContentPreEncryptionHeader {
         group_state_ref: EventId,
         sender_domain: impl Into<String>,
         routing_context: EventContentRoutingContext,
+        material: EventContentMaterial,
     ) -> Result<Self> {
         let header = Self {
             purpose: EVENT_CONTENT_ENCRYPTION_PURPOSE.to_owned(),
@@ -89,12 +105,43 @@ impl EventContentPreEncryptionHeader {
             group_state_ref,
             sender_domain: sender_domain.into(),
             routing_context,
+            material,
         };
         header.validate()?;
         Ok(header)
     }
 
     pub fn validate(&self) -> Result<()> {
+        self.material.content_context.validate()?;
+        self.material.protection.validate()?;
+        let content = &self.material.content_context;
+        let root = &content.root_context;
+        let outer = self.material.outer_event.as_object().ok_or_else(|| {
+            WireError::Protocol("content outer header must be an object".to_owned())
+        })?;
+        if root.effective_scope != self.effective_scope
+            || root.epoch != self.epoch
+            || root.group_state_ref != self.group_state_ref
+            || content.encryption_scheme != self.scheme
+            || !self
+                .material
+                .protection
+                .root_refs
+                .contains(&content.root_ref)
+            || outer.get("executed_by").or_else(|| outer.get("actor_id"))
+                != Some(&serde_json::to_value(&content.producer.actor_id)?)
+            || outer.get("scope_ref") != Some(&serde_json::to_value(&self.effective_scope)?)
+            || outer.get("kind").and_then(Value::as_str) != Some(self.event_kind.as_str())
+            || serde_json::from_str::<Value>(&self.sender_domain).ok()
+                != Some(serde_json::to_value(&content.producer.actor_id)?)
+            || ["event_id", "payload", "producer_proof", "unsigned"]
+                .iter()
+                .any(|key| outer.contains_key(*key))
+        {
+            return Err(WireError::Protocol(
+                "content material differs from its frozen original coordinates".to_owned(),
+            ));
+        }
         if self.purpose != EVENT_CONTENT_ENCRYPTION_PURPOSE {
             return Err(WireError::Protocol(
                 "event-content pre-encryption purpose mismatch".to_owned(),
@@ -135,23 +182,35 @@ impl EventContentPreEncryptionHeader {
 
     pub fn canonical_bytes(&self) -> Result<Vec<u8>> {
         self.validate()?;
-        Ok(canonical::canonical_json_bytes(self)?)
+        let mut metadata =
+            serde_json::to_value(EncryptedPayload::envelope_from_parts(self, String::new())?)?;
+        metadata
+            .as_object_mut()
+            .expect("envelope is an object")
+            .remove("ciphertext");
+        Ok(canonical::canonical_json_bytes(&serde_json::json!({
+            "outer_event": self.material.outer_event,
+            "envelope": metadata,
+            "content_context": self.material.content_context
+        }))?)
     }
 }
 
-/// Closed RFC 9420 application-message encryption context.
-///
-/// It is cross-checked against the exact winning `group_state_ref`; no
-/// caller-supplied scheme selector exists on the wire.
+/// Closed recoverable application context selected by the registered scheme.
+/// Coordinates and producer material come from the original accepted state.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged, deny_unknown_fields)]
 pub enum EncryptedEnvelopeEncryptionContext {
-    StandardMls {
+    EpochContent {
         #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
         #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
         epoch: u64,
         group_state_ref: EventId,
+        content_key_salt: String,
+        root_ref: Hash,
+        key_commitment: Hash,
+        protection: ContentProtection,
         #[serde(
             default,
             skip_serializing_if = "Option::is_none",
@@ -168,23 +227,15 @@ fn present_routing_context<'de, D: serde::Deserializer<'de>>(
 }
 
 impl EncryptedEnvelopeEncryptionContext {
-    pub fn standard(epoch: u64, group_state_ref: EventId) -> Self {
-        Self::StandardMls {
-            epoch,
-            group_state_ref,
-            routing_context: None,
-        }
-    }
-
     pub fn epoch(&self) -> u64 {
         match self {
-            Self::StandardMls { epoch, .. } => *epoch,
+            Self::EpochContent { epoch, .. } => *epoch,
         }
     }
 
     pub fn group_state_ref(&self) -> &EventId {
         match self {
-            Self::StandardMls {
+            Self::EpochContent {
                 group_state_ref, ..
             } => group_state_ref,
         }
@@ -192,7 +243,7 @@ impl EncryptedEnvelopeEncryptionContext {
 
     pub fn routing_context(&self) -> Option<&EncryptedEnvelopeRoutingContext> {
         match self {
-            Self::StandardMls {
+            Self::EpochContent {
                 routing_context, ..
             } => routing_context.as_ref(),
         }
@@ -202,6 +253,22 @@ impl EncryptedEnvelopeEncryptionContext {
 impl EncryptedEnvelope {
     pub const SCHEMA: &'static str = SchemaId::ENCRYPTED_ENVELOPE_V1;
     pub fn validate(&self) -> Result<()> {
+        let EncryptedEnvelopeEncryptionContext::EpochContent {
+            content_key_salt,
+            root_ref,
+            key_commitment,
+            protection,
+            ..
+        } = &self.encryption_context;
+        crate::content_history::bytes32(content_key_salt)?;
+        crate::content_history::sha256_ref(root_ref)?;
+        crate::content_history::sha256_ref(key_commitment)?;
+        protection.validate()?;
+        if !protection.root_refs.contains(root_ref) {
+            return Err(WireError::Protocol(
+                "envelope root is absent from protection".to_owned(),
+            ));
+        }
         if self.version != "1.0" {
             return Err(WireError::Protocol(
                 "encrypted envelope version must equal 1.0".to_owned(),
@@ -235,6 +302,7 @@ impl EncryptedEnvelope {
         event_kind: impl Into<String>,
         sender_domain: impl Into<String>,
         reaction_routing_window: Option<u64>,
+        material: EventContentMaterial,
     ) -> Result<EventContentPreEncryptionHeader> {
         self.validate()?;
         let event_kind = event_kind.into();
@@ -264,6 +332,7 @@ impl EncryptedEnvelope {
             self.encryption_context.group_state_ref().clone(),
             sender_domain,
             routing_context,
+            material,
         )
     }
 
@@ -274,6 +343,7 @@ impl EncryptedEnvelope {
         struct Metadata<'a> {
             version: &'a str,
             content_type: &'a str,
+            encryption_scheme: &'a EncryptedPayloadScheme,
             encryption_context: &'a EncryptedEnvelopeEncryptionContext,
         }
 
@@ -281,6 +351,7 @@ impl EncryptedEnvelope {
         let mut preimage = canonical::canonical_json_bytes(&Metadata {
             version: &self.version,
             content_type: &self.content_type,
+            encryption_scheme: &self.encryption_scheme,
             encryption_context: &self.encryption_context,
         })?;
         let ciphertext = arkret_canonical::base64url::base64url_decode(&self.ciphertext)
@@ -374,18 +445,22 @@ impl EncryptedPayload {
                 routing_tag: routing_tag.clone(),
             }),
         };
-        let encryption_context = EncryptedEnvelopeEncryptionContext::StandardMls {
+        let encryption_context = EncryptedEnvelopeEncryptionContext::EpochContent {
             epoch: header.epoch,
             group_state_ref: header.group_state_ref.clone(),
+            content_key_salt: header.material.content_context.content_key_salt.clone(),
+            root_ref: header.material.content_context.root_ref.clone(),
+            key_commitment: header.material.key_commitment.clone(),
+            protection: header.material.protection.clone(),
             routing_context,
         };
         let envelope = EncryptedEnvelope {
             version: header.envelope_version.clone(),
             content_type: header.content_type.clone(),
+            encryption_scheme: header.scheme.clone(),
             encryption_context,
             ciphertext,
         };
-        envelope.validate()?;
         Ok(envelope)
     }
 
@@ -399,7 +474,10 @@ impl EncryptedPayload {
                 "internal encrypted payload does not match its pre-encryption header".to_owned(),
             ));
         }
-        Self::envelope_from_parts(&self.pre_encryption_header, self.ciphertext.clone())
+        let envelope =
+            Self::envelope_from_parts(&self.pre_encryption_header, self.ciphertext.clone())?;
+        envelope.validate()?;
+        Ok(envelope)
     }
 
     pub fn payload_digest_for_header(

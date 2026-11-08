@@ -671,6 +671,10 @@ fn non_device_producer_forbids_producer_device_evidence() {
 #[test]
 fn mls_forward_presence_follows_the_commit_event_producer() {
     let evidence = producer_device_evidence();
+    let material = arkret_models_collaboration::authority_commit::MlsGroupStateMaterial::from_bytes(
+        &[0, 1],
+        &[2, 3],
+    );
     let submission_for = |submission: Value| -> MlsCommitSubmission {
         let mut commit_event = submission["event"].clone();
         commit_event["kind"] = json!("ak.mls.commit");
@@ -682,29 +686,51 @@ fn mls_forward_presence_follows_the_commit_event_producer() {
         .unwrap()
     };
     let human = submission_for(submission_signed_with(DEVICE_FRAGMENT));
-    let error: WireError =
-        PeerAuthorityForwardMlsRequestBody::new(human.clone(), None).unwrap_err();
+    let error: WireError = PeerAuthorityForwardMlsRequestBody::new(
+        human.clone().for_origin_forward(None),
+        material.clone(),
+        None,
+    )
+    .unwrap_err();
     assert_eq!(error.error_code(), Some(ErrorCode::SchemaViolation));
-    let request = PeerAuthorityForwardMlsRequestBody::new(human, Some(evidence.clone())).unwrap();
+    let request = PeerAuthorityForwardMlsRequestBody::new(
+        human.for_origin_forward(None),
+        material.clone(),
+        Some(evidence.clone()),
+    )
+    .unwrap();
     PeerAuthoritySubmitRequestBody::AuthorityForwardMls(request.clone())
         .validate()
         .unwrap();
     assert_member_order(
         &serde_json::to_string(&request).unwrap(),
-        &["branch", "mls_submission", "producer_device_evidence"],
+        &[
+            "branch",
+            "mls_submission",
+            "mls_group_state_material",
+            "producer_device_evidence",
+        ],
     );
 
     let account_key = submission_for(approved_event_submission());
     assert_eq!(
-        PeerAuthorityForwardMlsRequestBody::new(account_key.clone(), None)
-            .unwrap_err()
-            .error_code(),
+        PeerAuthorityForwardMlsRequestBody::new(
+            account_key.clone().for_origin_forward(None),
+            material.clone(),
+            None
+        )
+        .unwrap_err()
+        .error_code(),
         Some(ErrorCode::SchemaViolation)
     );
     assert_eq!(
-        PeerAuthorityForwardMlsRequestBody::new(account_key, Some(evidence))
-            .unwrap_err()
-            .error_code(),
+        PeerAuthorityForwardMlsRequestBody::new(
+            account_key.for_origin_forward(None),
+            material,
+            Some(evidence)
+        )
+        .unwrap_err()
+        .error_code(),
         Some(ErrorCode::SchemaViolation)
     );
 }
@@ -765,7 +791,7 @@ fn replicated_welcomes_are_refused_for_a_non_commit_event() {
 #[test]
 fn genesis_material_is_refused_for_a_non_genesis_event() {
     let mut value = forward(&approved_event_submission(), None);
-    value["mls_genesis_material"] =
+    value["mls_group_state_material"] =
         json!({"group_info_base64url": "AAEAAQ", "ratchet_tree_base64url": "AQIDBA"});
     assert!(schema_rejects(
         PEER_SCHEMA,
@@ -777,12 +803,12 @@ fn genesis_material_is_refused_for_a_non_genesis_event() {
 
 #[test]
 fn genesis_material_is_canonical_bounded_base64url() {
-    use arkret_models_collaboration::authority_commit::MlsGenesisMaterial;
+    use arkret_models_collaboration::authority_commit::MlsGroupStateMaterial;
 
-    let material = MlsGenesisMaterial::from_bytes(&[0, 1, 0, 1], &[1, 2, 3, 4]);
+    let material = MlsGroupStateMaterial::from_bytes(&[0, 1, 0, 1], &[1, 2, 3, 4]);
     validate_fragment(
         PEER_SCHEMA,
-        "#/$defs/mls_genesis_material",
+        "#/$defs/mls_group_state_material",
         &serde_json::to_value(&material).unwrap(),
     );
     assert_eq!(
@@ -790,7 +816,7 @@ fn genesis_material_is_canonical_bounded_base64url() {
         (vec![0, 1, 0, 1], vec![1, 2, 3, 4])
     );
     for bad in ["", "AAEAAQ==", "AAE+AQ"] {
-        let candidate = MlsGenesisMaterial {
+        let candidate = MlsGroupStateMaterial {
             group_info_base64url: bad.to_owned(),
             ratchet_tree_base64url: "AQIDBA".to_owned(),
         };
@@ -805,22 +831,22 @@ fn genesis_material_is_canonical_bounded_base64url() {
 #[test]
 fn genesis_material_members_bound_the_pair_to_the_group_state_material_response() {
     use arkret_models_collaboration::authority_commit::{
-        MLS_GENESIS_MATERIAL_MAX_BLOB_BYTES, MlsGenesisMaterial,
+        MLS_GROUP_STATE_MATERIAL_MAX_BLOB_BYTES, MlsGroupStateMaterial,
     };
 
-    let largest = MlsGenesisMaterial::from_bytes(
-        &vec![0; MLS_GENESIS_MATERIAL_MAX_BLOB_BYTES],
-        &vec![0; MLS_GENESIS_MATERIAL_MAX_BLOB_BYTES],
+    let largest = MlsGroupStateMaterial::from_bytes(
+        &vec![0; MLS_GROUP_STATE_MATERIAL_MAX_BLOB_BYTES],
+        &vec![0; MLS_GROUP_STATE_MATERIAL_MAX_BLOB_BYTES],
     );
     assert_eq!(largest.group_info_base64url.len(), 5_592_406);
     let (group_info, ratchet_tree) = largest.decode().unwrap();
     assert_eq!(group_info.len() + ratchet_tree.len(), 8_388_608);
     for (over_group_info, over_tree) in [(true, false), (false, true)] {
         let one_more = |over: bool| {
-            let bytes = MLS_GENESIS_MATERIAL_MAX_BLOB_BYTES + usize::from(over);
+            let bytes = MLS_GROUP_STATE_MATERIAL_MAX_BLOB_BYTES + usize::from(over);
             arkret_wire::base64url::base64url_encode(vec![0; bytes])
         };
-        let candidate = MlsGenesisMaterial {
+        let candidate = MlsGroupStateMaterial {
             group_info_base64url: one_more(over_group_info),
             ratchet_tree_base64url: one_more(over_tree),
         };

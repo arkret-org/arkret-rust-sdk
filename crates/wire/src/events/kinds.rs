@@ -137,7 +137,11 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::DeviceReanchor
         | EventKind::DeviceRevoke
         | EventKind::KeyBackupActiveSeries => EventProductClass::Device,
-        EventKind::MlsCommit | EventKind::MlsGenesis => EventProductClass::E2ee,
+        EventKind::MlsCommit
+        | EventKind::MlsGenesis
+        | EventKind::MlsHistoryGrant
+        | EventKind::MlsHistoryRequest
+        | EventKind::MlsHistoryRecovery => EventProductClass::E2ee,
         EventKind::StrandArchive
         | EventKind::StrandCreate
         | EventKind::StrandMove

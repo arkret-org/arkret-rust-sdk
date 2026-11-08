@@ -38,7 +38,9 @@ use arkret_models_collaboration::objects::productivity::{
     PinAddPayload, PinRemovePayload, PinReorderPayload, RsvpSetPayload,
 };
 use arkret_models_collaboration::objects::read_receipts::ReadCursor;
-use arkret_models_crypto::MlsCommitPayload;
+use arkret_models_crypto::{
+    ContentRecoveryCheckpoint, HistoryGrant, HistoryRequest, MlsCommitPayload,
+};
 use arkret_models_identity::device_push_route::DevicePushRoutePayload;
 use arkret_models_identity::identity_resolution::PrincipalResolutionUpdatePayload;
 use arkret_models_identity::member_identity::MemberIdentityUpdatePayload;
@@ -303,6 +305,9 @@ event_payload_accessors! {
     event_spec::DevicePushRoute => (as_device_push_route, DevicePushRoutePayload),
     event_spec::MlsGenesis => (as_mls_genesis, MlsGenesisPayload, MlsGenesisPayload::validate),
     event_spec::MlsCommit => (as_mls_commit, MlsCommitPayload, MlsCommitPayload::validate),
+    event_spec::MlsHistoryGrant => (as_mls_history_grant, HistoryGrant, HistoryGrant::validate),
+    event_spec::MlsHistoryRequest => (as_mls_history_request, HistoryRequest, HistoryRequest::validate),
+    event_spec::MlsHistoryRecovery => (as_mls_history_recovery, ContentRecoveryCheckpoint, ContentRecoveryCheckpoint::validate),
     event_spec::AuditAccessed => (as_audit_accessed, AuditAccessedPayload),
     event_spec::AuditErasureReceipt => (as_audit_erasure_receipt, ErasureReceipt),
     event_spec::ModerationDecision => (as_moderation_decision, ModerationDecisionPayload),
@@ -479,18 +484,19 @@ mod tests {
         let mut event = base_event();
         let strand_id = StrandId::from_event_id(&event_id(0x6c));
         let group_state_ref = event_id(4);
+        let fixture: Value = serde_json::from_str(include_str!(
+            "../../../../arkret-spec/spec/v1/artifacts/fixtures/content-history-fixture.json"
+        ))
+        .unwrap();
+        let mut encrypted = fixture["kat"]["envelope"].clone();
+        encrypted["encryption_context"]["epoch"] = json!("1");
+        encrypted["encryption_context"]["group_state_ref"] = json!(group_state_ref);
+        encrypted["content_type"] = json!("application/vnd.arkret.message+json");
+        encrypted["ciphertext"] = json!("b3BhcXVl");
         event.payload = serde_json::from_value(json!({
             "strand_id": strand_id,
             "track_name": "discussion",
-            "encrypted_content": {
-                "version": "1.0",
-                "content_type": "application/vnd.arkret.message+json",
-                "encryption_context": {
-                    "epoch": "1",
-                    "group_state_ref": group_state_ref
-                },
-                "ciphertext": "b3BhcXVl",
-            }
+            "encrypted_content": encrypted,
         }))
         .unwrap();
 

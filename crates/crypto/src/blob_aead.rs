@@ -20,7 +20,7 @@
 //!
 //! # Content key
 //!
-//! The 32-byte `content_key` is derived by the caller from the MLS exporter
+//! The 32-byte `content_key` is expanded by the caller from the authorized epoch root
 //! (the SDK does not depend on an MLS runtime). Each attachment object MUST use
 //! a fresh content key from the exact section 3.0 Context; the typed salt is
 //! carried unchanged in the descriptor and every segment AAD. The MLS behavior
@@ -38,13 +38,14 @@ use std::collections::BTreeMap;
 use arkret_canonical::base64url::{base64url_decode, base64url_encode};
 use arkret_canonical::canonical::{ContentHasher, DigestSuite, canonical_json_bytes, digest_suite};
 use arkret_models_crypto::{
-    AttachmentContentKeySalt, EncryptedAttachment, EncryptedAttachmentGroupStateRef,
-    EncryptedAttachmentKeyRef,
+    AttachmentContentKeyContext, AttachmentContentKeySalt, ContentEndpoint, EncryptedAttachment,
+    EncryptedAttachmentGroupStateRef, EncryptedAttachmentKeyRef,
 };
 use chacha20poly1305::XChaCha20Poly1305;
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+use subtle::ConstantTimeEq;
 
 use crate::{Error, Result};
 
@@ -104,6 +105,8 @@ struct AttachmentEnvelopeFields {
     /// defined by `blob.schema.json#/$defs/encrypted_attachment`.
     pub key_ref: EncryptedAttachmentKeyRef,
     pub content_key_salt: AttachmentContentKeySalt,
+    pub producer: ContentEndpoint,
+    pub key_commitment: arkret_wire::Hash,
     /// Plaintext size in bytes.
     pub size_bytes: u64,
     /// Declared media type.
@@ -142,7 +145,7 @@ fn envelope_fields(envelope: &EncryptedAttachment) -> Result<AttachmentEnvelopeF
 pub struct StreamEncryptParams {
     /// MLS group-binding key reference bound into the AAD.
     pub key_ref: EncryptedAttachmentKeyRef,
-    pub content_key_salt: AttachmentContentKeySalt,
+    pub content_context: AttachmentContentKeyContext,
     /// Digest suite of the owning Realm, independent of the MLS KDF.
     pub digest_suite: DigestSuite,
     /// Declared media type.
@@ -165,6 +168,7 @@ pub struct StreamEncryptor {
     prefix: [u8; NONCE_PREFIX_LEN],
     prefix_b64: String,
     epoch: u64,
+    key_commitment: arkret_wire::Hash,
     size: u64,
     count: u32,
     next: u32,
@@ -180,12 +184,35 @@ impl StreamEncryptor {
         frozen_prefix: [u8; NONCE_PREFIX_LEN],
         resolver: &impl AttachmentGroupStateEpochResolver,
     ) -> Result<Self> {
+        parameters.content_context.validate()?;
+        let state = attachment_state(&parameters.key_ref, resolver)?;
+        if state.effective_scope != parameters.content_context.effective_scope
+            || state.genesis_event_ref != parameters.content_context.genesis_event_ref
+            || state.epoch != parameters.content_context.epoch
+        {
+            return Err(protocol(
+                "attachment_group_state_unresolved",
+                "object context differs from accepted original state",
+            ));
+        }
+        if parameters.content_context.scheme != SCHEME_STREAM
+            || parameters.content_context.encryption_algorithm != ALG_STREAM_XCHACHA
+        {
+            return Err(protocol(
+                "unsupported_attachment_scheme",
+                "producer context is not stream XChaCha20-Poly1305",
+            ));
+        }
         Ok(Self {
             cipher: cipher_from_key(key)?,
             parameters: parameters.clone(),
             prefix: frozen_prefix,
             prefix_b64: base64url_encode(frozen_prefix),
-            epoch: attachment_epoch(&parameters.key_ref, resolver)?,
+            epoch: state.epoch,
+            key_commitment: crate::key_commitment::content_key_commitment_sha256(
+                &parameters.content_context,
+                key,
+            )?,
             size,
             count: stream_segment_count(size, parameters.segment_bytes)?,
             next: 0,
@@ -210,7 +237,9 @@ impl StreamEncryptor {
         let nonce = segment_nonce(&self.prefix, self.next, last);
         let context = StreamSegmentAadContext {
             key_ref: &self.parameters.key_ref,
-            content_key_salt: &self.parameters.content_key_salt,
+            content_key_salt: &self.parameters.content_context.content_key_salt,
+            producer: &self.parameters.content_context.producer,
+            key_commitment: &self.key_commitment,
             epoch: self.epoch,
             nonce_prefix_b64: &self.prefix_b64,
             segment_count: self.count,
@@ -246,7 +275,9 @@ impl StreamEncryptor {
             scheme: SCHEME_STREAM.into(),
             encryption_algorithm: ALG_STREAM_XCHACHA.into(),
             key_ref: self.parameters.key_ref,
-            content_key_salt: self.parameters.content_key_salt,
+            content_key_salt: self.parameters.content_context.content_key_salt,
+            producer: self.parameters.content_context.producer,
+            key_commitment: self.key_commitment,
             size_bytes: self.size,
             media_type: self.parameters.media_type,
             nonce: None,
@@ -259,29 +290,36 @@ impl StreamEncryptor {
 /// Resolves an attachment group-state reference to the epoch of the exact
 /// accepted winning MLS state. Returning `None` means unresolved, ambiguous,
 /// non-winning, or otherwise unusable and always fails closed.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ResolvedAttachmentGroupState {
+    pub effective_scope: arkret_wire::ScopeRef,
+    pub genesis_event_ref: arkret_wire::EventId,
+    pub epoch: u64,
+}
+
 pub trait AttachmentGroupStateEpochResolver {
     fn resolve_exact_winning_epoch(
         &self,
         group_state_ref: &EncryptedAttachmentGroupStateRef,
-    ) -> Option<u64>;
+    ) -> Option<ResolvedAttachmentGroupState>;
 }
 
 impl<F> AttachmentGroupStateEpochResolver for F
 where
-    F: Fn(&EncryptedAttachmentGroupStateRef) -> Option<u64>,
+    F: Fn(&EncryptedAttachmentGroupStateRef) -> Option<ResolvedAttachmentGroupState>,
 {
     fn resolve_exact_winning_epoch(
         &self,
         group_state_ref: &EncryptedAttachmentGroupStateRef,
-    ) -> Option<u64> {
+    ) -> Option<ResolvedAttachmentGroupState> {
         self(group_state_ref)
     }
 }
 
-fn attachment_epoch(
+fn attachment_state(
     key_ref: &EncryptedAttachmentKeyRef,
     resolver: &impl AttachmentGroupStateEpochResolver,
-) -> Result<u64> {
+) -> Result<ResolvedAttachmentGroupState> {
     resolver
         .resolve_exact_winning_epoch(&key_ref.group_state_ref)
         .ok_or_else(|| {
@@ -320,6 +358,8 @@ fn segment_nonce(
 struct StreamSegmentAadContext<'a> {
     key_ref: &'a EncryptedAttachmentKeyRef,
     content_key_salt: &'a AttachmentContentKeySalt,
+    producer: &'a ContentEndpoint,
+    key_commitment: &'a arkret_wire::Hash,
     epoch: u64,
     nonce_prefix_b64: &'a str,
     segment_count: u32,
@@ -336,6 +376,8 @@ fn stream_segment_aad(
         ("scheme", json!(SCHEME_STREAM)),
         ("key_ref", json!(context.key_ref)),
         ("content_key_salt", json!(context.content_key_salt)),
+        ("producer", json!(context.producer)),
+        ("key_commitment", json!(context.key_commitment)),
         ("epoch", json!(context.epoch.to_string())),
         ("nonce_prefix", json!(context.nonce_prefix_b64)),
         ("segment_index", json!(segment_index)),
@@ -401,6 +443,8 @@ struct StreamContext {
     nonce_prefix_b64: String,
     key_ref: EncryptedAttachmentKeyRef,
     content_key_salt: AttachmentContentKeySalt,
+    producer: ContentEndpoint,
+    key_commitment: arkret_wire::Hash,
     epoch: u64,
     media_type: String,
     size_bytes: u64,
@@ -433,7 +477,30 @@ impl StreamContext {
             .ok_or_else(|| protocol("unsupported_attachment_scheme", "missing segment_bytes"))?;
         // Derive and bound the count before any count-proportional allocation.
         let segment_count = stream_segment_count(env.size_bytes, segment_bytes)?;
-        let epoch = attachment_epoch(&env.key_ref, resolver)?;
+        let state = attachment_state(&env.key_ref, resolver)?;
+        let context = AttachmentContentKeyContext {
+            effective_scope: state.effective_scope,
+            genesis_event_ref: state.genesis_event_ref,
+            epoch: state.epoch,
+            scheme: env.scheme.clone(),
+            encryption_algorithm: env.encryption_algorithm.clone(),
+            content_key_salt: env.content_key_salt.clone(),
+            producer: env.producer.clone(),
+        };
+        context.validate()?;
+        let expected = crate::key_commitment::content_key_commitment_sha256(&context, content_key)?;
+        if !bool::from(
+            expected
+                .as_str()
+                .as_bytes()
+                .ct_eq(env.key_commitment.as_str().as_bytes()),
+        ) {
+            return Err(protocol(
+                "content_key_commitment_mismatch",
+                "attachment key differs from authenticated object context",
+            ));
+        }
+        let epoch = state.epoch;
 
         let nonce_prefix_bytes = base64url_decode(nonce_prefix_b64)?;
         let nonce_prefix: [u8; NONCE_PREFIX_LEN] = nonce_prefix_bytes
@@ -453,6 +520,8 @@ impl StreamContext {
             nonce_prefix_b64: nonce_prefix_b64.to_owned(),
             key_ref: env.key_ref.clone(),
             content_key_salt: env.content_key_salt.clone(),
+            producer: env.producer.clone(),
+            key_commitment: env.key_commitment.clone(),
             epoch,
             media_type: env.media_type.clone(),
             size_bytes: env.size_bytes,
@@ -602,6 +671,8 @@ impl StreamDecryptor {
         let aad_context = StreamSegmentAadContext {
             key_ref: &self.ctx.key_ref,
             content_key_salt: &self.ctx.content_key_salt,
+            producer: &self.ctx.producer,
+            key_commitment: &self.ctx.key_commitment,
             epoch: self.ctx.epoch,
             nonce_prefix_b64: &self.ctx.nonce_prefix_b64,
             segment_count: self.ctx.segment_count,
@@ -757,10 +828,23 @@ mod tests {
         }
     }
 
+    fn test_content_context() -> AttachmentContentKeyContext {
+        let fixture: Value = serde_json::from_str(include_str!(
+            "../../../../arkret-spec/spec/v1/artifacts/fixtures/blob-content-key-fixture.json"
+        ))
+        .unwrap();
+        let mut context: AttachmentContentKeyContext =
+            serde_json::from_value(fixture["kats"][0]["context"].clone()).unwrap();
+        context.epoch = 42;
+        context.encryption_algorithm = ALG_STREAM_XCHACHA.into();
+        context.content_key_salt = AttachmentContentKeySalt::from_bytes([7; 32]);
+        context
+    }
+
     fn parameters(segment_bytes: u32) -> StreamEncryptParams {
         StreamEncryptParams {
             key_ref: test_key_ref(),
-            content_key_salt: AttachmentContentKeySalt::from_bytes([7; 32]),
+            content_context: test_content_context(),
             digest_suite: DigestSuite::Sha256,
             media_type: "video/mp4".to_owned(),
             segment_bytes,
@@ -813,8 +897,15 @@ mod tests {
         assert!(invalid.finish().is_err());
     }
 
-    fn winning_epoch(_group_state_ref: &EncryptedAttachmentGroupStateRef) -> Option<u64> {
-        Some(42)
+    fn winning_epoch(
+        _group_state_ref: &EncryptedAttachmentGroupStateRef,
+    ) -> Option<ResolvedAttachmentGroupState> {
+        let context = test_content_context();
+        Some(ResolvedAttachmentGroupState {
+            effective_scope: context.effective_scope,
+            genesis_event_ref: context.genesis_event_ref,
+            epoch: context.epoch,
+        })
     }
 
     #[test]
@@ -827,8 +918,45 @@ mod tests {
         let changed = typed_envelope(changed).unwrap();
         assert_eq!(
             reason(&decrypt_stream(&ciphertext, &changed, &key(), &winning_epoch).unwrap_err()),
-            "segment_aead_failed"
+            "content_key_commitment_mismatch"
         );
+    }
+
+    #[test]
+    fn attachment_commitment_binds_native_producer_and_original_state_before_plaintext() {
+        let parameters = parameters(1024);
+        let (ciphertext, envelope) =
+            encrypt_stream(b"original attachment", &key(), &parameters, &winning_epoch).unwrap();
+        for mutation in 0..3 {
+            let mut fields = envelope_fields(&envelope).unwrap();
+            match mutation {
+                0 => fields.producer.signature_key_base64url = base64url_encode([8; 32]),
+                1 => {
+                    fields.producer.endpoint = arkret_wire::MlsWelcomeRecipientEndpoint::Device {
+                        device_id: arkret_wire::DeviceId::new(
+                            "ak:device:019a0000-0000-7000-8000-000000000099",
+                        )
+                        .unwrap(),
+                    }
+                }
+                _ => {
+                    fields.key_commitment =
+                        arkret_wire::Hash::new(format!("sha256:{}", "00".repeat(32))).unwrap()
+                }
+            }
+            let modified = typed_envelope(fields).unwrap();
+            assert!(StreamDecryptor::new(&modified, &key(), &winning_epoch).is_err());
+        }
+        let other_genesis = |reference: &EncryptedAttachmentGroupStateRef| {
+            let mut state = winning_epoch(reference)?;
+            state.genesis_event_ref =
+                arkret_wire::EventId::from_digest(DigestSuite::Sha256, [99; 32]);
+            Some(state)
+        };
+        assert!(decrypt_stream(&ciphertext, &envelope, &key(), &other_genesis).is_err());
+        let mut wrong = parameters;
+        wrong.content_context.epoch -= 1;
+        assert!(StreamEncryptor::new(1, &key(), &wrong, [0; 19], &winning_epoch).is_err());
     }
 
     #[test]
@@ -1014,9 +1142,13 @@ mod tests {
 
         let (ciphertext, envelope) =
             encrypt_stream(b"x", &key, &parameters, &winning_epoch).unwrap();
-        let stale_epoch = |_group_state_ref: &EncryptedAttachmentGroupStateRef| Some(41);
+        let stale_epoch = |reference: &EncryptedAttachmentGroupStateRef| {
+            let mut state = winning_epoch(reference)?;
+            state.epoch = 41;
+            Some(state)
+        };
         let err = decrypt_stream(&ciphertext, &envelope, &key, &stale_epoch).unwrap_err();
-        assert_eq!(reason(&err), "segment_aead_failed");
+        assert_eq!(reason(&err), "content_key_commitment_mismatch");
     }
 
     #[test]
@@ -1214,7 +1346,10 @@ mod tests {
             "size_bytes": 3211264,
             "media_type": "video/mp4"
         }"#;
-        let env: EncryptedAttachment = serde_json::from_str(raw).unwrap();
+        let mut value: Value = serde_json::from_str(raw).unwrap();
+        value["producer"] = serde_json::to_value(test_content_context().producer).unwrap();
+        value["key_commitment"] = json!(format!("sha256:{}", "ab".repeat(32)));
+        let env: EncryptedAttachment = serde_json::from_value(value).unwrap();
         let fields = envelope_fields(&env).unwrap();
         assert_eq!(fields.scheme, SCHEME_STREAM);
         assert_eq!(fields.segment_bytes, Some(262_144));

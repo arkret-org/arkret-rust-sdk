@@ -1,9 +1,9 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json;
-//! sha256=0c45feb83576757e83d3be4b71330fcb8a607e77b2aa85798b1f98960fef0df1 Input: reachable event
-//! schema closure; sha256=f7ecea601e2d9c7dfafd3ed9d54c7cfa446418a9b1425da54faa2622acc092ac Entries:
-//! preimage_commitments=42
+//! sha256=c7366b7cc0653b17d2a0a627fa7a2fdf0a2a27f69f272bf6d28805d5b8e3f44f Input: reachable event
+//! schema closure; sha256=e89a87bad1da4aca08ebcfaf610f3b1d1dba768b208d38c9ff3126fe3caf7a4a Entries:
+//! preimage_commitments=53
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PreimageCommitment {
@@ -71,6 +71,56 @@ pub const PREIMAGE_COMMITMENT_FIELDS: &[PreimageCommitmentField] = &[
     PreimageCommitmentField {
         schema_file: "schemas/contact-operations.schema.json",
         json_pointer: "/$defs/contact_scope_update_payload/properties/predecessor_event_ref",
+        commitment: PreimageCommitment::FixedEvent,
+    },
+    PreimageCommitmentField {
+        schema_file: "schemas/content-encryption.schema.json",
+        json_pointer: "/$defs/endpoint/properties/authorization_event_ref",
+        commitment: PreimageCommitment::FixedEvent,
+    },
+    PreimageCommitmentField {
+        schema_file: "schemas/content-encryption.schema.json",
+        json_pointer: "/$defs/history_grant/properties/authorization_event_ref",
+        commitment: PreimageCommitment::FixedEvent,
+    },
+    PreimageCommitmentField {
+        schema_file: "schemas/content-encryption.schema.json",
+        json_pointer: "/$defs/history_grant/properties/recipient_key_event_ref",
+        commitment: PreimageCommitment::FixedEvent,
+    },
+    PreimageCommitmentField {
+        schema_file: "schemas/content-encryption.schema.json",
+        json_pointer: "/$defs/history_request/properties/authorization_event_ref",
+        commitment: PreimageCommitment::FixedEvent,
+    },
+    PreimageCommitmentField {
+        schema_file: "schemas/content-encryption.schema.json",
+        json_pointer: "/$defs/key_selector/oneOf/0/properties/source_event_ref",
+        commitment: PreimageCommitment::FixedEvent,
+    },
+    PreimageCommitmentField {
+        schema_file: "schemas/content-encryption.schema.json",
+        json_pointer: "/$defs/recovery_binding/properties/authorization_event_ref",
+        commitment: PreimageCommitment::FixedEvent,
+    },
+    PreimageCommitmentField {
+        schema_file: "schemas/content-encryption.schema.json",
+        json_pointer: "/$defs/recovery_binding/properties/base_group_state_ref",
+        commitment: PreimageCommitment::FixedEvent,
+    },
+    PreimageCommitmentField {
+        schema_file: "schemas/content-encryption.schema.json",
+        json_pointer: "/$defs/root_context/properties/backup_strategy_ref",
+        commitment: PreimageCommitment::FixedEvent,
+    },
+    PreimageCommitmentField {
+        schema_file: "schemas/content-encryption.schema.json",
+        json_pointer: "/$defs/root_context/properties/genesis_event_ref",
+        commitment: PreimageCommitment::FixedEvent,
+    },
+    PreimageCommitmentField {
+        schema_file: "schemas/content-encryption.schema.json",
+        json_pointer: "/$defs/root_context/properties/group_state_ref",
         commitment: PreimageCommitment::FixedEvent,
     },
     PreimageCommitmentField {
@@ -211,6 +261,11 @@ pub const PREIMAGE_COMMITMENT_FIELDS: &[PreimageCommitmentField] = &[
     PreimageCommitmentField {
         schema_file: "schemas/event-payload.schema.json",
         json_pointer: "/$defs/space_object_tombstone_payload/properties/replacement_event_id",
+        commitment: PreimageCommitment::FixedEvent,
+    },
+    PreimageCommitmentField {
+        schema_file: "schemas/key-backup-active-series.schema.json",
+        json_pointer: "/properties/custody_authorization_ref",
         commitment: PreimageCommitment::FixedEvent,
     },
     PreimageCommitmentField {

@@ -859,6 +859,8 @@ fn build_key_backup_envelope_in_series(
             Ok(SecretStorageContentIndex {
                 item_kind: item.item_kind,
                 secret_id: item.secret_id.clone(),
+                root_context: None,
+                root_ref: None,
             })
         })
         .collect::<Result<Vec<_>>>()?;
@@ -868,7 +870,8 @@ fn build_key_backup_envelope_in_series(
         backup_kind,
         series_id: series_id.clone(),
         series_sequence,
-        items,
+        items: items.into_iter().map(Into::into).collect(),
+        extra: XExtensionMap::default(),
     };
     plaintext
         .validate_against(&contents)
@@ -951,11 +954,12 @@ fn build_key_backup_envelope_in_series(
         })?,
         plaintext_commitment: None,
         signature_proof: KeyBackupSignatureProof {
-            device_id: auth.device_id.clone(),
+            device_id: Some(auth.device_id.clone()),
             verification_method: auth.verification_method.clone(),
             signature_algorithm: auth.signature_algorithm,
             signature: base64url_field(UNSIGNED_SIGNATURE_PLACEHOLDER)?,
-            device_authorize_event_id: auth.device_authorize_event_id.clone(),
+            device_authorize_event_id: Some(auth.device_authorize_event_id.clone()),
+            agent_authorization_event_ref: None,
         },
         retention: None,
         series_id,
@@ -964,6 +968,8 @@ fn build_key_backup_envelope_in_series(
         supersedes_digest,
         source_commit_ref,
         recovery_policy_ref: None,
+        custodian_actor_id: None,
+        custody_authorization_ref: None,
         extra: XExtensionMap::default(),
     };
 
@@ -1142,8 +1148,8 @@ mod tests {
         let opened = decrypt_key_backup_envelope(PASSPHRASE, &envelope).unwrap();
         assert_eq!(opened.backup_kind, BackupKind::SecretStorage);
         assert_eq!(opened.items.len(), 2);
-        assert_eq!(opened.items[0].secret_id, "account.state");
-        assert_eq!(opened.items[1].secret_id, "mls.account");
+        assert_eq!(opened.items[0].secret_id(), "account.state");
+        assert_eq!(opened.items[1].secret_id(), "mls.account");
 
         // A different passphrase must fail before the AEAD, on the commitment.
         assert!(decrypt_key_backup_envelope(b"wrong passphrase", &envelope).is_err());
@@ -1332,9 +1338,11 @@ mod tests {
         let envelope = genesis(&kek, &seen);
 
         let mut tampered = envelope;
-        tampered.signature_proof.device_id = "ak:device:01964137-0000-7000-8000-0000000000d2"
-            .parse()
-            .unwrap();
+        tampered.signature_proof.device_id = Some(
+            "ak:device:01964137-0000-7000-8000-0000000000d2"
+                .parse()
+                .unwrap(),
+        );
         assert!(decrypt_key_backup_envelope(PASSPHRASE, &tampered).is_err());
 
         // The builder refuses the same disagreement up front.

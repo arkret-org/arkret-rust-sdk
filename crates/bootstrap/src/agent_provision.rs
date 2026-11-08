@@ -11,6 +11,7 @@ use chrono::{DateTime, Utc};
 pub struct AgentProvisionIntentOptions {
     pub controller_station_id: DidCoreId,
     pub created_at: DateTime<Utc>,
+    pub history_custody: arkret_models_crypto::AgentHistoryCustody,
 }
 
 /// Draft one producer Event. Its Realm-stream position is assigned only by the
@@ -29,6 +30,15 @@ pub fn build_agent_provision_intent(
     options: AgentProvisionIntentOptions,
 ) -> arkret_wire::Result<arkret_wire::AuthoredEvent> {
     let created_at = arkret_canonical::normalize_timestamp_canonical(options.created_at);
+    let controller_actor = ActorId::account(AccountId::new(
+        controller_principal_id.clone(),
+        options.controller_station_id.clone(),
+    ));
+    if options.history_custody.custodian_actor_id != controller_actor {
+        return Err(WireError::Protocol(
+            "history custody must name the exact controller Account".into(),
+        ));
+    }
     let payload = AgentProvisionPayload {
         schema: AgentProvisionSchema::V1,
         agent_id: agent_id.clone(),
@@ -41,6 +51,7 @@ pub fn build_agent_provision_intent(
         selector_visibility,
         selector_audience,
         created_at,
+        history_custody: options.history_custody,
     };
     payload.validate()?;
     crate::author_event::<arkret_wire::event_spec::AgentProvision>(

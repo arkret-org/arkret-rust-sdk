@@ -24,6 +24,7 @@ pub mod call_signal;
 pub mod consent_operations;
 pub mod consent_private;
 pub mod contact_operations;
+pub mod content_history;
 pub mod device_messages;
 pub mod device_pairing;
 pub mod direct_conversation;

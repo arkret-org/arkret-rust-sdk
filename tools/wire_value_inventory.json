@@ -1,6 +1,6 @@
 {
   "summary": {
-    "total": 539,
+    "total": 540,
     "scope": {
       "repositories": [
         "arkret-rust-sdk",
@@ -58,7 +58,7 @@
       "identity": 6,
       "inkson": 16,
       "models-collaboration": 72,
-      "models-crypto": 2,
+      "models-crypto": 3,
       "models-discovery": 4,
       "models-identity": 13,
       "models-integration": 6,
@@ -77,24 +77,24 @@
       "json_authoring": 118,
       "json_path_mutation": 68,
       "paired_api": 13,
-      "public_value_field": 336
+      "public_value_field": 337
     },
     "by_classification": {
       "independent": 14,
       "internal_or_fixture": 18,
       "open_json": 76,
-      "polymorphic_boundary": 431
+      "polymorphic_boundary": 432
     },
     "by_lifecycle": {
-      "retained_boundary": 539
+      "retained_boundary": 540
     },
     "by_decision": {
       "independent": 17,
       "open": 76,
-      "raw": 446
+      "raw": 447
     },
     "by_owner_repository": {
-      "arkret-rust-sdk": 183,
+      "arkret-rust-sdk": 184,
       "bridges": 7,
       "chime": 3,
       "coauth": 48,
@@ -109,7 +109,7 @@
       "open_json": 3,
       "open_json_container": 18,
       "open_map": 52,
-      "unknown": 457
+      "unknown": 458
     }
   },
   "entries": [
@@ -6462,6 +6462,31 @@
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic.",
       "evidence": "public Option<Value> field"
+    },
+    {
+      "finding": "crates/models-crypto/src/encrypted_envelope.rs::EventContentMaterial.outer_event",
+      "category": "public_value_field",
+      "rust_field": "crates/models-crypto/src/encrypted_envelope.rs::EventContentMaterial.outer_event",
+      "crate": "models-crypto",
+      "file": "crates/models-crypto/src/encrypted_envelope.rs",
+      "path": "crates/models-crypto/src/encrypted_envelope.rs",
+      "owner": "EventContentMaterial",
+      "owner_repository": "arkret-rust-sdk",
+      "symbol": "EventContentMaterial.outer_event",
+      "field": "outer_event",
+      "discriminator": null,
+      "data_field": "outer_event",
+      "rust_type": "Value",
+      "spec_pointer": null,
+      "schema_shape": "unknown",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "arkret_models_crypto::EventContentPreEncryptionHeader::canonical_bytes",
+      "action": "Retain the exact original Event metadata projection as local AEAD preimage, after original proof and authority verification; never use this as an independent Event wire DTO.",
+      "test": "cargo test -p arkret-crypto --all-features --test content_history",
+      "reason": "The formal content AAD includes every original outer Event metadata member after excluding event_id, payload, producer_proof and unsigned. This internal staging Value preserves canonical Event metadata without creating a second Event DTO; header validation binds actual producer, scope and kind, and formal KATs cover exact JCS bytes and metadata tampering.",
+      "evidence": "public Value field"
     },
     {
       "finding": "crates/models-crypto/src/generated/key_backup_operations_contracts.rs::KeyBackupSummary.retention",

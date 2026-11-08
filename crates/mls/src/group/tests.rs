@@ -77,6 +77,222 @@ fn claimed_keypackage(identity: &ArkretMlsIdentity) -> MlsKeyPackageRecord {
 }
 
 #[test]
+fn external_recovery_governance_binding_uses_rfc_authenticated_data_without_gce() {
+    use openmls::prelude::{ProtocolMessage, RatchetTreeIn};
+    let scope = realm_scope();
+    let initial = genesis_binding(&scope);
+    let mut original = identity()
+        .create_group_with_governance_binding(&scope, &initial)
+        .unwrap();
+    let (info_bytes, tree_bytes) = original.public_group_state_bytes().unwrap();
+    let next = transition_binding(&scope, event(120), 0);
+    let aad = next.to_deterministic_cbor().unwrap();
+    {
+        let mut fresh = identity();
+        fresh.endpoint = MlsEndpointIdentity::human_device(
+            fresh.actor_id.signing_principal_id().clone(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000099").unwrap(),
+        );
+        let MlsMessageBodyIn::GroupInfo(info) = MlsMessageIn::tls_deserialize_exact(&info_bytes)
+            .unwrap()
+            .extract()
+        else {
+            panic!("GroupInfo")
+        };
+        let tree = RatchetTreeIn::tls_deserialize_exact(&tree_bytes).unwrap();
+        let builder = MlsGroup::external_commit_builder()
+            .with_config(
+                MlsGroupJoinConfig::builder()
+                    .wire_format_policy(handshake_policy(&scope).unwrap())
+                    .build(),
+            )
+            .with_aad(aad.clone())
+            .with_ratchet_tree(tree)
+            .build_group(&fresh.provider, info, fresh.credential.clone())
+            .unwrap()
+            .leaf_node_parameters(
+                LeafNodeParameters::builder()
+                    .with_capabilities(arkret_openmls_capabilities())
+                    .with_extensions(keypackage_capabilities_leaf_extensions().unwrap())
+                    .build(),
+            );
+        let result = builder.load_psks(fresh.provider.storage()).unwrap().build(
+            fresh.provider.rand(),
+            fresh.provider.crypto(),
+            &fresh.signer,
+            |_| true,
+        );
+        let (mut recovered, bundle) = result.unwrap().finalize(&fresh.provider).unwrap();
+        if recovered.pending_commit().is_some() {
+            recovered.merge_pending_commit(&fresh.provider).unwrap();
+        }
+        assert_eq!(recovered.group_id(), original.group.group_id());
+        assert_eq!(recovered.epoch().as_u64(), 1);
+        assert_eq!(
+            recovered
+                .extensions()
+                .unknown(MLS_GOVERNANCE_BINDING_EXTENSION_TYPE)
+                .unwrap()
+                .0,
+            initial.to_deterministic_cbor().unwrap()
+        );
+        let wire = bundle.into_commit().tls_serialize_detached().unwrap();
+        let message = MlsMessageIn::tls_deserialize_exact(&wire)
+            .unwrap()
+            .try_into_protocol_message()
+            .unwrap();
+        let mut observer = crate::MlsPublicGroupTracker::from_external(
+            &info_bytes,
+            &tree_bytes,
+            original.group_id().as_str(),
+            0,
+        )
+        .unwrap();
+        assert!(observer.process_public_handshake(&wire).is_err());
+        let recovery = arkret_models_crypto::ContentRecoveryBinding {
+            replacement: arkret_models_crypto::ContentEndpoint {
+                actor_id: fresh.actor_id.clone(),
+                endpoint: MlsWelcomeRecipientEndpoint::Device {
+                    device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000099")
+                        .unwrap(),
+                },
+                authorization_event_ref: event(121),
+                signature_key_base64url: base64url_encode(fresh.signer.public()),
+            },
+            authorization_event_ref: event(121),
+            base_group_state_ref: event(120),
+            expected_epoch: 0,
+            inventory_digest: Hash::new(format!("sha256:{}", "77".repeat(32))).unwrap(),
+        };
+        let current = MlsGovernanceBindingPublicState::new(scope.clone(), Some(event(120)), 0, 0);
+        let checkpoint = observer.export_state().unwrap();
+        let wrong = transition_binding(&scope, event(120), 1);
+        let wrong_current =
+            MlsGovernanceBindingPublicState::new(scope.clone(), Some(event(120)), 0, 1);
+        assert!(
+            observer
+                .process_recovery_external_commit(&wire, &recovery, &wrong_current, &wrong)
+                .is_err()
+        );
+        assert_eq!(observer.export_state().unwrap(), checkpoint);
+        let mut reused = recovery.clone();
+        reused.replacement.signature_key_base64url =
+            base64url_encode(original.identity.signer.public());
+        assert!(
+            observer
+                .process_recovery_external_commit(&wire, &reused, &current, &next)
+                .is_err()
+        );
+        assert_eq!(observer.export_state().unwrap(), checkpoint);
+        observer
+            .process_recovery_external_commit(&wire, &recovery, &current, &next)
+            .unwrap();
+        assert_eq!(observer.epoch(), 1);
+        assert_eq!(observer.governance_binding().unwrap(), initial);
+        let post_info = recovered
+            .export_group_info(fresh.provider.crypto(), &fresh.signer, false)
+            .unwrap()
+            .tls_serialize_detached()
+            .unwrap();
+        let post_tree = recovered
+            .export_ratchet_tree()
+            .tls_serialize_detached()
+            .unwrap();
+        observer.verify_publication(&post_info, &post_tree).unwrap();
+        assert!(
+            observer
+                .verify_publication(&info_bytes, &tree_bytes)
+                .is_err()
+        );
+        let mut bad_signature = post_info.clone();
+        *bad_signature.last_mut().unwrap() ^= 1;
+        assert!(
+            observer
+                .verify_publication(&bad_signature, &post_tree)
+                .is_err()
+        );
+        assert!(
+            observer
+                .verify_publication(&post_info, &tree_bytes)
+                .is_err()
+        );
+        drop(message);
+        let envelope = MlsCommitEnvelope {
+            group_id: original.group_id(),
+            epoch: 1,
+            commit: base64url_encode(&wire),
+            commit_digest: Hash::new(canonical::sha256_digest(&wire)).unwrap(),
+            ratchet_tree: None,
+        };
+        original
+            .merge_accepted_recovery_external_commit(&envelope, &recovery, &current, &next)
+            .unwrap();
+        assert_eq!(original.epoch(), 1);
+        let cleanup_binding = binding_for_epochs(&scope, event(122), 1, 2, 0);
+        let cleanup = recovered
+            .commit_builder()
+            .consume_proposal_store(false)
+            .propose_removals([LeafNodeIndex::new(0)])
+            .propose_group_context_extensions(
+                arkret_group_context_extensions(Some(&cleanup_binding)).unwrap(),
+            )
+            .unwrap()
+            .load_psks(fresh.provider.storage())
+            .unwrap()
+            .build(
+                fresh.provider.rand(),
+                fresh.provider.crypto(),
+                &fresh.signer,
+                |_| true,
+            )
+            .unwrap()
+            .stage_commit(&fresh.provider)
+            .unwrap();
+        let cleanup_wire = cleanup.commit().tls_serialize_detached().unwrap();
+        observer.process_public_handshake(&cleanup_wire).unwrap();
+        assert_eq!(observer.epoch(), 2);
+        assert_eq!(observer.governance_binding().unwrap(), cleanup_binding);
+        assert_eq!(observer.leaves().unwrap().len(), 1);
+        assert_eq!(
+            observer.leaves().unwrap()[0].signature_key.as_str(),
+            recovery.replacement.signature_key_base64url
+        );
+        let mut tampered = wire;
+        let aad_start = tampered
+            .windows(aad.len())
+            .position(|part| part == aad)
+            .unwrap();
+        tampered[aad_start + aad.len() - 1] ^= 1;
+        let provider = OpenMlsRustCrypto::default();
+        let info = MlsMessageIn::tls_deserialize_exact(&info_bytes).unwrap();
+        let MlsMessageBodyIn::GroupInfo(info) = info.extract() else {
+            unreachable!()
+        };
+        let (public, _) = openmls::prelude::PublicGroup::from_external(
+            provider.crypto(),
+            provider.storage(),
+            RatchetTreeIn::tls_deserialize_exact(&tree_bytes).unwrap(),
+            info,
+            openmls::prelude::ProposalStore::new(),
+        )
+        .unwrap();
+        let ProtocolMessage::PublicMessage(message) =
+            MlsMessageIn::tls_deserialize_exact(&tampered)
+                .unwrap()
+                .try_into_protocol_message()
+                .unwrap()
+        else {
+            panic!("public")
+        };
+        assert!(
+            public
+                .process_message(provider.crypto(), ProtocolMessage::PublicMessage(message))
+                .is_err()
+        );
+    }
+}
+
+#[test]
 fn keypackage_fixture_credentials_decode_to_the_exact_actor() {
     let fixture = arkret_schema_conformance::spec_json_artifact(
         "fixtures/mls-keypackage-endpoint-kat-fixture.json",
@@ -1531,17 +1747,88 @@ fn application_header(
     sender_domain: String,
 ) -> EventContentPreEncryptionHeader {
     use arkret_models_collaboration::events_payloads::message::ContentBlock;
-    use arkret_models_crypto::{EventContentRoutingContext, MlsPayloadType};
+    use arkret_models_crypto::{
+        ContentContext, ContentEncryptionAlgorithm, ContentEndpoint, ContentProtection,
+        ContentPurpose, ContentRootContext, ContentRootSecret, EventContentMaterial,
+        EventContentRoutingContext, MlsPayloadType,
+    };
+    let root_context = ContentRootContext {
+        effective_scope: group.scope().clone(),
+        genesis_event_ref: event(1),
+        epoch: group.epoch(),
+        group_state_ref: event(2),
+        cipher_suite: group.group_ciphersuite_canonical_id().unwrap().to_owned(),
+        encryption_backup_strategy: arkret_wire::EncryptionBackupStrategy::EpochContentRoots,
+        backup_strategy_ref: event(1),
+    };
+    let exporter = crate::exporter_kdf::export_registered_secret(
+        group,
+        arkret_wire::ExporterLabelId::EpochContentRootV1,
+        &canonical::canonical_json_bytes(&root_context).unwrap(),
+        32,
+    )
+    .unwrap();
+    let root = ContentRootSecret::new(exporter.as_slice().try_into().unwrap());
+    let actor: ActorId = serde_json::from_str(&sender_domain).unwrap();
+    let (endpoint, authorization_event_ref) = match &group.identity.endpoint {
+        MlsEndpointIdentity::HumanDevice { device_id, .. } => (
+            MlsWelcomeRecipientEndpoint::Device {
+                device_id: device_id.clone(),
+            },
+            group
+                .local_content_endpoint()
+                .unwrap()
+                .authorization_event_ref,
+        ),
+        MlsEndpointIdentity::AgentRuntime {
+            verification_method,
+            agent_key_authorize_event_id,
+            ..
+        } => (
+            MlsWelcomeRecipientEndpoint::AgentRuntime {
+                verification_method: verification_method.clone(),
+            },
+            agent_key_authorize_event_id.clone(),
+        ),
+    };
+    let context = ContentContext {
+        root_ref: arkret_crypto::content_history::content_root_ref(&root, &root_context).unwrap(),
+        root_context,
+        purpose: ContentPurpose::EventBody,
+        encryption_scheme: EncryptedPayloadScheme::EpochContentAead,
+        encryption_algorithm: ContentEncryptionAlgorithm::Aes128Gcm,
+        producer: ContentEndpoint {
+            actor_id: actor.clone(),
+            endpoint,
+            authorization_event_ref,
+            signature_key_base64url: encode(group.identity.signer.public()),
+        },
+        content_key_salt: arkret_crypto::content_history::fresh_content_key_salt().unwrap(),
+    };
+    let key = arkret_crypto::content_history::derive_content_key(&root, &context).unwrap();
+    let key_commitment =
+        arkret_crypto::content_history::content_key_commitment(&context, &key).unwrap();
+    let material = EventContentMaterial {
+        outer_event: serde_json::json!({"kind": EventKind::MessageCreate.as_str(), "scope_ref": group.scope(), "actor_id": actor}),
+        protection: ContentProtection {
+            root_refs: vec![context.root_ref.clone()],
+            backup_refs: vec![],
+            blob_refs: vec![],
+        },
+        content_context: context,
+        key_commitment,
+    };
     EventContentPreEncryptionHeader::reconstruct(
         "1.0",
         ContentBlock::MLS_CONTENT_TYPE,
-        EncryptedPayloadScheme::MlsRfc9420,
+        EncryptedPayloadScheme::EpochContentAead,
         group.scope().clone(),
         EventKind::MessageCreate.as_str(),
         group.epoch(),
         event(2),
         sender_domain,
         EventContentRoutingContext::None,
+        material,
     )
     .unwrap()
 }
@@ -1570,7 +1857,7 @@ fn application_with_claimed_sender(
     let payload_digest =
         EncryptedPayload::payload_digest_for_header(&header, ciphertext.clone()).unwrap();
     EncryptedPayload {
-        scheme: EncryptedPayloadScheme::MlsRfc9420,
+        scheme: EncryptedPayloadScheme::EpochContentAead,
         group_id: sender.group_id(),
         epoch: sender.epoch(),
         content_type: header.content_type.clone(),
@@ -1589,6 +1876,41 @@ fn application_sender_binding_survives_private_restart() {
     let private = receiver.export_state_record().unwrap();
     let mut restored = ArkretMlsGroup::restore_from_state_record(&private).unwrap();
     assert_eq!(restored.decrypt_payload(&payload).unwrap(), plaintext);
+}
+
+#[test]
+fn application_producer_requires_exact_accepted_endpoint_authorization() {
+    let (_, mut sender) = application_message_pair();
+    let header = application_header(&sender, sender.local_content_sender_domain().unwrap());
+    assert_eq!(
+        header.material.content_context.producer,
+        sender.local_content_endpoint().unwrap()
+    );
+    let before = sender.export_state_record().unwrap().serialized_state;
+    let mut wrong = header.clone();
+    wrong
+        .material
+        .content_context
+        .producer
+        .authorization_event_ref = event(199);
+    assert!(
+        sender
+            .encrypt_payload(wrong, b"changed authorization")
+            .is_err()
+    );
+    assert_eq!(
+        sender.export_state_record().unwrap().serialized_state,
+        before
+    );
+    let mut wrong = header;
+    wrong.material.content_context.producer.endpoint = MlsWelcomeRecipientEndpoint::Device {
+        device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000099").unwrap(),
+    };
+    assert!(sender.encrypt_payload(wrong, b"changed endpoint").is_err());
+    assert_eq!(
+        sender.export_state_record().unwrap().serialized_state,
+        before
+    );
 }
 
 #[test]

@@ -17,7 +17,7 @@ test-utils = []
 [dependencies]
 aes-gcm = { workspace = true }
 arkret-canonical = { workspace = true }
-arkret-crypto = { workspace = true, features = ["aead", "sframe"] }
+arkret-crypto = { workspace = true, features = ["aead", "sframe", "content-history"] }
 arkret-identifiers = { workspace = true }
 arkret-models-collaboration = { workspace = true }
 arkret-models-crypto = { workspace = true }

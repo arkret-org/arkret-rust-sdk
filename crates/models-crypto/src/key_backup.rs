@@ -126,6 +126,18 @@ pub struct KeyBackup {
     pub source_commit_ref: Option<KeyBackupSourceCommitRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recovery_policy_ref: Option<RecoveryPolicyRef>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub custodian_actor_id: Option<ActorId>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub custody_authorization_ref: Option<EventId>,
     #[serde(default, flatten)]
     pub extra: XExtensionMap,
 }
@@ -134,6 +146,43 @@ impl KeyBackup {
     pub const SCHEMA: &'static str = SchemaId::KEY_BACKUP_V1;
 
     pub fn validate(&self) -> Result<()> {
+        self.signature_proof.validate()?;
+        if self.custodian_actor_id.is_some() != self.custody_authorization_ref.is_some() {
+            return protocol("Agent backup custody subject and authorization must appear together");
+        }
+        if self.signature_proof.agent_authorization_event_ref.is_some()
+            && (self.custodian_actor_id.is_none()
+                || self.source_commit_ref.is_some()
+                || self.device_id.is_some())
+        {
+            return protocol("Agent backup cannot borrow Human Device or generation proof");
+        }
+        let root_count = self
+            .contents
+            .iter()
+            .filter(|item| item.item_kind == SecretStorageItemKind::ContentEpochRoot)
+            .count();
+        if root_count > 0
+            && (root_count != self.contents.len()
+                || self.mixed_secret_storage
+                || self.encryption.recipient_method != KeyBackupRecipientMethod::RecoveryPublicKey
+                || self
+                    .encryption
+                    .hpke_suite
+                    .as_deref()
+                    .is_some_and(|suite| suite != HPKE_SUITE_X25519_CHACHA20POLY1305_V1)
+                || self.encryption.aead.name != KeyBackupAeadName::Chacha20Poly1305)
+        {
+            return protocol("content roots require an unmixed default recovery HPKE block");
+        }
+        let mut secrets = std::collections::BTreeSet::new();
+        if self
+            .contents
+            .iter()
+            .any(|item| !secrets.insert(&item.secret_id))
+        {
+            return protocol("duplicate key backup secret id");
+        }
         if self.contents.is_empty() {
             return protocol("key backup contents must be non-empty");
         }
@@ -171,7 +220,7 @@ impl KeyBackup {
         if self
             .device_id
             .as_ref()
-            .is_some_and(|id| id != &self.signature_proof.device_id)
+            .is_some_and(|id| self.signature_proof.device_id.as_ref() != Some(id))
         {
             return protocol("key backup signer device does not match device_id");
         }
@@ -547,6 +596,7 @@ pub enum SecretStorageItemKind {
     MlsPrivatePlaintext,
     MlsGroupSecretsBackupKey,
     PrivateAccountState,
+    ContentEpochRoot,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -555,10 +605,33 @@ pub enum SecretStorageItemKind {
 pub struct SecretStorageContentIndex {
     pub item_kind: SecretStorageItemKind,
     pub secret_id: String,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub root_context: Option<crate::ContentRootContext>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub root_ref: Option<Hash>,
 }
 
 impl SecretStorageContentIndex {
     pub fn validate(&self) -> Result<()> {
+        match (&self.item_kind, &self.root_context, &self.root_ref) {
+            (SecretStorageItemKind::ContentEpochRoot, Some(context), Some(root)) => {
+                context.validate()?;
+                crate::content_history::sha256_ref(root)?;
+            }
+            (SecretStorageItemKind::ContentEpochRoot, ..) => {
+                return protocol("root index requires exact context and commitment");
+            }
+            (_, None, None) => {}
+            _ => return protocol("non-root index cannot carry root metadata"),
+        }
         if self.secret_id.is_empty()
             || !self
                 .secret_id
@@ -575,11 +648,40 @@ impl SecretStorageContentIndex {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyBackupSignatureProof {
-    pub device_id: DeviceId,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub device_id: Option<DeviceId>,
     pub verification_method: DidUrl,
     pub signature_algorithm: KeyBackupSignatureAlgorithm,
     pub signature: Base64UrlString,
-    pub device_authorize_event_id: EventId,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub device_authorize_event_id: Option<EventId>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub agent_authorization_event_ref: Option<EventId>,
+}
+
+impl KeyBackupSignatureProof {
+    pub fn validate(&self) -> Result<()> {
+        match (
+            &self.device_id,
+            &self.device_authorize_event_id,
+            &self.agent_authorization_event_ref,
+        ) {
+            (Some(_), Some(_), None) | (None, None, Some(_)) => Ok(()),
+            _ => protocol("key backup proof must select exactly one native Device or Agent author"),
+        }
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

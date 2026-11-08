@@ -132,7 +132,7 @@ fn body_digest_for_event(event: &Event) -> arkret_wire::Hash {
     authority_forward_body_digest(&PeerAuthorityForwardEventRequestBody {
         branch: AuthorityForwardBranch::AuthorityForward,
         event_submission: arkret_wire::EventAdmissionSubmission::new(event.clone()),
-        mls_genesis_material: None,
+        mls_group_state_material: None,
         producer_device_evidence: None,
         producer_agent_evidence: None,
     })
@@ -711,7 +711,7 @@ fn forward_original_source_fact_is_not_the_target_and_binds_destination_and_body
     let mut body = PeerAuthorityForwardEventRequestBody {
         branch: AuthorityForwardBranch::AuthorityForward,
         event_submission: arkret_wire::EventAdmissionSubmission::new(event.clone()),
-        mls_genesis_material: None,
+        mls_group_state_material: None,
         producer_device_evidence: Some(evidence),
         producer_agent_evidence: None,
     };

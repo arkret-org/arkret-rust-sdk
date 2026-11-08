@@ -3,20 +3,20 @@
 //! Input: registry/proof-context-registry.json;
 //! sha256=56191a28852805b7a1afd2278bea5b77c86e7a286d39285ee987205177b8259a Input: registry/
 //! exporter-label-registry.json;
-//! sha256=6bb3622c1e8ef4636d28ed5e0998fdc6fdc755b1b36365e966d0f1f75c1d03f9 Input: registry/
+//! sha256=4a304d8ba93b7c9a258f2d47801ffdc76ebfadbcedf8d62f71ed6430dd32bd50 Input: registry/
 //! digest-suite-registry.json;
 //! sha256=6b9b7550f45a079a6f68cedadf331309baf338d55d9abae347712f698d1c0a37 Input: registry/
 //! signature-alg-registry.json;
 //! sha256=04cd8b284cae951995e5e9aab071cfdf42fdb3bd1da53ba63e8239a5f66a1107 Input: registry/
 //! hpke-suite-registry.json;
-//! sha256=29c599939382074e8bc8be8507c40279920ca25dec6da345037725c09b932747 Input: registry/
+//! sha256=f54d872b32547b358930f5ab49933cb6eabd1cf256c0d2016459d04f6ea187c8 Input: registry/
 //! mls-ciphersuite-registry.json;
 //! sha256=0713ff9e2585645cb9526d366aabbd30fe92a672b891d2ba5f9c035d637bc098 Input: registry/
 //! mls-extension-registry.json;
-//! sha256=a07994d12f371db5f415700fa6bb8ae504b35613081f2e808a1cd3cab16d4a65 Input: registry/
+//! sha256=416bdc4101b7124b5054cffa5fdc3b7873850505b2a3b03c4be53ecbbe52b079 Input: registry/
 //! aead-profile-registry.json;
 //! sha256=273e1225d568d3d4c39fe2f19c2397b96dfc3e256b6ec1b5b852b43c16550343
-//! Entries: proof_contexts=35, exporter_labels=8, digest_suites=3, signature_algorithms=4,
+//! Entries: proof_contexts=35, exporter_labels=10, digest_suites=3, signature_algorithms=4,
 //! hpke_suites=4, mls_ciphersuites=4, mls_extensions=2, domain_separations=45, aead_profiles=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -696,6 +696,8 @@ impl HpkeSuiteId {
 #[repr(usize)]
 pub enum ExporterLabelId {
     BlobContentKeyV1,
+    ContentV1,
+    EpochContentRootV1,
     ReactionRoutingRootV1,
     ReactionRoutingV1,
     RtcFrameKeyV1,
@@ -708,6 +710,8 @@ pub enum ExporterLabelId {
 impl ExporterLabelId {
     pub const ALL: &'static [Self] = &[
         Self::BlobContentKeyV1,
+        Self::ContentV1,
+        Self::EpochContentRootV1,
         Self::ReactionRoutingRootV1,
         Self::ReactionRoutingV1,
         Self::RtcFrameKeyV1,
@@ -718,6 +722,8 @@ impl ExporterLabelId {
     ];
 
     pub const BLOB_CONTENT_KEY_V1: &'static str = "ak.blob-content-key-v1";
+    pub const CONTENT_V1: &'static str = "ak.content-v1";
+    pub const EPOCH_CONTENT_ROOT_V1: &'static str = "ak.epoch-content-root-v1";
     pub const REACTION_ROUTING_ROOT_V1: &'static str = "ak.reaction-routing-root-v1";
     pub const REACTION_ROUTING_V1: &'static str = "ak.reaction-routing-v1";
     pub const RTC_FRAME_KEY_V1: &'static str = "ak.rtc-frame-key/v1";
@@ -729,6 +735,8 @@ impl ExporterLabelId {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::BlobContentKeyV1 => Self::BLOB_CONTENT_KEY_V1,
+            Self::ContentV1 => Self::CONTENT_V1,
+            Self::EpochContentRootV1 => Self::EPOCH_CONTENT_ROOT_V1,
             Self::ReactionRoutingRootV1 => Self::REACTION_ROUTING_ROOT_V1,
             Self::ReactionRoutingV1 => Self::REACTION_ROUTING_V1,
             Self::RtcFrameKeyV1 => Self::RTC_FRAME_KEY_V1,
@@ -742,6 +750,8 @@ impl ExporterLabelId {
     pub fn from_wire(value: &str) -> Option<Self> {
         match value {
             Self::BLOB_CONTENT_KEY_V1 => Some(Self::BlobContentKeyV1),
+            Self::CONTENT_V1 => Some(Self::ContentV1),
+            Self::EPOCH_CONTENT_ROOT_V1 => Some(Self::EpochContentRootV1),
             Self::REACTION_ROUTING_ROOT_V1 => Some(Self::ReactionRoutingRootV1),
             Self::REACTION_ROUTING_V1 => Some(Self::ReactionRoutingV1),
             Self::RTC_FRAME_KEY_V1 => Some(Self::RtcFrameKeyV1),
@@ -1375,7 +1385,7 @@ pub const EXPORTER_LABELS: &[ExporterLabelDescriptor] = &[
     ExporterLabelDescriptor {
         id: ExporterLabelId::BlobContentKeyV1,
         label: "ak.blob-content-key-v1",
-        primitive: Some("MLS-Exporter"),
+        primitive: Some("ExpandWithLabel"),
         context_fields: &[
             "effective_scope",
             "genesis_event_ref",
@@ -1383,6 +1393,7 @@ pub const EXPORTER_LABELS: &[ExporterLabelDescriptor] = &[
             "scheme",
             "encryption_algorithm",
             "content_key_salt",
+            "producer",
         ],
         output_bytes: "32",
         empty_context_forbidden: true,
@@ -1391,6 +1402,40 @@ pub const EXPORTER_LABELS: &[ExporterLabelDescriptor] = &[
             "ak.signal-root-v1",
             "ak.rtc-frame-key/v1",
         ],
+    },
+    ExporterLabelDescriptor {
+        id: ExporterLabelId::ContentV1,
+        label: "ak.content-v1",
+        primitive: Some("ExpandWithLabel"),
+        context_fields: &[
+            "root_context",
+            "root_ref",
+            "purpose",
+            "encryption_scheme",
+            "encryption_algorithm",
+            "producer",
+            "content_key_salt",
+        ],
+        output_bytes: "AEAD.Nk",
+        empty_context_forbidden: true,
+        forbid_reuse_with: &["ak.signal-root-v1", "ak.reaction-routing-root-v1"],
+    },
+    ExporterLabelDescriptor {
+        id: ExporterLabelId::EpochContentRootV1,
+        label: "ak.epoch-content-root-v1",
+        primitive: Some("MLS-Exporter"),
+        context_fields: &[
+            "effective_scope",
+            "genesis_event_ref",
+            "epoch",
+            "group_state_ref",
+            "cipher_suite",
+            "encryption_backup_strategy",
+            "backup_strategy_ref",
+        ],
+        output_bytes: "32",
+        empty_context_forbidden: true,
+        forbid_reuse_with: &["ak.signal-root-v1", "ak.reaction-routing-root-v1"],
     },
     ExporterLabelDescriptor {
         id: ExporterLabelId::ReactionRoutingRootV1,

@@ -871,14 +871,13 @@ mod calendar_current_pair_tests {
     #[test]
     fn encrypted_calendar_context_binds_ciphertext_kind_and_unique_pair() {
         let (realm, mut rows) = rows();
-        let envelope =
-            arkret_models_crypto::EncryptedEnvelope {
-                version: "1.0".into(),
-                content_type: "application/vnd.arkret.strand-metadata+json".into(),
-                encryption_context:
-                    arkret_models_crypto::EncryptedEnvelopeEncryptionContext::standard(1, event(4)),
-                ciphertext: "AQID".into(),
-            };
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../../arkret-spec/spec/v1/artifacts/fixtures/content-history-fixture.json"
+        ))
+        .unwrap();
+        let mut envelope: arkret_models_crypto::EncryptedEnvelope =
+            serde_json::from_value(fixture["kat"]["envelope"].clone()).unwrap();
+        envelope.content_type = "application/vnd.arkret.strand-metadata+json".into();
         let CurrentState::Value { value, .. } = &mut rows[0];
         value.as_object_mut().unwrap().remove("metadata");
         value["encrypted_metadata"] = serde_json::to_value(&envelope).unwrap();

@@ -124,7 +124,57 @@
     "realm-invite-link.schema.json#/$defs/link_public_key": "String",
     "common-ids.schema.json#/$defs/account_id": "arkret_wire::AccountId",
     "common-ids.schema.json#/$defs/actor_id": "arkret_wire::ActorId",
-    "common-ids.schema.json#/$defs/event_id": "arkret_wire::EventId"
+    "common-ids.schema.json#/$defs/event_id": "arkret_wire::EventId",
+    "content-encryption.schema.json#/$defs/root_context": "crate::content_history::ContentRootContext",
+    "content-encryption.schema.json#/$defs/endpoint": "crate::content_history::ContentEndpoint",
+    "content-encryption.schema.json#/$defs/content_context/properties/purpose": "crate::content_history::ContentPurpose",
+    "content-encryption.schema.json#/$defs/content_context/properties/encryption_algorithm": "crate::content_history::ContentEncryptionAlgorithm",
+    "content-encryption.schema.json#/$defs/content_context": "crate::content_history::ContentContext",
+    "content-encryption.schema.json#/$defs/content_epoch_root/properties/item_kind": "crate::content_history::ContentRootItemKind",
+    "content-encryption.schema.json#/$defs/content_epoch_root": "crate::content_history::ContentRootBackupEntry",
+    "content-encryption.schema.json#/$defs/coverage_entry": "crate::content_history::ContentCoverageEntry",
+    "content-encryption.schema.json#/$defs/coverage": "crate::content_history::ContentCoveragePage",
+    "content-encryption.schema.json#/$defs/key_selector": "crate::content_history::HistoryKeySelector",
+    "content-encryption.schema.json#/$defs/history_grant/properties/entries/items": "crate::content_history::HistoryGrantEntry",
+    "content-encryption.schema.json#/$defs/history_grant": "crate::content_history::HistoryGrant",
+    "content-encryption.schema.json#/$defs/recovery_binding": "crate::content_history::ContentRecoveryBinding",
+    "content-encryption.schema.json#/$defs/custody": "crate::content_history::AgentHistoryCustody",
+    "content-encryption.schema.json#/$defs/history_recovery/properties/state": "crate::content_history::ContentRecoveryState",
+    "content-encryption.schema.json#/$defs/history_recovery": "crate::content_history::ContentRecoveryCheckpoint",
+    "content-encryption.schema.json#/$defs/protection": "crate::content_history::ContentProtection",
+    "content-encryption.schema.json#/$defs/history_request": "crate::content_history::HistoryRequest",
+    "content-encryption.schema.json#/$defs/history_backup_access": "crate::content_history::ContentHistoryBackupAccess",
+    "content-encryption.schema.json#/$defs/recovery_inventory_entry/properties/old_leaves/items": "crate::content_history::ContentRecoveryOldLeaf",
+    "content-encryption.schema.json#/$defs/recovery_inventory_entry": "crate::content_history::ContentRecoveryInventoryEntry",
+    "content-encryption.schema.json#/$defs/recovery_inventory": "crate::content_history::ContentRecoveryInventory",
+    "content-encryption.schema.json#/$defs/scope_cleanup": "crate::content_history::ContentScopeCleanup",
+    "content-encryption.schema.json#/$defs/cleanup_inventory": "crate::content_history::ContentCleanupInventory",
+    "content-encryption.schema.json#/$defs/recovery_source_attestation": "crate::content_history::ContentRecoverySourceAttestation",
+    "content-encryption.schema.json#/$defs/encryption_scheme": "arkret_wire::EncryptedPayloadScheme",
+    "content-encryption.schema.json#/$defs/encryption_backup_strategy": "arkret_wire::EncryptionBackupStrategy",
+    "event-payload.schema.json#/$defs/effective_scope": "arkret_wire::ScopeRef",
+    "mls-welcome-delivery.schema.json#/properties/recipient_endpoint": "arkret_wire::MlsWelcomeRecipientEndpoint",
+    "authority-commit-operations.schema.json#/$defs/committed_event_ref": "arkret_wire::CommittedEventRef",
+    "key-backup.schema.json#/properties/backup_id": "arkret_wire::BackupId",
+    "key-backup.schema.json#/properties/recovery_policy_ref": "crate::RecoveryPolicyRef",
+    "key-backup.schema.json#/properties/encryption/properties/recipient_key_ref": "arkret_wire::DidUrl",
+    "keypackage-operations.schema.json#/$defs/signature": "crate::artifacts_keys::KeyOperationSignature",
+    "content-encryption.schema.json#/$defs/content_context/properties/root_ref": "arkret_wire::Hash",
+    "content-encryption.schema.json#/$defs/content_epoch_root/properties/root_ref": "arkret_wire::Hash",
+    "content-encryption.schema.json#/$defs/recovery_binding/properties/inventory_digest": "arkret_wire::Hash",
+    "content-encryption.schema.json#/$defs/cleanup_inventory/properties/inventory_digest": "arkret_wire::Hash",
+    "content-encryption.schema.json#/$defs/recovery_source_attestation/properties/inventory_digest": "arkret_wire::Hash",
+    "content-encryption.schema.json#/$defs/history_recovery/properties/coverage_head_digest": "arkret_wire::Hash",
+    "content-encryption.schema.json#/$defs/history_recovery/properties/cleanup_inventory_digest": "arkret_wire::Hash",
+    "content-encryption.schema.json#/$defs/coverage/properties/page_digest": "arkret_wire::Hash",
+    "content-encryption.schema.json#/$defs/scope_cleanup/properties/remaining_old_leaf_count": "u32",
+    "content-encryption.schema.json#/$defs/protection/properties/root_refs/items": "arkret_wire::Hash",
+    "content-encryption.schema.json#/$defs/coverage_entry/properties/root_refs/items": "arkret_wire::Hash",
+    "content-encryption.schema.json#/$defs/history_backup_access/properties/root_refs/items": "arkret_wire::Hash",
+    "content-encryption.schema.json#/$defs/scope_cleanup/properties/root_refs/items": "arkret_wire::Hash",
+    "content-encryption.schema.json#/$defs/key_selector/oneOf/1/properties/root_ref": "arkret_wire::Hash",
+    "authority-commit-operations.schema.json#/$defs/agent_runtime_historical_signer_fact/properties/kind": "crate::authority_commit::AgentRuntimeHistoricalSignerFactKind",
+    "authority-commit-operations.schema.json#/$defs/agent_runtime_historical_signer_fact": "crate::authority_commit::AgentRuntimeHistoricalSignerFact"
   },
   "families": [
     {
@@ -219,7 +269,7 @@
               "/// Per-pin limited-trust record",
               "/// (`did-binding-contracts.schema.json#/$defs/limited_trust`).",
               "///",
-              "/// Â§5.5 replaced the old single \"reason\" with one state per pin, because the two",
+              "/// \u00c2\u00a75.5 replaced the old single \"reason\" with one state per pin, because the two",
               "/// pins fail independently and for different reasons: a `did:webvh` binding that",
               "/// lost only `version_id` because the resolver did not surface it is a resolver",
               "/// defect, while a `did:key` binding that has no history at all is a terminal",
@@ -257,14 +307,14 @@
               "/// One registered freshness profile row",
               "/// (`did-binding-contracts.schema.json#/$defs/freshness_profile`).",
               "///",
-              "/// Â§5.4 makes every DID authority call site reference exactly one profile id",
-              "/// through its operation / action registration â€” natural-language tier guessing",
+              "/// \u00c2\u00a75.4 makes every DID authority call site reference exactly one profile id",
+              "/// through its operation / action registration \u00e2\u20ac\u201d natural-language tier guessing",
               "/// (\"directory-ish, so any cache will do\") is forbidden, and an unknown id is",
               "/// treated as `high`, never as \"anything cached is fine\".",
               "///",
               "/// `fresh_for_seconds` is the **single** freshness threshold: `refresh_at =",
               "/// verified_at + fresh_for_seconds` and an authority call's `max_age` is the",
-              "/// same value. Two separately maintained constants are exactly the drift Â§5.4",
+              "/// same value. Two separately maintained constants are exactly the drift \u00c2\u00a75.4",
               "/// forbids, so [`Self::requirement`] is the only way to obtain a",
               "/// [`FreshnessRequirement`] from a profile.",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
@@ -334,7 +384,7 @@
               "///",
               "/// A witness revocation, an organization merge or a falsified consistency proof",
               "/// arrives as a *coordinate* (witness DID, organization, log head), never as a",
-              "/// digest â€” digests are one-way, so `evidence_digest` cannot answer \"which",
+              "/// digest \u00e2\u20ac\u201d digests are one-way, so `evidence_digest` cannot answer \"which",
               "/// bindings depend on witness X\". This record can, and a store that declares",
               "/// evidence-bearing methods MUST index it at least by witness DID.",
               "#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]",
@@ -1766,6 +1816,12 @@
                 "attributes": [
                   "#[serde(with = \"canonical_timestamp\")]"
                 ]
+              },
+              "history_custody": {
+                "name": "history_custody",
+                "visibility": "pub",
+                "type": "arkret_models_crypto::AgentHistoryCustody",
+                "attributes": []
               }
             }
           }
@@ -3174,7 +3230,7 @@
               "/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_organization_payload`.",
               "///",
               "/// Organization-side endorsement or revocation for a Realm relationship. The",
-              "/// reducer cell subject is `(organization_id, relationship)` â€” `statement_id`",
+              "/// reducer cell subject is `(organization_id, relationship)` \u00e2\u20ac\u201d `statement_id`",
               "/// is audit identity, not the cell subject. Field order mirrors the spec schema",
               "/// `properties` ordering.",
               "#[derive(Clone, Debug, Serialize, Deserialize)]",
@@ -3394,7 +3450,7 @@
               "/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/cross_object_redaction_payload`.",
               "///",
               "/// `ak.redaction` is the cross-object redaction kind. Per",
-              "/// `models/common-fields.md` Â§5.1 (Message exemption) its target set excludes",
+              "/// `models/common-fields.md` \u00c2\u00a75.1 (Message exemption) its target set excludes",
               "/// Message: `message_id` is not a member and `target_ref` cannot spell",
               "/// `ak:message:`, because Message reaches `state=redacted` only through the",
               "/// object-scoped `ak.message.redact`. This type is the single place that",
@@ -3915,7 +3971,7 @@
               "/// (`event-payload.schema.json#/$defs/strand_move_payload`).",
               "///",
               "/// Moves a Strand between List Spaces. The destination is single-sourced by",
-              "/// `target_space_id` â€” writers MUST NOT put `list_space_id` directly on the",
+              "/// `target_space_id` \u00e2\u20ac\u201d writers MUST NOT put `list_space_id` directly on the",
               "/// payload (`additionalProperties:false` enforces this; the reducer compiles",
               "/// `target_space_id` into the position cell). `from_space_id` is an optional",
               "/// hint the reducer can infer. Required: `board_space_id`, `strand_id`,",
@@ -4906,11 +4962,11 @@
               "/// Wire counterpart:",
               "/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_alias_declaration`.",
               "///",
-              "/// `ak.realm.alias` declaration â€” the ONLY wire carrier of a Realm alias.",
+              "/// `ak.realm.alias` declaration \u00e2\u20ac\u201d the ONLY wire carrier of a Realm alias.",
               "///",
               "/// `realm.schema.json` is a closed object with no `alias` property, and",
               "/// Realm genesis/profile payloads MUST NOT carry one",
-              "/// (`discovery/object-addressing.md` Â§3.3).",
+              "/// (`discovery/object-addressing.md` \u00c2\u00a73.3).",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
             ],
@@ -5574,7 +5630,7 @@
               "///",
               "/// The profile is fixed to the discussion track family and the plaintext",
               "/// therefore carries no `track_name` at all",
-              "/// (`zh/discovery/profiles-presence.md` Â§3.5).",
+              "/// (`zh/discovery/profiles-presence.md` \u00c2\u00a73.5).",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
             ],
@@ -5627,7 +5683,7 @@
               "/// Event history, so it carries no `id`, no `schema`, no `created_at` and no",
               "/// `realm_id`. Realm scope is already bound into the ciphertext by the Signal",
               "/// AAD, the sending device and send time are on the signed envelope, and the",
-              "/// payload kind is the `kind` const. One type both seals and opens â€” the",
+              "/// payload kind is the `kind` const. One type both seals and opens \u00e2\u20ac\u201d the",
               "/// closed schema and this struct describe the same five fields, so a sender's",
               "/// own bytes deserialize back.",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
@@ -5715,6 +5771,12 @@
                 "name": "ciphertext",
                 "visibility": "pub",
                 "type": "String",
+                "attributes": []
+              },
+              "encryption_scheme": {
+                "name": "encryption_scheme",
+                "visibility": "pub",
+                "type": "EncryptedPayloadScheme",
                 "attributes": []
               }
             }
@@ -6332,7 +6394,7 @@
               "///",
               "/// This is the single Rust expression of",
               "/// `identity-resolution.schema.json#/$defs/service_route_projection`",
-              "/// (`sync/service-surface.md` Â§2.6). It is produced either locally by",
+              "/// (`sync/service-surface.md` \u00c2\u00a72.6). It is produced either locally by",
               "/// [`AuthenticatedServiceResolution::projection`] after method-native",
               "/// verification, or handed over already verified inside an own-Station result",
               "/// such as the media service binding. There is deliberately only one type: a",
@@ -9180,7 +9242,7 @@
               "/// one number could not state where this result stands in all of them.",
               "///",
               "/// Convergence is by stable domain selector plus `expected_revision` CAS, so a",
-              "/// caller writes back against the `revision` of the exact entry it read â€” never",
+              "/// caller writes back against the `revision` of the exact entry it read \u00e2\u20ac\u201d never",
               "/// against a whole-Realm token.",
               "/// Field declaration order is byte-for-byte the `properties` order of",
               "/// `account-state-view.schema.json#/$defs/current`.",
@@ -9325,7 +9387,7 @@
               "/// The Account Authority populates it from a Station-local revocation",
               "/// admission record, which is the only source of the origin-derived",
               "/// authorization Event and generation. That record deliberately carries no",
-              "/// RealmCommit witness, so this binding names the authorization Event alone â€”",
+              "/// RealmCommit witness, so this binding names the authorization Event alone \u00e2\u20ac\u201d",
               "/// it is not a `CommittedEventRef` and MUST NOT be taken from client input, a",
               "/// local cache or a private lookup.",
               "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
@@ -10642,7 +10704,7 @@
               "/// `keys-operations.schema.json#/$defs/backup_active_series_state`.",
               "///",
               "/// v1 registers exactly one backup class, `secret_storage` (key-management",
-              "/// Â§7.5.0 / Â§7.6.1). The object is closed: an `mls_history` or private class",
+              "/// \u00c2\u00a77.5.0 / \u00c2\u00a77.6.1). The object is closed: an `mls_history` or private class",
               "/// member is schema-invalid and is rejected rather than ignored.",
               "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
@@ -10754,7 +10816,7 @@
             "signature": "pub struct KeyBackupSummary",
             "attributes": [
               "/// `keys-operations.schema.json#/$defs/backup_metadata`: the closed list",
-              "/// summary of one stored envelope (key-management Â§7.6.1).",
+              "/// summary of one stored envelope (key-management \u00c2\u00a77.6.1).",
               "///",
               "/// Field order is the schema `properties` order. Optional members are absent",
               "/// or carry a value; only the schema's tristate members (`supersedes_id`,",
@@ -11796,7 +11858,7 @@
               "/// Closed applicant proof for one automatic join gate",
               "/// (`event-payload.schema.json#/$defs/join_gate_proof`).",
               "///",
-              "/// The binding tuple â€” gate, Realm, applicant, policy revision, creation time â€”",
+              "/// The binding tuple \u00e2\u20ac\u201d gate, Realm, applicant, policy revision, creation time \u00e2\u20ac\u201d",
               "/// rides as wire members and is covered by `proofs`, so a proof replayed across",
               "/// Realms, applicants or policy revisions fails by field comparison before any",
               "/// signature is checked. Freshness is judged against the enclosing Event's",
@@ -11894,7 +11956,7 @@
               "/// (`event-payload.schema.json#/$defs/membership_payload`).",
               "///",
               "/// `additionalProperties:false`: the removed `handle` / `from` keys that older",
-              "/// inkson call sites tried to emit are intentionally NOT representable here â€”",
+              "/// inkson call sites tried to emit are intentionally NOT representable here \u00e2\u20ac\u201d",
               "/// `handle` has no spec-legal home in this payload (the member identity is",
               "/// carried by `member_id`; handle evidence lives in signed `HandleClaim`",
               "/// objects on the roster, not the durable membership event), and the FSM",
@@ -12100,14 +12162,14 @@
       "inline": true,
       "types": [
         {
-          "name": "MlsGenesisMaterial",
-          "schema": "authority-commit-operations.schema.json#/$defs/mls_genesis_material",
+          "name": "MlsGroupStateMaterial",
+          "schema": "authority-commit-operations.schema.json#/$defs/mls_group_state_material",
           "rust": {
-            "signature": "pub struct MlsGenesisMaterial",
+            "signature": "pub struct MlsGroupStateMaterial",
             "attributes": [
-              "/// Raw epoch-0 public material of one forwarded `ak.mls.genesis`",
-              "/// (`authority-commit-operations.schema.json#/$defs/mls_genesis_material`).",
-              "/// The signed Genesis refs are the only digest carrier.",
+              "/// Raw public material of one forwarded MLS Genesis or Commit",
+              "/// (`authority-commit-operations.schema.json#/$defs/mls_group_state_material`).",
+              "/// The signed Event refs are the only digest carrier.",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
             ],
@@ -12670,6 +12732,68 @@
                 "visibility": "pub",
                 "type": "arkret_wire::CommittedEventRef",
                 "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "AgentRuntimeHistoricalSignerFactKind",
+          "schema": "authority-commit-operations.schema.json#/$defs/agent_runtime_historical_signer_fact/properties/kind"
+        },
+        {
+          "name": "AgentRuntimeHistoricalSignerFact",
+          "schema": "authority-commit-operations.schema.json#/$defs/agent_runtime_historical_signer_fact",
+          "rust": {
+            "signature": "pub struct AgentRuntimeHistoricalSignerFact",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "kind": {
+                "name": "kind",
+                "visibility": "pub",
+                "type": "AgentRuntimeHistoricalSignerFactKind",
+                "attributes": []
+              },
+              "event_ref": {
+                "name": "event_ref",
+                "visibility": "pub",
+                "type": "EventId",
+                "attributes": []
+              },
+              "actor_id": {
+                "name": "actor_id",
+                "visibility": "pub",
+                "type": "ActorId",
+                "attributes": []
+              },
+              "verification_method": {
+                "name": "verification_method",
+                "visibility": "pub",
+                "type": "DidUrl",
+                "attributes": []
+              },
+              "public_key_base64url": {
+                "name": "public_key_base64url",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              },
+              "authorization_event_ref": {
+                "name": "authorization_event_ref",
+                "visibility": "pub",
+                "type": "EventId",
+                "attributes": []
+              },
+              "accepted_at": {
+                "name": "accepted_at",
+                "visibility": "pub",
+                "type": "DateTime<Utc>",
+                "attributes": [
+                  "#[serde(with = \"arkret_canonical::serde_helpers::canonical_timestamp\")]"
+                ]
               }
             }
           }
@@ -17230,6 +17354,342 @@
           "name": "RealmInviteLinkView",
           "schema": "realm-invite-link.schema.json#/$defs/view",
           "openapi": false
+        }
+      ]
+    },
+    {
+      "output": "crates/models-crypto/src/generated/content_history_contracts.rs",
+      "inline": true,
+      "types": [
+        {
+          "name": "ContentRootContext",
+          "schema": "content-encryption.schema.json#/$defs/root_context"
+        },
+        {
+          "name": "ContentEndpoint",
+          "schema": "content-encryption.schema.json#/$defs/endpoint"
+        },
+        {
+          "name": "ContentPurpose",
+          "schema": "content-encryption.schema.json#/$defs/content_context/properties/purpose"
+        },
+        {
+          "name": "ContentEncryptionAlgorithm",
+          "schema": "content-encryption.schema.json#/$defs/content_context/properties/encryption_algorithm"
+        },
+        {
+          "name": "ContentContext",
+          "schema": "content-encryption.schema.json#/$defs/content_context"
+        },
+        {
+          "name": "ContentRootItemKind",
+          "schema": "content-encryption.schema.json#/$defs/content_epoch_root/properties/item_kind"
+        },
+        {
+          "name": "ContentRootBackupEntry",
+          "schema": "content-encryption.schema.json#/$defs/content_epoch_root",
+          "rust": {
+            "signature": "pub struct ContentRootBackupEntry",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "item_kind": {
+                "name": "item_kind",
+                "visibility": "pub",
+                "type": "ContentRootItemKind",
+                "attributes": []
+              },
+              "secret_id": {
+                "name": "secret_id",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              },
+              "root_context": {
+                "name": "root_context",
+                "visibility": "pub",
+                "type": "ContentRootContext",
+                "attributes": []
+              },
+              "root_ref": {
+                "name": "root_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::Hash",
+                "attributes": []
+              },
+              "root_base64url": {
+                "name": "root_base64url",
+                "visibility": "pub",
+                "type": "ContentRootSecret",
+                "attributes": [
+                  "#[cfg_attr(feature = \"openapi\", salvo(schema(value_type = String)))]"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "name": "ContentCoverageEntry",
+          "schema": "content-encryption.schema.json#/$defs/coverage_entry"
+        },
+        {
+          "name": "ContentCoveragePage",
+          "schema": "content-encryption.schema.json#/$defs/coverage",
+          "rust": {
+            "signature": "pub struct ContentCoveragePage",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "effective_scope": {
+                "name": "effective_scope",
+                "visibility": "pub",
+                "type": "arkret_wire::ScopeRef",
+                "attributes": []
+              },
+              "genesis_event_ref": {
+                "name": "genesis_event_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::EventId",
+                "attributes": []
+              },
+              "cut": {
+                "name": "cut",
+                "visibility": "pub",
+                "type": "arkret_wire::CommittedEventRef",
+                "attributes": []
+              },
+              "entries": {
+                "name": "entries",
+                "visibility": "pub",
+                "type": "Vec<ContentCoverageEntry>",
+                "attributes": []
+              },
+              "backup_refs": {
+                "name": "backup_refs",
+                "visibility": "pub",
+                "type": "Vec<arkret_wire::BackupId>",
+                "attributes": []
+              },
+              "previous_page_digest": {
+                "name": "previous_page_digest",
+                "visibility": "pub",
+                "type": "Option<arkret_wire::Hash>",
+                "attributes": [
+                  "#[serde(deserialize_with = \"crate::content_history::required_nullable\")]"
+                ]
+              },
+              "page_digest": {
+                "name": "page_digest",
+                "visibility": "pub",
+                "type": "arkret_wire::Hash",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "HistoryKeySelector",
+          "schema": "content-encryption.schema.json#/$defs/key_selector",
+          "expect_large_enum_variant": true
+        },
+        {
+          "name": "HistoryGrantEntry",
+          "schema": "content-encryption.schema.json#/$defs/history_grant/properties/entries/items"
+        },
+        {
+          "name": "HistoryGrant",
+          "schema": "content-encryption.schema.json#/$defs/history_grant"
+        },
+        {
+          "name": "ContentRecoveryBinding",
+          "schema": "content-encryption.schema.json#/$defs/recovery_binding"
+        },
+        {
+          "name": "AgentHistoryCustody",
+          "schema": "content-encryption.schema.json#/$defs/custody"
+        },
+        {
+          "name": "ContentRecoveryState",
+          "schema": "content-encryption.schema.json#/$defs/history_recovery/properties/state"
+        },
+        {
+          "name": "ContentRecoveryCheckpoint",
+          "schema": "content-encryption.schema.json#/$defs/history_recovery",
+          "rust": {
+            "signature": "pub struct ContentRecoveryCheckpoint",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "state": {
+                "name": "state",
+                "visibility": "pub",
+                "type": "ContentRecoveryState",
+                "attributes": []
+              },
+              "pcr_cut": {
+                "name": "pcr_cut",
+                "visibility": "pub",
+                "type": "arkret_wire::CommittedEventRef",
+                "attributes": []
+              },
+              "coverage_head_digest": {
+                "name": "coverage_head_digest",
+                "visibility": "pub",
+                "type": "arkret_wire::Hash",
+                "attributes": []
+              },
+              "restored_event_count": {
+                "name": "restored_event_count",
+                "visibility": "pub",
+                "type": "u64",
+                "attributes": [
+                  "#[serde(with = \"arkret_canonical::serde_helpers::uint64_decimal\")]"
+                ]
+              },
+              "cleanup_inventory_digest": {
+                "name": "cleanup_inventory_digest",
+                "visibility": "pub",
+                "type": "Option<arkret_wire::Hash>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\", deserialize_with = \"arkret_canonical::serde_helpers::deserialize_non_null_optional\")]"
+                ]
+              },
+              "cleanup_completed": {
+                "name": "cleanup_completed",
+                "visibility": "pub",
+                "type": "bool",
+                "attributes": []
+              },
+              "inventory_blob_ref": {
+                "name": "inventory_blob_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::BlobRef",
+                "attributes": []
+              },
+              "cleanup_blob_ref": {
+                "name": "cleanup_blob_ref",
+                "visibility": "pub",
+                "type": "Option<arkret_wire::BlobRef>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\", deserialize_with = \"arkret_canonical::serde_helpers::deserialize_non_null_optional\")]"
+                ]
+              },
+              "replacement": {
+                "name": "replacement",
+                "visibility": "pub",
+                "type": "ContentEndpoint",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "ContentProtection",
+          "schema": "content-encryption.schema.json#/$defs/protection"
+        },
+        {
+          "name": "HistoryRequest",
+          "schema": "content-encryption.schema.json#/$defs/history_request"
+        },
+        {
+          "name": "ContentHistoryBackupAccess",
+          "schema": "content-encryption.schema.json#/$defs/history_backup_access"
+        },
+        {
+          "name": "ContentRecoveryOldLeaf",
+          "schema": "content-encryption.schema.json#/$defs/recovery_inventory_entry/properties/old_leaves/items"
+        },
+        {
+          "name": "ContentRecoveryInventoryEntry",
+          "schema": "content-encryption.schema.json#/$defs/recovery_inventory_entry"
+        },
+        {
+          "name": "ContentRecoveryInventory",
+          "schema": "content-encryption.schema.json#/$defs/recovery_inventory"
+        },
+        {
+          "name": "ContentScopeCleanup",
+          "schema": "content-encryption.schema.json#/$defs/scope_cleanup"
+        },
+        {
+          "name": "ContentCleanupInventory",
+          "schema": "content-encryption.schema.json#/$defs/cleanup_inventory"
+        },
+        {
+          "name": "ContentRecoverySourceAttestation",
+          "schema": "content-encryption.schema.json#/$defs/recovery_source_attestation"
+        }
+      ]
+    },
+    {
+      "output": "crates/models-collaboration/src/generated/content_history_contracts.rs",
+      "inline": true,
+      "types": [
+        {
+          "name": "ContentRecoverySource",
+          "schema": "content-encryption.schema.json#/$defs/recovery_source",
+          "rust": {
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "signature": "pub struct ContentRecoverySource",
+            "members": {
+              "attestation": {
+                "name": "attestation",
+                "visibility": "pub",
+                "type": "ContentRecoverySourceAttestation",
+                "attributes": []
+              },
+              "origin_resolution": {
+                "name": "origin_resolution",
+                "visibility": "pub",
+                "type": "AuthenticatedServiceResolution",
+                "attributes": []
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "output": "crates/models-collaboration/src/generated/mls_roster_authority_contracts.rs",
+      "inline": true,
+      "types": [
+        {
+          "name": "MlsRosterRecoverySigningKey",
+          "schema": "mls-roster-authority.schema.json#/$defs/roster_recovery_signing_key",
+          "rust": {
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "signature": "pub struct MlsRosterRecoverySigningKey",
+            "members": {
+              "record_digest": {
+                "name": "record_digest",
+                "visibility": "pub",
+                "type": "Hash",
+                "attributes": []
+              },
+              "public_key_base64url": {
+                "name": "public_key_base64url",
+                "visibility": "pub",
+                "type": "Base64UrlString",
+                "attributes": []
+              }
+            }
+          }
         }
       ]
     }

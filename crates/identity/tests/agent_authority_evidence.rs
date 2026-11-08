@@ -240,7 +240,9 @@ fn fixture() -> (Station, Event, AgentProducerEvidence) {
           "schema":"ak.schema.realm_genesis.v1","purpose":"agent_control","genesis_salt":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
           "initial_resolution":{"did":agent_did,"method_history_head":arkret_canonical::canonical_sha256(&inception.log_entry).unwrap(),"version_id":inception.version_id},
           "trust_domain":"ak:trust_domain:station.example","security_class":"high_assurance","governance_station_id":station.service_id,
-          "initial_join_rule":"closed","initial_history_access":"since_join","initial_discoverability":"secret"
+          "initial_join_rule":"closed","initial_history_access":"since_join",
+          "initial_encryption_backup_strategy":"ak.encryption_backup.epoch_content_roots.v1",
+          "initial_discoverability":"secret"
         }}),
         at,
     )

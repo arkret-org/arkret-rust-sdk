@@ -474,15 +474,21 @@ pub fn verify_historical_producer_event_signature(
         F::AccountDevice(fact) => {
             verify_historical_account_device_event_signature(event, fact, suite)
         }
-        F::RealmDevice(_) | F::RealmControl(_) | F::RealmRecoveryService(_) => {
+        F::RealmDevice(_)
+        | F::RealmControl(_)
+        | F::RealmRecoveryService(_)
+        | F::AgentRuntime(_) => {
             fact.validate_event_binding(event, suite)?;
             let (method, key) = match fact {
-                F::RealmDevice(f) => (&f.verification_method, &f.public_key_base64url),
-                F::RealmControl(f) => (&f.verification_method, &f.public_key_base64url),
-                F::RealmRecoveryService(f) => (&f.verification_method, &f.public_key_base64url),
+                F::RealmDevice(f) => (&f.verification_method, f.public_key_base64url.as_str()),
+                F::RealmControl(f) => (&f.verification_method, f.public_key_base64url.as_str()),
+                F::RealmRecoveryService(f) => {
+                    (&f.verification_method, f.public_key_base64url.as_str())
+                }
+                F::AgentRuntime(f) => (&f.verification_method, f.public_key_base64url.as_str()),
                 _ => unreachable!(),
             };
-            let raw = arkret_canonical::base64url_decode(key.as_str())
+            let raw = arkret_canonical::base64url_decode(key)
                 .map_err(|e| signature_invalid(e.to_string()))?;
             arkret_signatures::verify_ed25519_detached_jws_proof_with_digest_suite(
                 event

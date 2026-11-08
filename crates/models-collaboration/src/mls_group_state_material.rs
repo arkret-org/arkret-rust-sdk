@@ -18,7 +18,9 @@ pub struct MlsGroupStateMaterialRequestBody {
     pub realm_id: RealmId,
     pub effective_scope: ScopeRef,
     pub mls_group_id: MlsGroupId,
-    pub epoch: crate::events_payloads::mls::MlsGenesisEpoch,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
+    pub epoch: u64,
     pub group_state_event_id: EventId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub caller_actor_id: Option<ActorId>,
@@ -92,7 +94,9 @@ pub struct MlsMemberGroupStateMaterialReadRequestBody {
     pub realm_id: RealmId,
     pub effective_scope: ScopeRef,
     pub mls_group_id: MlsGroupId,
-    pub epoch: crate::events_payloads::mls::MlsGenesisEpoch,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
+    pub epoch: u64,
     pub group_state_event_id: EventId,
     pub caller_actor_id: ActorId,
     pub target_commit_event_ref: EventId,
@@ -134,7 +138,9 @@ pub struct MlsGroupStateMaterialResponseBody {
     pub realm_id: RealmId,
     pub effective_scope: ScopeRef,
     pub mls_group_id: MlsGroupId,
-    pub epoch: crate::events_payloads::mls::MlsGenesisEpoch,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
+    pub epoch: u64,
     pub group_state_event_id: EventId,
     pub group_info_ref: BlobRef,
     pub group_info_base64url: Base64UrlString,

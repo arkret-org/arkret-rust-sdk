@@ -18,12 +18,15 @@ pub mod aead_nonce;
 pub mod backup;
 #[cfg(feature = "blob-aead")]
 pub mod blob_aead;
+#[cfg(feature = "content-history")]
+pub mod content_history;
 #[cfg(feature = "blob-aead")]
 pub mod file_transfer_aead;
 #[cfg(feature = "hpke")]
 pub mod hpke;
 #[cfg(feature = "identity-root")]
 pub mod identity_root;
+pub mod key_commitment;
 #[cfg(feature = "aead")]
 pub mod mls_exporter;
 #[cfg(feature = "secret-share")]

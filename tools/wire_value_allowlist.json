@@ -2911,6 +2911,18 @@
       "spec_pointer": "account-subscribe-frame.schema.json#/$defs/realm_sync_entry/properties/member_roster"
     },
     {
+      "finding": "crates/models-crypto/src/encrypted_envelope.rs::EventContentMaterial.outer_event",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "arkret_models_crypto::EventContentPreEncryptionHeader::canonical_bytes",
+      "owner_repository": "arkret-rust-sdk",
+      "adjudication": "manual",
+      "action": "Retain the exact original Event metadata projection as local AEAD preimage, after original proof and authority verification; never use this as an independent Event wire DTO.",
+      "test": "cargo test -p arkret-crypto --all-features --test content_history",
+      "reason": "The formal content AAD includes every original outer Event metadata member after excluding event_id, payload, producer_proof and unsigned. This internal staging Value preserves canonical Event metadata without creating a second Event DTO; header validation binds actual producer, scope and kind, and formal KATs cover exact JCS bytes and metadata tampering."
+    },
+    {
       "finding": "crates/models-crypto/src/generated/key_backup_operations_contracts.rs::KeyBackupSummary.retention",
       "classification": "open_json",
       "lifecycle": "retained_boundary",

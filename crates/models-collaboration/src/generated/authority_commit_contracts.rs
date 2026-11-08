@@ -2,21 +2,21 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/authority-commit-operations.schema.json
-// sha256=e621293b9e2e5e08de76450a99b0e8069fa9bb92c806fe8dfe3134176e8c63b9
+// sha256=c272ff2ffe8cfb2d2b626bb032b7f683a593de79649c2e870de860a13cf58087
 //
 // Input: schemas/common-ids.schema.json
 // sha256=0cc25a02fe0d9a94f6e41f2cf8f64e492ba36362f1e69a699cf1e684924837ee
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=3d8286ffa86f9dd01d3c540d77924093bfc6e9642d4effb361307f36e3ffd625
+// sha256=c118dc80d3979cf43e74a8ebd793a80ebb67f13c08db276c8d2c87279bae1b20
 
-/// Counterpart: `authority-commit-operations.schema.json#/$defs/mls_genesis_material`.
-/// Raw epoch-0 public material of one forwarded `ak.mls.genesis`
-/// (`authority-commit-operations.schema.json#/$defs/mls_genesis_material`).
-/// The signed Genesis refs are the only digest carrier.
+/// Counterpart: `authority-commit-operations.schema.json#/$defs/mls_group_state_material`.
+/// Raw public material of one forwarded MLS Genesis or Commit
+/// (`authority-commit-operations.schema.json#/$defs/mls_group_state_material`).
+/// The signed Event refs are the only digest carrier.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct MlsGenesisMaterial {
+pub struct MlsGroupStateMaterial {
     pub group_info_base64url: String,
     pub ratchet_tree_base64url: String,
 }
@@ -210,4 +210,30 @@ pub struct RealmRecoveryServiceHistoricalSignerFact {
     pub registration_ref: arkret_wire::CommittedEventRef,
     pub manager_ref: arkret_wire::CommittedEventRef,
     pub recovery_ref: arkret_wire::CommittedEventRef,
+}
+
+/// Counterpart:
+/// `authority-commit-operations.schema.json#/$defs/agent_runtime_historical_signer_fact/properties/
+/// kind`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AgentRuntimeHistoricalSignerFactKind {
+    #[serde(rename = "agent_runtime")]
+    AgentRuntime,
+}
+
+/// Counterpart:
+/// `authority-commit-operations.schema.json#/$defs/agent_runtime_historical_signer_fact`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentRuntimeHistoricalSignerFact {
+    pub kind: AgentRuntimeHistoricalSignerFactKind,
+    pub event_ref: EventId,
+    pub actor_id: ActorId,
+    pub verification_method: DidUrl,
+    pub public_key_base64url: String,
+    pub authorization_event_ref: EventId,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub accepted_at: DateTime<Utc>,
 }

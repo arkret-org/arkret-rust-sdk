@@ -130,3 +130,33 @@ pub fn mls_exporter_from_secret_with_hash(
         .map_err(|_| Error::Crypto("MLS exporter expansion failed".into()))?;
     Ok(output)
 }
+
+/// Explicit suite-hash expansion for independent primitive KATs.
+/// This does not activate alternate hashes in the live Arkret suite registry.
+pub fn mls_expand_with_label_with_hash(
+    secret: &[u8],
+    label: &str,
+    context: &[u8],
+    length: usize,
+    hash: MlsExporterHash,
+) -> Result<Vec<u8>> {
+    let nh = match hash {
+        MlsExporterHash::Sha256 => 32,
+        MlsExporterHash::Sha384 => 48,
+    };
+    if secret.len() != nh || label.is_empty() || length == 0 {
+        return Err(Error::Crypto(
+            "invalid MLS expansion primitive inputs".into(),
+        ));
+    }
+    if hash == MlsExporterHash::Sha256 {
+        return mls_expand_with_label(secret, label, context, length);
+    }
+    let info = mls_kdf_label(length, label, context)?;
+    let mut output = vec![0; length];
+    Hkdf::<Sha384>::from_prk(secret)
+        .map_err(|_| Error::Crypto("invalid SHA-384 expansion secret".into()))?
+        .expand(&info, &mut output)
+        .map_err(|_| Error::Crypto("MLS expansion failed".into()))?;
+    Ok(output)
+}

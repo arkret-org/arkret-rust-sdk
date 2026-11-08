@@ -672,8 +672,12 @@ mod tests {
             value: serde_json::from_value(json!({
                 "sidecar_id": sidecar_id(),
                 "source_context_ref": {"kind":"strand","strand_id":strand_id()},
-                "encrypted_payload": {"version":"1.0","content_type":"application/vnd.arkret.agent-sidecar-exchange-control+json",
-                    "encryption_context":{"epoch":"1","group_state_ref":event_id(7)},"ciphertext":"AQIDBA"}
+                "encrypted_payload": ({
+                    let fixture: serde_json::Value = serde_json::from_str(include_str!("../../../../arkret-spec/spec/v1/artifacts/fixtures/content-history-fixture.json")).unwrap();
+                    let mut envelope = fixture["kat"]["envelope"].clone();
+                    envelope["content_type"] = json!("application/vnd.arkret.agent-sidecar-exchange-control+json");
+                    envelope
+                })
             })).unwrap(),
         }
         };

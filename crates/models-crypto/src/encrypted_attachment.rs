@@ -48,7 +48,7 @@ impl From<AttachmentContentKeySalt> for String {
     }
 }
 
-/// The exact resolved MLS-Exporter Context from media-and-blob section 3.0.
+/// The exact resolved per-object expansion Context from media-and-blob section 3.0.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AttachmentContentKeyContext {
@@ -59,10 +59,12 @@ pub struct AttachmentContentKeyContext {
     pub scheme: String,
     pub encryption_algorithm: String,
     pub content_key_salt: AttachmentContentKeySalt,
+    pub producer: crate::ContentEndpoint,
 }
 
 impl AttachmentContentKeyContext {
     pub fn validate(&self) -> arkret_wire::Result<()> {
+        self.producer.validate()?;
         self.effective_scope.canonical_mls_group_id()?;
         let valid = match self.scheme.as_str() {
             "ak.blob.whole_file_aead.v1" => matches!(
@@ -241,6 +243,8 @@ pub struct WholeFileEncryptedAttachment {
     pub size_bytes: u64,
     pub media_type: String,
     pub nonce: Base64UrlString,
+    pub producer: crate::ContentEndpoint,
+    pub key_commitment: Hash,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -274,6 +278,8 @@ pub struct StreamEncryptedAttachment {
     pub media_type: String,
     pub nonce_prefix: Base64UrlString,
     pub segment_bytes: u64,
+    pub producer: crate::ContentEndpoint,
+    pub key_commitment: Hash,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -285,6 +291,19 @@ pub enum EncryptedAttachment {
 }
 
 impl EncryptedAttachment {
+    pub fn producer(&self) -> &crate::ContentEndpoint {
+        match self {
+            Self::WholeFile(value) => &value.producer,
+            Self::Stream(value) => &value.producer,
+        }
+    }
+
+    pub fn key_commitment(&self) -> &Hash {
+        match self {
+            Self::WholeFile(value) => &value.key_commitment,
+            Self::Stream(value) => &value.key_commitment,
+        }
+    }
     pub fn media_type(&self) -> &str {
         match self {
             Self::WholeFile(value) => &value.media_type,
@@ -350,6 +369,7 @@ impl EncryptedAttachment {
             scheme: scheme.into(),
             encryption_algorithm: algorithm.into(),
             content_key_salt: salt.clone(),
+            producer: self.producer().clone(),
         }
     }
 }

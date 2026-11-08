@@ -1,3 +1,4 @@
+mod support;
 use arkret_canonical::{base64url, canonical};
 use arkret_models_crypto::{
     EncryptedEnvelope, MlsCommitEnvelope, MlsCommitPayload, MlsGovernanceBindingPayload,
@@ -6,21 +7,11 @@ use arkret_schema_conformance::{event_payload_validator_catalog, spec_json_artif
 use arkret_wire::{EncryptedPayloadScheme, EventId, Hash, RealmId, ScopeRef};
 
 fn encrypted_envelope_wire() -> serde_json::Value {
-    serde_json::json!({
-        "version": "1.0",
-        "content_type": "application/vnd.arkret.strand.patch-value+json",
-        "encryption_context": {
-            "epoch": "1",
-            "group_state_ref": EventId::from_event_digest(
-                &Hash::new(canonical::sha256_digest(b"winning-state")).unwrap()
-            ).unwrap()
-        },
-        "ciphertext": "AA"
-    })
+    support::fixture()["kat"]["envelope"].clone()
 }
 
 #[test]
-fn encrypted_envelope_wire_preserves_standard_mls_context() {
+fn encrypted_envelope_wire_preserves_registered_content_context() {
     let wire = encrypted_envelope_wire();
     let decoded: EncryptedEnvelope = serde_json::from_value(wire.clone()).unwrap();
     assert_eq!(serde_json::to_value(&decoded).unwrap(), wire);
@@ -29,11 +20,12 @@ fn encrypted_envelope_wire_preserves_standard_mls_context() {
     };
     decoded
         .reconstruct_pre_encryption_header(
-            EncryptedPayloadScheme::MlsRfc9420,
-            scope,
+            EncryptedPayloadScheme::EpochContentAead,
+            scope.clone(),
             "ak.strand.update",
-            "sender.example",
+            support::sender_domain(),
             None,
+            support::material(&decoded, &scope, "ak.strand.update"),
         )
         .unwrap()
         .validate()
@@ -127,7 +119,15 @@ fn mls_commit_payload_matches_registered_event_schema() {
         commit_digest: Hash::new(canonical::sha256_digest(commit_bytes)).unwrap(),
         ratchet_tree: None,
     };
-    let payload = MlsCommitPayload::new(base, 0, &commit, binding).unwrap();
+    let payload = MlsCommitPayload::new(
+        base,
+        0,
+        &commit,
+        binding,
+        arkret_wire::BlobRef::new(format!("ak:blob:sha256:{}", "11".repeat(32))).unwrap(),
+        arkret_wire::BlobRef::new(format!("ak:blob:sha256:{}", "22".repeat(32))).unwrap(),
+    )
+    .unwrap();
     let value = serde_json::to_value(&payload).unwrap();
 
     event_payload_validator_catalog()

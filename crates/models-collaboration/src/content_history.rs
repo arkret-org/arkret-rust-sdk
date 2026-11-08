@@ -1,0 +1,184 @@
+//! Original owning-Station recovery proof; never a current routing source.
+
+use arkret_models_crypto::{ContentRecoveryBinding, ContentRecoverySourceAttestation};
+use arkret_models_identity::AuthenticatedServiceResolution;
+use arkret_wire::{Event, EventKind, Hash, Result, WireError};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+
+use crate::authority_commit::HistoricalProducerSignerFact;
+
+include!("generated/content_history_contracts.rs");
+
+/// The original client carrier rejects source; only the owning Station emits this peer form.
+pub type PeerMlsCommitSubmission = arkret_wire::MlsCommitSubmission<ContentRecoverySource>;
+
+#[derive(Serialize)]
+struct UnsignedRecoverySourceAttestation<'a> {
+    event_ref: &'a arkret_wire::EventId,
+    replacement: &'a arkret_models_crypto::ContentEndpoint,
+    effective_scope: &'a arkret_wire::ScopeRef,
+    base_group_state_ref: &'a arkret_wire::EventId,
+    #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
+    previous_epoch: u64,
+    inventory_digest: &'a Hash,
+    verification_method: &'a arkret_wire::DidUrl,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    attested_at: &'a DateTime<Utc>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    expires_at: &'a DateTime<Utc>,
+}
+
+impl ContentRecoverySource {
+    pub fn signing_payload_bytes(&self) -> Result<Vec<u8>> {
+        let ContentRecoverySourceAttestation {
+            event_ref,
+            replacement,
+            effective_scope,
+            base_group_state_ref,
+            previous_epoch,
+            inventory_digest,
+            verification_method,
+            attested_at,
+            expires_at,
+            signature: _,
+        } = &self.attestation;
+        let value = UnsignedRecoverySourceAttestation {
+            event_ref,
+            replacement,
+            effective_scope,
+            base_group_state_ref,
+            previous_epoch: *previous_epoch,
+            inventory_digest,
+            verification_method,
+            attested_at,
+            expires_at,
+        };
+        let mut bytes = b"ak.mls.recovery_source.v1\n".to_vec();
+        bytes.extend(arkret_canonical::canonical_json_bytes(&value)?);
+        Ok(bytes)
+    }
+
+    /// Byte binding at forwarding time. Native authority, original service
+    /// signature and the accepting clock remain separate mandatory checks.
+    pub fn validate_submission_binding(&self, event: &Event) -> Result<()> {
+        let source = &self.attestation;
+        let account = event.actor_id.as_account_id().ok_or_else(|| {
+            WireError::Protocol("recovery source requires the original Account actor".to_owned())
+        })?;
+        let binding: ContentRecoveryBinding = serde_json::from_value(
+            event
+                .payload
+                .get("recovery_binding")
+                .cloned()
+                .ok_or_else(|| WireError::Protocol("missing recovery binding".to_owned()))?,
+        )?;
+        binding.validate()?;
+        if event.kind != EventKind::MlsCommit
+            || self.origin_resolution.service_id != account.station_id
+            || self.origin_resolution.service_kind != "station"
+            || source.event_ref != event.event_id
+            || source.replacement != binding.replacement
+            || source.replacement.actor_id != event.actor_id
+            || source.effective_scope != event.scope_ref
+            || source.base_group_state_ref != binding.base_group_state_ref
+            || event.payload.get("base_group_state_ref")
+                != Some(&serde_json::to_value(&source.base_group_state_ref)?)
+            || event
+                .payload
+                .get("previous_epoch")
+                .and_then(serde_json::Value::as_str)
+                != Some(source.previous_epoch.to_string().as_str())
+            || source.previous_epoch != binding.expected_epoch
+            || source.inventory_digest != binding.inventory_digest
+            || source.expires_at - source.attested_at > chrono::Duration::seconds(300)
+            || source.expires_at <= source.attested_at
+            || event.actual_signer() != &event.actor_id
+            || event
+                .producer_proof
+                .as_ref()
+                .map(|proof| &proof.verification_method)
+                != Some(&source.verification_method)
+        {
+            return Err(WireError::Protocol(
+                "recovery source differs from exact original submission binding".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Original-time byte binding; native historical authority and signature are independent.
+    pub fn validate_original_binding(
+        &self,
+        event: &Event,
+        committed_at: DateTime<Utc>,
+        fact: &HistoricalProducerSignerFact,
+    ) -> Result<()> {
+        self.validate_submission_binding(event)?;
+        let source = &self.attestation;
+        if source.attested_at > committed_at || source.expires_at <= committed_at {
+            return Err(WireError::Protocol(
+                "recovery source was not fresh at original acceptance".into(),
+            ));
+        }
+        let (actor, method, public, authorization, accepted_at) = match fact {
+            HistoricalProducerSignerFact::AccountDevice(f) => {
+                if source.replacement.endpoint
+                    != (arkret_wire::MlsWelcomeRecipientEndpoint::Device {
+                        device_id: f.device_id.clone(),
+                    })
+                {
+                    return Err(WireError::Protocol(
+                        "recovery source Device mismatch".to_owned(),
+                    ));
+                }
+                (
+                    &f.actor,
+                    &f.verification_method,
+                    f.key.public_key_base64url.as_str(),
+                    &f.key.authorization_ref.event_id,
+                    f.accepted_at,
+                )
+            }
+            HistoricalProducerSignerFact::AgentRuntime(f) => {
+                if source.replacement.endpoint
+                    != (arkret_wire::MlsWelcomeRecipientEndpoint::AgentRuntime {
+                        verification_method: f.verification_method.clone(),
+                    })
+                {
+                    return Err(WireError::Protocol(
+                        "Agent recovery source cannot use a Device endpoint".to_owned(),
+                    ));
+                }
+                (
+                    &f.actor_id,
+                    &f.verification_method,
+                    f.public_key_base64url.as_str(),
+                    &f.authorization_event_ref,
+                    f.accepted_at,
+                )
+            }
+            _ => {
+                return Err(WireError::Protocol(
+                    "unsupported recovery source producer".to_owned(),
+                ));
+            }
+        };
+        if actor != &source.replacement.actor_id
+            || method != &source.verification_method
+            || public != source.replacement.signature_key_base64url.as_str()
+            || authorization != &source.replacement.authorization_event_ref
+            || accepted_at != committed_at
+            || fact.event_id() != &event.event_id
+        {
+            return Err(WireError::Protocol(
+                "original signer fact differs from origin endpoint proof".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn original_fact_digest(fact: &HistoricalProducerSignerFact) -> Result<Hash> {
+        fact.digest()
+    }
+}

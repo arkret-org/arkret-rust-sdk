@@ -795,7 +795,7 @@ pub struct PinReorderPayload {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum PinAssertionPayload {
-    Add(PinAddPayload),
+    Add(Box<PinAddPayload>),
     Remove(PinRemovePayload),
     Reorder(PinReorderPayload),
 }

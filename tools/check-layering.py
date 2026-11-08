@@ -122,6 +122,8 @@ ALLOWED_EDGES: dict[str, set[str]] = {
         "arkret-event-draft",
         "arkret-lattice-registry",
         "arkret-models-collaboration",
+        # Immutable provision options carry the SDK-owned AgentHistoryCustody.
+        "arkret-models-crypto",
         "arkret-models-identity",
         "arkret-state",
         "arkret-wire",

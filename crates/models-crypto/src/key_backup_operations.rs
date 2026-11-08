@@ -12,6 +12,12 @@ use crate::{BackupKind, KeyBackupRecipientMethod, KeyBackupSignatureAlgorithm};
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyBackupsListQuery {
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub agent_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub series_id: Option<BackupSeriesId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -231,6 +237,44 @@ where
 #[serde(deny_unknown_fields)]
 pub struct KeysBackupsIssueUnlockChallengeRequestBody {
     pub request_id: Base64UrlString,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub subject_actor_id: Option<ActorId>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub custody_authorization_ref: Option<arkret_wire::EventId>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub content_history: Option<crate::ContentHistoryBackupAccess>,
+}
+
+impl KeysBackupsIssueUnlockChallengeRequestBody {
+    pub fn validate(&self) -> arkret_wire::Result<()> {
+        if !(22..=128).contains(&self.request_id.as_str().len())
+            || self.subject_actor_id.is_some() != self.custody_authorization_ref.is_some()
+            || self
+                .subject_actor_id
+                .as_ref()
+                .is_some_and(|actor| actor.as_account_id().is_none())
+        {
+            return Err(arkret_wire::WireError::Protocol(
+                "invalid unlock challenge request subject or idempotency binding".into(),
+            ));
+        }
+        if let Some(history) = &self.content_history {
+            history.validate()?;
+        }
+        Ok(())
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -253,6 +297,63 @@ pub struct KeysBackupsUnlockChallenge {
     pub issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub subject_actor_id: Option<ActorId>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub custody_authorization_ref: Option<arkret_wire::EventId>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub content_history: Option<crate::ContentHistoryBackupAccess>,
+}
+
+impl KeysBackupsUnlockChallenge {
+    pub fn validate_for_request(
+        &self,
+        request: &KeysBackupsIssueUnlockChallengeRequestBody,
+        backup_id: &BackupId,
+    ) -> arkret_wire::Result<()> {
+        request.validate()?;
+        if self.request_id != request.request_id
+            || &self.backup_id != backup_id
+            || self.subject_actor_id != request.subject_actor_id
+            || self.custody_authorization_ref != request.custody_authorization_ref
+            || self.content_history != request.content_history
+            || self.operation
+                != arkret_wire::ServiceOperationId::SELF_KEYS_BACKUPS_COMMAND_UNLOCK_V1
+            || self.service_id != self.account_id.station_id
+            || self.challenge.as_str().len() != 43
+            || self.nonce.as_str().len() < 22
+            || !(22..=128).contains(&self.challenge_id.as_str().len())
+            || self.expires_at <= self.issued_at
+            || self.expires_at - self.issued_at > chrono::Duration::seconds(300)
+        {
+            return Err(arkret_wire::WireError::Protocol(
+                "unlock challenge differs from exact request or freshness binding".into(),
+            ));
+        }
+        if let Some(subject) = &self.subject_actor_id {
+            let account = subject.as_account_id().ok_or_else(|| {
+                arkret_wire::WireError::Protocol("custody subject must be an Account".into())
+            })?;
+            if account == &self.account_id || account.station_id != self.account_id.station_id {
+                return Err(arkret_wire::WireError::Protocol(
+                    "custody subject must be a distinct same-Station Account".into(),
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -297,6 +398,24 @@ pub struct KeyBackupUnlockProof {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub signature_proof: KeyBackupUnlockSignatureProof,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub subject_actor_id: Option<ActorId>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub custody_authorization_ref: Option<arkret_wire::EventId>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub content_history: Option<crate::ContentHistoryBackupAccess>,
 }
 
 #[derive(Deserialize)]
@@ -318,6 +437,21 @@ struct KeyBackupUnlockProofFields {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     expires_at: DateTime<Utc>,
     signature_proof: KeyBackupUnlockSignatureProof,
+    #[serde(
+        default,
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    subject_actor_id: Option<ActorId>,
+    #[serde(
+        default,
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    custody_authorization_ref: Option<arkret_wire::EventId>,
+    #[serde(
+        default,
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    content_history: Option<crate::ContentHistoryBackupAccess>,
 }
 
 impl<'de> Deserialize<'de> for KeyBackupUnlockProof {
@@ -329,6 +463,9 @@ impl<'de> Deserialize<'de> for KeyBackupUnlockProof {
             .as_object()
             .ok_or_else(|| D::Error::custom("unlock proof must be an object"))?;
         const FIELDS: &[&str] = &[
+            "subject_actor_id",
+            "custody_authorization_ref",
+            "content_history",
             "schema",
             "kind",
             "challenge_id",
@@ -384,6 +521,9 @@ impl<'de> Deserialize<'de> for KeyBackupUnlockProof {
             issued_at: fields.issued_at,
             expires_at: fields.expires_at,
             signature_proof: fields.signature_proof,
+            subject_actor_id: fields.subject_actor_id,
+            custody_authorization_ref: fields.custody_authorization_ref,
+            content_history: fields.content_history,
         };
         proof.validate().map_err(D::Error::custom)?;
         Ok(proof)
@@ -394,6 +534,19 @@ impl KeyBackupUnlockProof {
     pub const SCHEMA: &'static str = arkret_wire::SchemaId::KEY_BACKUP_UNLOCK_PROOF_V1;
 
     pub fn validate(&self) -> arkret_wire::Result<()> {
+        if self.subject_actor_id.is_some() != self.custody_authorization_ref.is_some()
+            || matches!(
+                self.authority,
+                KeyBackupUnlockAuthority::RecoverySession { .. }
+            ) && (self.subject_actor_id.is_some() || self.content_history.is_some())
+        {
+            return Err(arkret_wire::WireError::Protocol(
+                "unlock history/custody requires exact current-device authority".to_owned(),
+            ));
+        }
+        if let Some(history) = &self.content_history {
+            history.validate()?;
+        }
         if self.schema != Self::SCHEMA
             || self.challenge.as_str().len() != 43
             || self.expires_at <= self.issued_at

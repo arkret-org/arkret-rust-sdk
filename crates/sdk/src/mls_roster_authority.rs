@@ -10,6 +10,169 @@ use arkret_wire::{ActorId, DidCoreId, DidUrl, EventId, WireError};
 
 use crate::verify_peer_keypackage_claim_receipt_signature;
 
+/// Original native authority, source signature and RFC path verified together.
+/// This is a local effect, never a portable wire proof or caller boolean.
+#[derive(Clone, Debug)]
+pub struct VerifiedMlsRosterRecoveryRecord {
+    record_digest: arkret_wire::Hash,
+    public_key_base64url: arkret_wire::Base64UrlString,
+}
+
+#[cfg(feature = "mls")]
+pub fn verify_mls_roster_recovery_record(
+    record: &MlsRosterRecord,
+    accepted_base: &arkret_wire::CommittedEventFullView,
+    material: &arkret_models_collaboration::mls_group_state_material::MlsGroupStateMaterialResponseBody,
+    authority: &arkret_identity::realm_authority_chain::VerifiedRealmAuthority,
+    keys: &dyn arkret_identity::realm_authority_chain::RealmAuthorityKeyDirectory,
+) -> Result<VerifiedMlsRosterRecoveryRecord, WireError> {
+    record.validate_shape()?;
+    let MlsRosterRecord::Recovery {
+        commit_event,
+        covering_commit,
+        producer_signer_fact,
+        recovery_source,
+        ..
+    } = record
+    else {
+        return Err(roster_error(
+            "native recovery verifier requires a recovery record",
+        ));
+    };
+    let account = commit_event
+        .actor_id
+        .as_account_id()
+        .ok_or_else(|| roster_error("recovery requires an Account actor"))?;
+    verify_station_signature(
+        &account.station_id,
+        recovery_source.attestation.attested_at,
+        &recovery_source.attestation.signature,
+        &recovery_source.signing_payload_bytes()?,
+        &recovery_source.origin_resolution,
+    )?;
+    arkret_identity::account_device_signer_evidence::verify_historical_producer_committed_event(
+        &arkret_wire::CommittedEventFullView {
+            commit: covering_commit.clone(),
+            event: commit_event.clone(),
+        },
+        producer_signer_fact,
+        authority,
+        keys,
+        arkret_canonical::DigestSuite::Sha256,
+    )
+    .map_err(roster_error)?;
+    authority
+        .verify_committed_item(accepted_base, keys)
+        .map_err(roster_error)?;
+    let MlsRosterRecord::Recovery {
+        base_group_info_ref,
+        base_ratchet_tree_ref,
+        ..
+    } = record
+    else {
+        unreachable!()
+    };
+    let payload: arkret_models_crypto::MlsCommitPayload =
+        serde_json::from_value(serde_json::to_value(&commit_event.payload)?)
+            .map_err(roster_error)?;
+    if accepted_base.event.event_id != *payload.base_group_state_ref()
+        || accepted_base.event.scope_ref != commit_event.scope_ref
+        || accepted_base.event.realm_id != commit_event.realm_id
+        || !matches!(
+            accepted_base.event.kind,
+            arkret_wire::EventKind::MlsGenesis | arkret_wire::EventKind::MlsCommit
+        )
+        || accepted_base.event.payload.get("group_info_ref")
+            != Some(&serde_json::to_value(base_group_info_ref).map_err(roster_error)?)
+        || accepted_base.event.payload.get("ratchet_tree_ref")
+            != Some(&serde_json::to_value(base_ratchet_tree_ref).map_err(roster_error)?)
+    {
+        return Err(roster_error(
+            "recovery base references differ from the original accepted Event",
+        ));
+    }
+    verify_mls_recovery_roster_path(record, material)?;
+    Ok(VerifiedMlsRosterRecoveryRecord {
+        record_digest: arkret_wire::Hash::new(
+            arkret_canonical::canonical_sha256(record).map_err(roster_error)?,
+        )
+        .map_err(roster_error)?,
+        public_key_base64url: arkret_wire::Base64UrlString::new(
+            recovery_source
+                .attestation
+                .replacement
+                .signature_key_base64url
+                .clone(),
+        )
+        .map_err(roster_error)?,
+    })
+}
+
+/// Clients supply exact base public material obtained through their authenticated
+/// own Station, bound to the independently verified recovery roster references.
+/// Native method history is verified by the Station, never inferred here.
+#[cfg(feature = "mls")]
+pub fn verify_mls_recovery_roster_path(
+    record: &MlsRosterRecord,
+    material: &arkret_models_collaboration::mls_group_state_material::MlsGroupStateMaterialResponseBody,
+) -> Result<(), WireError> {
+    use arkret_models_collaboration::mls_group_state_material::MlsGroupStateMaterialRequestBody;
+    record.validate_shape()?;
+    let MlsRosterRecord::Recovery {
+        commit_event,
+        base_group_info_ref,
+        base_ratchet_tree_ref,
+        ..
+    } = record
+    else {
+        return Err(roster_error(
+            "RFC recovery verifier requires a recovery record",
+        ));
+    };
+    let payload: arkret_models_crypto::MlsCommitPayload =
+        serde_json::from_value(serde_json::to_value(&commit_event.payload)?)
+            .map_err(roster_error)?;
+    let request = MlsGroupStateMaterialRequestBody {
+        realm_id: commit_event.realm_id.clone(),
+        effective_scope: commit_event.scope_ref.clone(),
+        mls_group_id: payload.mls_group_id()?,
+        epoch: payload.base_epoch(),
+        group_state_event_id: payload.base_group_state_ref().clone(),
+        caller_actor_id: None,
+        target_commit_event_ref: None,
+        target_epoch: None,
+        group_info_ref: base_group_info_ref.clone(),
+        ratchet_tree_ref: base_ratchet_tree_ref.clone(),
+        max_response_bytes: None,
+    };
+    let verified = material.validate_for_request(&request)?;
+    let mut public = arkret_mls::MlsPublicGroupTracker::from_external(
+        &verified.group_info_bytes,
+        &verified.ratchet_tree_bytes,
+        request.mls_group_id.as_str(),
+        request.epoch,
+    )
+    .map_err(roster_error)?;
+    let current = arkret_mls::MlsGovernanceBindingPublicState::new(
+        request.effective_scope,
+        Some(request.group_state_event_id),
+        request.epoch,
+        payload.governance_binding().key_access_revision(),
+    );
+    public
+        .process_recovery_external_commit(
+            &arkret_canonical::base64url_decode(payload.commit_base64url())
+                .map_err(roster_error)?,
+            payload
+                .recovery_binding()
+                .ok_or_else(|| roster_error("recovery binding absent"))?,
+            &current,
+            payload.governance_binding(),
+        )
+        .map_err(roster_error)?;
+    Ok(())
+}
+
 fn verify_station_signature(
     station_id: &DidCoreId,
     signed_at: chrono::DateTime<chrono::Utc>,
@@ -130,6 +293,25 @@ pub fn verify_mls_roster_authority_pages(
     expected_authority_head_event_ref: &EventId,
     governance_resolution: &AuthenticatedServiceResolution,
 ) -> Result<(), WireError> {
+    verify_mls_roster_authority_pages_with_recovery(
+        pages,
+        request,
+        expected_governance_station,
+        expected_authority_head_event_ref,
+        governance_resolution,
+        &[],
+    )
+}
+
+pub fn verify_mls_roster_authority_pages_with_recovery(
+    pages: &[MlsRosterAuthorityReadResponseBody],
+    request: &MlsRosterAuthorityReadRequestBody,
+    expected_governance_station: &DidCoreId,
+    expected_authority_head_event_ref: &EventId,
+    governance_resolution: &AuthenticatedServiceResolution,
+    recoveries: &[VerifiedMlsRosterRecoveryRecord],
+) -> Result<(), WireError> {
+    let mut recovery_keys = recoveries.iter();
     let first = pages
         .first()
         .ok_or_else(|| WireError::Protocol("MLS roster has no signed pages".to_owned()))?;
@@ -141,6 +323,14 @@ pub fn verify_mls_roster_authority_pages(
         governance_resolution,
     )?;
     verify_roster_page_set(pages, |record| {
+        if matches!(record, MlsRosterRecord::Recovery { .. }) {
+            checked_recovery_key(
+                record,
+                recovery_keys
+                    .next()
+                    .ok_or_else(|| roster_error("native recovery proof is missing"))?,
+            )?;
+        }
         if let MlsRosterRecord::Add {
             attestation,
             claim_issuer_resolution,
@@ -161,12 +351,16 @@ pub fn verify_mls_roster_authority_pages(
             verify_mls_add_authority_attestation_signature(attestation, attestor_resolution)?;
         }
         Ok(())
-    })
+    })?;
+    if recovery_keys.next().is_some() {
+        return Err(roster_error("surplus native recovery proof"));
+    }
+    Ok(())
 }
 
 fn verify_roster_page_set(
     pages: &[MlsRosterAuthorityReadResponseBody],
-    verify_add: impl Fn(&MlsRosterRecord) -> Result<(), WireError>,
+    mut verify_add: impl FnMut(&MlsRosterRecord) -> Result<(), WireError>,
 ) -> Result<(), WireError> {
     let first = pages
         .first()
@@ -261,6 +455,36 @@ fn verify_roster_page_set(
                     sender_actor_id.clone(),
                 ));
             }
+            MlsRosterRecord::Recovery {
+                commit_event,
+                covering_commit,
+                ..
+            } if index > 0 => {
+                let payload: arkret_models_crypto::MlsCommitPayload =
+                    serde_json::from_value(serde_json::to_value(&commit_event.payload)?)
+                        .map_err(roster_error)?;
+                if commit_event.realm_id != first.manifest.realm_id
+                    || commit_event.scope_ref != first.manifest.effective_scope
+                    || payload.mls_group_id()? != first.manifest.mls_group_id
+                    || payload.next_epoch() > first.manifest.target_epoch
+                    || previous_add.as_ref().is_some_and(|(position, epoch, ..)| {
+                        covering_commit.stream_position <= *position
+                            || payload.next_epoch() <= *epoch
+                    })
+                {
+                    return Err(roster_error(
+                        "recovery roster chronology or group cut differs",
+                    ));
+                }
+                verify_add(record)?;
+                previous_add = Some((
+                    covering_commit.stream_position,
+                    payload.next_epoch(),
+                    commit_event.event_id.clone(),
+                    u64::MAX,
+                    commit_event.actor_id.clone(),
+                ));
+            }
             _ => {
                 return Err(WireError::Protocol(
                     "MLS roster Genesis is missing or duplicated".to_owned(),
@@ -273,6 +497,39 @@ fn verify_roster_page_set(
 
 fn roster_error(error: impl std::fmt::Display) -> WireError {
     WireError::Protocol(error.to_string())
+}
+
+fn checked_recovery_key(
+    record: &MlsRosterRecord,
+    verified: &VerifiedMlsRosterRecoveryRecord,
+) -> Result<arkret_models_collaboration::mls_roster_authority::MlsRosterRecoverySigningKey, WireError>
+{
+    let MlsRosterRecord::Recovery {
+        recovery_source, ..
+    } = record
+    else {
+        return Err(roster_error(
+            "recovery proof cannot authorize another record kind",
+        ));
+    };
+    if arkret_canonical::canonical_sha256(record).map_err(roster_error)?
+        != verified.record_digest.as_str()
+        || verified.public_key_base64url.as_str()
+            != recovery_source
+                .attestation
+                .replacement
+                .signature_key_base64url
+    {
+        return Err(roster_error(
+            "native recovery proof binds another original record or key",
+        ));
+    }
+    Ok(
+        arkret_models_collaboration::mls_roster_authority::MlsRosterRecoverySigningKey {
+            record_digest: verified.record_digest.clone(),
+            public_key_base64url: verified.public_key_base64url.clone(),
+        },
+    )
 }
 
 fn station_signing_key(
@@ -308,6 +565,24 @@ pub fn project_mls_self_roster_authority_page(
     expected_head: &EventId,
     resolution: &AuthenticatedServiceResolution,
 ) -> Result<MlsSelfRosterAuthorityReadResponseBody, WireError> {
+    project_mls_self_roster_authority_page_with_recovery(
+        page,
+        request,
+        governance,
+        expected_head,
+        resolution,
+        &[],
+    )
+}
+
+pub fn project_mls_self_roster_authority_page_with_recovery(
+    page: MlsRosterAuthorityReadResponseBody,
+    request: &MlsRosterAuthorityReadRequestBody,
+    governance: &DidCoreId,
+    expected_head: &EventId,
+    resolution: &AuthenticatedServiceResolution,
+    recoveries: &[VerifiedMlsRosterRecoveryRecord],
+) -> Result<MlsSelfRosterAuthorityReadResponseBody, WireError> {
     verify_mls_roster_authority_manifest_signature(
         &page.manifest,
         request,
@@ -330,8 +605,18 @@ pub fn project_mls_self_roster_authority_page(
         resolution,
     )?;
     let mut add_signing_keys = Vec::new();
+    let mut recovery_proofs = recoveries.iter();
+    let mut recovery_signing_keys = Vec::new();
     for record in &page.records {
         record.validate_shape()?;
+        if matches!(record, MlsRosterRecord::Recovery { .. }) {
+            recovery_signing_keys.push(checked_recovery_key(
+                record,
+                recovery_proofs
+                    .next()
+                    .ok_or_else(|| roster_error("native recovery proof is missing"))?,
+            )?);
+        }
         if let MlsRosterRecord::Add {
             attestation,
             claim_issuer_resolution,
@@ -365,10 +650,14 @@ pub fn project_mls_self_roster_authority_page(
             });
         }
     }
+    if recovery_proofs.next().is_some() {
+        return Err(roster_error("surplus native recovery proof"));
+    }
     let result = MlsSelfRosterAuthorityReadResponseBody {
         roster: page,
         manifest_signing_key,
         add_signing_keys,
+        recovery_signing_keys: (!recovery_signing_keys.is_empty()).then_some(recovery_signing_keys),
     };
     if arkret_canonical::canonical_json_bytes(&result)
         .map_err(roster_error)?
@@ -481,7 +770,49 @@ pub fn verify_mls_self_roster_authority_pages(
             &page.manifest_signing_key,
         )?;
         let mut keys = page.add_signing_keys.iter();
+        let recovery_count = page
+            .roster
+            .records
+            .iter()
+            .filter(|record| matches!(record, MlsRosterRecord::Recovery { .. }))
+            .count();
+        if (recovery_count == 0 && page.recovery_signing_keys.is_some())
+            || (recovery_count > 0
+                && page
+                    .recovery_signing_keys
+                    .as_ref()
+                    .is_none_or(|keys| keys.len() != recovery_count))
+        {
+            return Err(roster_error(
+                "self recovery keys have missing or surplus entries",
+            ));
+        }
+        let mut recovery_keys = page.recovery_signing_keys.as_deref().unwrap_or(&[]).iter();
         for record in &page.roster.records {
+            if let MlsRosterRecord::Recovery {
+                commit_event,
+                producer_signer_fact,
+                recovery_source,
+                ..
+            } = record
+            {
+                let key = recovery_keys
+                    .next()
+                    .ok_or_else(|| roster_error("self recovery key is missing"))?;
+                if arkret_canonical::canonical_sha256(record).map_err(roster_error)?
+                    != key.record_digest.as_str()
+                    || key.public_key_base64url.as_str()
+                        != recovery_source
+                            .attestation
+                            .replacement
+                            .signature_key_base64url
+                {
+                    return Err(roster_error(
+                        "self recovery key binds another original record or replacement",
+                    ));
+                }
+                arkret_identity::account_device_signer_evidence::verify_historical_producer_event_signature(commit_event, producer_signer_fact, arkret_canonical::DigestSuite::Sha256).map_err(roster_error)?;
+            }
             if let MlsRosterRecord::Add { attestation, .. } = record {
                 let key = keys
                     .next()
@@ -508,6 +839,9 @@ pub fn verify_mls_self_roster_authority_pages(
         }
         if keys.next().is_some() {
             return Err(roster_error("self MLS roster has surplus Add keys"));
+        }
+        if recovery_keys.next().is_some() {
+            return Err(roster_error("self roster has surplus recovery keys"));
         }
     }
     let roster = pages
@@ -549,10 +883,28 @@ pub fn mls_self_roster_authority_page_encoded_size(
             })
         })
         .collect::<Result<Vec<_>, WireError>>()?;
+    let recovery_signing_keys = page
+        .records
+        .iter()
+        .filter(|record| matches!(record, MlsRosterRecord::Recovery { .. }))
+        .map(|record| {
+            Ok(
+                arkret_models_collaboration::mls_roster_authority::MlsRosterRecoverySigningKey {
+                    record_digest: arkret_wire::Hash::new(
+                        arkret_canonical::canonical_sha256(record).map_err(roster_error)?,
+                    )
+                    .map_err(roster_error)?,
+                    public_key_base64url: arkret_wire::Base64UrlString::new("A".repeat(43))
+                        .map_err(roster_error)?,
+                },
+            )
+        })
+        .collect::<Result<Vec<_>, WireError>>()?;
     arkret_canonical::canonical_json_bytes(&MlsSelfRosterAuthorityReadResponseBody {
         roster: page.clone(),
         manifest_signing_key: key(&page.manifest.signature)?,
         add_signing_keys,
+        recovery_signing_keys: (!recovery_signing_keys.is_empty()).then_some(recovery_signing_keys),
     })
     .map(|bytes| bytes.len())
     .map_err(roster_error)
@@ -565,7 +917,8 @@ mod tests;
 #[cfg(feature = "mls")]
 pub use roster_bindings::{
     install_verified_mls_roster_bindings, install_verified_mls_self_roster_bindings,
-    mls_roster_genesis_material_request,
+    install_verified_mls_self_roster_bindings_with_recovery, mls_roster_genesis_material_request,
+    mls_roster_recovery_material_request,
 };
 
 #[cfg(feature = "mls")]
@@ -600,6 +953,51 @@ mod roster_bindings {
         }
     }
 
+    /// Only construct after the complete own-Station roster and exact key
+    /// projection have been authenticated. Existing read authorization is unchanged.
+    pub fn mls_roster_recovery_material_request(
+        record: &MlsRosterRecord,
+        request: &MlsRosterAuthorityReadRequestBody,
+    ) -> Result<MlsMemberGroupStateMaterialReadRequestBody, WireError> {
+        record.validate_shape()?;
+        let MlsRosterRecord::Recovery {
+            commit_event,
+            base_group_info_ref,
+            base_ratchet_tree_ref,
+            ..
+        } = record
+        else {
+            return Err(roster_error("material request requires a recovery record"));
+        };
+        let payload: arkret_models_crypto::MlsCommitPayload =
+            serde_json::from_value(serde_json::to_value(&commit_event.payload)?)
+                .map_err(roster_error)?;
+        if request.realm_id != commit_event.realm_id
+            || request.effective_scope != commit_event.scope_ref
+            || request.mls_group_id != payload.mls_group_id()?
+            || request.target_epoch < payload.next_epoch()
+        {
+            return Err(roster_error(
+                "recovery material request differs from authenticated roster cut",
+            ));
+        }
+        let result = MlsMemberGroupStateMaterialReadRequestBody {
+            realm_id: request.realm_id.clone(),
+            effective_scope: request.effective_scope.clone(),
+            mls_group_id: request.mls_group_id.clone(),
+            epoch: payload.base_epoch(),
+            group_state_event_id: payload.base_group_state_ref().clone(),
+            caller_actor_id: request.caller_actor_id.clone(),
+            target_commit_event_ref: request.target_commit_event_ref.clone(),
+            target_epoch: request.target_epoch,
+            group_info_ref: base_group_info_ref.clone(),
+            ratchet_tree_ref: base_ratchet_tree_ref.clone(),
+            max_response_bytes: None,
+        };
+        result.validate()?;
+        Ok(result)
+    }
+
     /// Verify a complete signed roster and the exact Genesis public material,
     /// then install an every-and-only binding map for the already verified joined
     /// RFC group. The caller must obtain `request` and `expected_head` from the
@@ -621,7 +1019,13 @@ mod roster_bindings {
             governance_resolution,
         )
         .map_err(|error| format!("verify signed MLS roster: {error}"))?;
-        install_roster_bindings_after_verified_signatures(group, pages, request, material)
+        install_roster_bindings_after_verified_signatures(
+            group,
+            pages,
+            request,
+            material,
+            &BTreeMap::new(),
+        )
     }
 
     pub fn install_verified_mls_self_roster_bindings(
@@ -630,13 +1034,35 @@ mod roster_bindings {
         request: &arkret_models_collaboration::mls_roster_authority::MlsMemberRosterAuthorityReadRequestBody,
         material: &MlsGroupStateMaterialResponseBody,
     ) -> Result<(), String> {
+        install_verified_mls_self_roster_bindings_with_recovery(
+            group,
+            pages,
+            request,
+            material,
+            &BTreeMap::new(),
+        )
+    }
+
+    pub fn install_verified_mls_self_roster_bindings_with_recovery(
+        group: &mut crate::mls::ArkretMlsGroup,
+        pages: &[MlsSelfRosterAuthorityReadResponseBody],
+        request: &arkret_models_collaboration::mls_roster_authority::MlsMemberRosterAuthorityReadRequestBody,
+        material: &MlsGroupStateMaterialResponseBody,
+        recovery_material: &BTreeMap<EventId, MlsGroupStateMaterialResponseBody>,
+    ) -> Result<(), String> {
         let peer = verify_mls_member_roster_authority_pages(pages, request)
             .map_err(|error| format!("verify own-Station MLS roster: {error}"))?;
         let roster = pages
             .iter()
             .map(|page| page.roster.clone())
             .collect::<Vec<_>>();
-        install_roster_bindings_after_verified_signatures(group, &roster, &peer, material)
+        install_roster_bindings_after_verified_signatures(
+            group,
+            &roster,
+            &peer,
+            material,
+            recovery_material,
+        )
     }
 
     fn install_roster_bindings_after_verified_signatures(
@@ -644,6 +1070,7 @@ mod roster_bindings {
         pages: &[MlsRosterAuthorityReadResponseBody],
         request: &MlsRosterAuthorityReadRequestBody,
         material: &MlsGroupStateMaterialResponseBody,
+        recovery_material: &BTreeMap<EventId, MlsGroupStateMaterialResponseBody>,
     ) -> Result<(), String> {
         if group.scope() != &request.effective_scope
             || group.group_id() != request.mls_group_id
@@ -692,7 +1119,33 @@ mod roster_bindings {
             endpoint,
             authorization_event_ref,
         )?];
+        let mut used_material = BTreeSet::new();
         for record in records.into_iter().skip(1) {
+            if let MlsRosterRecord::Recovery {
+                commit_event,
+                recovery_source,
+                ..
+            } = record
+            {
+                let material = recovery_material
+                    .get(&commit_event.event_id)
+                    .ok_or_else(|| "recovery RFC base material is missing".to_owned())?;
+                verify_mls_recovery_roster_path(record, material)
+                    .map_err(|error| format!("verify original recovery RFC path: {error}"))?;
+                used_material.insert(commit_event.event_id.clone());
+                let replacement = &recovery_source.attestation.replacement;
+                let signature_key =
+                    crate::Base64UrlString::new(replacement.signature_key_base64url.clone())
+                        .map_err(str::to_owned)?;
+                authorities.push(authority_from_record(
+                    &request.realm_id,
+                    &replacement.actor_id,
+                    &signature_key,
+                    &replacement.endpoint,
+                    &replacement.authorization_event_ref,
+                )?);
+                continue;
+            }
             let MlsRosterRecord::Add {
                 proposal_wire_base64url,
                 attestation,
@@ -717,6 +1170,9 @@ mod roster_bindings {
                 &attestation.endpoint,
                 &attestation.authorization_event_ref,
             )?);
+        }
+        if used_material.len() != recovery_material.len() {
+            return Err("recovery RFC material contains surplus records".to_owned());
         }
         let occupied = group
             .active_author_leaves()

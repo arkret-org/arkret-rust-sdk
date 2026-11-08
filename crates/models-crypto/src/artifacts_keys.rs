@@ -12,26 +12,31 @@ use serde::{Deserialize, Serialize};
 use crate::{SecretStorageContentIndex, SecretStorageItemKind};
 
 /// Decrypted payload of a `secret_storage` key-backup envelope.
+/// The typed extension map rejects unknown names outside the `x_*` namespace.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct KeyBackupPlaintext {
     pub schema: arkret_wire::SchemaId,
     pub backup_id: arkret_wire::BackupId,
     pub backup_kind: crate::BackupKind,
     pub series_id: arkret_wire::BackupSeriesId,
     pub series_sequence: u64,
-    pub items: Vec<SecretStorageSecret>,
+    pub items: Vec<SecretStorageEntry>,
+    #[serde(default, flatten)]
+    pub extra: XExtensionMap,
 }
 
 impl KeyBackupPlaintext {
     pub fn validate_against(&self, contents: &[SecretStorageContentIndex]) -> Result<()> {
-        if self.items.len() != contents.len() {
+        if self.schema != arkret_wire::SchemaId::KeyBackupPlaintextV1
+            || self.items.is_empty()
+            || self.items.len() != contents.len()
+        {
             return protocol("secret_storage keybag does not match its public content index");
         }
         for (secret, index) in self.items.iter().zip(contents) {
             secret.validate()?;
-            if secret.item_kind != index.item_kind || index.secret_id != secret.secret_id {
+            if secret.content_index() != *index {
                 return protocol("secret_storage keybag metadata differs from its public index");
             }
         }
@@ -39,9 +44,82 @@ impl KeyBackupPlaintext {
     }
 }
 
+/// The existing keybag has two disjoint closed item forms; roots cannot be daily secrets.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum SecretStorageEntry {
+    Secret(SecretStorageSecret),
+    ContentRoot(crate::ContentRootBackupEntry),
+}
+
+impl From<SecretStorageSecret> for SecretStorageEntry {
+    fn from(value: SecretStorageSecret) -> Self {
+        Self::Secret(value)
+    }
+}
+
+impl From<crate::ContentRootBackupEntry> for SecretStorageEntry {
+    fn from(value: crate::ContentRootBackupEntry) -> Self {
+        Self::ContentRoot(value)
+    }
+}
+
+impl SecretStorageEntry {
+    pub fn secret_id(&self) -> &str {
+        match self {
+            Self::Secret(value) => &value.secret_id,
+            Self::ContentRoot(value) => &value.secret_id,
+        }
+    }
+
+    pub fn item_kind(&self) -> SecretStorageItemKind {
+        match self {
+            Self::Secret(value) => value.item_kind,
+            Self::ContentRoot(_) => SecretStorageItemKind::ContentEpochRoot,
+        }
+    }
+    pub fn content_index(&self) -> SecretStorageContentIndex {
+        match self {
+            Self::Secret(value) => SecretStorageContentIndex {
+                item_kind: value.item_kind,
+                secret_id: value.secret_id.clone(),
+                root_context: None,
+                root_ref: None,
+            },
+            Self::ContentRoot(value) => SecretStorageContentIndex {
+                item_kind: SecretStorageItemKind::ContentEpochRoot,
+                secret_id: value.secret_id.clone(),
+                root_context: Some(value.root_context.clone()),
+                root_ref: Some(value.root_ref.clone()),
+            },
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        match self {
+            Self::Secret(value) => value.validate(),
+            Self::ContentRoot(_) => self.content_index().validate(),
+        }
+    }
+}
+
+fn ordinary_secret_kind<'de, D: serde::Deserializer<'de>>(
+    d: D,
+) -> std::result::Result<SecretStorageItemKind, D::Error> {
+    let kind = SecretStorageItemKind::deserialize(d)?;
+    if kind == SecretStorageItemKind::ContentEpochRoot {
+        return Err(serde::de::Error::custom(
+            "content roots require their closed root item",
+        ));
+    }
+    Ok(kind)
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SecretStorageSecret {
+    #[serde(deserialize_with = "ordinary_secret_kind")]
     pub item_kind: SecretStorageItemKind,
     pub secret_id: String,
     pub secret_base64url: Base64UrlString,
@@ -53,6 +131,9 @@ pub struct SecretStorageSecret {
 
 impl SecretStorageSecret {
     pub fn validate(&self) -> Result<()> {
+        if self.item_kind == SecretStorageItemKind::ContentEpochRoot {
+            return protocol("content root cannot use ordinary secret fields");
+        }
         if self.secret_id.is_empty()
             || !self
                 .secret_id
@@ -100,7 +181,7 @@ mod secret_storage_extension_tests {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyOperationSignature {
     pub kid: NonEmptyString,

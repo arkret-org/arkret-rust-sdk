@@ -39,6 +39,9 @@ use crate::{
     MlsError as Error, MlsGovernanceBindingPublicState, Result, VerifiedMlsGovernanceBinding,
 };
 
+mod external_recovery;
+pub use external_recovery::PreparedMlsRecoveryExternalCommit;
+
 const ARKRET_OPENMLS_STATE_SNAPSHOT: &str = "arkret-openmls-provider-state-v1";
 
 fn endpoint_replaces(previous: &MlsEndpointIdentity, current: &MlsEndpointIdentity) -> bool {
@@ -227,6 +230,8 @@ fn aes_gcm_nonce(nonce: &[u8]) -> Result<[u8; 12]> {
 }
 
 pub struct ArkretMlsGroup {
+    pub(super) installed_recovery: Option<InstalledMlsRecovery>,
+    pub(super) content_roots: BTreeMap<String, arkret_models_crypto::ContentRootSecret>,
     pub(super) identity: ArkretMlsIdentity,
     pub(super) group: MlsGroup,
     /// The effective security scope this group serves.
@@ -317,6 +322,8 @@ pub struct MlsVerifiedLeafBinding {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 struct OpenMlsStateSnapshot {
+    installed_recovery: Option<InstalledMlsRecovery>,
+    content_roots: BTreeMap<String, arkret_models_crypto::ContentRootSecret>,
     context: String,
     group_id: MlsGroupId,
     /// The effective security scope, persisted because the `group_id` above is
@@ -340,6 +347,49 @@ struct OpenMlsStateSnapshot {
     #[serde(default, skip_serializing_if = "is_zero_u64")]
     signal_nonce_counter: u64,
     own_pending_commit_digest: Option<Hash>,
+}
+
+/// Local checkpoint evidence for the one epoch whose binding lives in AAD.
+/// This contains public material only and is never an authority assertion.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct InstalledMlsRecovery {
+    base_group_info: Vec<u8>,
+    base_ratchet_tree: Vec<u8>,
+    commit: MlsCommitEnvelope,
+    recovery: arkret_models_crypto::ContentRecoveryBinding,
+    binding: MlsGovernanceBindingPayload,
+}
+
+impl InstalledMlsRecovery {
+    fn verify_group(&self, group: &ArkretMlsGroup) -> Result<()> {
+        let wire = decode(&self.commit.commit)?;
+        if self.commit.group_id != group.group_id()
+            || self.commit.epoch != group.epoch()
+            || self.binding.effective_scope() != group.scope()
+            || self.binding.next_epoch() != group.epoch()
+            || canonical::sha256_digest(&wire) != self.commit.commit_digest.as_str()
+        {
+            return Err(Error::Protocol(
+                "recovery checkpoint coordinates differ".into(),
+            ));
+        }
+        let current = MlsGovernanceBindingPublicState::new(
+            group.scope().clone(),
+            Some(self.recovery.base_group_state_ref.clone()),
+            self.recovery.expected_epoch,
+            self.binding.key_access_revision(),
+        );
+        let mut replay = crate::MlsPublicGroupTracker::from_external(
+            &self.base_group_info,
+            &self.base_ratchet_tree,
+            group.group_id().as_str(),
+            self.recovery.expected_epoch,
+        )?;
+        replay.process_recovery_external_commit(&wire, &self.recovery, &current, &self.binding)?;
+        let (info, tree) = group.public_group_state_bytes()?;
+        replay.verify_publication(&info, &tree)
+    }
 }
 
 fn is_zero_u64(value: &u64) -> bool {
@@ -611,7 +661,7 @@ impl ArkretMlsGroup {
     }
 
     /// Exact RFC 9420 MLSMessage(GroupInfo) and external ratchet-tree bytes
-    /// for a content-addressed `ak.mls.genesis` publication.
+    /// for the installed epoch's content-addressed Genesis or Commit publication.
     pub fn public_group_state_bytes(&self) -> Result<(Vec<u8>, Vec<u8>)> {
         let group_info = self
             .group
@@ -629,6 +679,32 @@ impl ArkretMlsGroup {
             .tls_serialize_detached()
             .map_err(mls_error)?;
         Ok((group_info, ratchet_tree))
+    }
+
+    /// Export the staged next epoch's public material without installing it
+    /// into the live holder. These exact bytes are uploaded before signing the
+    /// Commit Event; only authority acceptance can later adopt private state.
+    pub fn pending_public_group_state_bytes(
+        &self,
+        envelope: &MlsCommitEnvelope,
+        binding: &MlsGovernanceBindingPayload,
+    ) -> Result<(Vec<u8>, Vec<u8>)> {
+        let mut candidate = Self::restore_from_state_record(&self.export_state_record()?)?;
+        candidate.verify_exact_own_pending_commit(envelope)?;
+        candidate
+            .verify_governance_binding_for_next_epoch(binding)
+            .map_err(|error| Error::Protocol(error.code().into()))?;
+        let pending = candidate.group.pending_commit().ok_or_else(|| {
+            Error::Protocol("public material requires a staged own Commit".into())
+        })?;
+        let actual = decode_group_context_governance_binding(pending.group_context())?;
+        crate::verify_historical_governance_binding(&actual, binding)
+            .map_err(|error| Error::Protocol(error.code().into()))?;
+        candidate
+            .group
+            .merge_pending_commit(&candidate.identity.provider)
+            .map_err(mls_error)?;
+        candidate.public_group_state_bytes()
     }
 
     pub fn required_keypackage_capabilities(&self) -> Result<Vec<String>> {
@@ -725,6 +801,53 @@ impl ArkretMlsGroup {
             Error::Protocol("active local MLS leaf identity is not canonical UTF-8".to_owned())
         })?;
         Ok(identity.to_owned())
+    }
+
+    /// Exact endpoint provenance from the installed accepted roster. Current
+    /// native authorization and the global recovery barrier remain send gates
+    /// at the caller; UI identity or a caller-supplied Event ref is insufficient.
+    pub fn local_content_endpoint(&self) -> Result<arkret_models_crypto::ContentEndpoint> {
+        self.require_complete_leaf_bindings()?;
+        let binding = self
+            .leaf_bindings
+            .get(&self.group.own_leaf_index().u32())
+            .ok_or_else(|| {
+                Error::Protocol("local content endpoint has no accepted leaf binding".into())
+            })?;
+        if binding.actor_id != self.identity.actor_id
+            || binding.endpoint != self.identity.endpoint
+            || binding.signature_key.as_str() != encode(self.identity.signer.public())
+        {
+            return Err(Error::Protocol(
+                "local content endpoint differs from accepted leaf provenance".into(),
+            ));
+        }
+        let (endpoint, authorization_event_ref) = match &binding.endpoint {
+            MlsEndpointIdentity::HumanDevice { device_id, .. } => (
+                MlsWelcomeRecipientEndpoint::Device {
+                    device_id: device_id.clone(),
+                },
+                binding.device_authorize_event_id.clone().ok_or_else(|| {
+                    Error::Protocol("Device leaf omits its authorization Event".into())
+                })?,
+            ),
+            MlsEndpointIdentity::AgentRuntime {
+                verification_method,
+                agent_key_authorize_event_id,
+                ..
+            } => (
+                MlsWelcomeRecipientEndpoint::AgentRuntime {
+                    verification_method: verification_method.clone(),
+                },
+                agent_key_authorize_event_id.clone(),
+            ),
+        };
+        Ok(arkret_models_crypto::ContentEndpoint {
+            actor_id: binding.actor_id.clone(),
+            endpoint,
+            authorization_event_ref,
+            signature_key_base64url: binding.signature_key.as_str().to_owned(),
+        })
     }
 
     fn verified_local_content_sender_domain(&self, declared: &str) -> Result<Vec<u8>> {
@@ -824,6 +947,8 @@ impl ArkretMlsGroup {
             ));
         }
         let snapshot = OpenMlsStateSnapshot {
+            installed_recovery: self.installed_recovery.clone(),
+            content_roots: self.content_roots.clone(),
             context: ARKRET_OPENMLS_STATE_SNAPSHOT.to_owned(),
             group_id: self.group_id.clone(),
             scope: self.scope.clone(),
@@ -916,6 +1041,7 @@ impl ArkretMlsGroup {
 
         let bindings = snapshot.leaf_bindings;
         let mut restored = Self {
+            installed_recovery: snapshot.installed_recovery,
             identity: ArkretMlsIdentity {
                 actor_id: record.actor_id.clone(),
                 endpoint: record.endpoint.clone(),
@@ -930,8 +1056,12 @@ impl ArkretMlsGroup {
             leaf_bindings: BTreeMap::new(),
             signal_nonce_counter: snapshot.signal_nonce_counter,
             own_pending_commit_digest: snapshot.own_pending_commit_digest,
+            content_roots: snapshot.content_roots,
         };
         restored.install_verified_leaf_bindings(bindings.into_values().collect())?;
+        if let Some(recovery) = &restored.installed_recovery {
+            recovery.verify_group(&restored)?;
+        }
         Ok(restored)
     }
 
@@ -1067,6 +1197,7 @@ impl ArkretMlsGroup {
             || live.profile != saved.profile
             || live.signer_public_key != saved.signer_public_key
             || live.leaf_bindings != saved.leaf_bindings
+            || live.installed_recovery != saved.installed_recovery
         {
             return Err(Error::Protocol(
                 "frozen MLS transition has another private base".into(),
@@ -1121,6 +1252,18 @@ impl ArkretMlsGroup {
             saved.storage_entries.insert(key.clone(), value.clone());
         }
         saved.signal_nonce_counter = live.signal_nonce_counter.max(saved.signal_nonce_counter);
+        for (context, root) in live.content_roots {
+            if saved
+                .content_roots
+                .get(&context)
+                .is_some_and(|old| old != &root)
+            {
+                return Err(Error::Protocol(
+                    "frozen MLS snapshot conflicts with retained content root".to_owned(),
+                ));
+            }
+            saved.content_roots.insert(context, root);
+        }
         let mut record = frozen.clone();
         record.serialized_state = serde_json::to_vec(&saved)?;
         let mut resumed = Self::restore_from_state_record(&record)?;
@@ -1735,10 +1878,97 @@ impl ArkretMlsGroup {
             group,
             scope: scope.clone(),
             group_id,
+            installed_recovery: None,
             leaf_bindings: BTreeMap::new(),
             signal_nonce_counter: 0,
             own_pending_commit_digest: None,
+            content_roots: BTreeMap::new(),
         })
+    }
+
+    /// Export or restore only the registered content root, never the MLS key schedule.
+    /// Context must already be pinned to original accepted group and strategy facts.
+    pub fn content_root(
+        &mut self,
+        context: &arkret_models_crypto::ContentRootContext,
+    ) -> Result<arkret_models_crypto::ContentRootSecret> {
+        let root = self.export_content_root(context)?;
+        let index = String::from_utf8(canonical::canonical_json_bytes(context)?)
+            .map_err(|_| Error::Protocol("invalid canonical root context".to_owned()))?;
+        self.content_roots.insert(index, root.clone());
+        Ok(root)
+    }
+
+    /// Read an available root without mutating the MLS checkpoint.
+    pub fn export_content_root(
+        &self,
+        context: &arkret_models_crypto::ContentRootContext,
+    ) -> Result<arkret_models_crypto::ContentRootSecret> {
+        context.validate()?;
+        if context.effective_scope != self.scope
+            || context.cipher_suite != self.group_ciphersuite_canonical_id()?
+        {
+            return Err(Error::Protocol(
+                "content root belongs to another group or suite".to_owned(),
+            ));
+        }
+        let bytes = canonical::canonical_json_bytes(context)?;
+        let index = String::from_utf8(bytes.clone())
+            .map_err(|_| Error::Protocol("invalid canonical root context".to_owned()))?;
+        if let Some(root) = self.content_roots.get(&index) {
+            return Ok(root.clone());
+        }
+        if context.epoch != self.epoch() || !self.is_active() {
+            return Err(Error::Protocol(
+                "content root unavailable; restore its authorized original backup".to_owned(),
+            ));
+        }
+        let secret = crate::exporter_kdf::export_registered_secret(
+            self,
+            arkret_wire::ExporterLabelId::EpochContentRootV1,
+            &bytes,
+            32,
+        )?;
+        let root = arkret_models_crypto::ContentRootSecret::new(
+            secret
+                .as_slice()
+                .try_into()
+                .map_err(|_| Error::Crypto("invalid content exporter width".to_owned()))?,
+        );
+        Ok(root)
+    }
+
+    /// Import an authorized history-only root after original backup authentication.
+    /// This never installs old MLS private state, membership or endpoint authority.
+    pub fn install_content_root(
+        &mut self,
+        item: &arkret_models_crypto::ContentRootBackupEntry,
+    ) -> Result<()> {
+        item.root_context.validate()?;
+        if item.root_context.effective_scope != self.scope
+            || arkret_crypto::content_history::content_root_ref(
+                &item.root_base64url,
+                &item.root_context,
+            )? != item.root_ref
+        {
+            return Err(Error::Protocol(
+                "history root context or commitment mismatch".to_owned(),
+            ));
+        }
+        let index = String::from_utf8(canonical::canonical_json_bytes(&item.root_context)?)
+            .map_err(|_| Error::Protocol("invalid canonical root context".to_owned()))?;
+        if self
+            .content_roots
+            .get(&index)
+            .is_some_and(|old| old != &item.root_base64url)
+        {
+            return Err(Error::Protocol(
+                "history root conflicts with accepted local root".to_owned(),
+            ));
+        }
+        self.content_roots
+            .insert(index, item.root_base64url.clone());
+        Ok(())
     }
 
     pub fn encrypt_payload(
@@ -1748,29 +1978,25 @@ impl ArkretMlsGroup {
     ) -> Result<EncryptedPayload> {
         header.validate()?;
         self.verified_local_content_sender_domain(&header.sender_domain)?;
-        if header.scheme != EncryptedPayloadScheme::MlsRfc9420
+        let producer = &header.material.content_context.producer;
+        if !self.is_active()
+            || header.scheme != EncryptedPayloadScheme::EpochContentAead
             || header.mls_group_id != self.group_id()
             || header.epoch != self.epoch()
+            || producer != &self.local_content_endpoint()?
         {
             return Err(Error::Protocol(
-                "standard MLS content header does not match the active sender state".to_owned(),
+                "content header differs from the active native endpoint".to_owned(),
             ));
         }
-        let authenticated_data = header.canonical_bytes()?;
-        self.group.set_aad(authenticated_data);
-        let message = self
-            .group
-            .create_message(&self.identity.provider, &self.identity.signer, plaintext)
-            .map_err(mls_error)?;
-        let message_bytes = message.tls_serialize_detached().map_err(mls_error)?;
-        let epoch = self.epoch();
-        let ciphertext = encode(&message_bytes);
+        let root = self.content_root(&header.material.content_context.root_context)?;
+        let ciphertext = arkret_crypto::content_history::seal_content(&root, &header, plaintext)?;
         let payload_digest =
             EncryptedPayload::payload_digest_for_header(&header, ciphertext.clone())?;
         Ok(EncryptedPayload {
-            scheme: EncryptedPayloadScheme::MlsRfc9420,
+            scheme: EncryptedPayloadScheme::EpochContentAead,
             group_id: self.group_id(),
-            epoch,
+            epoch: self.epoch(),
             content_type: header.content_type.clone(),
             ciphertext,
             pre_encryption_header: header,
@@ -1778,62 +2004,30 @@ impl ArkretMlsGroup {
         })
     }
 
+    /// The caller has verified the original Event proof and exact historical author.
     pub fn decrypt_payload(&mut self, payload: &EncryptedPayload) -> Result<Vec<u8>> {
-        if payload.scheme != EncryptedPayloadScheme::MlsRfc9420 {
-            return Err(Error::Protocol(
-                "encrypted payload is not MLS RFC 9420".to_owned(),
-            ));
-        }
-        if payload.group_id != self.group_id() {
-            return Err(Error::Protocol(
-                "encrypted payload belongs to a different MLS group".to_owned(),
-            ));
-        }
-        if payload.epoch > self.epoch() {
-            return Err(Error::Protocol(
-                "MLS epoch is not available locally".to_owned(),
-            ));
-        }
-
         payload.verify_payload_digest()?;
-        let message_bytes = decode(&payload.ciphertext)?;
-        let message =
-            MlsMessageIn::tls_deserialize_exact(message_bytes.as_slice()).map_err(mls_error)?;
-        let protocol_message = message
-            .try_into_protocol_message()
-            .map_err(|_| Error::Protocol("MLS message is not a protocol message".to_owned()))?;
-        let processed = self
-            .group
-            .process_message(&self.identity.provider, protocol_message)
-            .map_err(mls_error)?;
-
-        if processed.aad() != payload.pre_encryption_header.canonical_bytes()? {
-            return Err(Error::Protocol(
-                "standard MLS authenticated data does not match the reconstructed header"
-                    .to_owned(),
-            ));
-        }
-        let credential = processed.credential();
-        if credential.credential_type() != openmls::prelude::CredentialType::Basic
-            || credential.serialized_content()
-                != payload.pre_encryption_header.sender_domain.as_bytes()
+        if payload.scheme != EncryptedPayloadScheme::EpochContentAead
+            || payload.group_id != self.group_id()
+            || payload.epoch > self.epoch()
         {
             return Err(Error::Protocol(
-                "standard MLS sender credential does not match the reconstructed sender domain"
-                    .to_owned(),
+                "content scheme, scope or epoch mismatch".to_owned(),
             ));
         }
-
-        match processed.into_content() {
-            ProcessedMessageContent::ApplicationMessage(message) => Ok(message.into_bytes()),
-            ProcessedMessageContent::StagedCommitMessage(_) => Err(Error::Protocol(
-                "expected MLS application message, got commit; apply it through apply_commit"
-                    .to_owned(),
-            )),
-            _ => Err(Error::Protocol(
-                "expected MLS application message".to_owned(),
-            )),
-        }
+        let root = self.content_root(
+            &payload
+                .pre_encryption_header
+                .material
+                .content_context
+                .root_context,
+        )?;
+        arkret_crypto::content_history::open_content(
+            &root,
+            &payload.pre_encryption_header,
+            &payload.ciphertext,
+        )
+        .map_err(Into::into)
     }
 
     /// Install an MLS Commit only after the containing Event has an accepted
@@ -1873,6 +2067,22 @@ impl ArkretMlsGroup {
             current.epoch,
             current.current_key_access_revision,
         );
+        if let Some(recovery) = payload.recovery_binding() {
+            let wire = decode(payload.commit_base64url())?;
+            if let MlsMessageBodyIn::PublicMessage(message) =
+                MlsMessageIn::tls_deserialize_exact(&wire)
+                    .map_err(mls_error)?
+                    .extract()
+                && matches!(message.sender(), openmls::prelude::Sender::NewMemberCommit)
+            {
+                return self.merge_accepted_recovery_external_commit(
+                    &payload.commit_envelope()?,
+                    recovery,
+                    &public_state,
+                    payload.governance_binding(),
+                );
+            }
+        }
         self.merge_accepted_commit_envelope(
             &payload.commit_envelope()?,
             &public_state,
@@ -1909,6 +2119,17 @@ impl ArkretMlsGroup {
             EventKind::MlsCommit => {
                 let payload: MlsCommitPayload = serde_json::from_value(value)?;
                 payload.validate()?;
+                if let Some(recovery) = &self.installed_recovery {
+                    if payload.recovery_binding() != Some(&recovery.recovery)
+                        || payload.governance_binding() != &recovery.binding
+                        || payload.commit_envelope()? != recovery.commit
+                    {
+                        return Err(Error::Protocol(
+                            "historical recovery base differs from frozen evidence".into(),
+                        ));
+                    }
+                    return recovery.verify_group(self);
+                }
                 payload.governance_binding().clone()
             }
             _ => {
@@ -2016,6 +2237,24 @@ impl ArkretMlsGroup {
             ));
         }
         let envelope = payload.commit_envelope()?;
+        if let Some(recovery) = payload.recovery_binding() {
+            let wire = decode(payload.commit_base64url())?;
+            if let MlsMessageBodyIn::PublicMessage(message) =
+                MlsMessageIn::tls_deserialize_exact(&wire)
+                    .map_err(mls_error)?
+                    .extract()
+                && matches!(message.sender(), openmls::prelude::Sender::NewMemberCommit)
+            {
+                let state = MlsGovernanceBindingPublicState::new(
+                    self.scope().clone(),
+                    Some(installed_base.clone()),
+                    self.epoch(),
+                    binding.key_access_revision(),
+                );
+                return self
+                    .merge_accepted_recovery_external_commit(&envelope, recovery, &state, binding);
+            }
+        }
         if envelope.group_id != self.group_id()
             || Some(envelope.epoch) != self.epoch().checked_add(1)
         {
@@ -2045,6 +2284,70 @@ impl ArkretMlsGroup {
         let verified = crate::verify_historical_governance_binding(&authenticated, binding)
             .map_err(|rejection| Error::Protocol(rejection.code().to_owned()))?;
         self.merge_verified_staged_commit(&envelope, *commit, verified)
+    }
+
+    fn merge_accepted_recovery_external_commit(
+        &mut self,
+        envelope: &MlsCommitEnvelope,
+        recovery: &arkret_models_crypto::ContentRecoveryBinding,
+        current: &MlsGovernanceBindingPublicState,
+        binding: &MlsGovernanceBindingPayload,
+    ) -> Result<u64> {
+        let bytes = decode(&envelope.commit)?;
+        if envelope.group_id != self.group_id()
+            || Some(envelope.epoch) != self.epoch().checked_add(1)
+            || canonical::sha256_digest(&bytes) != envelope.commit_digest.as_str()
+        {
+            return Err(Error::Protocol(
+                "recovery Commit differs from exact group, epoch or wire digest".into(),
+            ));
+        }
+        let (info, tree) = self.public_group_state_bytes()?;
+        let mut public = crate::MlsPublicGroupTracker::from_external(
+            &info,
+            &tree,
+            self.group_id().as_str(),
+            self.epoch(),
+        )?;
+        public.process_recovery_external_commit(&bytes, recovery, current, binding)?;
+        let verified = crate::verify_governance_binding_against_public_state_and_payload(
+            binding, current, binding,
+        )
+        .map_err(|error| Error::Protocol(error.code().into()))?;
+        let mut candidate = Self::restore_from_state_record(&self.export_state_record()?)?;
+        let message = MlsMessageIn::tls_deserialize_exact(&bytes)
+            .map_err(mls_error)?
+            .try_into_protocol_message()
+            .map_err(mls_error)?;
+        let processed = candidate
+            .group
+            .process_message(&candidate.identity.provider, message)
+            .map_err(mls_error)?;
+        let ProcessedMessageContent::StagedCommitMessage(commit) = processed.into_content() else {
+            return Err(Error::Protocol(
+                "recovery did not stage an RFC Commit".into(),
+            ));
+        };
+        validate_staged_commit_capability_floor(
+            &candidate.group,
+            &candidate.identity.provider,
+            &commit,
+        )?;
+        let epoch = candidate.merge_verified_staged_commit(envelope, *commit, verified)?;
+        candidate.installed_recovery = Some(InstalledMlsRecovery {
+            base_group_info: info,
+            base_ratchet_tree: tree,
+            commit: envelope.clone(),
+            recovery: recovery.clone(),
+            binding: binding.clone(),
+        });
+        candidate
+            .installed_recovery
+            .as_ref()
+            .expect("just installed")
+            .verify_group(&candidate)?;
+        *self = candidate;
+        Ok(epoch)
     }
 
     fn merge_accepted_commit_envelope(
@@ -2179,6 +2482,7 @@ impl ArkretMlsGroup {
         }
         self.leaf_bindings.clear();
         self.own_pending_commit_digest = None;
+        self.installed_recovery = None;
         Ok(applied_epoch)
     }
 
@@ -2203,6 +2507,7 @@ impl ArkretMlsGroup {
         // the every-and-only accepted-transition binding before roster access.
         self.leaf_bindings.clear();
         self.own_pending_commit_digest = None;
+        self.installed_recovery = None;
         Ok(applied_epoch)
     }
 }

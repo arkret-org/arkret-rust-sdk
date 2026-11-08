@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json;
-//! sha256=0c45feb83576757e83d3be4b71330fcb8a607e77b2aa85798b1f98960fef0df1 Input: registry/
+//! sha256=c7366b7cc0653b17d2a0a627fa7a2fdf0a2a27f69f272bf6d28805d5b8e3f44f Input: registry/
 //! account-data-key-registry.json;
 //! sha256=0989a67abbe00359bf0974896a84210791dd75c26b7d77d8eb1bee7fcd70370e Entries: id_kinds=47,
-//! special_forms=15, actions=154, approval_carriers=2, schemas=229, account_data_patterns=24
+//! special_forms=15, actions=158, approval_carriers=2, schemas=231, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -1162,6 +1162,22 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         approver_capability_action: None,
     },
     CapabilityActionDescriptor {
+        action: CapabilityActionId::KeyBackupActiveSeries,
+        category: "personal",
+        risk_tier: CapabilityRiskTier::High,
+        required_constraints: &[],
+        required_evaluator_checks: &[],
+        target_event_kinds: &[event_kind_str::KEY_BACKUP_ACTIVE_SERIES],
+        grant_authority_actions: &[],
+        profile: Some("ak.profile.principal_control_realm.v1"),
+        root_control_only: true,
+        subject_only: false,
+        event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
+    },
+    CapabilityActionDescriptor {
         action: CapabilityActionId::MemberCompensateLeave,
         category: "membership",
         risk_tier: CapabilityRiskTier::High,
@@ -1394,6 +1410,54 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
+        event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
+    },
+    CapabilityActionDescriptor {
+        action: CapabilityActionId::MlsHistoryGrant,
+        category: "service",
+        risk_tier: CapabilityRiskTier::High,
+        required_constraints: &[],
+        required_evaluator_checks: &[],
+        target_event_kinds: &[event_kind_str::MLS_HISTORY_GRANT],
+        grant_authority_actions: &[],
+        profile: None,
+        root_control_only: false,
+        subject_only: false,
+        event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
+    },
+    CapabilityActionDescriptor {
+        action: CapabilityActionId::MlsHistoryRecovery,
+        category: "personal",
+        risk_tier: CapabilityRiskTier::Low,
+        required_constraints: &[],
+        required_evaluator_checks: &[],
+        target_event_kinds: &[event_kind_str::MLS_HISTORY_RECOVERY],
+        grant_authority_actions: &[],
+        profile: None,
+        root_control_only: false,
+        subject_only: true,
+        event_mapping_kind: "same_name",
+        approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
+        approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
+        approver_capability_action: None,
+    },
+    CapabilityActionDescriptor {
+        action: CapabilityActionId::MlsHistoryRequest,
+        category: "personal",
+        risk_tier: CapabilityRiskTier::Low,
+        required_constraints: &[],
+        required_evaluator_checks: &[],
+        target_event_kinds: &[event_kind_str::MLS_HISTORY_REQUEST],
+        grant_authority_actions: &[],
+        profile: None,
+        root_control_only: false,
+        subject_only: true,
         event_mapping_kind: "same_name",
         approval_requirement_eligibility: ApprovalRequirementEligibility::EventSubmissionCarrier,
         approval_evidence_carrier_id: Some("event_admission_submission.approval_signatures"),
@@ -2169,6 +2233,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::MIMI_ROOM_BINDING,
             event_kind_str::MLS_COMMIT,
             event_kind_str::MLS_GENESIS,
+            event_kind_str::MLS_HISTORY_GRANT,
             event_kind_str::MODERATION_DECISION,
             event_kind_str::MODERATION_DECISION_LIFT,
             event_kind_str::MORPH_ARCHIVE,
@@ -2272,6 +2337,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             "ak.message.stream.send",
             "ak.mls.commit",
             "ak.mls.genesis",
+            "ak.mls.history_grant",
             "ak.moderation.decision",
             "ak.moderation.decision.lift",
             "ak.morph.archive",
@@ -3530,6 +3596,14 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::CONTENT_BLOCK_POLL_V1,
         file: "schemas/content-block-poll.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::CONTENT_ENCRYPTION_V1,
+        file: "schemas/content-encryption.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::CONTENT_ENCRYPTION_CONTEXT_V1,
+        file: "schemas/content-encryption.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1,

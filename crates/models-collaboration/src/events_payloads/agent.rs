@@ -26,6 +26,18 @@ pub enum AgentProvisionAccountabilityScope {
 
 impl AgentProvisionPayload {
     pub fn validate(&self) -> Result<()> {
+        if self.history_custody.recovery_policy_ref.policy_version == 0
+            || self
+                .history_custody
+                .custodian_actor_id
+                .as_account_id()
+                .is_none()
+        {
+            return Err(WireError::Protocol(
+                "Agent history custody requires a complete Account and positive policy version"
+                    .into(),
+            ));
+        }
         let prepared = prepare_agent_slug(&self.agent_slug)?;
         if prepared != self.agent_slug {
             return Err(WireError::Protocol(
@@ -60,7 +72,9 @@ impl AgentProvisionPayload {
         let controller = event.actor_id.as_account_id().ok_or_else(|| {
             WireError::Protocol("ak.agent.provision actor must be an account".to_owned())
         })?;
-        if controller.principal_id != self.controller_principal_id {
+        if controller.principal_id != self.controller_principal_id
+            || self.history_custody.custodian_actor_id != event.actor_id
+        {
             return Err(WireError::Protocol(
                 "ak.agent.provision controller_principal_id must equal the actor principal"
                     .to_owned(),
@@ -386,7 +400,12 @@ mod tests {
             "agent_slug": "summary",
             "accountability_scope": "agent_operator",
             "requested_scope_digest": format!("sha256:{}", "a".repeat(64)),
-            "created_at": created_at
+            "created_at": created_at,
+            "history_custody": {
+                "custodian_actor_id": {"kind":"account", "account_id": {"principal_id": controller, "station_id": station}},
+                "recovery_policy_ref": {"policy_id": "ak:policy:019a0000-0000-7000-8000-000000000001", "policy_version": 1},
+                "recipient_key_ref": "did:web:alice.example#backup-hpke"
+            }
         });
         payload
             .as_object_mut()

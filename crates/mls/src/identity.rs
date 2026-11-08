@@ -147,7 +147,7 @@ impl ArkretMlsIdentityProfile {
         mls_basic_credential_identity(actor_id).map_err(Into::into)
     }
 
-    fn validate_endpoint(&self, endpoint: &MlsEndpointIdentity) -> Result<()> {
+    pub(crate) fn validate_endpoint(&self, endpoint: &MlsEndpointIdentity) -> Result<()> {
         let valid = match (self, endpoint) {
             (Self::HumanDevice | Self::RealmDevice, MlsEndpointIdentity::HumanDevice { .. }) => {
                 true
@@ -751,6 +751,7 @@ impl ArkretMlsIdentity {
 
         #[allow(unused_mut)]
         let mut result = ArkretMlsGroup {
+            installed_recovery: None,
             identity: self,
             group,
             scope: scope.clone(),
@@ -758,6 +759,7 @@ impl ArkretMlsIdentity {
             leaf_bindings: BTreeMap::new(),
             signal_nonce_counter: 0,
             own_pending_commit_digest: None,
+            content_roots: BTreeMap::new(),
         };
         #[cfg(any(test, feature = "test-utils"))]
         result.install_test_leaf_bindings(vec![result.identity.endpoint.clone()])?;
@@ -808,6 +810,7 @@ impl ArkretMlsIdentity {
 
         #[allow(unused_mut)]
         let mut result = ArkretMlsGroup {
+            installed_recovery: None,
             identity: self,
             group,
             scope: scope.clone(),
@@ -815,6 +818,7 @@ impl ArkretMlsIdentity {
             leaf_bindings: BTreeMap::new(),
             signal_nonce_counter: 0,
             own_pending_commit_digest: None,
+            content_roots: BTreeMap::new(),
         };
         #[cfg(any(test, feature = "test-utils"))]
         result.install_test_leaf_bindings(vec![result.identity.endpoint.clone()])?;

@@ -42,6 +42,7 @@ pub struct Realm {
     pub default_discoverability: Discoverability,
     pub default_join_rule: JoinRule,
     pub history_access: HistoryAccess,
+    pub encryption_backup_strategy: arkret_wire::EncryptionBackupStrategy,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub federation_policy: Option<FederationPolicy>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -106,6 +107,7 @@ impl Realm {
             default_discoverability: Discoverability::InviteOnly,
             default_join_rule: JoinRule::Invite,
             history_access: HistoryAccess::SinceJoin,
+            encryption_backup_strategy: arkret_wire::EncryptionBackupStrategy::EpochContentRoots,
             federation_policy: None,
             retention_policy_id: None,
             avatar_blob_ref: None,

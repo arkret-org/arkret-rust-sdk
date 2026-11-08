@@ -338,6 +338,7 @@ pub struct RealmGenesis {
     pub governance_station_id: DidCoreId,
     pub initial_join_rule: JoinRule,
     pub initial_history_access: HistoryAccess,
+    pub initial_encryption_backup_strategy: EncryptionBackupStrategy,
     pub initial_discoverability: Discoverability,
 }
 
@@ -366,6 +367,7 @@ impl RealmGenesis {
             governance_station_id,
             initial_join_rule,
             initial_history_access,
+            initial_encryption_backup_strategy: EncryptionBackupStrategy::EpochContentRoots,
             initial_discoverability,
         };
         value.validate()?;

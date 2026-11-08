@@ -235,6 +235,7 @@ pub enum HistoricalProducerSignerFact {
     RealmDevice(RealmDeviceHistoricalSignerFact),
     RealmControl(RealmControlHistoricalSignerFact),
     RealmRecoveryService(RealmRecoveryServiceHistoricalSignerFact),
+    AgentRuntime(AgentRuntimeHistoricalSignerFact),
 }
 impl From<AccountDeviceHistoricalSignerFact> for HistoricalProducerSignerFact {
     fn from(fact: AccountDeviceHistoricalSignerFact) -> Self {
@@ -254,6 +255,7 @@ impl HistoricalProducerSignerFact {
             Self::RealmDevice(f) => &f.event_id,
             Self::RealmControl(f) => &f.event_id,
             Self::RealmRecoveryService(f) => &f.event_id,
+            Self::AgentRuntime(f) => &f.event_ref,
         }
     }
     pub fn as_account_device(&self) -> Option<&AccountDeviceHistoricalSignerFact> {
@@ -269,7 +271,8 @@ impl HistoricalProducerSignerFact {
             Self::Service(_)
             | Self::RealmDevice(_)
             | Self::RealmControl(_)
-            | Self::RealmRecoveryService(_) => None,
+            | Self::RealmRecoveryService(_)
+            | Self::AgentRuntime(_) => None,
         }
     }
     pub fn digest(&self) -> Result<Hash> {
@@ -279,6 +282,7 @@ impl HistoricalProducerSignerFact {
             Self::RealmDevice(f) => f.digest(),
             Self::RealmControl(f) => f.digest(),
             Self::RealmRecoveryService(f) => f.digest(),
+            Self::AgentRuntime(f) => f.digest(),
         }
     }
     pub fn validate_event_binding(
@@ -292,6 +296,7 @@ impl HistoricalProducerSignerFact {
             Self::RealmDevice(f) => f.validate_event_binding(event, suite),
             Self::RealmControl(f) => f.validate_event_binding(event, suite),
             Self::RealmRecoveryService(f) => f.validate_event_binding(event, suite),
+            Self::AgentRuntime(f) => f.validate_event_binding(event, suite),
         }
     }
     pub fn validate_commit_binding(
@@ -305,6 +310,7 @@ impl HistoricalProducerSignerFact {
             Self::RealmDevice(f) => f.validate_commit_binding(full, suite),
             Self::RealmControl(f) => f.validate_commit_binding(full, suite),
             Self::RealmRecoveryService(f) => f.validate_commit_binding(full, suite),
+            Self::AgentRuntime(f) => f.validate_commit_binding(full, suite),
         }
     }
 }
@@ -325,6 +331,68 @@ impl HistoricalProducerSignerFactEntry {
         )?;
         self.producer_signer_fact
             .validate_commit_binding(full, suite)
+    }
+}
+
+impl AgentRuntimeHistoricalSignerFact {
+    pub fn digest(&self) -> Result<Hash> {
+        arkret_models_crypto::ContentEndpoint {
+            actor_id: self.actor_id.clone(),
+            endpoint: arkret_wire::MlsWelcomeRecipientEndpoint::AgentRuntime {
+                verification_method: self.verification_method.clone(),
+            },
+            authorization_event_ref: self.authorization_event_ref.clone(),
+            signature_key_base64url: self.public_key_base64url.clone(),
+        }
+        .validate()?;
+        if self.actor_id.as_account_id().is_none() {
+            return Err(WireError::Protocol(
+                "Agent fact requires its complete Account".to_owned(),
+            ));
+        }
+        Ok(Hash::new(arkret_canonical::canonical_sha256(self)?)?)
+    }
+
+    pub fn validate_event_binding(
+        &self,
+        event: &Event,
+        suite: arkret_canonical::DigestSuite,
+    ) -> Result<()> {
+        self.digest()?;
+        event.verify_producer_proof_self_consistency(suite)?;
+        let proof = event
+            .producer_proof
+            .as_ref()
+            .ok_or_else(|| WireError::Protocol("Agent Event lacks producer proof".to_owned()))?;
+        if self.event_ref != event.event_id
+            || self.actor_id != event.actor_id
+            || self.actor_id != *event.actual_signer()
+            || event.account_device_producer()?.is_some()
+            || self.verification_method != proof.verification_method
+        {
+            return Err(WireError::Protocol(
+                "Agent fact differs from its original native endpoint".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn validate_commit_binding(
+        &self,
+        full: &arkret_wire::CommittedEventFullView,
+        suite: arkret_canonical::DigestSuite,
+    ) -> Result<()> {
+        full.validate_shape()?;
+        full.commit.verify_commit_id_matches_content()?;
+        self.validate_event_binding(&full.event, suite)?;
+        if full.commit.producer_signer_fact_digest.as_ref() != Some(&self.digest()?)
+            || full.commit.committed_at != self.accepted_at
+        {
+            return Err(WireError::Protocol(
+                "Agent fact differs from its exact original Commit".to_owned(),
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -839,13 +907,13 @@ pub fn validate_producer_agent_evidence_presence(
 }
 
 /// Largest decoded size of one Genesis Blob: the bytes whose unpadded
-/// base64url fills `MLS_GENESIS_MATERIAL_MAX_ENCODED_CHARS`. Two such Blobs
+/// base64url fills `MLS_GROUP_STATE_MATERIAL_MAX_ENCODED_CHARS`. Two such Blobs
 /// together are exactly the `ak.peer.mls.read.group_state_material.v1`
 /// response bound, so the carrier has no aggregate bound of its own.
-pub const MLS_GENESIS_MATERIAL_MAX_BLOB_BYTES: usize = 4_194_304;
-const MLS_GENESIS_MATERIAL_MAX_ENCODED_CHARS: usize = 5_592_406;
+pub const MLS_GROUP_STATE_MATERIAL_MAX_BLOB_BYTES: usize = 4_194_304;
+const MLS_GROUP_STATE_MATERIAL_MAX_ENCODED_CHARS: usize = 5_592_406;
 
-impl MlsGenesisMaterial {
+impl MlsGroupStateMaterial {
     #[must_use]
     pub fn from_bytes(group_info: &[u8], ratchet_tree: &[u8]) -> Self {
         Self {
@@ -858,22 +926,62 @@ impl MlsGenesisMaterial {
     /// failure is `schema_violation`.
     pub fn decode(&self) -> Result<(Vec<u8>, Vec<u8>)> {
         Ok((
-            decode_genesis_blob("group_info_base64url", &self.group_info_base64url)?,
-            decode_genesis_blob("ratchet_tree_base64url", &self.ratchet_tree_base64url)?,
+            decode_public_group_blob("group_info_base64url", &self.group_info_base64url)?,
+            decode_public_group_blob("ratchet_tree_base64url", &self.ratchet_tree_base64url)?,
         ))
     }
 
     pub fn validate(&self) -> Result<()> {
         self.decode().map(drop)
     }
+
+    /// Decode exact publication bytes and authenticate their original signed
+    /// content addresses before the MLS implementation verifies RFC state.
+    pub fn decode_for_event(&self, event: &Event) -> Result<(Vec<u8>, Vec<u8>)> {
+        let value = serde_json::Value::Object(event.payload.clone().into_iter().collect());
+        let (info_ref, tree_ref) = match event.kind {
+            EventKind::MlsGenesis => {
+                let payload: crate::events_payloads::MlsGenesisPayload =
+                    serde_json::from_value(value)?;
+                payload.validate()?;
+                (payload.group_info_ref, payload.ratchet_tree_ref)
+            }
+            EventKind::MlsCommit => {
+                let payload: arkret_models_crypto::MlsCommitPayload =
+                    serde_json::from_value(value)?;
+                payload.validate()?;
+                (
+                    payload.group_info_ref().clone(),
+                    payload.ratchet_tree_ref().clone(),
+                )
+            }
+            _ => {
+                return Err(WireError::ProtocolCode {
+                    code: ErrorCode::SchemaViolation,
+                    message: "MLS publication requires Genesis or Commit".into(),
+                });
+            }
+        };
+        let (info, tree) = self.decode()?;
+        for (reference, bytes) in [(&info_ref, &info), (&tree_ref, &tree)] {
+            let digest = crate::mls_group_state_material::material_digest_from_ref(reference)?;
+            arkret_canonical::verify_digest(bytes, digest.as_str()).map_err(|_| {
+                WireError::ProtocolCode {
+                    code: ErrorCode::DigestMismatch,
+                    message: "MLS publication differs from original signed Blob ref".into(),
+                }
+            })?;
+        }
+        Ok((info, tree))
+    }
 }
 
-fn decode_genesis_blob(field: &str, encoded: &str) -> Result<Vec<u8>> {
+fn decode_public_group_blob(field: &str, encoded: &str) -> Result<Vec<u8>> {
     let schema_violation = || WireError::ProtocolCode {
         code: ErrorCode::SchemaViolation,
-        message: format!("mls_genesis_material.{field} must be canonical unpadded base64url"),
+        message: format!("mls_group_state_material.{field} must be canonical unpadded base64url"),
     };
-    if encoded.is_empty() || encoded.len() > MLS_GENESIS_MATERIAL_MAX_ENCODED_CHARS {
+    if encoded.is_empty() || encoded.len() > MLS_GROUP_STATE_MATERIAL_MAX_ENCODED_CHARS {
         return Err(schema_violation());
     }
     let bytes =
@@ -892,7 +1000,7 @@ pub struct PeerAuthorityForwardEventRequestBody {
     pub branch: AuthorityForwardBranch,
     pub event_submission: EventAdmissionSubmission,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub mls_genesis_material: Option<MlsGenesisMaterial>,
+    pub mls_group_state_material: Option<MlsGroupStateMaterial>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub producer_device_evidence: Option<ForwardAccountDeviceSignerEvidence>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -912,32 +1020,32 @@ impl PeerAuthorityForwardEventRequestBody {
     }
     pub fn new_agent(
         event_submission: EventAdmissionSubmission,
-        mls_genesis_material: Option<MlsGenesisMaterial>,
+        mls_group_state_material: Option<MlsGroupStateMaterial>,
         producer_agent_evidence: AgentProducerEvidence,
     ) -> Result<Self> {
         let request = Self {
             branch: AuthorityForwardBranch::AuthorityForward,
             event_submission,
-            mls_genesis_material,
+            mls_group_state_material,
             producer_device_evidence: None,
             producer_agent_evidence: Some(producer_agent_evidence),
         };
         request.validate()?;
         Ok(request)
     }
-    /// Build a validated forward. `mls_genesis_material` carries the two
+    /// Build a validated forward. `mls_group_state_material` carries the two
     /// referenced Blobs of an `ak.mls.genesis` and is `None` for every other
     /// kind; `producer_device_evidence` is the freshly signed evidence for a
     /// Account Device producer and `None` otherwise.
     pub fn new(
         event_submission: EventAdmissionSubmission,
-        mls_genesis_material: Option<MlsGenesisMaterial>,
+        mls_group_state_material: Option<MlsGroupStateMaterial>,
         producer_device_evidence: Option<ForwardAccountDeviceSignerEvidence>,
     ) -> Result<Self> {
         let request = Self {
             branch: AuthorityForwardBranch::AuthorityForward,
             event_submission,
-            mls_genesis_material,
+            mls_group_state_material,
             producer_device_evidence,
             producer_agent_evidence: None,
         };
@@ -948,21 +1056,23 @@ impl PeerAuthorityForwardEventRequestBody {
     pub fn validate(&self) -> Result<()> {
         self.event_submission.validate()?;
         let genesis = self.event_submission.event.kind == EventKind::MlsGenesis;
-        match (&self.mls_genesis_material, genesis) {
+        match (&self.mls_group_state_material, genesis) {
             (Some(material), true) => material.validate()?,
             (None, false) => {}
             (None, true) => {
                 return Err(WireError::ProtocolCode {
                     code: ErrorCode::SchemaViolation,
-                    message: "authority_forward of ak.mls.genesis requires mls_genesis_material"
-                        .to_owned(),
+                    message:
+                        "authority_forward of ak.mls.genesis requires mls_group_state_material"
+                            .to_owned(),
                 });
             }
             (Some(_), false) => {
                 return Err(WireError::ProtocolCode {
                     code: ErrorCode::SchemaViolation,
-                    message: "mls_genesis_material is forbidden unless the Event is ak.mls.genesis"
-                        .to_owned(),
+                    message:
+                        "mls_group_state_material is forbidden unless the Event is ak.mls.genesis"
+                            .to_owned(),
                 });
             }
         }
@@ -992,7 +1102,8 @@ impl PeerAuthorityForwardEventRequestBody {
 #[serde(deny_unknown_fields)]
 pub struct PeerAuthorityForwardMlsRequestBody {
     pub branch: AuthorityForwardBranch,
-    pub mls_submission: MlsCommitSubmission,
+    pub mls_submission: crate::content_history::PeerMlsCommitSubmission,
+    pub mls_group_state_material: MlsGroupStateMaterial,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub producer_device_evidence: Option<ForwardAccountDeviceSignerEvidence>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1001,12 +1112,14 @@ pub struct PeerAuthorityForwardMlsRequestBody {
 
 impl PeerAuthorityForwardMlsRequestBody {
     pub fn new_agent(
-        mls_submission: MlsCommitSubmission,
+        mls_submission: crate::content_history::PeerMlsCommitSubmission,
+        mls_group_state_material: MlsGroupStateMaterial,
         producer_agent_evidence: AgentProducerEvidence,
     ) -> Result<Self> {
         let request = Self {
             branch: AuthorityForwardBranch::AuthorityForward,
             mls_submission,
+            mls_group_state_material,
             producer_device_evidence: None,
             producer_agent_evidence: Some(producer_agent_evidence),
         };
@@ -1016,12 +1129,14 @@ impl PeerAuthorityForwardMlsRequestBody {
     /// Build a validated MLS forward. The Commit Event's producer decides
     /// whether `producer_device_evidence` is required or forbidden.
     pub fn new(
-        mls_submission: MlsCommitSubmission,
+        mls_submission: crate::content_history::PeerMlsCommitSubmission,
+        mls_group_state_material: MlsGroupStateMaterial,
         producer_device_evidence: Option<ForwardAccountDeviceSignerEvidence>,
     ) -> Result<Self> {
         let request = Self {
             branch: AuthorityForwardBranch::AuthorityForward,
             mls_submission,
+            mls_group_state_material,
             producer_device_evidence,
             producer_agent_evidence: None,
         };
@@ -1031,6 +1146,21 @@ impl PeerAuthorityForwardMlsRequestBody {
 
     pub fn validate(&self) -> Result<()> {
         self.mls_submission.validate()?;
+        self.mls_group_state_material.validate()?;
+        if self
+            .mls_submission
+            .commit_event
+            .payload
+            .contains_key("recovery_binding")
+            != self.mls_submission.recovery_source.is_some()
+        {
+            return Err(WireError::Protocol(
+                "peer recovery submission requires exactly its owning-Station source".into(),
+            ));
+        }
+        if let Some(source) = &self.mls_submission.recovery_source {
+            source.validate_submission_binding(&self.mls_submission.commit_event)?;
+        }
         validate_producer_agent_evidence_presence(
             &self.mls_submission.commit_event,
             self.producer_agent_evidence.as_ref(),

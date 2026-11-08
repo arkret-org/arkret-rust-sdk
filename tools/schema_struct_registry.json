@@ -1123,8 +1123,8 @@
       "schema": "actor-profile-operations.schema.json#/$defs/account_status_projection"
     },
     {
-      "rust_type": "crates/models-collaboration/src/generated/authority_commit_contracts.rs::MlsGenesisMaterial",
-      "schema": "authority-commit-operations.schema.json#/$defs/mls_genesis_material"
+      "rust_type": "crates/models-collaboration/src/generated/authority_commit_contracts.rs::MlsGroupStateMaterial",
+      "schema": "authority-commit-operations.schema.json#/$defs/mls_group_state_material"
     },
     {
       "rust_type": "crates/models-collaboration/src/generated/agent_interaction_contracts.rs::AgentInteractionSetPayload",
@@ -3807,7 +3807,9 @@
     },
     {
       "rust_type": "crates/models-crypto/src/artifacts_keys.rs::KeyBackupPlaintext",
-      "schema": "key-backup-plaintext.schema.json"
+      "schema": "key-backup-plaintext.schema.json",
+      "comparison": "rust_fields_subset",
+      "reason": "The only flattened members are schema-permitted x_ extensions; every named keybag field remains checked against the canonical plaintext schema."
     },
     {
       "rust_type": "crates/models-identity/src/account.rs::ReservedIdentityCreation",
@@ -4086,6 +4088,98 @@
     {
       "rust_type": "crates/models-collaboration/src/governance/realm_invite_link.rs::RealmInviteLinkToken",
       "schema": "realm-invite-link-token.schema.json"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/content_history_contracts.rs::ContentRecoverySource",
+      "schema": "content-encryption.schema.json#/$defs/recovery_source"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/authority_commit_contracts.rs::AgentRuntimeHistoricalSignerFact",
+      "schema": "authority-commit-operations.schema.json#/$defs/agent_runtime_historical_signer_fact"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/content_history_contracts.rs::ContentRootContext",
+      "schema": "content-encryption.schema.json#/$defs/root_context"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/content_history_contracts.rs::ContentEndpoint",
+      "schema": "content-encryption.schema.json#/$defs/endpoint"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/content_history_contracts.rs::ContentContext",
+      "schema": "content-encryption.schema.json#/$defs/content_context"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/content_history_contracts.rs::ContentRootBackupEntry",
+      "schema": "content-encryption.schema.json#/$defs/content_epoch_root"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/content_history_contracts.rs::ContentCoverageEntry",
+      "schema": "content-encryption.schema.json#/$defs/coverage_entry"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/content_history_contracts.rs::ContentCoveragePage",
+      "schema": "content-encryption.schema.json#/$defs/coverage"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/content_history_contracts.rs::HistoryGrantEntry",
+      "schema": "content-encryption.schema.json#/$defs/history_grant/properties/entries/items"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/content_history_contracts.rs::HistoryGrant",
+      "schema": "content-encryption.schema.json#/$defs/history_grant"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/content_history_contracts.rs::ContentRecoveryBinding",
+      "schema": "content-encryption.schema.json#/$defs/recovery_binding"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/content_history_contracts.rs::AgentHistoryCustody",
+      "schema": "content-encryption.schema.json#/$defs/custody"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/content_history_contracts.rs::ContentRecoveryCheckpoint",
+      "schema": "content-encryption.schema.json#/$defs/history_recovery"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/content_history_contracts.rs::ContentProtection",
+      "schema": "content-encryption.schema.json#/$defs/protection"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/content_history_contracts.rs::HistoryRequest",
+      "schema": "content-encryption.schema.json#/$defs/history_request"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/content_history_contracts.rs::ContentHistoryBackupAccess",
+      "schema": "content-encryption.schema.json#/$defs/history_backup_access"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/content_history_contracts.rs::ContentRecoveryOldLeaf",
+      "schema": "content-encryption.schema.json#/$defs/recovery_inventory_entry/properties/old_leaves/items"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/content_history_contracts.rs::ContentRecoveryInventoryEntry",
+      "schema": "content-encryption.schema.json#/$defs/recovery_inventory_entry"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/content_history_contracts.rs::ContentRecoveryInventory",
+      "schema": "content-encryption.schema.json#/$defs/recovery_inventory"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/content_history_contracts.rs::ContentScopeCleanup",
+      "schema": "content-encryption.schema.json#/$defs/scope_cleanup"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/content_history_contracts.rs::ContentCleanupInventory",
+      "schema": "content-encryption.schema.json#/$defs/cleanup_inventory"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/content_history_contracts.rs::ContentRecoverySourceAttestation",
+      "schema": "content-encryption.schema.json#/$defs/recovery_source_attestation"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/mls_roster_authority_contracts.rs::MlsRosterRecoverySigningKey",
+      "schema": "mls-roster-authority.schema.json#/$defs/roster_recovery_signing_key"
     }
   ],
   "exemptions": [

@@ -10,6 +10,7 @@ use openmls::prelude::{
     RatchetTreeIn, Sender,
 };
 use openmls_rust_crypto::OpenMlsRustCrypto;
+use openmls_traits::crypto::OpenMlsCrypto as _;
 use serde::{Deserialize, Serialize};
 use tls_codec::{Deserialize as TlsDeserializeTrait, Serialize as TlsSerializeTrait};
 
@@ -278,7 +279,7 @@ pub enum MlsPublicHandshakeTransition {
     },
     Commit {
         /// RFC 9420 sender class of the signed Commit. A `new_member_commit`
-        /// sender is an external Commit, which v1 does not admit.
+        /// sender is admitted only by the explicit recovery transition gate.
         sender_class: MlsProposalSenderClass,
         sender_leaf: Option<MlsPublicEndpointLeaf>,
         previous_epoch: u64,
@@ -350,10 +351,61 @@ impl MlsPublicGroupTracker {
             .tls_serialize_detached()
             .map_err(mls_error)
     }
+    /// Exact authenticated public context, including transcript and tree hashes.
+    pub fn group_context_bytes(&self) -> Result<Vec<u8>> {
+        self.public_group
+            .group_context()
+            .tls_serialize_detached()
+            .map_err(mls_error)
+    }
+
+    /// Validate producer-published public material against this exact RFC
+    /// post-transition state. Epoch, binding or leaf-set equality alone does
+    /// not authenticate the full transcript and ratchet tree.
+    pub fn verify_publication(&self, group_info: &[u8], tree: &[u8]) -> Result<()> {
+        let published = Self::from_external(group_info, tree, &self.group_id(), self.epoch())?;
+        if self.group_context_bytes()? != published.group_context_bytes()?
+            || self.ratchet_tree_bytes()? != published.ratchet_tree_bytes()?
+        {
+            return Err(Error::Protocol(
+                "published MLS material differs from exact post-state".into(),
+            ));
+        }
+        let message = MlsMessageIn::tls_deserialize_exact(group_info).map_err(mls_error)?;
+        if message.tls_serialize_detached().map_err(mls_error)? != group_info {
+            return Err(Error::Protocol(
+                "published GroupInfo wire is not canonical".into(),
+            ));
+        }
+        let MlsMessageBodyIn::GroupInfo(info) = message.extract() else {
+            return Err(Error::Protocol(
+                "published material is not GroupInfo".into(),
+            ));
+        };
+        let external = info
+            .extensions()
+            .external_pub()
+            .ok_or_else(|| Error::Protocol("published GroupInfo omits external_pub".into()))?;
+        self.ciphersuite_canonical_id()?;
+        // Ask the negotiated RFC HPKE implementation to reject malformed or
+        // low-order KEM keys. This empty local probe is discarded, never sent
+        // or retained as an application ciphertext or authorization effect.
+        self.provider
+            .crypto()
+            .hpke_seal(
+                self.public_group.ciphersuite().hpke_config(),
+                external.external_pub().as_slice(),
+                b"",
+                b"",
+                b"",
+            )
+            .map_err(mls_error)?;
+        Ok(())
+    }
     /// The fixed `0xF1C0` governance binding of the current public
     /// GroupContext (encryption-and-audit.md §2.5.1). Genesis carries the
-    /// `0 -> 0` binding; every accepted Commit replaces it with its own next
-    /// epoch binding. A context without the extension is not a governed group.
+    /// `0 -> 0` binding; Member Commits replace it. An approved recovery
+    /// External Commit inherits it and authenticates its new binding in AAD.
     pub fn governance_binding(&self) -> Result<arkret_models_crypto::MlsGovernanceBindingPayload> {
         crate::group::decode_group_context_governance_binding(self.public_group.group_context())
     }
@@ -402,7 +454,89 @@ impl MlsPublicGroupTracker {
         bytes: &[u8],
     ) -> Result<MlsPublicHandshakeTransition> {
         let mut candidate = Self::restore(&self.export_state()?, &self.group_id(), self.epoch())?;
-        let transition = candidate.process_inner(bytes)?;
+        let transition = candidate.process_inner(bytes, None)?;
+        candidate.ensure_supported_group_context_extensions()?;
+        *self = candidate;
+        Ok(transition)
+    }
+
+    /// The caller verifies current native replacement authority, the original
+    /// origin proof, frozen inventory and accepted-base CAS before this gate.
+    /// Failure never changes the original tracker or its proposal store.
+    pub fn process_recovery_external_commit(
+        &mut self,
+        bytes: &[u8],
+        recovery: &arkret_models_crypto::ContentRecoveryBinding,
+        current: &crate::MlsGovernanceBindingPublicState,
+        binding: &arkret_models_crypto::MlsGovernanceBindingPayload,
+    ) -> Result<MlsPublicHandshakeTransition> {
+        recovery.validate()?;
+        crate::verify_governance_binding_against_public_state_and_payload(
+            binding, current, binding,
+        )
+        .map_err(|error| Error::Protocol(error.code().into()))?;
+        if binding.mls_group_id()?.as_str() != self.group_id()
+            || binding.previous_epoch() != self.epoch()
+            || recovery.expected_epoch != self.epoch()
+            || binding.base_group_state_ref() != Some(&recovery.base_group_state_ref)
+        {
+            return Err(Error::Protocol(
+                "recovery Commit differs from exact current group base".into(),
+            ));
+        }
+        let before = self.leaves()?;
+        if !before
+            .iter()
+            .any(|leaf| leaf.actor_id == recovery.replacement.actor_id)
+            || before.iter().any(|leaf| {
+                leaf.signature_key.as_str() == recovery.replacement.signature_key_base64url
+            })
+        {
+            return Err(Error::Protocol(
+                "recovery requires a joined Actor and a fresh replacement key".into(),
+            ));
+        }
+        let inherited = self
+            .public_group
+            .group_context()
+            .extensions()
+            .tls_serialize_detached()
+            .map_err(mls_error)?;
+        let mut candidate = Self::restore(&self.export_state()?, &self.group_id(), self.epoch())?;
+        let transition = candidate.process_inner(bytes, Some(binding))?;
+        let MlsPublicHandshakeTransition::Commit {
+            sender_class,
+            added_leaves,
+            removed_leaf_indices,
+            consumed_proposals,
+            referenced_proposal_refs,
+            ..
+        } = &transition
+        else {
+            return Err(Error::Protocol(
+                "recovery must contain one External Commit".into(),
+            ));
+        };
+        if *sender_class != MlsProposalSenderClass::NewMemberCommit
+            || added_leaves.len() != 1
+            || added_leaves[0].actor_id != recovery.replacement.actor_id
+            || added_leaves[0].signature_key.as_str()
+                != recovery.replacement.signature_key_base64url
+            || !removed_leaf_indices.is_empty()
+            || !consumed_proposals.is_empty()
+            || !referenced_proposal_refs.is_empty()
+            || candidate
+                .public_group
+                .group_context()
+                .extensions()
+                .tls_serialize_detached()
+                .map_err(mls_error)?
+                != inherited
+        {
+            return Err(Error::Protocol(
+                "recovery path or inherited GroupContext differs from approved replacement".into(),
+            ));
+        }
         candidate.ensure_supported_group_context_extensions()?;
         *self = candidate;
         Ok(transition)
@@ -422,7 +556,11 @@ impl MlsPublicGroupTracker {
         }
         Ok(())
     }
-    fn process_inner(&mut self, bytes: &[u8]) -> Result<MlsPublicHandshakeTransition> {
+    fn process_inner(
+        &mut self,
+        bytes: &[u8],
+        recovery_binding: Option<&arkret_models_crypto::MlsGovernanceBindingPayload>,
+    ) -> Result<MlsPublicHandshakeTransition> {
         let message = MlsMessageIn::tls_deserialize_exact(bytes).map_err(mls_error)?;
         if message.tls_serialize_detached().map_err(mls_error)? != bytes {
             return Err(Error::Protocol(
@@ -434,6 +572,14 @@ impl MlsPublicGroupTracker {
                 "public MLS tracker requires PublicMessage Proposal/Commit".into(),
             ));
         };
+        if recovery_binding.is_some()
+            && (!matches!(message.sender(), Sender::NewMemberCommit)
+                || message.content_type() != openmls::prelude::ContentType::Commit)
+        {
+            return Err(Error::Protocol(
+                "recovery gate rejects ordinary or non-Commit senders".into(),
+            ));
+        }
         let previous_epoch = self.epoch();
         let previous_leaves = self
             .leaves()?
@@ -448,6 +594,13 @@ impl MlsPublicGroupTracker {
             )
             .map_err(mls_error)?;
         let sender = processed.sender().clone();
+        if let Some(binding) = recovery_binding
+            && processed.aad() != binding.to_deterministic_cbor()?
+        {
+            return Err(Error::Protocol(
+                "External Commit authenticated_data differs from governance binding".into(),
+            ));
+        }
         let sender_class = match &sender {
             Sender::Member(_) => MlsProposalSenderClass::Member,
             Sender::External(_) => MlsProposalSenderClass::External,
@@ -498,12 +651,34 @@ impl MlsPublicGroupTracker {
                 })
             }
             ProcessedMessageContent::StagedCommitMessage(staged) => {
+                if recovery_binding.is_some()
+                    && (staged.queued_proposals().count() != 1
+                        || !staged.queued_proposals().all(|proposal| {
+                            matches!(
+                                proposal.proposal(),
+                                openmls::prelude::Proposal::ExternalInit(_)
+                            ) && proposal.proposal_or_ref_type()
+                                == openmls::prelude::ProposalOrRefType::Proposal
+                        }))
+                {
+                    return Err(Error::Protocol(
+                        "recovery External Commit requires exactly one inline ExternalInit".into(),
+                    ));
+                }
                 // OpenMLS StagedCommit::queued_proposals preserves the original
                 // Commit.proposals[] order. The parsed MLSMessage above must
                 // round-trip to the exact signed input before we use that
                 // verified queue as the historical ordinal/body source.
                 let mut consumed_proposals = Vec::new();
                 for (ordinal, proposal) in staged.queued_proposals().enumerate() {
+                    if recovery_binding.is_some()
+                        && matches!(
+                            proposal.proposal(),
+                            openmls::prelude::Proposal::ExternalInit(_)
+                        )
+                    {
+                        continue;
+                    }
                     if proposal.proposal_or_ref_type()
                         == openmls::prelude::ProposalOrRefType::Reference
                     {

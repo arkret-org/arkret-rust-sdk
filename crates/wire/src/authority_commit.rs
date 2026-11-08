@@ -1471,14 +1471,41 @@ impl PcrGenesisUnit {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct MlsCommitSubmission {
+#[serde(deny_unknown_fields, bound(deserialize = "Source: Deserialize<'de>"))]
+pub struct MlsCommitSubmission<Source = NoRecoverySource> {
     pub commit_event: Event,
     pub welcomes: Vec<MlsWelcomeDelivery>,
     pub idempotency_key: UuidV7,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub recovery_source: Option<Source>,
 }
 
-impl MlsCommitSubmission {
+/// Client submissions cannot carry a Station-issued recovery source.
+/// The service peer carrier specializes the same transport type with its closed source.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum NoRecoverySource {}
+
+impl MlsCommitSubmission<NoRecoverySource> {
+    /// The owning Station binds its independently verified original proof.
+    /// This conversion never alters the producer-signed Event bytes.
+    pub fn for_origin_forward<Source>(
+        self,
+        recovery_source: Option<Source>,
+    ) -> MlsCommitSubmission<Source> {
+        MlsCommitSubmission {
+            commit_event: self.commit_event,
+            welcomes: self.welcomes,
+            idempotency_key: self.idempotency_key,
+            recovery_source,
+        }
+    }
+}
+
+impl<Source> MlsCommitSubmission<Source> {
     pub fn validate(&self) -> Result<()> {
         self.commit_event.validate_for_submit_structural()?;
         if self.commit_event.kind != crate::EventKind::MlsCommit {

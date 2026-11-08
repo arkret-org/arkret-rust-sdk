@@ -35,6 +35,19 @@ pub struct KeyBackupActiveSeries {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     pub signature_proof: KeyBackupActiveSeriesSignatureProof,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub custodian_actor_id: Option<ActorId>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub custody_authorization_ref: Option<EventId>,
+
     #[serde(flatten)]
     pub extra: BTreeMap<String, Value>,
 }
@@ -56,6 +69,10 @@ pub struct UnsignedKeyBackupActiveSeries {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     issued_at: DateTime<Utc>,
     signature_proof: UnsignedKeyBackupActiveSeriesAuthData,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    custodian_actor_id: Option<ActorId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    custody_authorization_ref: Option<EventId>,
     #[serde(flatten)]
     extra: BTreeMap<String, Value>,
 }
@@ -118,8 +135,33 @@ impl UnsignedKeyBackupActiveSeries {
                 signature_algorithm: KeyBackupSignatureAlgorithm::Ed25519,
                 device_authorize_event_id: trust_anchor.authorize_event_id,
             },
+            custodian_actor_id: None,
+            custody_authorization_ref: None,
             extra: BTreeMap::new(),
         })
+    }
+
+    /// Bind a controller-signed Agent series selection to accepted immutable custody.
+    /// Native provision, policy, Station and current-device verification remains mandatory.
+    pub fn with_agent_custody(
+        mut self,
+        custodian: ActorId,
+        authorization: EventId,
+    ) -> Result<Self> {
+        let subject = self.actor_id.as_account_id();
+        let controller = custodian.as_account_id();
+        if subject.is_none()
+            || controller.is_none()
+            || subject == controller
+            || subject.map(|a| &a.station_id) != controller.map(|a| &a.station_id)
+        {
+            return Err(WireError::Protocol(
+                "Agent custody requires distinct same-Station Account actors".into(),
+            ));
+        }
+        self.custodian_actor_id = Some(custodian);
+        self.custody_authorization_ref = Some(authorization);
+        Ok(self)
     }
 
     /// Canonical bytes signed by active-series producers and verified by all
@@ -145,6 +187,8 @@ impl UnsignedKeyBackupActiveSeries {
                 signature,
                 device_authorize_event_id: self.signature_proof.device_authorize_event_id,
             },
+            custodian_actor_id: self.custodian_actor_id,
+            custody_authorization_ref: self.custody_authorization_ref,
             extra: self.extra,
         })
     }
@@ -171,6 +215,8 @@ impl KeyBackupActiveSeries {
                 signature_algorithm: self.signature_proof.signature_algorithm,
                 device_authorize_event_id: self.signature_proof.device_authorize_event_id.clone(),
             },
+            custodian_actor_id: self.custodian_actor_id.clone(),
+            custody_authorization_ref: self.custody_authorization_ref.clone(),
             extra: self.extra.clone(),
         };
         unsigned.signing_payload_bytes()
@@ -308,6 +354,20 @@ pub fn validate_key_backup_active_series_transition(
 pub fn validate_key_backup_active_series_record(
     record: &KeyBackupActiveSeries,
 ) -> std::result::Result<(), KeyBackupActiveSeriesTransitionError> {
+    if record.custodian_actor_id.is_some() != record.custody_authorization_ref.is_some() {
+        return Err(KeyBackupActiveSeriesTransitionError::SchemaMismatch);
+    }
+    if let Some(custodian) = &record.custodian_actor_id {
+        let subject = record.actor_id.as_account_id();
+        let controller = custodian.as_account_id();
+        if subject.is_none()
+            || controller.is_none()
+            || subject == controller
+            || subject.map(|a| &a.station_id) != controller.map(|a| &a.station_id)
+        {
+            return Err(KeyBackupActiveSeriesTransitionError::ActorOrClassMismatch);
+        }
+    }
     if record.schema != SchemaId::KEY_BACKUP_ACTIVE_SERIES_V1
         || record
             .extra

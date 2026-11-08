@@ -24,7 +24,7 @@ account-data = ["dep:chacha20poly1305", "dep:getrandom", "dep:hkdf"]
 # Encrypted attachment codec (`blob_aead` module): `ak.blob.stream_aead.v1`
 # XChaCha20-Poly1305 streaming AEAD. Other schemes fail closed.
 # Pulls in the AEAD stack only when enabled.
-blob-aead = ["dep:chacha20poly1305", "dep:getrandom", "dep:arkret-models-collaboration"]
+blob-aead = ["dep:chacha20poly1305", "dep:getrandom", "dep:arkret-models-collaboration", "dep:subtle"]
 # SFrame media frame-key / recording-key derivation (`sframe` module): the
 # `MlsExporterSource` trait + fixed-label context builders over canonical JSON.
 # Only needs zeroize for the returned key material; the MLS exporter impl lives
@@ -32,6 +32,7 @@ blob-aead = ["dep:chacha20poly1305", "dep:getrandom", "dep:arkret-models-collabo
 sframe = ["dep:zeroize"]
 # RFC 9180 X25519 base-mode seal/open helpers used by backup protocols.
 hpke = ["dep:hpke", "dep:getrandom", "dep:zeroize"]
+content-history = ["aead", "hpke", "dep:aes-gcm", "dep:zeroize", "dep:getrandom"]
 # Typed device-to-device secret sharing over the same RFC 9180 HPKE profile.
 secret-share = ["hpke"]
 # Client-side key-backup primitives: Argon2id KDF + XChaCha20-Poly1305 AEAD +
@@ -57,6 +58,7 @@ identity-root = [
 ]
 
 [dependencies]
+aes-gcm = { workspace = true, optional = true }
 argon2 = { workspace = true, default-features = false, features = ["alloc"], optional = true }
 arkret-canonical = { workspace = true }
 arkret-models-collaboration = { workspace = true, optional = true }

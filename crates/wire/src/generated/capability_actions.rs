@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json;
-//! sha256=0c45feb83576757e83d3be4b71330fcb8a607e77b2aa85798b1f98960fef0df1 Entries: registered=154
+//! sha256=c7366b7cc0653b17d2a0a627fa7a2fdf0a2a27f69f272bf6d28805d5b8e3f44f Entries: registered=158
 
 use serde::{Deserialize, Serialize};
 
@@ -51,6 +51,7 @@ pub enum CapabilityActionId {
     InviteCancel,
     InviteCreate,
     InviteRevoke,
+    KeyBackupActiveSeries,
     MemberCompensateLeave,
     MemberCompensateRemove,
     MemberLeaveOwn,
@@ -64,6 +65,9 @@ pub enum CapabilityActionId {
     MessageStreamSend,
     MlsCommit,
     MlsGenesis,
+    MlsHistoryGrant,
+    MlsHistoryRecovery,
+    MlsHistoryRequest,
     ModerationDecision,
     ModerationDecisionLift,
     MorphArchive,
@@ -209,6 +213,7 @@ impl CapabilityActionId {
         Self::InviteCancel,
         Self::InviteCreate,
         Self::InviteRevoke,
+        Self::KeyBackupActiveSeries,
         Self::MemberCompensateLeave,
         Self::MemberCompensateRemove,
         Self::MemberLeaveOwn,
@@ -222,6 +227,9 @@ impl CapabilityActionId {
         Self::MessageStreamSend,
         Self::MlsCommit,
         Self::MlsGenesis,
+        Self::MlsHistoryGrant,
+        Self::MlsHistoryRecovery,
+        Self::MlsHistoryRequest,
         Self::ModerationDecision,
         Self::ModerationDecisionLift,
         Self::MorphArchive,
@@ -365,6 +373,7 @@ impl CapabilityActionId {
     pub const INVITE_CANCEL: &'static str = "ak.invite.cancel";
     pub const INVITE_CREATE: &'static str = "ak.invite.create";
     pub const INVITE_REVOKE: &'static str = "ak.invite.revoke";
+    pub const KEY_BACKUP_ACTIVE_SERIES: &'static str = "ak.key_backup.active_series";
     pub const MEMBER_COMPENSATE_LEAVE: &'static str = "ak.member.compensate.leave";
     pub const MEMBER_COMPENSATE_REMOVE: &'static str = "ak.member.compensate.remove";
     pub const MEMBER_LEAVE_OWN: &'static str = "ak.member.leave.own";
@@ -378,6 +387,9 @@ impl CapabilityActionId {
     pub const MESSAGE_STREAM_SEND: &'static str = "ak.message.stream.send";
     pub const MLS_COMMIT: &'static str = "ak.mls.commit";
     pub const MLS_GENESIS: &'static str = "ak.mls.genesis";
+    pub const MLS_HISTORY_GRANT: &'static str = "ak.mls.history_grant";
+    pub const MLS_HISTORY_RECOVERY: &'static str = "ak.mls.history_recovery";
+    pub const MLS_HISTORY_REQUEST: &'static str = "ak.mls.history_request";
     pub const MODERATION_DECISION: &'static str = "ak.moderation.decision";
     pub const MODERATION_DECISION_LIFT: &'static str = "ak.moderation.decision.lift";
     pub const MORPH_ARCHIVE: &'static str = "ak.morph.archive";
@@ -532,6 +544,7 @@ impl CapabilityActionId {
             Self::InviteCancel => Self::INVITE_CANCEL,
             Self::InviteCreate => Self::INVITE_CREATE,
             Self::InviteRevoke => Self::INVITE_REVOKE,
+            Self::KeyBackupActiveSeries => Self::KEY_BACKUP_ACTIVE_SERIES,
             Self::MemberCompensateLeave => Self::MEMBER_COMPENSATE_LEAVE,
             Self::MemberCompensateRemove => Self::MEMBER_COMPENSATE_REMOVE,
             Self::MemberLeaveOwn => Self::MEMBER_LEAVE_OWN,
@@ -545,6 +558,9 @@ impl CapabilityActionId {
             Self::MessageStreamSend => Self::MESSAGE_STREAM_SEND,
             Self::MlsCommit => Self::MLS_COMMIT,
             Self::MlsGenesis => Self::MLS_GENESIS,
+            Self::MlsHistoryGrant => Self::MLS_HISTORY_GRANT,
+            Self::MlsHistoryRecovery => Self::MLS_HISTORY_RECOVERY,
+            Self::MlsHistoryRequest => Self::MLS_HISTORY_REQUEST,
             Self::ModerationDecision => Self::MODERATION_DECISION,
             Self::ModerationDecisionLift => Self::MODERATION_DECISION_LIFT,
             Self::MorphArchive => Self::MORPH_ARCHIVE,
@@ -699,6 +715,7 @@ impl CapabilityActionId {
             Self::INVITE_CANCEL => Some(Self::InviteCancel),
             Self::INVITE_CREATE => Some(Self::InviteCreate),
             Self::INVITE_REVOKE => Some(Self::InviteRevoke),
+            Self::KEY_BACKUP_ACTIVE_SERIES => Some(Self::KeyBackupActiveSeries),
             Self::MEMBER_COMPENSATE_LEAVE => Some(Self::MemberCompensateLeave),
             Self::MEMBER_COMPENSATE_REMOVE => Some(Self::MemberCompensateRemove),
             Self::MEMBER_LEAVE_OWN => Some(Self::MemberLeaveOwn),
@@ -712,6 +729,9 @@ impl CapabilityActionId {
             Self::MESSAGE_STREAM_SEND => Some(Self::MessageStreamSend),
             Self::MLS_COMMIT => Some(Self::MlsCommit),
             Self::MLS_GENESIS => Some(Self::MlsGenesis),
+            Self::MLS_HISTORY_GRANT => Some(Self::MlsHistoryGrant),
+            Self::MLS_HISTORY_RECOVERY => Some(Self::MlsHistoryRecovery),
+            Self::MLS_HISTORY_REQUEST => Some(Self::MlsHistoryRequest),
             Self::MODERATION_DECISION => Some(Self::ModerationDecision),
             Self::MODERATION_DECISION_LIFT => Some(Self::ModerationDecisionLift),
             Self::MORPH_ARCHIVE => Some(Self::MorphArchive),

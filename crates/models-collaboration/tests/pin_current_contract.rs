@@ -12,14 +12,14 @@ fn entry(byte: u8, index: u16) -> PinAssertionEntry {
             index,
         )
         .unwrap(),
-        value: PinAssertionPayload::Add(PinAddPayload {
+        value: PinAssertionPayload::Add(Box::new(PinAddPayload {
             pin_scope: PinScope::Realm {
                 id: RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap(),
             },
             target_ref: "ak:message:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9".into(),
             rank: "a0".into(),
             note: None,
-        }),
+        })),
     }
 }
 

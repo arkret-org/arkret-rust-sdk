@@ -168,8 +168,7 @@ fn project_patch(patch: &Patch) -> Result<EventMetadataSendGate> {
 
 #[cfg(test)]
 mod tests {
-    use arkret_models_crypto::EncryptedEnvelopeEncryptionContext;
-    use arkret_wire::{ActorId, DidCoreId, EventId, RealmId, ScopeRef};
+    use arkret_wire::{ActorId, DidCoreId, RealmId, ScopeRef};
     use serde_json::json;
 
     use super::*;
@@ -205,15 +204,11 @@ mod tests {
     }
 
     fn envelope() -> EncryptedEnvelope {
-        EncryptedEnvelope {
-            version: "1.0".into(),
-            content_type: "application/json".into(),
-            encryption_context: EncryptedEnvelopeEncryptionContext::standard(
-                7,
-                EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [2; 32]),
-            ),
-            ciphertext: "AA".into(),
-        }
+        let fixture: Value = serde_json::from_str(include_str!(
+            "../../../../arkret-spec/spec/v1/artifacts/fixtures/content-history-fixture.json"
+        ))
+        .unwrap();
+        serde_json::from_value(fixture["kat"]["envelope"].clone()).unwrap()
     }
 
     fn assert_projection(kind: EventKind, payload: Value, expected: Option<EventMetadataSendGate>) {
