@@ -196,6 +196,43 @@ pub mod optional_canonical_timestamp {
     };
 }
 
+/// An absent timestamp is optional; an explicitly present null is invalid.
+pub mod non_null_optional_canonical_timestamp {
+    pub use super::serialize_optional_canonical_timestamp as serialize;
+
+    pub fn deserialize<'de, D>(
+        deserializer: D,
+    ) -> Result<Option<chrono::DateTime<chrono::Utc>>, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        super::deserialize_canonical_timestamp(deserializer).map(Some)
+    }
+}
+
+/// Preserve absent, explicit null and canonical timestamp as distinct signed
+/// members. Use `default` and skip only the outer `Option::None` on the field.
+pub mod present_nullable_canonical_timestamp {
+    pub fn deserialize<'de, D>(
+        deserializer: D,
+    ) -> Result<Option<Option<chrono::DateTime<chrono::Utc>>>, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        super::deserialize_optional_canonical_timestamp(deserializer).map(Some)
+    }
+
+    pub fn serialize<S>(
+        value: &Option<Option<chrono::DateTime<chrono::Utc>>>,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        super::serialize_optional_canonical_timestamp(&value.flatten(), serializer)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

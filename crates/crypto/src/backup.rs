@@ -940,7 +940,7 @@ fn build_key_backup_envelope_in_series(
         actor_id,
         device_id,
         backup_kind,
-        mixed_secret_storage: false,
+        mixed_secret_storage: None,
         backup_version: backup_version.to_owned(),
         created_at,
         updated_at: None,

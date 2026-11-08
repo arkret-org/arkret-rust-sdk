@@ -21,10 +21,6 @@ use crate::{
     RecoveryPolicyRef,
 };
 
-fn is_false(value: &bool) -> bool {
-    !*value
-}
-
 fn serialize_nonempty_contents<S>(
     contents: &[SecretStorageContentIndex],
     serializer: S,
@@ -91,20 +87,36 @@ pub struct KeyBackupSourceCommitRef {
 pub struct KeyBackup {
     pub backup_id: BackupId,
     pub actor_id: ActorId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub device_id: Option<DeviceId>,
     pub backup_kind: BackupKind,
-    #[serde(default, skip_serializing_if = "is_false")]
-    pub mixed_secret_storage: bool,
+    /// Absence defaults to false; an explicit false remains a signed member.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub mixed_secret_storage: Option<bool>,
     pub backup_version: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "arkret_canonical::serde_helpers::non_null_optional_canonical_timestamp"
+    )]
     pub updated_at: Option<DateTime<Utc>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub expires_at: Option<DateTime<Utc>>,
+    /// Outer None is absent; Some(None) preserves an explicit signed null.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "arkret_canonical::serde_helpers::present_nullable_canonical_timestamp"
+    )]
+    pub expires_at: Option<Option<DateTime<Utc>>>,
     pub encryption: KeyBackupEncryption,
     pub domain_separation: KeyBackupDomainSeparation,
     #[serde(
@@ -114,20 +126,44 @@ pub struct KeyBackup {
     pub contents: Vec<SecretStorageContentIndex>,
     pub ciphertext: Base64UrlString,
     pub ciphertext_digest: Hash,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub plaintext_commitment: Option<Hash>,
     pub signature_proof: KeyBackupSignatureProof,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub retention: Option<KeyBackupRetention>,
     pub series_id: BackupSeriesId,
     pub series_sequence: u64,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub supersedes_id: Option<BackupId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub supersedes_digest: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub source_commit_ref: Option<KeyBackupSourceCommitRef>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub recovery_policy_ref: Option<RecoveryPolicyRef>,
     #[serde(
         default,
@@ -167,7 +203,7 @@ impl KeyBackup {
             .count();
         if root_count > 0
             && (root_count != self.contents.len()
-                || self.mixed_secret_storage
+                || self.mixed_secret_storage.unwrap_or(false)
                 || self.encryption.recipient_method != KeyBackupRecipientMethod::RecoveryPublicKey
                 || self
                     .encryption
@@ -232,6 +268,7 @@ impl KeyBackup {
         }
         if self
             .expires_at
+            .flatten()
             .is_some_and(|expires| expires <= self.created_at)
             || self
                 .updated_at
@@ -400,14 +437,30 @@ pub enum KeyBackupRecipientMethod {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct KeyBackupEncryption {
     pub recipient_method: KeyBackupRecipientMethod,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub recipient_key_ref: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub hpke_suite: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub kdf: Option<KeyBackupKdf>,
     pub aead: KeyBackupAead,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub key_commitment: Option<Hash>,
     #[serde(default, flatten)]
     pub extra: XExtensionMap,
@@ -597,7 +650,11 @@ pub struct KeyBackupKdf {
     pub salt: Base64UrlString,
     #[serde(default)]
     pub parameters: KeyBackupKdfParameters,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub degraded_profile_reason: Option<String>,
     #[serde(default, flatten)]
     pub extra: XExtensionMap,
@@ -659,13 +716,29 @@ pub enum KeyBackupAeadName {
 pub struct KeyBackupAead {
     #[serde(rename = "name")]
     pub name: KeyBackupAeadName,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub aead_profile: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub nonce_salt: Option<Base64UrlString>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub nonce: Option<Base64UrlString>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub enc: Option<Base64UrlString>,
     #[serde(default, flatten)]
     pub extra: XExtensionMap,
@@ -799,10 +872,17 @@ pub enum KeyBackupSignatureAlgorithm {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct KeyBackupRetention {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub deletion_eligible_at: Option<DateTime<Utc>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "arkret_canonical::serde_helpers::present_nullable_canonical_timestamp"
+    )]
+    pub deletion_eligible_at: Option<Option<DateTime<Utc>>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub legal_hold: Option<bool>,
     #[serde(default, flatten)]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
