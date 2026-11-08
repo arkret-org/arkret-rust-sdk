@@ -26,6 +26,12 @@ const KEY_LABEL: &str = "ak.content-v1";
 const ZERO_NONCE: [u8; 12] = [0; 12];
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+enum EncryptionBackupStrategy {
+    #[serde(rename = "ak.encryption_backup.epoch_content_roots.v1")]
+    EpochContentRoots,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Coordinate {
     scope: ScopeRef,
@@ -33,6 +39,8 @@ struct Coordinate {
     epoch: String,
     public_state_digest: [u8; 32],
     suite: u16,
+    encryption_backup_strategy: EncryptionBackupStrategy,
+    backup_strategy_ref: [u8; 32],
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -100,6 +108,47 @@ struct Input {
     recipient: [u8; 32],
     controller_recovery_public: [u8; 32],
     policy: [u8; 32],
+    coverage: Coverage,
+}
+
+#[derive(Clone, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Coverage {
+    sources: Vec<[u8; 32]>,
+    root_packets: Vec<[u8; 32]>,
+}
+
+// Only the trusted fixture producer calls this. Readers must use the manifest
+// pinned independently at load_pinned_input, never recompute expected coverage.
+fn fixture_coverage(input: &Input) -> Coverage {
+    Coverage {
+        sources: input
+            .sources
+            .iter()
+            .map(|source| hash(&bytes(source)))
+            .collect(),
+        root_packets: input
+            .backups
+            .iter()
+            .map(|packet| hash(&bytes(packet)))
+            .collect(),
+    }
+}
+
+fn verify_coverage(input: &Input) -> Result<(), String> {
+    let actual = fixture_coverage(input);
+    if actual.sources != input.coverage.sources
+        || actual.root_packets != input.coverage.root_packets
+    {
+        return Err(
+            "incomplete or substituted history at the independently pinned recovery cut".into(),
+        );
+    }
+    let unique: std::collections::HashSet<_> = actual.sources.iter().collect();
+    if unique.len() != actual.sources.len() {
+        return Err("duplicate source cannot replace missing historical content".into());
+    }
+    Ok(())
 }
 
 #[derive(Serialize, Deserialize)]
@@ -169,6 +218,11 @@ fn fact_and_root(endpoint: &Endpoint, group: &MlsGroup, binding: &Binding) -> (E
         epoch: group.epoch().as_u64().to_string(),
         public_state_digest: hash(&public),
         suite: u16::from(ARKRET_MLS_CIPHERSUITE),
+        encryption_backup_strategy: EncryptionBackupStrategy::EpochContentRoots,
+        backup_strategy_ref: hash(&bytes(&(
+            "accepted fixture backup strategy",
+            &binding.scope,
+        ))),
     };
     let secret = Zeroizing::new(
         group
@@ -278,6 +332,7 @@ fn open_content(
 }
 
 fn open_history(input: &Input, roots: &[Root]) -> Result<Vec<Vec<u8>>, String> {
+    verify_coverage(input)?;
     input
         .sources
         .iter()
@@ -317,6 +372,7 @@ fn backup(endpoint: &Endpoint, root: &Root, input: &Input) -> RootPacket {
 }
 
 fn restore(input: &Input, private: &[u8]) -> Result<Vec<Root>, String> {
+    verify_coverage(input)?;
     let mut previous = None;
     let mut roots = Vec::new();
     for (sequence, packet) in input.backups.iter().enumerate() {
@@ -396,6 +452,7 @@ fn setup(kind: &str, recipient: [u8; 32], recovery_public: [u8; 32]) -> Fixture 
         recipient,
         controller_recovery_public: recovery_public,
         policy: hash(b"accepted fixture backup policy"),
+        coverage: Coverage::default(),
     };
     let mut roots = Vec::new();
     let mut plaintext = Vec::new();
@@ -465,6 +522,7 @@ fn setup(kind: &str, recipient: [u8; 32], recovery_public: [u8; 32]) -> Fixture 
         .export_ratchet_tree()
         .tls_serialize_detached()
         .unwrap();
+    input.coverage = fixture_coverage(&input);
     assert_eq!(open_history(&input, &roots).unwrap(), plaintext);
     let mut old_device_secrets = Vec::new();
     for (endpoint, _) in &attackers {
@@ -908,6 +966,7 @@ fn exercise(kind: &str) {
     fixture.input.facts.push(result.fact);
     fixture.input.sources.push(result.next_source);
     fixture.input.backups.push(result.next_backup);
+    fixture.input.coverage = fixture_coverage(&fixture.input);
     fixture
         .plaintext
         .push(b"new original PCR content after recovery fence".to_vec());
@@ -1045,8 +1104,7 @@ fn late_reader_selective_grant_source_tampering_and_derivation_boundaries() {
     assert!(restore(&bad_input, &material.backup_hpke_serialized_private_key).is_err());
     bad_input = fixture.input.clone();
     bad_input.backups.pop();
-    let incomplete = restore(&bad_input, &material.backup_hpke_serialized_private_key).unwrap();
-    assert!(open_history(&bad_input, &incomplete).is_err());
+    assert!(restore(&bad_input, &material.backup_hpke_serialized_private_key).is_err());
     let all: Vec<_> = fixture
         .input
         .sources
@@ -1205,6 +1263,168 @@ fn late_reader_selective_grant_source_tampering_and_derivation_boundaries() {
             next,
             &fixture.input.facts,
             &key(&granted_root, &next.header.context)
+        )
+        .is_err()
+    );
+
+    // The late reader decrypts every originally published record it is granted,
+    // including records from both historical epochs and all three old senders.
+    for permitted_indices in [(0..12).collect::<Vec<_>>(), vec![1, 4, 8]] {
+        let mut recovered = Vec::new();
+        for index in &permitted_indices {
+            let original = &fixture.input.sources[*index];
+            let root = fixture
+                .roots
+                .iter()
+                .find(|root| root.coordinate == original.header.context.coordinate)
+                .unwrap();
+            let original_key = key(root, &original.header.context);
+            let context = bytes(&(
+                "candidate authorized history delivery",
+                hash(&bytes(original)),
+                hpke.public_key(),
+            ));
+            let sealed =
+                seal_x25519_chacha20poly1305(hpke.public_key(), &original_key, &context, &context)
+                    .unwrap();
+            let granted = Zeroizing::new(
+                open_x25519_chacha20poly1305(hpke.private_key(), &sealed, &context, &context)
+                    .unwrap(),
+            );
+            recovered.push(open_content(original, &fixture.input.facts, &granted).unwrap());
+            let sibling = &fixture.input.sources[(*index + 1) % fixture.input.sources.len()];
+            assert!(open_content(sibling, &fixture.input.facts, &granted).is_err());
+        }
+        assert_eq!(
+            recovered,
+            permitted_indices
+                .iter()
+                .map(|index| fixture.plaintext[*index].clone())
+                .collect::<Vec<_>>()
+        );
+    }
+}
+
+#[test]
+fn full_pcr_recovery_rejects_decryptable_omissions_duplicates_and_valid_old_prefix() {
+    let mnemonic = Zeroizing::new(generate_bip39_identity_recovery_mnemonic().unwrap());
+    let material = derive_identity_recovery_key_material_from_bip39(&mnemonic, "", 0).unwrap();
+    let fixture = setup(
+        "human",
+        material.backup_hpke_public_key,
+        material.recovery_proof_public_key,
+    );
+    let private = &material.backup_hpke_serialized_private_key;
+    assert_eq!(
+        open_history(&fixture.input, &restore(&fixture.input, private).unwrap()).unwrap(),
+        fixture.plaintext
+    );
+    let mut missing = fixture.input.clone();
+    missing.sources.remove(2);
+    // Every remaining original remains individually valid and readable. That is
+    // insufficient to claim complete PCR recovery against the expected cut.
+    for source in &missing.sources {
+        let root = fixture
+            .roots
+            .iter()
+            .find(|root| root.coordinate == source.header.context.coordinate)
+            .unwrap();
+        assert!(open_content(source, &missing.facts, &key(root, &source.header.context)).is_ok());
+    }
+    assert!(restore(&missing, private).is_err());
+    assert!(open_history(&missing, &fixture.roots).is_err());
+    let mut substituted = fixture.input.clone();
+    substituted.sources[2] = substituted.sources[1].clone();
+    assert_eq!(substituted.sources.len(), 12);
+    assert!(restore(&substituted, private).is_err());
+    let mut prefix = fixture.input.clone();
+    prefix.sources.truncate(6);
+    prefix.backups.truncate(1);
+    prefix.facts.truncate(1);
+    assert!(restore(&prefix, private).is_err());
+    // An attacker can construct a self-consistent OLD manifest, so the external
+    // latest-cut pin is necessary in addition to internal coverage validation.
+    prefix.coverage = fixture_coverage(&prefix);
+    assert_eq!(
+        open_history(&prefix, &restore(&prefix, private).unwrap())
+            .unwrap()
+            .len(),
+        6
+    );
+    assert_ne!(hash(&bytes(&prefix)), hash(&bytes(&fixture.input)));
+    let mut no_roots = fixture.input.clone();
+    no_roots.backups.clear();
+    assert!(restore(&no_roots, private).is_err());
+    let wrong = generate_x25519_keypair().unwrap();
+    assert!(restore(&fixture.input, wrong.private_key()).is_err());
+}
+
+#[test]
+fn backup_strategy_is_mandatory_closed_and_bound_to_root_key_signature_and_hpke() {
+    let mnemonic = Zeroizing::new(generate_bip39_identity_recovery_mnemonic().unwrap());
+    let material = derive_identity_recovery_key_material_from_bip39(&mnemonic, "", 0).unwrap();
+    let fixture = setup(
+        "human",
+        material.backup_hpke_public_key,
+        material.recovery_proof_public_key,
+    );
+    let coordinate = &fixture.roots[1].coordinate;
+    let mut unsupported = serde_json::to_value(coordinate).unwrap();
+    unsupported["encryption_backup_strategy"] = "ak.encryption_backup.future_candidate.v1".into();
+    assert!(serde_json::from_value::<Coordinate>(unsupported).is_err());
+    let mut omitted = serde_json::to_value(coordinate).unwrap();
+    omitted
+        .as_object_mut()
+        .unwrap()
+        .remove("encryption_backup_strategy");
+    assert!(serde_json::from_value::<Coordinate>(omitted).is_err());
+    let mut changed_basis = coordinate.clone();
+    changed_basis.backup_strategy_ref[0] ^= 1;
+    let (endpoint, group) = &fixture.attackers[0];
+    let changed_root = Root {
+        coordinate: changed_basis.clone(),
+        secret: Zeroizing::new(
+            group
+                .export_secret(
+                    endpoint.provider.crypto(),
+                    ROOT_LABEL,
+                    &bytes(&changed_basis),
+                    32,
+                )
+                .unwrap(),
+        ),
+    };
+    assert_ne!(*changed_root.secret, *fixture.roots[1].secret);
+    let source = &fixture.input.sources[6];
+    assert!(
+        open_content(
+            source,
+            &fixture.input.facts,
+            &key(&changed_root, &source.header.context)
+        )
+        .is_err()
+    );
+    let mut changed_source = source.clone();
+    changed_source.header.context.coordinate = changed_basis.clone();
+    assert!(verify_source(&changed_source, &fixture.input.facts).is_err());
+    let packet = &fixture.input.backups[1];
+    let mut changed_header = packet.header.clone();
+    changed_header.coordinate = changed_basis;
+    assert!(
+        verify(
+            &changed_header.signer,
+            &bytes(&(&changed_header, &packet.sealed)),
+            &packet.signature
+        )
+        .is_err()
+    );
+    let context = bytes(&changed_header);
+    assert!(
+        open_x25519_chacha20poly1305(
+            &material.backup_hpke_serialized_private_key,
+            &packet.sealed,
+            &context,
+            &context
         )
         .is_err()
     );
