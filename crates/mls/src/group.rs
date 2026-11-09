@@ -850,6 +850,84 @@ impl ArkretMlsGroup {
         })
     }
 
+    /// Resolve the original producer through this exact accepted epoch's leaf
+    /// provenance. The caller independently authenticates the original Event
+    /// and covering Commit; this lookup does not confer write or read access.
+    pub fn original_content_endpoint(
+        &self,
+        event: &arkret_wire::Event,
+    ) -> Result<arkret_models_crypto::ContentEndpoint> {
+        self.require_complete_leaf_bindings()?;
+        if event.scope_ref != self.scope {
+            return Err(Error::Protocol(
+                "content original belongs to another scope".into(),
+            ));
+        }
+        let method = &event
+            .producer_proof
+            .as_ref()
+            .ok_or_else(|| Error::Protocol("content original omits producer proof".into()))?
+            .verification_method;
+        let device = method
+            .as_str()
+            .split_once('#')
+            .filter(|(_, fragment)| fragment.starts_with("ak:device:"))
+            .map(|(_, fragment)| arkret_wire::DeviceId::new(fragment.to_owned()))
+            .transpose()?;
+        let mut matches = self.leaf_bindings.values().filter(|binding| {
+            if &binding.actor_id != event.actual_signer() {
+                return false;
+            }
+            match (&binding.endpoint, &device) {
+                (MlsEndpointIdentity::HumanDevice { device_id, .. }, Some(device)) => {
+                    device_id == device
+                }
+                (
+                    MlsEndpointIdentity::AgentRuntime {
+                        verification_method,
+                        ..
+                    },
+                    None,
+                ) => verification_method == method,
+                _ => false,
+            }
+        });
+        let binding = matches
+            .next()
+            .ok_or_else(|| Error::Protocol("original producer has no accepted leaf".into()))?;
+        if matches.next().is_some() {
+            return Err(Error::Protocol(
+                "original producer has ambiguous accepted leaves".into(),
+            ));
+        }
+        let (endpoint, authorization_event_ref) = match &binding.endpoint {
+            MlsEndpointIdentity::HumanDevice { device_id, .. } => (
+                MlsWelcomeRecipientEndpoint::Device {
+                    device_id: device_id.clone(),
+                },
+                binding.device_authorize_event_id.clone().ok_or_else(|| {
+                    Error::Protocol("original Device leaf omits authorization".into())
+                })?,
+            ),
+            MlsEndpointIdentity::AgentRuntime {
+                verification_method,
+                agent_key_authorize_event_id,
+                ..
+            } => (
+                MlsWelcomeRecipientEndpoint::AgentRuntime {
+                    verification_method: verification_method.clone(),
+                },
+                agent_key_authorize_event_id.clone(),
+            ),
+        };
+        Ok(arkret_models_crypto::ContentEndpoint {
+            actor_id: binding.actor_id.clone(),
+            endpoint,
+            authorization_event_ref,
+            signature_key_base64url: binding.signature_key.as_str().to_owned(),
+        })
+    }
+
     fn verified_local_content_sender_domain(&self, declared: &str) -> Result<Vec<u8>> {
         let derived_sender_domain = self.local_content_sender_domain()?;
         if derived_sender_domain != declared {

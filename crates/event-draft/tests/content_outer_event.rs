@@ -10,6 +10,64 @@ use chrono::{TimeZone as _, Utc};
 use serde_json::json;
 
 #[test]
+fn encryption_only_draft_rejects_identity_changes_and_installs_only_a_valid_typed_payload() {
+    let fixture =
+        arkret_schema_conformance::spec_json_artifact("fixtures/content-history-fixture.json")
+            .unwrap();
+    let outer = &fixture["kat"]["outer_event"];
+    let scope: ScopeRef = serde_json::from_value(outer["scope_ref"].clone()).unwrap();
+    let actor: ActorId = serde_json::from_value(outer["actor_id"].clone()).unwrap();
+    let at = "2026-11-09T01:02:03.000Z".parse().unwrap();
+    let draft = || {
+        arkret_event_draft::EventContentDraft::<event_spec::MessageCreate>::new(
+            scope.clone(),
+            actor.clone(),
+            at,
+        )
+        .unwrap()
+    };
+    assert!(
+        draft()
+            .with_prepared_outer(
+                draft()
+                    .intent()
+                    .clone()
+                    .with_created_at(at + chrono::Duration::seconds(1))
+            )
+            .is_err()
+    );
+    let other = ActorId::account(AccountId::new(
+        DidCoreId::new("ak:did_core:web:other.example").unwrap(),
+        DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+    ));
+    let different = arkret_event_draft::EventContentDraft::<event_spec::MessageCreate>::new(
+        scope.clone(),
+        other,
+        at,
+    )
+    .unwrap();
+    assert!(
+        draft()
+            .with_prepared_outer(different.intent().clone())
+            .is_err()
+    );
+    let payload = MessageCreatePayload::with_content(
+        StrandId::new("ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9").unwrap(),
+        "discussion",
+        ContentBlock::text("ready payload"),
+    );
+    let local = draft().with_semantic_refs(vec![arkret_wire::SemanticRef::new(
+        EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [7; 32]).to_string(),
+        "after",
+    )]);
+    let frozen = local.intent().pre_encryption_outer_event().unwrap();
+    let intent = local.install_payload(payload).unwrap();
+    assert_eq!(intent.pre_encryption_outer_event().unwrap(), frozen);
+    assert!(!intent.payload().is_empty());
+    assert!(draft().with_prepared_outer(intent).is_err());
+}
+
+#[test]
 fn formal_content_kat_outer_is_the_actual_event_serializer_projection() {
     let fixture =
         arkret_schema_conformance::spec_json_artifact("fixtures/content-history-fixture.json")

@@ -10,6 +10,71 @@ fn event() -> EventId {
     EventId::new("ak:event:AX9nZ3uX9PVPLzEzy8k3kAa76IhSmQF4MQHNkxYwnI8z").unwrap()
 }
 
+#[test]
+fn original_material_preserves_complete_outer_event_and_rejects_coordinate_substitution() {
+    use arkret_models_crypto::{ContentContext, EventContentMaterial};
+    use arkret_wire::{AccountId, ActorId, DidCoreId, Event, SemanticRef};
+
+    let fixture = support::fixture();
+    let context: ContentContext =
+        serde_json::from_value(fixture["kat"]["content_context"].clone()).unwrap();
+    let envelope: EncryptedEnvelope =
+        serde_json::from_value(fixture["kat"]["envelope"].clone()).unwrap();
+    let mut wire = fixture["kat"]["outer_event"].clone();
+    wire["event_id"] = json!(event());
+    wire["payload"] = json!({});
+    let mut original: Event = serde_json::from_value(wire).unwrap();
+    let reconstruct = |original: &Event, context: ContentContext| {
+        EventContentMaterial::from_original(
+            original,
+            &envelope,
+            context.root_context,
+            context.producer,
+        )
+    };
+    let initial = reconstruct(&original, context.clone()).unwrap();
+    assert_eq!(initial.outer_event, fixture["kat"]["outer_event"]);
+    original.executed_by = Some(original.actor_id.clone());
+    original.actor_id = ActorId::account(AccountId::new(
+        DidCoreId::new("ak:did_core:web:controller.example").unwrap(),
+        DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+    ));
+    original.semantic_refs = vec![SemanticRef::new(event().to_string(), "after")];
+    original.external_ref = Some(std::collections::BTreeMap::from([(
+        "source".to_owned(),
+        json!("original import"),
+    )]));
+    let delegated = reconstruct(&original, context.clone()).unwrap();
+    assert_ne!(delegated.outer_event, initial.outer_event);
+    assert_eq!(
+        delegated.outer_event,
+        EventContentMaterial::outer_event_for(&original).unwrap()
+    );
+    assert_eq!(
+        delegated.outer_event["executed_by"],
+        json!(context.producer.actor_id)
+    );
+    assert!(delegated.outer_event.get("semantic_refs").is_some());
+    assert!(delegated.outer_event.get("external_ref").is_some());
+    for change in 0..4 {
+        let mut invalid = context.clone();
+        match change {
+            0 => invalid.root_context.epoch += 1,
+            1 => invalid.root_context.group_state_ref = event(),
+            2 => {
+                invalid.root_context.effective_scope = ScopeRef::Realm {
+                    realm_id: RealmId::from_event_id(&event()),
+                }
+            }
+            _ => invalid.producer.actor_id = original.actor_id.clone(),
+        }
+        assert!(
+            reconstruct(&original, invalid).is_err(),
+            "substitution {change}"
+        );
+    }
+}
+
 fn envelope(epoch: u64, reaction: bool) -> EncryptedEnvelope {
     let wire = support::fixture()["kat"]["envelope"]["encryption_context"].clone();
     EncryptedEnvelope {

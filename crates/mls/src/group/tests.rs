@@ -1648,6 +1648,75 @@ fn application_message_pair() -> (ArkretMlsGroup, ArkretMlsGroup) {
     application_message_pair_with_member(second_identity())
 }
 
+#[test]
+fn original_endpoint_uses_accepted_mls_key_independently_of_event_signing_key() {
+    let (group, _) = application_message_pair();
+    let original = arkret_wire::test_support::raw_event_for_actor_at(
+        "ak.message.create",
+        group.scope().clone(),
+        group.local_actor_id().clone(),
+        serde_json::json!({}),
+        "2026-11-09T00:00:00.000Z".parse().unwrap(),
+    )
+    .unwrap();
+    let signing_seed = [0xa7; 32];
+    let device = "ak:device:01904100-0000-7000-8000-000000000071";
+    let signer = arkret_signatures::Ed25519PayloadSigner::from_did_key_seed(
+        signing_seed,
+        arkret_wire::Did::new("did:web:mls.example").unwrap(),
+        arkret_wire::DidUrl::new(format!("did:web:mls.example#{device}")).unwrap(),
+    );
+    let mut authored = arkret_wire::AuthoredEvent::finalize_with_digest_suite(
+        original,
+        canonical::DigestSuite::Sha256,
+    )
+    .unwrap();
+    arkret_signatures::sign_event(&mut authored, &signer, Default::default()).unwrap();
+    let endpoint = group.original_content_endpoint(authored.event()).unwrap();
+    assert_eq!(endpoint, group.local_content_endpoint().unwrap());
+    assert_ne!(
+        endpoint.signature_key_base64url,
+        base64url_encode(
+            ed25519_dalek::SigningKey::from_bytes(&signing_seed)
+                .verifying_key()
+                .to_bytes()
+        )
+    );
+    let mut delegated = authored.event().clone();
+    delegated.executed_by = Some(delegated.actor_id.clone());
+    delegated.actor_id = ActorId::account(arkret_wire::AccountId::new(
+        DidCoreId::new("ak:did_core:web:controller.example").unwrap(),
+        DidCoreId::new("ak:did_core:web:mls-fixture-station.example").unwrap(),
+    ));
+    assert_eq!(
+        group.original_content_endpoint(&delegated).unwrap(),
+        endpoint
+    );
+    for change in 0..3 {
+        let mut invalid = authored.event().clone();
+        match change {
+            0 => invalid.producer_proof = None,
+            1 => {
+                invalid.actor_id = ActorId::account(arkret_wire::AccountId::new(
+                    DidCoreId::new("ak:did_core:web:mls.example").unwrap(),
+                    DidCoreId::new("ak:did_core:web:other-station.example").unwrap(),
+                ))
+            }
+            _ => {
+                invalid.producer_proof.as_mut().unwrap().verification_method =
+                    arkret_wire::DidUrl::new(
+                        "did:web:mls.example#ak:device:01904100-0000-7000-8000-000000000099",
+                    )
+                    .unwrap()
+            }
+        }
+        assert!(
+            group.original_content_endpoint(&invalid).is_err(),
+            "substitution {change}"
+        );
+    }
+}
+
 fn application_message_pair_with_member(
     member: ArkretMlsIdentity,
 ) -> (ArkretMlsGroup, ArkretMlsGroup) {

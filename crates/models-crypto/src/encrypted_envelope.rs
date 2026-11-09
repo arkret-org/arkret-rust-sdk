@@ -30,6 +30,48 @@ pub struct EventContentMaterial {
 }
 
 impl EventContentMaterial {
+    /// Reconstruct material only after the caller verifies the original Event,
+    /// its accepted epoch and the original producer's native roster binding.
+    pub fn from_original(
+        event: &arkret_wire::Event,
+        envelope: &EncryptedEnvelope,
+        root_context: crate::ContentRootContext,
+        producer: crate::ContentEndpoint,
+    ) -> Result<Self> {
+        let EncryptedEnvelopeEncryptionContext::EpochContent {
+            epoch,
+            group_state_ref,
+            content_key_salt,
+            root_ref,
+            key_commitment,
+            protection,
+            ..
+        } = &envelope.encryption_context;
+        if root_context.effective_scope != event.scope_ref
+            || root_context.epoch != *epoch
+            || root_context.group_state_ref != *group_state_ref
+            || &producer.actor_id != event.actual_signer()
+        {
+            return Err(WireError::Protocol(
+                "original content material coordinates differ".into(),
+            ));
+        }
+        Ok(Self {
+            content_context: ContentContext {
+                root_context,
+                root_ref: root_ref.clone(),
+                purpose: crate::ContentPurpose::EventBody,
+                encryption_scheme: EncryptedPayloadScheme::EpochContentAead,
+                encryption_algorithm: crate::ContentEncryptionAlgorithm::Aes128Gcm,
+                producer,
+                content_key_salt: content_key_salt.clone(),
+            },
+            outer_event: Self::outer_event_for(event)?,
+            protection: protection.clone(),
+            key_commitment: key_commitment.clone(),
+        })
+    }
+
     /// Project every present outer Event member through the owning serializer.
     /// Native source validation and freezing participant authority precede this
     /// pure operation; it neither derives an Event ID nor grants authorization.

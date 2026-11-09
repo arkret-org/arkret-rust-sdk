@@ -40,6 +40,59 @@ pub struct EventIntent {
     external_ref: Option<BTreeMap<String, Value>>,
 }
 
+/// A local outer-header draft for carriers whose typed payload only exists
+/// after encryption. It has no authoring method and no wire serialization.
+/// Installing a validated typed payload is the only finalization operation.
+pub struct EventContentDraft<K: crate::EventSpec> {
+    intent: EventIntent,
+    kind: std::marker::PhantomData<K>,
+}
+
+impl<K: crate::EventSpec> EventContentDraft<K> {
+    pub fn new(scope: ScopeRef, actor: ActorId, created_at: DateTime<Utc>) -> Result<Self> {
+        scope.canonical_mls_group_id()?;
+        Ok(Self {
+            intent: EventIntent::new(K::KIND, scope, actor, created_at, BTreeMap::new()),
+            kind: std::marker::PhantomData,
+        })
+    }
+
+    pub fn intent(&self) -> &EventIntent {
+        &self.intent
+    }
+
+    pub fn with_applet_id(mut self, applet: AppletId) -> Self {
+        self.intent = self.intent.with_applet_id(applet);
+        self
+    }
+
+    pub fn with_semantic_refs(mut self, refs: Vec<SemanticRef>) -> Self {
+        self.intent = self.intent.with_semantic_refs(refs);
+        self
+    }
+
+    /// Producer authority may be resolved before sealing. Identity and time
+    /// stay fixed and no provisional encrypted payload is introduced.
+    pub fn with_prepared_outer(mut self, prepared: EventIntent) -> Result<Self> {
+        if prepared.kind != self.intent.kind
+            || prepared.scope_ref != self.intent.scope_ref
+            || prepared.actor_id != self.intent.actor_id
+            || prepared.created_at != self.intent.created_at
+            || !prepared.payload.is_empty()
+        {
+            return Err(crate::EventDraftError::Protocol(
+                "prepared content draft changed its identity or payload".into(),
+            ));
+        }
+        self.intent = prepared;
+        Ok(self)
+    }
+
+    pub fn install_payload(self, payload: K::Payload) -> Result<EventIntent> {
+        self.intent.with_typed_payload::<K>(payload)
+    }
+}
+
 impl EventIntent {
     pub(crate) fn new(
         kind: EventKind,
