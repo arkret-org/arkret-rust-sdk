@@ -29,6 +29,23 @@ pub struct EventContentMaterial {
     pub key_commitment: Hash,
 }
 
+impl EventContentMaterial {
+    /// Project every present outer Event member through the owning serializer.
+    /// Native source validation and freezing participant authority precede this
+    /// pure operation; it neither derives an Event ID nor grants authorization.
+    pub fn outer_event_for(event: &arkret_wire::Event) -> Result<Value> {
+        event.scope_ref.canonical_mls_group_id()?;
+        let mut value = serde_json::to_value(event)?;
+        let outer = value.as_object_mut().ok_or_else(|| {
+            WireError::Protocol("content outer Event must serialize as an object".to_owned())
+        })?;
+        for key in ["event_id", "payload", "producer_proof", "unsigned"] {
+            outer.remove(key);
+        }
+        Ok(value)
+    }
+}
+
 /// Reaction-only routing fields carried by the minimal encrypted envelope.
 ///
 /// The reaction kind and hourly routing window are derived from the signed

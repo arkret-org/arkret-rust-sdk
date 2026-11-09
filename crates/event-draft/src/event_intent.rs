@@ -86,6 +86,15 @@ impl EventIntent {
         &self.payload
     }
 
+    /// Freeze the complete pre-encryption outer Event without an Event ID.
+    /// The caller first fixes actual signer/delegation and participant refs,
+    /// and must keep these coordinates unchanged through final authoring.
+    pub fn pre_encryption_outer_event(&self) -> Result<Value> {
+        Ok(arkret_models_crypto::EventContentMaterial::outer_event_for(
+            &self.clone().into_unauthored_envelope(),
+        )?)
+    }
+
     pub fn semantic_refs(&self) -> &[SemanticRef] {
         &self.semantic_refs
     }
