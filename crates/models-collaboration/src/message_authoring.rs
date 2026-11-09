@@ -1,9 +1,12 @@
 //! Message authoring and authority submission DTOs.
 
-use arkret_models_crypto::EncryptedEnvelope;
+use arkret_canonical::canonical;
+use arkret_models_crypto::{
+    ContentEndpoint, EncryptedEnvelope, EncryptedEnvelopeEncryptionContext, EventContentMaterial,
+};
 use arkret_wire::{
-    EncryptedPayloadScheme, EventAdmissionSubmission, EventKind, Result, ScopeRef, StrandId,
-    WireError,
+    EncryptedPayloadScheme, Event, EventAdmissionSubmission, EventKind, Hash, Result, ScopeRef,
+    StrandId, WireError,
 };
 use serde::{Deserialize, Serialize};
 
@@ -18,6 +21,34 @@ pub struct MessageEncryptionContext {
     pub scheme: EncryptedPayloadScheme,
     pub effective_scope: ScopeRef,
     pub sender_domain: String,
+    pub producer: ContentEndpoint,
+    pub outer_event_digest: Hash,
+}
+
+impl MessageEncryptionContext {
+    /// Check the frozen bytes against an independently verified native producer.
+    /// This pure binding check does not establish current authority or membership.
+    pub fn validate_for_event(
+        &self,
+        event: &Event,
+        actual_producer: &ContentEndpoint,
+    ) -> Result<()> {
+        self.producer.validate()?;
+        let outer = EventContentMaterial::outer_event_for(event)?;
+        let expected_digest = Hash::new(canonical::canonical_sha256(&outer)?)?;
+        let expected_sender = canonical::canonical_json_string(&actual_producer.actor_id)?;
+        if self.effective_scope != event.scope_ref
+            || &self.producer != actual_producer
+            || &actual_producer.actor_id != event.executed_by.as_ref().unwrap_or(&event.actor_id)
+            || self.sender_domain != expected_sender
+            || self.outer_event_digest != expected_digest
+        {
+            return Err(WireError::Protocol(
+                "encrypted message differs from its frozen Event or actual producer".to_owned(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -58,6 +89,65 @@ pub struct MessageAuthoringIntent {
 }
 
 impl MessageAuthoringIntent {
+    /// Verify the exact local intent before Event ID derivation or signing.
+    /// Native qualification and current Direct-reference checks remain external.
+    pub fn validate_encryption_binding(
+        &self,
+        event: &Event,
+        actual_producer: &ContentEndpoint,
+    ) -> Result<()> {
+        if event.kind != EventKind::MessageCreate
+            || serde_json::to_value(self.payload())? != serde_json::to_value(&event.payload)?
+        {
+            return Err(WireError::Protocol(
+                "message Event differs from its complete local payload".to_owned(),
+            ));
+        }
+        if let MessageAuthoringContent::Mls {
+            encrypted_content,
+            encrypted_metadata,
+            encryption_context,
+        } = &self.content
+        {
+            encryption_context.validate_for_event(event, actual_producer)?;
+            encrypted_content.validate()?;
+            if encrypted_content.encryption_scheme != encryption_context.scheme {
+                return Err(WireError::Protocol(
+                    "message envelope differs from its frozen construction".to_owned(),
+                ));
+            }
+            if let Some(metadata) = encrypted_metadata {
+                metadata.validate()?;
+                let EncryptedEnvelopeEncryptionContext::EpochContent {
+                    epoch,
+                    group_state_ref,
+                    content_key_salt,
+                    root_ref,
+                    ..
+                } = &encrypted_content.encryption_context;
+                let EncryptedEnvelopeEncryptionContext::EpochContent {
+                    epoch: metadata_epoch,
+                    group_state_ref: metadata_group_state,
+                    content_key_salt: metadata_salt,
+                    root_ref: metadata_root,
+                    ..
+                } = &metadata.encryption_context;
+                if metadata.encryption_scheme != encryption_context.scheme
+                    || epoch != metadata_epoch
+                    || group_state_ref != metadata_group_state
+                    || root_ref != metadata_root
+                    || content_key_salt == metadata_salt
+                {
+                    return Err(WireError::Protocol(
+                        "message content slots mix original roots or reuse their key domain"
+                            .to_owned(),
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+
     pub fn payload(&self) -> MessageCreatePayload {
         let mut payload = MessageCreatePayload {
             strand_id: self.strand_id.clone(),

@@ -140,6 +140,39 @@ fn formal_exporter_root_body_kdf_aad_and_aead_are_byte_exact() {
 }
 
 #[test]
+fn formal_metadata_slot_uses_independent_salt_key_and_authenticates_the_same_outer() {
+    let f = fixture();
+    let r = root(&f);
+    let mut metadata = f.clone();
+    for field in [
+        "content_context",
+        "key_hex",
+        "aad_hex",
+        "plaintext_hex",
+        "envelope",
+    ] {
+        metadata["kat"][field] = f["metadata_kat"][field].clone();
+    }
+    let h = header(&metadata);
+    let key = derive_content_key(&r, &h.material.content_context).unwrap();
+    assert_eq!(hex::encode(key.as_ref()), f["metadata_kat"]["key_hex"]);
+    assert_ne!(hex::encode(key.as_ref()), f["kat"]["key_hex"]);
+    assert_eq!(
+        hex::encode(h.canonical_bytes().unwrap()),
+        f["metadata_kat"]["aad_hex"]
+    );
+    let plaintext = hex::decode(f["metadata_kat"]["plaintext_hex"].as_str().unwrap()).unwrap();
+    let sealed = seal_content(&r, &h, &plaintext).unwrap();
+    assert_eq!(sealed, f["metadata_kat"]["envelope"]["ciphertext"]);
+    assert_eq!(open_content(&r, &h, &sealed).unwrap(), plaintext);
+    assert!(open_content(&r, &header(&f), &sealed).is_err());
+    let mut changed_outer = h;
+    changed_outer.material.outer_event["created_at"] =
+        serde_json::json!("2026-11-08T00:00:00.001Z");
+    assert!(open_content(&r, &changed_outer, &sealed).is_err());
+}
+
+#[test]
 fn missing_backup_dependency_refuses_seal_and_historical_open() {
     let f = fixture();
     let mut h = header(&f);

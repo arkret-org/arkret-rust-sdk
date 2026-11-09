@@ -95,6 +95,19 @@ impl EventIntent {
         )?)
     }
 
+    /// Recheck a sealed local message against this complete frozen intent.
+    /// The producer must independently revalidate current native qualification.
+    pub fn validate_message_encryption_binding(
+        &self,
+        message: &arkret_models_collaboration::message_authoring::MessageAuthoringIntent,
+        actual_producer: &arkret_models_crypto::ContentEndpoint,
+    ) -> Result<()> {
+        Ok(message.validate_encryption_binding(
+            &self.clone().into_unauthored_envelope(),
+            actual_producer,
+        )?)
+    }
+
     pub fn semantic_refs(&self) -> &[SemanticRef] {
         &self.semantic_refs
     }

@@ -82,3 +82,48 @@ fn frozen_intent_preserves_optional_outer_members_and_never_derives_an_id() {
     changed.scope_ref = ScopeRef::RealmGenesis;
     assert!(EventContentMaterial::outer_event_for(&changed).is_err());
 }
+
+#[test]
+fn sealed_message_is_checked_before_event_id_derivation_without_changing_outer() {
+    let fixture =
+        arkret_schema_conformance::spec_json_artifact("fixtures/content-history-fixture.json")
+            .unwrap();
+    let message: arkret_models_collaboration::message_authoring::MessageAuthoringIntent =
+        serde_json::from_value(fixture["local_message_authoring"].clone()).unwrap();
+    let producer: arkret_models_crypto::ContentEndpoint =
+        serde_json::from_value(fixture["kat"]["content_context"]["producer"].clone()).unwrap();
+    let intent = TypedEventDraft::<event_spec::MessageCreate>::new(
+        serde_json::from_value(fixture["kat"]["outer_event"]["scope_ref"].clone()).unwrap(),
+        producer.actor_id.clone(),
+        message.payload(),
+    )
+    .unwrap()
+    .into_intent(
+        serde_json::from_value(fixture["kat"]["outer_event"]["created_at"].clone()).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        intent.pre_encryption_outer_event().unwrap(),
+        fixture["kat"]["outer_event"]
+    );
+    intent
+        .validate_message_encryption_binding(&message, &producer)
+        .unwrap();
+    let changed = intent
+        .clone()
+        .with_external_ref(std::collections::BTreeMap::from([(
+            "x_extra".to_owned(),
+            json!(true),
+        )]));
+    assert!(
+        changed
+            .validate_message_encryption_binding(&message, &producer)
+            .is_err()
+    );
+    let authored = intent
+        .author_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+        .unwrap();
+    message
+        .validate_encryption_binding(authored.event(), &producer)
+        .unwrap();
+}
