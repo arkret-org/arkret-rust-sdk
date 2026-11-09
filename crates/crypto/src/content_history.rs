@@ -16,6 +16,12 @@ use zeroize::Zeroizing;
 
 use crate::{Error, Result};
 
+#[cfg(feature = "backup")]
+#[path = "content_history_backup.rs"]
+mod backup_draft;
+#[cfg(feature = "backup")]
+pub use backup_draft::{ContentRootBackupAuthor, ContentRootBackupDraft};
+
 pub const CONTENT_ROOT_LABEL: &str = "ak.epoch-content-root-v1";
 pub const CONTENT_KEY_LABEL: &str = "ak.content-v1";
 const ZERO_NONCE: [u8; 12] = [0; 12];
