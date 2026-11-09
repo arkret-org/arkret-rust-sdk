@@ -92,7 +92,9 @@ pub use realm_authority_chain::{
     verify_realm_authority_bundle,
 };
 pub use records::*;
-pub use registration_anchor::validate_principal_registration_anchor;
+pub use registration_anchor::{
+    recover_principal_registration_anchor, validate_principal_registration_anchor,
+};
 pub use resolvers::*;
 pub(crate) use serde::{Deserialize, Serialize};
 pub(crate) use serde_json::Value;

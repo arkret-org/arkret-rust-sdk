@@ -129,6 +129,98 @@ pub fn validate_principal_registration_anchor(
     }
 }
 
+/// Recover the exact historical registration anchor named by an authenticated
+/// PCR Genesis commitment. Native log bytes and witness proofs may come from
+/// retained server evidence; current documents or keys are never substitutes.
+/// This reconstructs public verification material, not identity or read authority.
+pub fn recover_principal_registration_anchor(
+    target: &arkret_models_identity::ResolutionCommitment,
+    history: &[Value],
+    witness_history: &[Value],
+) -> Result<PrincipalRegistrationAnchor> {
+    if target.did.method() != "webvh" {
+        return Err(protocol("historical Human anchor requires did:webvh"));
+    }
+    let expected_head = Hash::new(target.method_history_head.clone())?;
+    let matching = history
+        .iter()
+        .enumerate()
+        .filter_map(|(index, entry)| {
+            (entry.get("versionId").and_then(Value::as_str) == Some(target.version_id.as_str()))
+                .then_some(index)
+        })
+        .collect::<Vec<_>>();
+    let [terminal_index] = matching.as_slice() else {
+        return Err(protocol(
+            "historical registration version is missing or ambiguous",
+        ));
+    };
+    let terminal = &history[*terminal_index];
+    if canonical::canonical_sha256(terminal)? != expected_head.as_str() {
+        return Err(protocol(
+            "historical registration log differs from the committed head",
+        ));
+    }
+    let prefix = &history[..=*terminal_index];
+    let versions = prefix
+        .iter()
+        .filter_map(|entry| entry.get("versionId").and_then(Value::as_str))
+        .collect::<std::collections::BTreeSet<_>>();
+    let log_entries = prefix
+        .iter()
+        .cloned()
+        .map(serde_json::from_value)
+        .collect::<std::result::Result<Vec<std::collections::BTreeMap<String, Value>>, _>>()?;
+    let witness_records = witness_history
+        .iter()
+        .filter(|record| {
+            record
+                .get("versionId")
+                .and_then(Value::as_str)
+                .is_some_and(|version| versions.contains(version))
+        })
+        .cloned()
+        .map(serde_json::from_value)
+        .collect::<std::result::Result<Vec<std::collections::BTreeMap<String, Value>>, _>>()?;
+    let operation = log_entries
+        .last()
+        .ok_or_else(|| protocol("historical registration prefix is empty"))?
+        .clone();
+    let normalized_did_document = serde_json::from_value(
+        terminal
+            .get("state")
+            .ok_or_else(|| protocol("historical registration entry has no document"))?
+            .clone(),
+    )?;
+    let anchor = PrincipalRegistrationAnchor::WebvhRegistration {
+        registration_did_operation: Box::new(
+            arkret_models_identity::DidOperationSubmitRequestBody {
+                did: target.did.clone(),
+                did_method: arkret_models_identity::DidMethodName::Webvh,
+                sequence: Some(
+                    u64::try_from(log_entries.len())
+                        .map_err(|_| protocol("historical registration sequence overflow"))?,
+                ),
+                previous_event_digest: None,
+                operation,
+            },
+        ),
+        log_entries,
+        witness_records,
+        normalized_did_document,
+    };
+    let verified = validate_principal_registration_anchor(&anchor)?;
+    if verified.did != target.did
+        || verified.did_version_id != target.version_id
+        || verified.method_history_head != expected_head
+    {
+        return Err(protocol(
+            "verified registration anchor differs from the original commitment",
+        ));
+    }
+    Ok(anchor)
+}
+
 fn control_key_digest(root_public_key_multibase: &str) -> Result<Hash> {
     let bytes = decode_ed25519_multibase(root_public_key_multibase)
         .map_err(|error| protocol(error.to_string()))?;
@@ -264,5 +356,82 @@ mod tests {
             normalized_did_document: serde_json::from_value(state).unwrap(),
         })
         .unwrap_err();
+    }
+
+    #[test]
+    fn recovered_registration_uses_the_original_root_after_native_rotation() {
+        let (anchor, operation, entry, version_id) = webvh_anchor();
+        let target = arkret_models_identity::ResolutionCommitment {
+            did: operation.did.clone(),
+            method_history_head: canonical::canonical_sha256(&entry).unwrap(),
+            version_id,
+        };
+        let next = arkret_canonical::ed25519_pubkey_to_did_key_multibase(
+            SigningKey::from_bytes(&[0x53; 32])
+                .verifying_key()
+                .as_bytes(),
+        );
+        let rotation = arkret_signatures::webvh::prepare_principal_rotation(
+            &arkret_signatures::webvh::PrincipalRotationInput {
+                did: operation.did.as_str(),
+                local_id: "alice",
+                previous_entries: std::slice::from_ref(&entry),
+                version_created_at: Utc.with_ymd_and_hms(2026, 8, 12, 2, 0, 0).unwrap(),
+                current_root_seed: &[0x52; 32],
+                next_root_public_key_multibase: &next,
+                state: &entry["state"],
+            },
+        )
+        .unwrap();
+        let history = vec![entry, rotation.log_entry];
+        let recovered = recover_principal_registration_anchor(&target, &history, &[]).unwrap();
+        assert_eq!(
+            recovered.canonical_digest().unwrap(),
+            anchor.canonical_digest().unwrap()
+        );
+        let original = validate_principal_registration_anchor(&recovered).unwrap();
+        let current = crate::resolvers::verify_did_webvh_v1_log(&operation.did, &history).unwrap();
+        assert_ne!(
+            original.root_public_key_multibase,
+            current.active_update_keys[0]
+        );
+    }
+
+    #[test]
+    fn historical_registration_rejects_changed_coordinates_or_native_proof() {
+        let (_, operation, entry, version_id) = webvh_anchor();
+        let target = arkret_models_identity::ResolutionCommitment {
+            did: operation.did,
+            method_history_head: canonical::canonical_sha256(&entry).unwrap(),
+            version_id,
+        };
+        assert!(recover_principal_registration_anchor(&target, &[], &[]).is_err());
+        assert!(
+            recover_principal_registration_anchor(&target, &[entry.clone(), entry.clone()], &[])
+                .is_err()
+        );
+        let mut wrong = target.clone();
+        wrong.method_history_head = format!("sha256:{}", "00".repeat(32));
+        assert!(
+            recover_principal_registration_anchor(&wrong, std::slice::from_ref(&entry), &[])
+                .is_err()
+        );
+        wrong = target.clone();
+        wrong.version_id = "2-unknown".into();
+        assert!(
+            recover_principal_registration_anchor(&wrong, std::slice::from_ref(&entry), &[])
+                .is_err()
+        );
+        wrong = target.clone();
+        wrong.did = arkret_wire::Did::new(target.did.as_str().replace("alice", "bob")).unwrap();
+        assert!(
+            recover_principal_registration_anchor(&wrong, std::slice::from_ref(&entry), &[])
+                .is_err()
+        );
+        let mut forged = entry;
+        forged["proof"][0]["proofValue"] = serde_json::json!("zForged");
+        wrong = target;
+        wrong.method_history_head = canonical::canonical_sha256(&forged).unwrap();
+        assert!(recover_principal_registration_anchor(&wrong, &[forged], &[]).is_err());
     }
 }
