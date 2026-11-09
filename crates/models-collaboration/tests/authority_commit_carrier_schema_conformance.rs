@@ -1069,3 +1069,40 @@ fn retired_managed_forward_source_is_rejected() {
     ));
     assert!(serde_json::from_value::<PeerAuthoritySubmitRequestBody>(forbidden).is_err());
 }
+
+#[test]
+fn backup_sources_reject_present_null_on_forward_carriers() {
+    let mut single =
+        json!({"branch":"authority_forward", "event_submission":approved_event_submission()});
+    assert!(serde_json::from_value::<PeerAuthorityForwardEventRequestBody>(single.clone()).is_ok());
+    single["content_backup_sources"] = Value::Null;
+    assert!(schema_rejects(
+        PEER_SCHEMA,
+        "#/$defs/peer_submit_request_body",
+        &single
+    ));
+    assert!(serde_json::from_value::<PeerAuthorityForwardEventRequestBody>(single).is_err());
+
+    use arkret_models_collaboration::authority_commit::PeerAuthorityForwardAtomicRequestBody;
+    let fixture = audit_fixture();
+    let case = fixture["schema_validation_cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|case| {
+            case["schema_ref"]
+                .as_str()
+                .is_some_and(|r| r.ends_with("/peer_submit_request_body"))
+                && case["expect_valid"] == true
+        })
+        .unwrap();
+    let mut pair = case["instance"].clone();
+    assert!(serde_json::from_value::<PeerAuthorityForwardAtomicRequestBody>(pair.clone()).is_ok());
+    pair["content_backup_sources"] = Value::Null;
+    assert!(schema_rejects(
+        PEER_SCHEMA,
+        "#/$defs/peer_submit_request_body",
+        &pair
+    ));
+    assert!(serde_json::from_value::<PeerAuthorityForwardAtomicRequestBody>(pair).is_err());
+}

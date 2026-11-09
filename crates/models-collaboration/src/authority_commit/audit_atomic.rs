@@ -208,7 +208,11 @@ impl AtomicSlotProducerEvidence {
 #[serde(deny_unknown_fields)]
 pub struct PeerAuthorityForwardAtomicRequestBody {
     pub branch: AuthorityForwardBranch,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub content_backup_sources: Option<Vec<crate::content_history::ContentBackupSource>>,
     pub atomic_submission: AuditPairedEventUnitSubmission,
     pub atomic_producer_evidence: [AtomicSlotProducerEvidence; 2],

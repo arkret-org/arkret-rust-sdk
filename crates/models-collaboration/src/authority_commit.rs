@@ -1001,7 +1001,11 @@ pub struct PeerAuthorityForwardEventRequestBody {
     pub event_submission: EventAdmissionSubmission,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mls_group_state_material: Option<MlsGroupStateMaterial>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub content_backup_sources: Option<Vec<crate::content_history::ContentBackupSource>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub producer_device_evidence: Option<ForwardAccountDeviceSignerEvidence>,
@@ -1114,7 +1118,11 @@ pub struct PeerAuthorityForwardMlsRequestBody {
     pub branch: AuthorityForwardBranch,
     pub mls_submission: crate::content_history::PeerMlsCommitSubmission,
     pub mls_group_state_material: MlsGroupStateMaterial,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub content_backup_sources: Option<Vec<crate::content_history::ContentBackupSource>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub producer_device_evidence: Option<ForwardAccountDeviceSignerEvidence>,
