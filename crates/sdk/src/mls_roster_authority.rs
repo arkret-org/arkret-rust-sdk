@@ -40,9 +40,9 @@ pub fn verify_mls_roster_recovery_record(
         ));
     };
     let account = commit_event
-        .actor_id
+        .actual_signer()
         .as_account_id()
-        .ok_or_else(|| roster_error("recovery requires an Account actor"))?;
+        .ok_or_else(|| roster_error("recovery requires an actual Account signer"))?;
     verify_station_signature(
         &account.station_id,
         recovery_source.attestation.attested_at,
@@ -173,7 +173,7 @@ pub fn verify_mls_recovery_roster_path(
     Ok(())
 }
 
-fn verify_station_signature(
+pub(crate) fn verify_station_signature(
     station_id: &DidCoreId,
     signed_at: chrono::DateTime<chrono::Utc>,
     signature: &arkret_models_crypto::KeyOperationSignature,
@@ -182,12 +182,12 @@ fn verify_station_signature(
 ) -> Result<(), WireError> {
     if &resolution.service_id != station_id {
         return Err(WireError::Protocol(
-            "MLS roster signature resolution belongs to another Station".to_owned(),
+            "Station signature resolution belongs to another Station".to_owned(),
         ));
     }
     if resolution.service_kind != "station" {
         return Err(WireError::Protocol(
-            "MLS roster signature resolution is not a Station".to_owned(),
+            "Station signature resolution is not a Station".to_owned(),
         ));
     }
     let document =

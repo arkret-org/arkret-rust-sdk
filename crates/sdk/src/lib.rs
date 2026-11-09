@@ -47,6 +47,7 @@
 //! ```
 
 pub mod contact_authorization;
+mod content_backup_source;
 mod keypackage_claim_receipt;
 pub mod managed_actor_authoring;
 mod mls_roster_authority;
@@ -453,6 +454,7 @@ pub use arkret_wire::{
     WireResourceSelector, XExtensionMap, contains_query_auth_material, error_codes, event_spec,
     is_query_auth_parameter,
 };
+pub use content_backup_source::verify_content_backup_source_signature;
 pub use keypackage_claim_receipt::{
     verify_peer_keypackage_claim_receipt_signature,
     verify_peer_keypackage_consume_receipt_signature,

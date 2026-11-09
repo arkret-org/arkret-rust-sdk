@@ -104,7 +104,7 @@ pub fn validate_cross_station_content_backup_sources(
     destination: &arkret_wire::DidCoreId,
     now: chrono::DateTime<chrono::Utc>,
 ) -> Result<()> {
-    if events.len() != actual_producers.len() || events.len() > 2 {
+    if events.is_empty() || events.len() != actual_producers.len() || events.len() > 2 {
         return Err(invalid(
             "backup sources require exact original producer coordinates",
         ));

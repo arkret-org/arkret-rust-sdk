@@ -1106,3 +1106,166 @@ fn backup_sources_reject_present_null_on_forward_carriers() {
     ));
     assert!(serde_json::from_value::<PeerAuthorityForwardAtomicRequestBody>(pair).is_err());
 }
+
+/// Byte binding only: native Agent delegation, Service history and the RFC path
+/// remain independently mandatory. Both signatures here are real Ed25519.
+#[test]
+fn recovery_origin_binds_actual_controller_and_independent_event_leaf_keys() {
+    use arkret_models_collaboration::authority_commit::{
+        AccountDeviceHistoricalSignerFact, HistoricalProducerSignerFact,
+    };
+    use arkret_models_collaboration::content_history::ContentRecoverySource;
+    use arkret_models_crypto::{ContentRecoveryBinding, ContentRecoverySourceAttestation};
+    use arkret_signatures::{Ed25519DetachedJwsSigner, SignEventOptions, sign_event};
+    use ed25519_dalek::Signer as _;
+
+    let fixture =
+        arkret_schema_conformance::spec_json_artifact("fixtures/content-history-fixture.json")
+            .unwrap();
+    let pending: arkret_models_crypto::ContentRecoveryPreparation =
+        serde_json::from_value(fixture["recovery_preparation_encoding"]["pending"].clone())
+            .unwrap();
+    let origin = producer_device_evidence().service_resolution;
+    let mut replacement = pending.replacement.clone();
+    let mut account = replacement.actor_id.as_account_id().unwrap().clone();
+    account.station_id = origin.service_id.clone();
+    replacement.actor_id = arkret_wire::ActorId::account(account);
+    let inventory_digest = arkret_wire::Hash::new(
+        arkret_canonical::canonical_sha256(
+            &fixture["recovery_preparation_encoding"]["empty_inventory"],
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    let leaf_key = ed25519_dalek::SigningKey::from_bytes(&[82; 32]);
+    replacement.signature_key_base64url =
+        arkret_canonical::base64url_encode(leaf_key.verifying_key().as_bytes());
+    let controller = replacement.actor_id.clone();
+    let resource = arkret_wire::ActorId::account(AccountId::new(
+        DidCoreId::new("ak:did_core:web:agent.example").unwrap(),
+        controller.as_account_id().unwrap().station_id.clone(),
+    ));
+    assert_eq!(
+        origin.service_id,
+        controller.as_account_id().unwrap().station_id
+    );
+    let scope = pending.pcr_cut.stream_ref.clone();
+    let scope: arkret_wire::ScopeRef =
+        serde_json::from_value(serde_json::to_value(scope).unwrap()).unwrap();
+    let at: chrono::DateTime<Utc> = "2026-11-08T00:00:02.000Z".parse().unwrap();
+    let base = pending.pcr_cut.event_id.clone();
+    let binding = ContentRecoveryBinding {
+        replacement: replacement.clone(),
+        authorization_event_ref: replacement.authorization_event_ref.clone(),
+        base_group_state_ref: base.clone(),
+        expected_epoch: 1,
+        inventory_digest: inventory_digest.clone(),
+    };
+    let wire = hex_to_bytes(
+        fixture["public_recovery_wire"]["public_message_hex"]
+            .as_str()
+            .unwrap(),
+    );
+    let mut event = arkret_wire::test_support::raw_event_for_actor_at(
+        "ak.mls.commit", scope.clone(), resource,
+        json!({"base_group_state_ref":base,"previous_epoch":"1","commit_base64url":arkret_canonical::base64url_encode(wire),"recovery_binding":binding}), at,
+    ).unwrap();
+    event.executed_by = Some(controller.clone());
+    event.authorization_ref = Some(pending.pcr_cut.event_id.clone().into());
+    let arkret_wire::MlsWelcomeRecipientEndpoint::Device { device_id } = &replacement.endpoint
+    else {
+        panic!("Human replacement expected")
+    };
+    let method = DidUrl::new(format!("did:webvh:z6mkfixture:alice.example#{device_id}")).unwrap();
+    let mut authored = arkret_wire::AuthoredEvent::finalize_with_digest_suite(
+        event,
+        arkret_canonical::DigestSuite::Sha256,
+    )
+    .unwrap();
+    sign_event(
+        &mut authored,
+        &Ed25519DetachedJwsSigner::from_seed([81; 32], method.as_str()),
+        SignEventOptions::new().with_created_at(at),
+    )
+    .unwrap();
+    let event = authored.into_event();
+    event
+        .verify_producer_proof_self_consistency(arkret_canonical::DigestSuite::Sha256)
+        .unwrap();
+    let mut unsigned = json!({"event_ref":event.event_id,"replacement":replacement,"effective_scope":scope,"base_group_state_ref":base,"previous_epoch":"1","inventory_digest":inventory_digest,"verification_method":method,"attested_at":"2026-11-08T00:00:01.000Z","expires_at":"2026-11-08T00:05:01.000Z"});
+    let mut bytes = b"ak.mls.recovery_source.v1\n".to_vec();
+    bytes.extend(arkret_canonical::canonical_json_bytes(&unsigned).unwrap());
+    let signature = ed25519_dalek::SigningKey::from_bytes(&[93; 32]).sign(&bytes);
+    unsigned["signature"] = json!({"kid":"did:web:station.example#signing-1","signature_algorithm":"Ed25519","signature":arkret_canonical::base64url_encode(signature.to_bytes())});
+    let source = ContentRecoverySource {
+        attestation: serde_json::from_value::<ContentRecoverySourceAttestation>(unsigned).unwrap(),
+        origin_resolution: origin,
+    };
+    assert_eq!(source.signing_payload_bytes().unwrap(), bytes);
+    source.validate_submission_binding(&event).unwrap();
+    let mut authorization = pending.pcr_cut;
+    authorization.event_id = replacement.authorization_event_ref.clone();
+    let fact = AccountDeviceHistoricalSignerFact {
+        event_id: event.event_id.clone(),
+        actor: controller,
+        device_id: match replacement.endpoint {
+            arkret_wire::MlsWelcomeRecipientEndpoint::Device { device_id } => device_id,
+            _ => panic!("Human replacement expected"),
+        },
+        verification_method: method,
+        key: arkret_models_identity::ResolvedSignerKey {
+            public_key_base64url: arkret_wire::Base64UrlString::new(
+                arkret_canonical::base64url_encode(
+                    ed25519_dalek::SigningKey::from_bytes(&[81; 32])
+                        .verifying_key()
+                        .as_bytes(),
+                ),
+            )
+            .unwrap(),
+            revision: arkret_wire::CurrentRevision {
+                commit_id: authorization.commit_id.clone(),
+                stream_position: authorization.stream_position,
+            },
+            authorization_ref: authorization,
+            governance_generation: 0,
+        },
+        accepted_at: at,
+    };
+    assert_ne!(
+        fact.key.public_key_base64url.as_str(),
+        replacement.signature_key_base64url
+    );
+    fact.validate_event_binding(&event, arkret_canonical::DigestSuite::Sha256)
+        .unwrap();
+    source
+        .validate_original_binding(
+            &event,
+            at,
+            &HistoricalProducerSignerFact::AccountDevice(fact.clone()),
+        )
+        .unwrap();
+    let mut wrong = fact;
+    wrong.key.authorization_ref.event_id =
+        EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [97; 32]);
+    assert!(
+        source
+            .validate_original_binding(
+                &event,
+                at,
+                &HistoricalProducerSignerFact::AccountDevice(wrong)
+            )
+            .is_err()
+    );
+    let mut wrong = source;
+    wrong.attestation.replacement.actor_id = event.actor_id.clone();
+    assert!(wrong.validate_submission_binding(&event).is_err());
+}
+
+fn hex_to_bytes(value: &str) -> Vec<u8> {
+    let (pairs, remainder) = value.as_bytes().as_chunks::<2>();
+    assert!(remainder.is_empty());
+    pairs
+        .iter()
+        .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).unwrap(), 16).unwrap())
+        .collect()
+}

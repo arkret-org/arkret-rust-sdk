@@ -10,22 +10,118 @@ use zeroize::Zeroizing;
 
 include!("generated/content_history_contracts.rs");
 
-impl ContentBackupSourceAttestation {
-    /// Closed byte invariants; native storage and owning-Service role are separate.
+/// Local unsigned signing input, never a wire authorization or storage proof.
+#[derive(Clone, Debug)]
+pub struct ContentBackupSourceDraft {
+    pub event_ref: arkret_wire::EventId,
+    pub event_original_digest: arkret_wire::Hash,
+    pub producer: ContentEndpoint,
+    pub effective_scope: arkret_wire::ScopeRef,
+    pub destination_service_id: arkret_wire::DidCoreId,
+    pub protections_digest: arkret_wire::Hash,
+    pub verification_method: arkret_wire::DidUrl,
+    pub attested_at: chrono::DateTime<chrono::Utc>,
+    pub expires_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Serialize)]
+struct UnsignedContentBackupSource<'a> {
+    event_ref: &'a arkret_wire::EventId,
+    event_original_digest: &'a arkret_wire::Hash,
+    producer: &'a ContentEndpoint,
+    effective_scope: &'a arkret_wire::ScopeRef,
+    destination_service_id: &'a arkret_wire::DidCoreId,
+    protections_digest: &'a arkret_wire::Hash,
+    verification_method: &'a arkret_wire::DidUrl,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    attested_at: chrono::DateTime<chrono::Utc>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    expires_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl From<&ContentBackupSourceAttestation> for ContentBackupSourceDraft {
+    fn from(source: &ContentBackupSourceAttestation) -> Self {
+        Self {
+            event_ref: source.event_ref.clone(),
+            event_original_digest: source.event_original_digest.clone(),
+            producer: source.producer.clone(),
+            effective_scope: source.effective_scope.clone(),
+            destination_service_id: source.destination_service_id.clone(),
+            protections_digest: source.protections_digest.clone(),
+            verification_method: source.verification_method.clone(),
+            attested_at: source.attested_at,
+            expires_at: source.expires_at,
+        }
+    }
+}
+
+impl ContentBackupSourceDraft {
     pub fn validate(&self) -> Result<()> {
         self.producer.validate()?;
         self.effective_scope.canonical_mls_group_id()?;
         sha256_ref(&self.event_original_digest)?;
         sha256_ref(&self.protections_digest)?;
         if self.producer.actor_id.as_account_id().is_none()
-            || self.signature.kid.as_str() != self.verification_method.as_str()
+            || self.expires_at <= self.attested_at
+            || self.expires_at - self.attested_at > chrono::Duration::seconds(300)
+        {
+            return protocol("invalid unsigned backup-source binding or observation window");
+        }
+        Ok(())
+    }
+
+    pub fn signing_payload_bytes(&self) -> Result<Vec<u8>> {
+        self.validate()?;
+        let unsigned = UnsignedContentBackupSource {
+            event_ref: &self.event_ref,
+            event_original_digest: &self.event_original_digest,
+            producer: &self.producer,
+            effective_scope: &self.effective_scope,
+            destination_service_id: &self.destination_service_id,
+            protections_digest: &self.protections_digest,
+            verification_method: &self.verification_method,
+            attested_at: self.attested_at,
+            expires_at: self.expires_at,
+        };
+        let mut bytes = b"ak.content.backup_source.v1\n".to_vec();
+        bytes.extend(arkret_canonical::canonical_json_bytes(&unsigned)?);
+        Ok(bytes)
+    }
+
+    /// Attach the actual Service signer result after signing the exact draft.
+    /// Native issuer role and durable first-PUT custody are caller obligations.
+    pub fn into_attestation(
+        self,
+        signature: crate::KeyOperationSignature,
+    ) -> Result<ContentBackupSourceAttestation> {
+        self.validate()?;
+        let source = ContentBackupSourceAttestation {
+            event_ref: self.event_ref,
+            event_original_digest: self.event_original_digest,
+            producer: self.producer,
+            effective_scope: self.effective_scope,
+            destination_service_id: self.destination_service_id,
+            protections_digest: self.protections_digest,
+            verification_method: self.verification_method,
+            attested_at: self.attested_at,
+            expires_at: self.expires_at,
+            signature,
+        };
+        source.validate()?;
+        Ok(source)
+    }
+}
+
+impl ContentBackupSourceAttestation {
+    /// Closed byte invariants; native storage and owning-Service role are separate.
+    pub fn validate(&self) -> Result<()> {
+        ContentBackupSourceDraft::from(self).validate()?;
+        if self.signature.kid.as_str() != self.verification_method.as_str()
             || self
                 .signature
                 .signature_algorithm
                 .as_ref()
                 .is_some_and(|a| a.as_str() != "Ed25519")
-            || self.expires_at <= self.attested_at
-            || self.expires_at - self.attested_at > chrono::Duration::seconds(300)
         {
             return protocol("invalid original backup-source binding or observation window");
         }
@@ -34,14 +130,7 @@ impl ContentBackupSourceAttestation {
 
     pub fn signing_payload_bytes(&self) -> Result<Vec<u8>> {
         self.validate()?;
-        let mut value = serde_json::to_value(self)?;
-        value
-            .as_object_mut()
-            .expect("attestation object")
-            .remove("signature");
-        let mut bytes = b"ak.content.backup_source.v1\n".to_vec();
-        bytes.extend(arkret_canonical::canonical_json_bytes(&value)?);
-        Ok(bytes)
+        ContentBackupSourceDraft::from(self).signing_payload_bytes()
     }
 
     pub fn validate_at(&self, now: chrono::DateTime<chrono::Utc>) -> Result<()> {

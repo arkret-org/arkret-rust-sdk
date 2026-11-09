@@ -1156,3 +1156,77 @@ fn roster_did_key_closure_survives_canonical_wire_round_trip() {
         .is_err()
     );
 }
+
+fn source_signed_by_real_service_history() -> (
+    arkret_models_collaboration::content_history::ContentBackupSource,
+    serde_json::Value,
+) {
+    use arkret_models_crypto::{ContentBackupSourceAttestation, ContentBackupSourceDraft};
+    use ed25519_dalek::Signer as _;
+    let (_, _, resolution) = signed_two_page_roster();
+    let fixture = arkret_schema_conformance::spec_json_artifact(
+        "fixtures/content-backup-source-fixture.json",
+    )
+    .unwrap()["cases"][0]
+        .clone();
+    let attestation: ContentBackupSourceAttestation =
+        serde_json::from_value(fixture["attestation"].clone()).unwrap();
+    let mut draft = ContentBackupSourceDraft::from(&attestation);
+    let mut account = draft.producer.actor_id.as_account_id().unwrap().clone();
+    account.station_id = resolution.service_id.clone();
+    draft.producer.actor_id = ActorId::account(account);
+    let signer = ed25519_dalek::SigningKey::from_bytes(&[41; 32]);
+    let key =
+        arkret_canonical::ed25519_pubkey_to_did_key_multibase(signer.verifying_key().as_bytes());
+    let method = format!("did:key:{key}#{key}");
+    draft.verification_method = DidUrl::new(method.clone()).unwrap();
+    let bytes = draft.signing_payload_bytes().unwrap();
+    let signature = KeyOperationSignature {
+        kid: NonEmptyString::new(method).unwrap(),
+        signature_algorithm: Some(NonEmptyString::new("Ed25519").unwrap()),
+        signature: Base64UrlString::new(arkret_canonical::base64url_encode(
+            signer.sign(&bytes).to_bytes(),
+        ))
+        .unwrap(),
+    };
+    (
+        arkret_models_collaboration::content_history::ContentBackupSource {
+            attestation: draft.into_attestation(signature).unwrap(),
+            origin_resolution: resolution,
+        },
+        fixture,
+    )
+}
+
+#[test]
+fn valid_service_signature_cannot_replace_original_endpoint_binding() {
+    let (source, fixture) = source_signed_by_real_service_history();
+    crate::verify_content_backup_source_signature(&source).unwrap();
+    let event: arkret_wire::Event = serde_json::from_value(fixture["event"].clone()).unwrap();
+    let producer = serde_json::from_value(fixture["producer"].clone()).unwrap();
+    let original: arkret_models_crypto::ContentBackupSourceAttestation =
+        serde_json::from_value(fixture["attestation"].clone()).unwrap();
+    // The different Station signs validly, but it cannot claim this original
+    // producer merely by attaching its own authenticated Service history.
+    assert!(
+        source
+            .validate_submission_binding(
+                &event,
+                &producer,
+                &original.destination_service_id,
+                &original.protections_digest,
+            )
+            .is_err()
+    );
+    let mut changed = source;
+    changed.attestation.protections_digest =
+        Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap();
+    assert!(crate::verify_content_backup_source_signature(&changed).is_err());
+}
+
+#[test]
+fn backup_source_signature_rejects_non_station_issuer_kind() {
+    let (mut source, _) = source_signed_by_real_service_history();
+    source.origin_resolution.service_kind = "account_authority".into();
+    assert!(crate::verify_content_backup_source_signature(&source).is_err());
+}

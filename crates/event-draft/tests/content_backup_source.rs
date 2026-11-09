@@ -162,3 +162,18 @@ fn cross_station_check_cannot_skip_source_or_replace_local_root_checks() {
         .is_err()
     );
 }
+
+#[test]
+fn source_completeness_requires_an_actual_original() {
+    let destination = DidCoreId::new("ak:did_core:web:governor.example").unwrap();
+    assert!(
+        arkret_event_draft::validate_cross_station_content_backup_sources(
+            &[],
+            None,
+            &[],
+            &destination,
+            "2026-11-08T00:00:02.000Z".parse().unwrap(),
+        )
+        .is_err()
+    );
+}

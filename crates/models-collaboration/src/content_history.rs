@@ -142,8 +142,10 @@ impl ContentRecoverySource {
     /// signature and the accepting clock remain separate mandatory checks.
     pub fn validate_submission_binding(&self, event: &Event) -> Result<()> {
         let source = &self.attestation;
-        let account = event.actor_id.as_account_id().ok_or_else(|| {
-            WireError::Protocol("recovery source requires the original Account actor".to_owned())
+        let account = event.actual_signer().as_account_id().ok_or_else(|| {
+            WireError::Protocol(
+                "recovery source requires the original actual Account signer".to_owned(),
+            )
         })?;
         let binding: ContentRecoveryBinding = serde_json::from_value(
             event
@@ -158,7 +160,7 @@ impl ContentRecoverySource {
             || self.origin_resolution.service_kind != "station"
             || source.event_ref != event.event_id
             || source.replacement != binding.replacement
-            || source.replacement.actor_id != event.actor_id
+            || &source.replacement.actor_id != event.actual_signer()
             || source.effective_scope != event.scope_ref
             || source.base_group_state_ref != binding.base_group_state_ref
             || event.payload.get("base_group_state_ref")
@@ -172,7 +174,6 @@ impl ContentRecoverySource {
             || source.inventory_digest != binding.inventory_digest
             || source.expires_at - source.attested_at > chrono::Duration::seconds(300)
             || source.expires_at <= source.attested_at
-            || event.actual_signer() != &event.actor_id
             || event
                 .producer_proof
                 .as_ref()
@@ -200,8 +201,9 @@ impl ContentRecoverySource {
                 "recovery source was not fresh at original acceptance".into(),
             ));
         }
-        let (actor, method, public, authorization, accepted_at) = match fact {
+        let (actor, method, authorization, accepted_at) = match fact {
             HistoricalProducerSignerFact::AccountDevice(f) => {
+                f.validate_event_binding(event, event.event_id.digest_suite_code().digest_suite())?;
                 if source.replacement.endpoint
                     != (arkret_wire::MlsWelcomeRecipientEndpoint::Device {
                         device_id: f.device_id.clone(),
@@ -214,12 +216,12 @@ impl ContentRecoverySource {
                 (
                     &f.actor,
                     &f.verification_method,
-                    f.key.public_key_base64url.as_str(),
                     &f.key.authorization_ref.event_id,
                     f.accepted_at,
                 )
             }
             HistoricalProducerSignerFact::AgentRuntime(f) => {
+                f.validate_event_binding(event, event.event_id.digest_suite_code().digest_suite())?;
                 if source.replacement.endpoint
                     != (arkret_wire::MlsWelcomeRecipientEndpoint::AgentRuntime {
                         verification_method: f.verification_method.clone(),
@@ -232,7 +234,6 @@ impl ContentRecoverySource {
                 (
                     &f.actor_id,
                     &f.verification_method,
-                    f.public_key_base64url.as_str(),
                     &f.authorization_event_ref,
                     f.accepted_at,
                 )
@@ -243,9 +244,10 @@ impl ContentRecoverySource {
                 ));
             }
         };
+        // The producer fact authenticates the Event signing key. The accepted
+        // RFC recovery path independently binds the replacement leaf key.
         if actor != &source.replacement.actor_id
             || method != &source.verification_method
-            || public != source.replacement.signature_key_base64url.as_str()
             || authorization != &source.replacement.authorization_event_ref
             || accepted_at != committed_at
             || fact.event_id() != &event.event_id
