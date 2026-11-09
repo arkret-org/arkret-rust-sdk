@@ -1085,7 +1085,13 @@ mod roster_bindings {
         {
             return Err("joined MLS group differs from the accepted roster cut".to_owned());
         }
-        let authorities = verified_roster_authorities(pages, request, material, recovery_material)?;
+        let authorities = verified_roster_authorities(
+            pages,
+            request,
+            material,
+            recovery_material,
+            request.target_epoch,
+        )?;
         let occupied = group
             .active_author_leaves()
             .into_iter()
@@ -1116,7 +1122,11 @@ mod roster_bindings {
         request: &MlsRosterAuthorityReadRequestBody,
         material: &MlsGroupStateMaterialResponseBody,
         recovery_material: &BTreeMap<EventId, MlsGroupStateMaterialResponseBody>,
+        through_epoch: u64,
     ) -> Result<Vec<MlsVerifiedLeafBinding>, String> {
+        if through_epoch > request.target_epoch {
+            return Err("content epoch exceeds the authorized roster target".to_owned());
+        }
         let manifest = &pages[0].manifest;
         let material_request = mls_roster_genesis_material_request(request, manifest);
         let bytes = material
@@ -1160,6 +1170,25 @@ mod roster_bindings {
         )?];
         let mut used_material = BTreeSet::new();
         for record in records.into_iter().skip(1) {
+            // The complete signed transcript was verified at the authorized
+            // read cut. Future authorizations cannot attribute an older leaf.
+            let epoch = match record {
+                MlsRosterRecord::Add { attestation, .. } => attestation.epoch,
+                MlsRosterRecord::Recovery { commit_event, .. } => {
+                    let payload: arkret_models_crypto::MlsCommitPayload = serde_json::from_value(
+                        serde_json::to_value(&commit_event.payload)
+                            .map_err(|error| error.to_string())?,
+                    )
+                    .map_err(|error| error.to_string())?;
+                    payload.next_epoch()
+                }
+                MlsRosterRecord::Genesis { .. } => {
+                    return Err("signed MLS roster repeats Genesis".to_owned());
+                }
+            };
+            if epoch > through_epoch {
+                continue;
+            }
             if let MlsRosterRecord::Recovery {
                 commit_event,
                 recovery_source,

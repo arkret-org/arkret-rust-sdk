@@ -32,10 +32,14 @@ mod tests;
 pub struct MlsHistoricalContentRosterMaterials<'a> {
     pub request: &'a MlsMemberRosterAuthorityReadRequestBody,
     pub pages: &'a [MlsSelfRosterAuthorityReadResponseBody],
-    pub genesis_original: &'a CommittedEventFullView,
+    /// Optional extra consistency check. Later joiners need not read a
+    /// pre-join Genesis Event to consume its manifest-bound public material.
+    pub genesis_original: Option<&'a CommittedEventFullView>,
     pub genesis_material: &'a MlsGroupStateMaterialResponseBody,
-    pub target_original: &'a CommittedEventFullView,
-    pub target_material: &'a MlsGroupStateMaterialResponseBody,
+    /// The old content epoch, independent of the authorized roster target.
+    /// Epoch zero uses the signed Genesis refs and needs no full original.
+    pub content_original: Option<&'a CommittedEventFullView>,
+    pub content_material: &'a MlsGroupStateMaterialResponseBody,
     pub recovery_material: &'a BTreeMap<EventId, MlsGroupStateMaterialResponseBody>,
     pub root_context: &'a ContentRootContext,
 }
@@ -106,8 +110,10 @@ pub fn verify_mls_self_historical_content_roster(
     if input.request.cursor.is_some()
         || context.effective_scope != peer.effective_scope
         || context.genesis_event_ref != peer.genesis_event_ref
-        || context.group_state_ref != peer.target_commit_event_ref
-        || context.epoch != peer.target_epoch
+        || context.epoch > peer.target_epoch
+        || (context.epoch == peer.target_epoch
+            && context.group_state_ref != peer.target_commit_event_ref)
+        || (context.epoch == 0 && context.group_state_ref != peer.genesis_event_ref)
         || context
             .effective_scope
             .canonical_mls_group_id()
@@ -116,62 +122,68 @@ pub fn verify_mls_self_historical_content_roster(
     {
         return Err("historical roster differs from the exact original root context".into());
     }
-    let (genesis_request, _) =
-        material_request_for_original(input.genesis_original, &peer, &peer.genesis_event_ref, 0)?;
+    let genesis_request =
+        super::mls_roster_genesis_material_request(&peer, &input.pages[0].roster.manifest);
     input
         .genesis_material
         .validate_for_request(&genesis_request.as_peer_request())
         .map_err(|error| error.to_string())?;
-    let genesis: MlsGenesisPayload = serde_json::from_value(
-        serde_json::to_value(&input.genesis_original.event.payload)
-            .map_err(|error| error.to_string())?,
-    )
-    .map_err(|error| error.to_string())?;
-    let first = input.pages[0].roster.records.first();
-    let Some(MlsRosterRecord::Genesis {
-        actor_id,
-        leaf_signature_key_base64url,
-        endpoint,
-        authorization_event_ref,
-        ..
-    }) = first
-    else {
-        return Err("historical roster omits its original Genesis authority".into());
-    };
-    if input.genesis_original.event.actual_signer() != actor_id
-        || genesis.cipher_suite.as_str() != context.cipher_suite
-        || genesis.creator_leaf_authority.leaf_signature_key_base64url
-            != *leaf_signature_key_base64url
-        || genesis.creator_leaf_authority.endpoint != *endpoint
-        || genesis.creator_leaf_authority.authorization_event_ref != *authorization_event_ref
-    {
-        return Err("historical Genesis record differs from its accepted original".into());
+    if let Some(original) = input.genesis_original {
+        verify_genesis_original(
+            original,
+            &peer,
+            context,
+            input.pages,
+            input.genesis_material,
+        )?;
     }
-    let (target_request, target_binding) = material_request_for_original(
-        input.target_original,
-        &peer,
-        &peer.target_commit_event_ref,
-        peer.target_epoch,
-    )?;
+    let (content_request, content_binding) = if context.epoch == 0 {
+        if let Some(original) = input.content_original {
+            verify_genesis_original(
+                original,
+                &peer,
+                context,
+                input.pages,
+                input.genesis_material,
+            )?;
+        }
+        (genesis_request, None)
+    } else {
+        let original = input
+            .content_original
+            .ok_or("historical nonzero epoch original is missing")?;
+        let (request, binding) = material_request_for_original(
+            original,
+            &peer,
+            &context.group_state_ref,
+            context.epoch,
+        )?;
+        (request, Some(binding))
+    };
     let bytes = input
-        .target_material
-        .validate_for_request(&target_request.as_peer_request())
+        .content_material
+        .validate_for_request(&content_request.as_peer_request())
         .map_err(|error| error.to_string())?;
     let public = MlsPublicGroupTracker::from_external(
         &bytes.group_info_bytes,
         &bytes.ratchet_tree_bytes,
         peer.mls_group_id.as_str(),
-        peer.target_epoch,
+        context.epoch,
     )
     .map_err(|error| error.to_string())?;
+    let binding = public
+        .governance_binding()
+        .map_err(|error| error.to_string())?;
     if public
         .ciphersuite_canonical_id()
         .map_err(|error| error.to_string())?
         != context.cipher_suite
-        || public
-            .governance_binding()
-            .map_err(|error| error.to_string())?
-            != target_binding
+        || binding.effective_scope() != &context.effective_scope
+        || binding.mls_group_id().map_err(|error| error.to_string())? != peer.mls_group_id
+        || binding.next_epoch() != context.epoch
+        || content_binding
+            .as_ref()
+            .is_some_and(|expected| &binding != expected)
     {
         return Err("historical public GroupContext differs from its accepted binding".into());
     }
@@ -185,6 +197,7 @@ pub fn verify_mls_self_historical_content_roster(
         &peer,
         input.genesis_material,
         input.recovery_material,
+        context.epoch,
     )?;
     let occupied = public.leaves().map_err(|error| error.to_string())?;
     let bindings = match_occupied_leaf_authorities(&occupied, &authorities)?;
@@ -192,6 +205,44 @@ pub fn verify_mls_self_historical_content_roster(
         root_context: context.clone(),
         bindings,
     })
+}
+
+fn verify_genesis_original(
+    original: &CommittedEventFullView,
+    peer: &MlsRosterAuthorityReadRequestBody,
+    context: &ContentRootContext,
+    pages: &[MlsSelfRosterAuthorityReadResponseBody],
+    material: &MlsGroupStateMaterialResponseBody,
+) -> Result<(), String> {
+    let (request, _) = material_request_for_original(original, peer, &peer.genesis_event_ref, 0)?;
+    material
+        .validate_for_request(&request.as_peer_request())
+        .map_err(|error| error.to_string())?;
+    let genesis: MlsGenesisPayload = serde_json::from_value(
+        serde_json::to_value(&original.event.payload).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())?;
+    let first = pages[0].roster.records.first();
+    let Some(MlsRosterRecord::Genesis {
+        actor_id,
+        leaf_signature_key_base64url,
+        endpoint,
+        authorization_event_ref,
+        ..
+    }) = first
+    else {
+        return Err("historical roster omits its original Genesis authority".into());
+    };
+    if original.event.actual_signer() != actor_id
+        || genesis.cipher_suite.as_str() != context.cipher_suite
+        || genesis.creator_leaf_authority.leaf_signature_key_base64url
+            != *leaf_signature_key_base64url
+        || genesis.creator_leaf_authority.endpoint != *endpoint
+        || genesis.creator_leaf_authority.authorization_event_ref != *authorization_event_ref
+    {
+        return Err("historical Genesis record differs from its accepted original".into());
+    }
+    Ok(())
 }
 
 fn material_request_for_original(

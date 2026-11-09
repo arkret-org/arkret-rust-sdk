@@ -386,7 +386,7 @@ fn roster_manifest_signature_transcript_rejects_mutations_and_wrong_domain() {
     );
 }
 
-fn signed_two_page_roster() -> (
+pub(super) fn signed_two_page_roster() -> (
     MlsRosterAuthorityReadRequestBody,
     Vec<MlsRosterAuthorityReadResponseBody>,
     AuthenticatedServiceResolution,
