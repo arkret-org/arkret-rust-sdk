@@ -20,6 +20,24 @@ pub const CONTENT_ROOT_LABEL: &str = "ak.epoch-content-root-v1";
 pub const CONTENT_KEY_LABEL: &str = "ak.content-v1";
 const ZERO_NONCE: [u8; 12] = [0; 12];
 
+/// Digest a frozen canonical inventory. Native census completeness is independent.
+pub fn recovery_inventory_digest(
+    inventory: &arkret_models_crypto::ContentRecoveryInventory,
+) -> Result<Hash> {
+    inventory.validate()?;
+    commitment(b"ak.content.recovery_inventory.v1\n", inventory, &[])
+}
+
+/// Digest one complete, ordered cleanup result for that same inventory.
+/// Winning Commit proofs and durable new roots/backups are verified separately.
+pub fn recovery_cleanup_digest(
+    inventory: &arkret_models_crypto::ContentRecoveryInventory,
+    cleanup: &arkret_models_crypto::ContentCleanupInventory,
+) -> Result<Hash> {
+    cleanup.validate_for_inventory(inventory, &recovery_inventory_digest(inventory)?)?;
+    commitment(b"ak.content.cleanup_inventory.v1\n", cleanup, &[])
+}
+
 fn commitment(domain: &[u8], context: &impl Serialize, secret: &[u8]) -> Result<Hash> {
     let mut digest = Sha256::new();
     digest.update(domain);

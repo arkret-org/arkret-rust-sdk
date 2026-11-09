@@ -2,7 +2,7 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/content-encryption.schema.json
-// sha256=ccb35fae085d742868258a8ab9b934a8f08c0448058484a4c08439b172d9f25e
+// sha256=d88b52eea7b7e59339a88d67d629bc88477b57ab4c6646d3af55fce1ff8c509b
 //
 // Input: schemas/decimal-integers.schema.json
 // sha256=7ea09c46f777e010c72a1fd069b7fbefc7d66924e7b3ad5a5961ce9914858987
@@ -14,7 +14,7 @@
 // sha256=0cc25a02fe0d9a94f6e41f2cf8f64e492ba36362f1e69a699cf1e684924837ee
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=f277aac30f4b23b2e663aeb5c59ddf9a6e2b3af9eb64854335f03d715718292a
+// sha256=973940c1b2f35b239f2e75b4f8e41fe33a818d78b1b608381b2b70df42e49f18
 
 /// Counterpart: `content-encryption.schema.json#/$defs/root_context`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -235,6 +235,32 @@ pub struct ContentProtection {
     pub root_refs: Vec<arkret_wire::Hash>,
     pub blob_refs: Vec<arkret_wire::BlobRef>,
     pub backup_refs: Vec<arkret_wire::BackupId>,
+}
+
+/// Counterpart: `content-encryption.schema.json#/$defs/recovery_preparation/properties/state`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ContentRecoveryPreparationState {
+    #[serde(rename = "pending")]
+    Pending,
+    #[serde(rename = "prepared")]
+    Prepared,
+}
+
+/// Counterpart: `content-encryption.schema.json#/$defs/recovery_preparation`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ContentRecoveryPreparation {
+    pub state: ContentRecoveryPreparationState,
+    pub replacement: ContentEndpoint,
+    pub pcr_cut: arkret_wire::CommittedEventRef,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub inventory_blob_ref: Option<arkret_wire::BlobRef>,
 }
 
 /// Counterpart: `content-encryption.schema.json#/$defs/history_request`.

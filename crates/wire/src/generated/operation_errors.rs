@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/operations-error-mapping.json;
-//! sha256=0efdbb9ecc1331b4d43255d5187605a5532d49d477c79791ecf294921887cd4f Input: registry/
-//! contract-registry.json; sha256=4d1c57ec4e94ec7a358bb25bf00ec807d9c3426c9db7002f38656928850fc0c8
+//! sha256=367de4a6e7ad494f7ad668cb2c8cefbfe6614126956929c50149555121139c09 Input: registry/
+//! contract-registry.json; sha256=482f33c0e97b5be42298bab65afede9354f5f8acce087e7b7805d0d9878138dd
 //! Input: registry/error-code-registry.json;
-//! sha256=d8b59ba963a979c5f74d2a6fe1a57ed4a15415b4389ad1b0c4fa8a535e0c70e5 Entries: operations=218
+//! sha256=d8b59ba963a979c5f74d2a6fe1a57ed4a15415b4389ad1b0c4fa8a535e0c70e5 Entries: operations=219
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -839,6 +839,10 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Code(ErrorCode::NotFound),
         OperationSpecificError::Code(ErrorCode::PayloadTooLarge),
         OperationSpecificError::Code(ErrorCode::LimitExceeded),
+    ],
+    &[
+        OperationSpecificError::Code(ErrorCode::NotFound),
+        OperationSpecificError::Code(ErrorCode::RevisionUnavailable),
     ],
     &[
         OperationSpecificError::Code(ErrorCode::RevisionUnavailable),

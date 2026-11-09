@@ -342,3 +342,86 @@ impl ContentRecoveryInventory {
         Ok(())
     }
 }
+
+impl ContentRecoveryPreparation {
+    /// Validate the closed progress shape, not native authority or history readiness.
+    pub fn validate(&self) -> Result<()> {
+        self.replacement.validate()?;
+        if !matches!(
+            self.replacement.actor_id,
+            arkret_wire::ActorId::Account { .. }
+        ) {
+            return protocol("recovery preparation requires an Account replacement");
+        }
+        match self.state {
+            ContentRecoveryPreparationState::Pending if self.inventory_blob_ref.is_none() => Ok(()),
+            ContentRecoveryPreparationState::Prepared if self.inventory_blob_ref.is_some() => {
+                Ok(())
+            }
+            _ => protocol("recovery preparation state and inventory reference disagree"),
+        }
+    }
+
+    pub fn validate_for_authorization(&self, authorization: &arkret_wire::EventId) -> Result<()> {
+        self.validate()?;
+        if &self.replacement.authorization_event_ref != authorization {
+            return protocol("recovery preparation differs from the requested authorization");
+        }
+        Ok(())
+    }
+
+    /// Bind progress to independently qualified native source coordinates.
+    /// This does not prove complete census, current holder, Blob contents or decryption.
+    pub fn validate_for_episode(
+        &self,
+        authorization: &arkret_wire::EventId,
+        replacement: &ContentEndpoint,
+        pcr_cut: &arkret_wire::CommittedEventRef,
+        previous: Option<&Self>,
+    ) -> Result<()> {
+        self.validate_for_authorization(authorization)?;
+        if &self.replacement != replacement || &self.pcr_cut != pcr_cut {
+            return protocol("recovery preparation differs from the original episode");
+        }
+        if let Some(previous) = previous {
+            previous.validate_for_episode(authorization, replacement, pcr_cut, None)?;
+            if previous.state == ContentRecoveryPreparationState::Prepared
+                && (self.state != ContentRecoveryPreparationState::Prepared
+                    || self.inventory_blob_ref != previous.inventory_blob_ref)
+            {
+                return protocol("prepared recovery inventory cannot roll back or rebind");
+            }
+        }
+        Ok(())
+    }
+}
+
+impl ContentCleanupInventory {
+    /// Compare every result to an independently frozen inventory, including empty census.
+    /// The caller must separately qualify native completeness and the winning Commit proofs.
+    pub fn validate_for_inventory(
+        &self,
+        inventory: &ContentRecoveryInventory,
+        inventory_digest: &arkret_wire::Hash,
+    ) -> Result<()> {
+        inventory.validate()?;
+        sha256_ref(inventory_digest)?;
+        if &self.inventory_digest != inventory_digest
+            || self.scope_cleanups.len() != inventory.entries.len()
+        {
+            return protocol("cleanup differs from its frozen inventory");
+        }
+        for (cleanup, entry) in self.scope_cleanups.iter().zip(&inventory.entries) {
+            if cleanup.effective_scope != entry.effective_scope
+                || cleanup.genesis_event_ref != entry.genesis_event_ref
+                || cleanup.remaining_old_leaf_count != 0
+            {
+                return protocol("missing, reordered or unfinished scope cleanup");
+            }
+            for root in &cleanup.root_refs {
+                sha256_ref(root)?;
+            }
+        }
+        Ok(())
+    }
+}

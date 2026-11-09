@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json;
-//! sha256=4d1c57ec4e94ec7a358bb25bf00ec807d9c3426c9db7002f38656928850fc0c8 Entries: schema_ids=231,
-//! active=231
+//! sha256=482f33c0e97b5be42298bab65afede9354f5f8acce087e7b7805d0d9878138dd Entries: schema_ids=232,
+//! active=232
 
 use serde::{Deserialize, Serialize};
 
@@ -83,6 +83,7 @@ pub enum SchemaId {
     ContentBlockPollV1,
     ContentEncryptionV1,
     ContentEncryptionContextV1,
+    ContentRecoveryPreparationV1,
     ControllerAccountGateAttestationV1,
     ControllerAccountGateAttestationIssueRequestBodyV1,
     ControllerAccountGateAttestationIssueResponseBodyV1,
@@ -318,6 +319,7 @@ impl SchemaId {
         Self::ContentBlockPollV1,
         Self::ContentEncryptionV1,
         Self::ContentEncryptionContextV1,
+        Self::ContentRecoveryPreparationV1,
         Self::ControllerAccountGateAttestationV1,
         Self::ControllerAccountGateAttestationIssueRequestBodyV1,
         Self::ControllerAccountGateAttestationIssueResponseBodyV1,
@@ -553,6 +555,7 @@ impl SchemaId {
         Self::ContentBlockPollV1,
         Self::ContentEncryptionV1,
         Self::ContentEncryptionContextV1,
+        Self::ContentRecoveryPreparationV1,
         Self::ControllerAccountGateAttestationV1,
         Self::ControllerAccountGateAttestationIssueRequestBodyV1,
         Self::ControllerAccountGateAttestationIssueResponseBodyV1,
@@ -951,6 +954,10 @@ impl SchemaId {
     /// authority.
     pub const CONTENT_ENCRYPTION_CONTEXT_V1: &'static str =
         "ak.schema.content_encryption_context.v1";
+    /// Private unit-derived content-recovery preparation, discovered by the accepted authorization
+    /// Event; prepared material is distinct from client history-ready.
+    pub const CONTENT_RECOVERY_PREPARATION_V1: &'static str =
+        "ak.schema.content_recovery_preparation.v1";
     /// Account Authority controller-account eligibility gate signed under
     /// ak.controller_account_gate.v1; privacy minimised and valid for at most 300 seconds.
     pub const CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1: &'static str =
@@ -1485,6 +1492,7 @@ impl SchemaId {
             Self::ContentBlockPollV1 => Self::CONTENT_BLOCK_POLL_V1,
             Self::ContentEncryptionV1 => Self::CONTENT_ENCRYPTION_V1,
             Self::ContentEncryptionContextV1 => Self::CONTENT_ENCRYPTION_CONTEXT_V1,
+            Self::ContentRecoveryPreparationV1 => Self::CONTENT_RECOVERY_PREPARATION_V1,
             Self::ControllerAccountGateAttestationV1 => {
                 Self::CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1
             }
@@ -1767,6 +1775,7 @@ impl SchemaId {
             Self::ContentBlockPollV1 => "schemas/content-block-poll.schema.json",
             Self::ContentEncryptionV1 => "schemas/content-encryption.schema.json",
             Self::ContentEncryptionContextV1 => "schemas/content-encryption.schema.json",
+            Self::ContentRecoveryPreparationV1 => "schemas/content-encryption.schema.json",
             Self::ControllerAccountGateAttestationV1 => {
                 "schemas/agent-authority-evidence.schema.json"
             }
@@ -2049,6 +2058,7 @@ impl SchemaId {
             Self::CONTENT_BLOCK_POLL_V1 => Some(Self::ContentBlockPollV1),
             Self::CONTENT_ENCRYPTION_V1 => Some(Self::ContentEncryptionV1),
             Self::CONTENT_ENCRYPTION_CONTEXT_V1 => Some(Self::ContentEncryptionContextV1),
+            Self::CONTENT_RECOVERY_PREPARATION_V1 => Some(Self::ContentRecoveryPreparationV1),
             Self::CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1 => {
                 Some(Self::ControllerAccountGateAttestationV1)
             }

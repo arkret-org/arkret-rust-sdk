@@ -4142,6 +4142,10 @@
       "schema": "content-encryption.schema.json#/$defs/history_recovery"
     },
     {
+      "rust_type": "crates/models-crypto/src/generated/content_history_contracts.rs::ContentRecoveryPreparation",
+      "schema": "content-encryption.schema.json#/$defs/recovery_preparation"
+    },
+    {
       "rust_type": "crates/models-crypto/src/generated/content_history_contracts.rs::ContentProtection",
       "schema": "content-encryption.schema.json#/$defs/protection"
     },

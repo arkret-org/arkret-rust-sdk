@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json;
-//! sha256=4d1c57ec4e94ec7a358bb25bf00ec807d9c3426c9db7002f38656928850fc0c8 Entries: registered=218
+//! sha256=482f33c0e97b5be42298bab65afede9354f5f8acce087e7b7805d0d9878138dd Entries: registered=219
 
 use serde::{Deserialize, Serialize};
 
@@ -199,6 +199,7 @@ pub enum ServiceOperationId {
     SelfManagementReviewReadStatusV1,
     SelfMediaReadIceConfigV1,
     SelfMediaServiceBindingReadResolveV1,
+    SelfMlsContentRecoveryResourceGetV1,
     SelfMlsReadGroupStateMaterialV1,
     SelfMlsReadRosterAuthorityV1,
     SelfMorphReadListV1,
@@ -420,6 +421,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_MANAGEMENT_REVIEW_READ_STATUS_V1,
     ServiceOperationId::SELF_MEDIA_READ_ICE_CONFIG_V1,
     ServiceOperationId::SELF_MEDIA_SERVICE_BINDING_READ_RESOLVE_V1,
+    ServiceOperationId::SELF_MLS_CONTENT_RECOVERY_RESOURCE_GET_V1,
     ServiceOperationId::SELF_MLS_READ_GROUP_STATE_MATERIAL_V1,
     ServiceOperationId::SELF_MLS_READ_ROSTER_AUTHORITY_V1,
     ServiceOperationId::SELF_MORPH_READ_LIST_V1,
@@ -683,6 +685,7 @@ impl ServiceOperationId {
         Self::SelfManagementReviewReadStatusV1,
         Self::SelfMediaReadIceConfigV1,
         Self::SelfMediaServiceBindingReadResolveV1,
+        Self::SelfMlsContentRecoveryResourceGetV1,
         Self::SelfMlsReadGroupStateMaterialV1,
         Self::SelfMlsReadRosterAuthorityV1,
         Self::SelfMorphReadListV1,
@@ -1039,6 +1042,8 @@ impl ServiceOperationId {
     pub const SELF_MEDIA_READ_ICE_CONFIG_V1: &'static str = "ak.self.media.read.ice_config.v1";
     pub const SELF_MEDIA_SERVICE_BINDING_READ_RESOLVE_V1: &'static str =
         "ak.self.media_service_binding.read.resolve.v1";
+    pub const SELF_MLS_CONTENT_RECOVERY_RESOURCE_GET_V1: &'static str =
+        "ak.self.mls.content_recovery.resource.get.v1";
     pub const SELF_MLS_READ_GROUP_STATE_MATERIAL_V1: &'static str =
         "ak.self.mls.read.group_state_material.v1";
     pub const SELF_MLS_READ_ROSTER_AUTHORITY_V1: &'static str =
@@ -1377,6 +1382,9 @@ impl ServiceOperationId {
             Self::SelfMediaReadIceConfigV1 => Self::SELF_MEDIA_READ_ICE_CONFIG_V1,
             Self::SelfMediaServiceBindingReadResolveV1 => {
                 Self::SELF_MEDIA_SERVICE_BINDING_READ_RESOLVE_V1
+            }
+            Self::SelfMlsContentRecoveryResourceGetV1 => {
+                Self::SELF_MLS_CONTENT_RECOVERY_RESOURCE_GET_V1
             }
             Self::SelfMlsReadGroupStateMaterialV1 => Self::SELF_MLS_READ_GROUP_STATE_MATERIAL_V1,
             Self::SelfMlsReadRosterAuthorityV1 => Self::SELF_MLS_READ_ROSTER_AUTHORITY_V1,
@@ -1800,6 +1808,9 @@ impl ServiceOperationId {
             Self::SELF_MEDIA_READ_ICE_CONFIG_V1 => Some(Self::SelfMediaReadIceConfigV1),
             Self::SELF_MEDIA_SERVICE_BINDING_READ_RESOLVE_V1 => {
                 Some(Self::SelfMediaServiceBindingReadResolveV1)
+            }
+            Self::SELF_MLS_CONTENT_RECOVERY_RESOURCE_GET_V1 => {
+                Some(Self::SelfMlsContentRecoveryResourceGetV1)
             }
             Self::SELF_MLS_READ_GROUP_STATE_MATERIAL_V1 => {
                 Some(Self::SelfMlsReadGroupStateMaterialV1)
@@ -6315,6 +6326,24 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         response_schema_ref: Some(
             "schemas/media-service-binding-operations.schema.json#/$defs/media_service_binding_response_body",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfMlsContentRecoveryResourceGetV1,
+        http_method: "GET",
+        http_path: "/_arkret/self/mls/content-recoveries/{authorization_event_ref}",
+        grpc: Some("SelfMls/ContentRecoveryGet"),
+        mq: Some("self.mls.content_recovery.resource.get"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: None,
+        response_schema_ref: Some(
+            "schemas/content-encryption.schema.json#/$defs/recovery_preparation",
         ),
         uncertain_outcome: None,
         durable_effect: None,

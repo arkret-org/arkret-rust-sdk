@@ -13,9 +13,25 @@ use arkret_wire::{
     PATH_SELF_MLS_GROUP_STATE_MATERIAL, PATH_SELF_MLS_ROSTER_AUTHORITY,
 };
 
-use crate::{Client, Result};
+use crate::{Client, Result, reject_path_segment};
 
 impl Client {
+    /// Observe inventory preparation for an already accepted native replacement.
+    /// Callers bind the result to their qualified episode before using its private Blob.
+    pub async fn self_mls_content_recovery(
+        &self,
+        authorization_event_ref: &arkret_wire::EventId,
+    ) -> Result<arkret_models_crypto::ContentRecoveryPreparation> {
+        reject_path_segment(authorization_event_ref.as_str())?;
+        let outcome: arkret_models_crypto::ContentRecoveryPreparation = self
+            .get(&format!(
+                "/_arkret/self/mls/content-recoveries/{authorization_event_ref}"
+            ))
+            .await?;
+        outcome.validate_for_authorization(authorization_event_ref)?;
+        Ok(outcome)
+    }
+
     /// Fetch accepted Genesis public material as an authorized member through
     /// the caller's Account Station. The peer route is Station-only.
     pub async fn self_mls_group_state_material(

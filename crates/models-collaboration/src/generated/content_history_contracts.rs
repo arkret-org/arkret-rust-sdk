@@ -2,10 +2,10 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/content-encryption.schema.json
-// sha256=ccb35fae085d742868258a8ab9b934a8f08c0448058484a4c08439b172d9f25e
+// sha256=d88b52eea7b7e59339a88d67d629bc88477b57ab4c6646d3af55fce1ff8c509b
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=f277aac30f4b23b2e663aeb5c59ddf9a6e2b3af9eb64854335f03d715718292a
+// sha256=973940c1b2f35b239f2e75b4f8e41fe33a818d78b1b608381b2b70df42e49f18
 
 /// Counterpart: `content-encryption.schema.json#/$defs/recovery_source`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

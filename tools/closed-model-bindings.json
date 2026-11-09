@@ -141,6 +141,8 @@
     "content-encryption.schema.json#/$defs/custody": "crate::content_history::AgentHistoryCustody",
     "content-encryption.schema.json#/$defs/history_recovery/properties/state": "crate::content_history::ContentRecoveryState",
     "content-encryption.schema.json#/$defs/history_recovery": "crate::content_history::ContentRecoveryCheckpoint",
+    "content-encryption.schema.json#/$defs/recovery_preparation/properties/state": "crate::content_history::ContentRecoveryPreparationState",
+    "content-encryption.schema.json#/$defs/recovery_preparation": "crate::content_history::ContentRecoveryPreparation",
     "content-encryption.schema.json#/$defs/protection": "crate::content_history::ContentProtection",
     "content-encryption.schema.json#/$defs/history_request": "crate::content_history::HistoryRequest",
     "content-encryption.schema.json#/$defs/history_backup_access": "crate::content_history::ContentHistoryBackupAccess",
@@ -17622,6 +17624,50 @@
         {
           "name": "ContentProtection",
           "schema": "content-encryption.schema.json#/$defs/protection"
+        },
+        {
+          "name": "ContentRecoveryPreparationState",
+          "schema": "content-encryption.schema.json#/$defs/recovery_preparation/properties/state"
+        },
+        {
+          "name": "ContentRecoveryPreparation",
+          "schema": "content-encryption.schema.json#/$defs/recovery_preparation",
+          "rust": {
+            "signature": "pub struct ContentRecoveryPreparation",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "state": {
+                "name": "state",
+                "visibility": "pub",
+                "type": "ContentRecoveryPreparationState",
+                "attributes": []
+              },
+              "replacement": {
+                "name": "replacement",
+                "visibility": "pub",
+                "type": "ContentEndpoint",
+                "attributes": []
+              },
+              "pcr_cut": {
+                "name": "pcr_cut",
+                "visibility": "pub",
+                "type": "arkret_wire::CommittedEventRef",
+                "attributes": []
+              },
+              "inventory_blob_ref": {
+                "name": "inventory_blob_ref",
+                "visibility": "pub",
+                "type": "Option<arkret_wire::BlobRef>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\", deserialize_with = \"arkret_canonical::serde_helpers::deserialize_non_null_optional\")]"
+                ]
+              }
+            }
+          }
         },
         {
           "name": "HistoryRequest",

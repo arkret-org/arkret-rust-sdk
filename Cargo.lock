@@ -351,6 +351,7 @@ dependencies = [
  "arkret-models-identity",
  "arkret-models-integration",
  "arkret-schema",
+ "arkret-schema-conformance",
  "arkret-signatures",
  "arkret-state",
  "arkret-test-kit",

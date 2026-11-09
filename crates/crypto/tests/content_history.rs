@@ -14,6 +14,68 @@ fn fixture() -> Value {
         .expect("pinned formal content-history fixture")
 }
 
+#[test]
+fn complete_empty_census_has_exact_bytes_and_domain_separated_digests() {
+    use arkret_models_crypto::{
+        ContentCleanupInventory, ContentRecoveryInventory, ContentRecoveryInventoryEntry,
+    };
+    use sha2::{Digest, Sha256};
+
+    let f = fixture();
+    let wire = &f["recovery_preparation_encoding"];
+    let mut inventory: ContentRecoveryInventory =
+        serde_json::from_value(wire["empty_inventory"].clone()).unwrap();
+    let bytes = canonical_json_bytes(&inventory).unwrap();
+    assert_eq!(hex::encode(&bytes), wire["inventory_jcs_hex"]);
+    let digest = recovery_inventory_digest(&inventory).unwrap();
+    let mut expected = Sha256::new();
+    expected.update(b"ak.content.recovery_inventory.v1\n");
+    expected.update(&bytes);
+    assert_eq!(
+        digest.as_str(),
+        format!("sha256:{}", hex::encode(expected.finalize()))
+    );
+    let cleanup = ContentCleanupInventory {
+        inventory_digest: digest.clone(),
+        scope_cleanups: vec![],
+    };
+    cleanup.validate_for_inventory(&inventory, &digest).unwrap();
+    let cleanup_digest = recovery_cleanup_digest(&inventory, &cleanup).unwrap();
+    let mut expected = Sha256::new();
+    expected.update(b"ak.content.cleanup_inventory.v1\n");
+    expected.update(canonical_json_bytes(&cleanup).unwrap());
+    assert_eq!(
+        cleanup_digest.as_str(),
+        format!("sha256:{}", hex::encode(expected.finalize()))
+    );
+    assert_ne!(digest, cleanup_digest);
+
+    // Shape-only activated empty group: an empty cleanup must no longer match.
+    let context: ContentRootContext =
+        serde_json::from_value(f["kat"]["root_context"].clone()).unwrap();
+    inventory.entries.push(ContentRecoveryInventoryEntry {
+        effective_scope: context.effective_scope,
+        genesis_event_ref: context.group_state_ref.clone(),
+        base_group_state_ref: context.group_state_ref,
+        epoch: 0,
+        old_leaves: vec![],
+    });
+    let activated_digest = recovery_inventory_digest(&inventory).unwrap();
+    assert_ne!(activated_digest, digest);
+    let mut empty_cleanup = cleanup.clone();
+    empty_cleanup.inventory_digest = activated_digest.clone();
+    assert!(
+        empty_cleanup
+            .validate_for_inventory(&inventory, &activated_digest)
+            .is_err()
+    );
+    assert!(recovery_cleanup_digest(&inventory, &empty_cleanup).is_err());
+    let mut wrong_digest = cleanup;
+    wrong_digest.inventory_digest = cleanup_digest;
+    inventory.entries.clear();
+    assert!(recovery_cleanup_digest(&inventory, &wrong_digest).is_err());
+}
+
 fn root(f: &Value) -> ContentRootSecret {
     ContentRootSecret::new(
         hex::decode(f["kat"]["root_hex"].as_str().unwrap())

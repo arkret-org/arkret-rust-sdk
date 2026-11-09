@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json;
-//! sha256=4d1c57ec4e94ec7a358bb25bf00ec807d9c3426c9db7002f38656928850fc0c8 Input: registry/
+//! sha256=482f33c0e97b5be42298bab65afede9354f5f8acce087e7b7805d0d9878138dd Input: registry/
 //! account-data-key-registry.json;
 //! sha256=0989a67abbe00359bf0974896a84210791dd75c26b7d77d8eb1bee7fcd70370e Entries: id_kinds=47,
-//! special_forms=15, actions=158, approval_carriers=2, schemas=231, account_data_patterns=24
+//! special_forms=15, actions=158, approval_carriers=2, schemas=232, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -3603,6 +3603,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     },
     SchemaDescriptor {
         schema_id: SchemaId::CONTENT_ENCRYPTION_CONTEXT_V1,
+        file: "schemas/content-encryption.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::CONTENT_RECOVERY_PREPARATION_V1,
         file: "schemas/content-encryption.schema.json",
     },
     SchemaDescriptor {
