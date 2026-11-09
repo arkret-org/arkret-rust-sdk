@@ -23,6 +23,7 @@ use arkret_models_discovery::StationConnectionBinding;
 use arkret_models_identity::signer_key_operations::{
     SignerKeyQueryResponseBody, SignerKeysQueryRequestBody,
 };
+use arkret_models_identity::{CurrentPrincipalRequestBody, CurrentPrincipalResponseBody};
 use arkret_wire::{
     AccountId, CommittedEventView, DidCoreId, EventId, RealmId, RealmSnapshotId,
     RealmStateSnapshot, RealmStreamPage, SessionGrantId, StreamScanRequestBody,
@@ -282,6 +283,24 @@ impl OwnStationStateClient {
             source: self.source.clone(),
         })
     }
+    /// Bind the registered PCR lookup to this exact authenticated Account and
+    /// live session. The result is not historical producer or read authority.
+    pub async fn current_principal(
+        &self,
+        request: &CurrentPrincipalRequestBody,
+    ) -> Result<BoundOwnStationResponse<CurrentPrincipalRequestBody, CurrentPrincipalResponseBody>>
+    {
+        self.check_session()?;
+        request.validate()?;
+        if &request.account_id != self.session.account_id() {
+            return Err(protocol(
+                "current principal request belongs to another complete Account",
+            ));
+        }
+        let value = self.client.current_principal(request).await?;
+        self.bind(request.clone(), value)
+    }
+
     pub async fn scan_commit_stream(
         &self,
         request: &StreamScanRequestBody,
@@ -613,5 +632,93 @@ mod tests {
             )
             .is_err()
         );
+    }
+
+    #[tokio::test]
+    async fn current_principal_binds_exact_request_and_rejects_cross_account_or_late_results() {
+        // Real HTTP transport binding only; this does not model native identity
+        // admission, PCR history disclosure or producer-key verification.
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let source = Arc::new(Source(Mutex::new(session(format!(
+            "http://{}/",
+            listener.local_addr().unwrap()
+        )))));
+        let captured = source.snapshot().unwrap();
+        let raw = crate::ClientBuilder::new(url::Url::parse(&captured.binding.base_url).unwrap())
+            .allow_insecure_localhost()
+            .auth(Auth::Bearer("session-token".into()))
+            .build()
+            .unwrap();
+        let client =
+            OwnStationStateClient::new(raw, captured.binding.clone(), source.clone()).unwrap();
+        let request = CurrentPrincipalRequestBody {
+            request_id: arkret_wire::RequestId::new_v7_at(1_790_000_000_001),
+            account_id: captured.account_id().clone(),
+        };
+        let mut foreign_request = request.clone();
+        foreign_request.account_id.station_id =
+            DidCoreId::new("ak:did_core:web:other-station.example").unwrap();
+        assert!(
+            client
+                .current_principal(&foreign_request)
+                .await
+                .unwrap_err()
+                .to_string()
+                .contains("another complete Account")
+        );
+        let root = RealmId::from_event_id(&EventId::from_digest(
+            arkret_canonical::DigestSuite::Sha256,
+            [71; 32],
+        ));
+        let outcome = serde_json::json!({
+            "request_id":request.request_id,"account_id":request.account_id,
+            "principal_control_realm_id":root,
+            "resolution_projection": {
+                "did":"did:web:alice.example", "method_history_head":format!("sha256:{}", "11".repeat(32)),
+                "version_id":"1-native", "resolution_event_ref": EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [72; 32]),
+                "updated_at":"2026-08-11T02:00:00.000Z",
+            },
+        });
+        let server_source = source.clone();
+        let server = tokio::spawn(async move {
+            for variant in ["original", "other_account", "other_request", "late_session"] {
+                let (mut stream, _) = listener.accept().await.unwrap();
+                let mut bytes = vec![0; 8192];
+                let count = stream.read(&mut bytes).await.unwrap();
+                let wire = String::from_utf8_lossy(&bytes[..count]);
+                assert!(wire.contains("/_arkret/self/account/current-principal"));
+                assert!(
+                    wire.to_ascii_lowercase()
+                        .contains("authorization: bearer session-token")
+                );
+                let mut reply = outcome.clone();
+                match variant {
+                    "other_account" => {
+                        reply["account_id"]["station_id"] =
+                            serde_json::json!("ak:did_core:web:other-station.example")
+                    }
+                    "other_request" => {
+                        reply["request_id"] = serde_json::to_value(
+                            arkret_wire::RequestId::new_v7_at(1_790_000_000_002),
+                        )
+                        .unwrap()
+                    }
+                    "late_session" => server_source.0.lock().unwrap().epoch += 1,
+                    _ => {}
+                }
+                let body = serde_json::to_vec(&reply).unwrap();
+                stream.write_all(format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len()).as_bytes()).await.unwrap();
+                stream.write_all(&body).await.unwrap();
+            }
+        });
+        let original = client.current_principal(&request).await.unwrap();
+        assert_eq!(original.request(), &request);
+        assert_eq!(original.session(), &captured);
+        assert_eq!(original.value().unwrap().principal_control_realm_id, root);
+        assert!(client.current_principal(&request).await.is_err());
+        assert!(client.current_principal(&request).await.is_err());
+        assert!(client.current_principal(&request).await.is_err());
+        server.await.unwrap();
+        assert!(original.value().is_err());
     }
 }
