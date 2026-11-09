@@ -239,7 +239,7 @@ event_payload_accessors! {
     event_spec::IdentityAccountabilityGrant => (as_identity_accountability_grant, AccountabilityGrantPayload),
     event_spec::MemberState => (as_member_state, MembershipPayload),
     event_spec::MemberIdentityUpdate => (as_member_identity_update, MemberIdentityUpdatePayload),
-    event_spec::MessageCreate => (as_message_create, MessageCreatePayload, MessageCreatePayload::validate_poll_response_heads),
+    event_spec::MessageCreate => (as_message_create, MessageCreatePayload, |payload: &MessageCreatePayload| payload.to_value().map(|_| ())),
     event_spec::MessageRevise => (as_message_revise, MessageRevisePayload),
     event_spec::MessageRedact => (as_message_redact, MessageRedactPayload),
     event_spec::ReactionAdd => (as_reaction_add, ReactionPayload),

@@ -142,6 +142,30 @@ impl EventIntent {
         )
     }
 
+    /// Replace validated content while retaining every frozen outer member.
+    /// Use this to install sealed payload slots without reconstructing authoring
+    /// time, delegation, participant references or extension coordinates.
+    pub fn with_typed_payload<K: crate::EventSpec>(mut self, payload: K::Payload) -> Result<Self> {
+        if self.kind != K::KIND {
+            return Err(crate::EventDraftError::Protocol(format!(
+                "intent kind {} does not match replacement payload {}",
+                self.kind.as_str(),
+                K::KIND_STR,
+            )));
+        }
+        K::validate_payload(&payload).map_err(|error| {
+            crate::EventDraftError::Protocol(format!("{} payload invalid: {error}", K::KIND_STR))
+        })?;
+        let Value::Object(payload) = serde_json::to_value(payload)? else {
+            return Err(crate::EventDraftError::Protocol(format!(
+                "{} payload must serialize as a JSON object",
+                K::KIND_STR,
+            )));
+        };
+        self.payload = payload.into_iter().collect();
+        Ok(self)
+    }
+
     pub fn with_scope_ref(mut self, scope_ref: ScopeRef) -> Result<Self> {
         if self.scope_ref == ScopeRef::RealmGenesis {
             return Err(crate::EventDraftError::Protocol(format!(

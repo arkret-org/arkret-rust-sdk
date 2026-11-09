@@ -127,3 +127,57 @@ fn sealed_message_is_checked_before_event_id_derivation_without_changing_outer()
         .validate_encryption_binding(authored.event(), &producer)
         .unwrap();
 }
+
+#[test]
+fn typed_content_replacement_preserves_frozen_outer_and_revalidates_payload_kind() {
+    let fixture =
+        arkret_schema_conformance::spec_json_artifact("fixtures/content-history-fixture.json")
+            .unwrap();
+    let message: arkret_models_collaboration::message_authoring::MessageAuthoringIntent =
+        serde_json::from_value(fixture["local_message_authoring"].clone()).unwrap();
+    let producer: arkret_models_crypto::ContentEndpoint =
+        serde_json::from_value(fixture["kat"]["content_context"]["producer"].clone()).unwrap();
+    let plain = MessageCreatePayload::with_content(
+        message.strand_id.clone(),
+        "discussion",
+        ContentBlock::text("staged private message"),
+    );
+    let draft = TypedEventDraft::<event_spec::MessageCreate>::new(
+        serde_json::from_value(fixture["kat"]["outer_event"]["scope_ref"].clone()).unwrap(),
+        producer.actor_id,
+        plain,
+    )
+    .unwrap()
+    .into_intent(
+        serde_json::from_value(fixture["kat"]["outer_event"]["created_at"].clone()).unwrap(),
+    )
+    .unwrap()
+    .with_external_ref(std::collections::BTreeMap::from([(
+        "x_exact".to_owned(),
+        json!({"payload":"retained","unsigned":true}),
+    )]));
+    let frozen = draft.pre_encryption_outer_event().unwrap();
+    let sealed = draft
+        .clone()
+        .with_typed_payload::<event_spec::MessageCreate>(message.payload())
+        .unwrap();
+    assert_eq!(sealed.pre_encryption_outer_event().unwrap(), frozen);
+    assert_ne!(sealed.payload(), draft.payload());
+    assert_eq!(sealed.created_at(), draft.created_at());
+    let mut invalid_kind = serde_json::to_value(&draft).unwrap();
+    invalid_kind["kind"] = json!("ak.message.revise");
+    let invalid_kind: arkret_event_draft::EventIntent =
+        serde_json::from_value(invalid_kind).unwrap();
+    assert!(
+        invalid_kind
+            .with_typed_payload::<event_spec::MessageCreate>(message.payload())
+            .is_err()
+    );
+    let mut invalid_content = message.payload();
+    invalid_content.content = Some(ContentBlock::text("mixed cleartext and ciphertext"));
+    assert!(
+        draft
+            .with_typed_payload::<event_spec::MessageCreate>(invalid_content)
+            .is_err()
+    );
+}
