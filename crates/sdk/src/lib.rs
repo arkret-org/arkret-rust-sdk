@@ -461,6 +461,14 @@ pub use keypackage_claim_receipt::{
     verify_peer_keypackage_terminal_receipt_signature,
 };
 pub use managed_actor_authoring::author_realm_actor_create;
+#[cfg(feature = "mls")]
+pub use mls_roster_authority::{
+    MlsHistoricalContentRosterMaterials, VerifiedMlsHistoricalContentRoster,
+    install_verified_mls_roster_bindings, install_verified_mls_self_roster_bindings,
+    install_verified_mls_self_roster_bindings_with_recovery, mls_roster_genesis_material_request,
+    mls_roster_recovery_material_request, verify_mls_recovery_roster_path,
+    verify_mls_roster_recovery_record, verify_mls_self_historical_content_roster,
+};
 pub use mls_roster_authority::{
     VerifiedMlsRosterRecoveryRecord, mls_self_roster_authority_page_encoded_size,
     project_mls_self_roster_authority_page, project_mls_self_roster_authority_page_with_recovery,
@@ -468,13 +476,6 @@ pub use mls_roster_authority::{
     verify_mls_member_roster_authority_pages, verify_mls_roster_authority_manifest_signature,
     verify_mls_roster_authority_pages, verify_mls_roster_authority_pages_with_recovery,
     verify_mls_self_roster_authority_pages,
-};
-#[cfg(feature = "mls")]
-pub use mls_roster_authority::{
-    install_verified_mls_roster_bindings, install_verified_mls_self_roster_bindings,
-    install_verified_mls_self_roster_bindings_with_recovery, mls_roster_genesis_material_request,
-    mls_roster_recovery_material_request, verify_mls_recovery_roster_path,
-    verify_mls_roster_recovery_record,
 };
 pub use push_registration_receipt::verify_push_registration_installation_receipt;
 pub use sdk_error::{Error, Result};

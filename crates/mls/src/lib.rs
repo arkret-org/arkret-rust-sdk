@@ -5,6 +5,7 @@
 //! retains only registered content roots for authorized history, separately
 //! from current MLS membership. Network recovery orchestration belongs to callers.
 
+mod content_endpoint;
 mod error;
 pub mod exporter_kdf;
 mod governance_binding;
@@ -19,6 +20,7 @@ pub use arkret_policy::{
     AgentMlsLeafBindingError, AgentMlsSignerClaim, AgentMlsSignerView, AuthorGroupStateView,
     AuthorLeaf, AuthorLeafCredential, verify_ordinary_agent_mls_binding,
 };
+pub use content_endpoint::content_endpoint_from_verified_roster;
 pub use error::MlsError;
 pub(crate) use error::Result;
 pub use exporter_kdf::{

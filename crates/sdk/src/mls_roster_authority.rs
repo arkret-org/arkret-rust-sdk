@@ -915,6 +915,13 @@ pub fn mls_self_roster_authority_page_encoded_size(
 mod tests;
 
 #[cfg(feature = "mls")]
+mod historical;
+#[cfg(feature = "mls")]
+pub use historical::{
+    MlsHistoricalContentRosterMaterials, VerifiedMlsHistoricalContentRoster,
+    verify_mls_self_historical_content_roster,
+};
+#[cfg(feature = "mls")]
 pub use roster_bindings::{
     install_verified_mls_roster_bindings, install_verified_mls_self_roster_bindings,
     install_verified_mls_self_roster_bindings_with_recovery, mls_roster_genesis_material_request,
@@ -1078,6 +1085,38 @@ mod roster_bindings {
         {
             return Err("joined MLS group differs from the accepted roster cut".to_owned());
         }
+        let authorities = verified_roster_authorities(pages, request, material, recovery_material)?;
+        let occupied = group
+            .active_author_leaves()
+            .into_iter()
+            .map(|leaf| {
+                let crate::mls::AuthorLeafCredential::Basic { identity } = leaf.credential else {
+                    return Err("occupied MLS leaf has no BasicCredential".to_owned());
+                };
+                let actor_id = crate::decode_mls_basic_credential_identity(&identity)
+                    .map_err(|error| format!("decode occupied MLS ActorId: {error}"))?;
+                let signature_key =
+                    crate::Base64UrlString::new(crate::base64url_encode(&leaf.signature_key))
+                        .map_err(|error| error.to_owned())?;
+                Ok(crate::mls::MlsPublicEndpointLeaf {
+                    leaf_index: leaf.leaf_index,
+                    actor_id,
+                    signature_key,
+                })
+            })
+            .collect::<Result<Vec<_>, String>>()?;
+        let bindings = match_occupied_leaf_authorities(&occupied, &authorities)?;
+        group
+            .install_verified_leaf_bindings(bindings)
+            .map_err(|error| format!("install verified MLS roster bindings: {error}"))
+    }
+
+    pub(super) fn verified_roster_authorities(
+        pages: &[MlsRosterAuthorityReadResponseBody],
+        request: &MlsRosterAuthorityReadRequestBody,
+        material: &MlsGroupStateMaterialResponseBody,
+        recovery_material: &BTreeMap<EventId, MlsGroupStateMaterialResponseBody>,
+    ) -> Result<Vec<MlsVerifiedLeafBinding>, String> {
         let manifest = &pages[0].manifest;
         let material_request = mls_roster_genesis_material_request(request, manifest);
         let bytes = material
@@ -1174,29 +1213,7 @@ mod roster_bindings {
         if used_material.len() != recovery_material.len() {
             return Err("recovery RFC material contains surplus records".to_owned());
         }
-        let occupied = group
-            .active_author_leaves()
-            .into_iter()
-            .map(|leaf| {
-                let crate::mls::AuthorLeafCredential::Basic { identity } = leaf.credential else {
-                    return Err("occupied MLS leaf has no BasicCredential".to_owned());
-                };
-                let actor_id = crate::decode_mls_basic_credential_identity(&identity)
-                    .map_err(|error| format!("decode occupied MLS ActorId: {error}"))?;
-                let signature_key =
-                    crate::Base64UrlString::new(crate::base64url_encode(&leaf.signature_key))
-                        .map_err(|error| error.to_owned())?;
-                Ok(crate::mls::MlsPublicEndpointLeaf {
-                    leaf_index: leaf.leaf_index,
-                    actor_id,
-                    signature_key,
-                })
-            })
-            .collect::<Result<Vec<_>, String>>()?;
-        let bindings = match_occupied_leaf_authorities(&occupied, &authorities)?;
-        group
-            .install_verified_leaf_bindings(bindings)
-            .map_err(|error| format!("install verified MLS roster bindings: {error}"))
+        Ok(authorities)
     }
 
     fn authority_from_record(
@@ -1245,7 +1262,7 @@ mod roster_bindings {
         })
     }
 
-    fn match_occupied_leaf_authorities(
+    pub(super) fn match_occupied_leaf_authorities(
         occupied: &[crate::mls::MlsPublicEndpointLeaf],
         authorities: &[MlsVerifiedLeafBinding],
     ) -> Result<Vec<MlsVerifiedLeafBinding>, String> {
