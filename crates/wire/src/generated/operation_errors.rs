@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/operations-error-mapping.json;
-//! sha256=367de4a6e7ad494f7ad668cb2c8cefbfe6614126956929c50149555121139c09 Input: registry/
-//! contract-registry.json; sha256=482f33c0e97b5be42298bab65afede9354f5f8acce087e7b7805d0d9878138dd
+//! sha256=50d5acf2ffb7ad312ad9d966d7cfa3dfb01a6f54e64461045cd7a2296b0947d5 Input: registry/
+//! contract-registry.json; sha256=390a1962fd01dc1ce589b6b5e7977c3dec88b23d11364945394139c1aa5c1ad7
 //! Input: registry/error-code-registry.json;
-//! sha256=d8b59ba963a979c5f74d2a6fe1a57ed4a15415b4389ad1b0c4fa8a535e0c70e5 Entries: operations=219
+//! sha256=d8b59ba963a979c5f74d2a6fe1a57ed4a15415b4389ad1b0c4fa8a535e0c70e5 Entries: operations=221
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -340,6 +340,12 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Code(ErrorCode::Conflict),
         OperationSpecificError::Code(ErrorCode::RevisionUnavailable),
         OperationSpecificError::Code(ErrorCode::SignatureInvalid),
+    ],
+    &[
+        OperationSpecificError::Code(ErrorCode::NotFound),
+        OperationSpecificError::Code(ErrorCode::RevisionUnavailable),
+        OperationSpecificError::Code(ErrorCode::FailedPrecondition),
+        OperationSpecificError::Code(ErrorCode::DuplicateConflict),
     ],
     &[
         OperationSpecificError::Code(ErrorCode::DependencyMissing),
@@ -839,6 +845,12 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Code(ErrorCode::NotFound),
         OperationSpecificError::Code(ErrorCode::PayloadTooLarge),
         OperationSpecificError::Code(ErrorCode::LimitExceeded),
+    ],
+    &[
+        OperationSpecificError::Code(ErrorCode::NotFound),
+        OperationSpecificError::Code(ErrorCode::RevisionUnavailable),
+        OperationSpecificError::Code(ErrorCode::FailedPrecondition),
+        OperationSpecificError::Code(ErrorCode::DuplicateConflict),
     ],
     &[
         OperationSpecificError::Code(ErrorCode::NotFound),

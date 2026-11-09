@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json;
-//! sha256=482f33c0e97b5be42298bab65afede9354f5f8acce087e7b7805d0d9878138dd
+//! sha256=390a1962fd01dc1ce589b6b5e7977c3dec88b23d11364945394139c1aa5c1ad7
 //! Entries: operation_bundles=42 features=12
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
@@ -690,6 +690,10 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
+                operation_id: ServiceOperationId::PeerMlsCommandReconcileRecoveryScopeV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
                 operation_id: ServiceOperationId::PeerMlsReadGroupStateMaterialV1,
                 binding_kind: BindingKind::HttpJson,
             },
@@ -979,6 +983,10 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
             },
             OperationBindingPair {
                 operation_id: ServiceOperationId::SelfMediaServiceBindingReadResolveV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::SelfMlsCommandReconcileRecoveryScopeV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {

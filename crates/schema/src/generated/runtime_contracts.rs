@@ -2,7 +2,7 @@
 //! Generator: tools/spec-codegen
 //! Input: registry/agent-runtime-scope-registry.json;
 //! sha256=c19999dee0337692d6415cb6631373e0fec3b60cf47e6aa892afab259ab3d995 Input: registry/
-//! contract-registry.json; sha256=482f33c0e97b5be42298bab65afede9354f5f8acce087e7b7805d0d9878138dd
+//! contract-registry.json; sha256=390a1962fd01dc1ce589b6b5e7977c3dec88b23d11364945394139c1aa5c1ad7
 //! Input: deployment-probes.json;
 //! sha256=d460713a703e79c05fe21df3844650be21b201c32e5673df81460ea132d48c89
 //! Entries: capability_sets=2, layers=3, feature_additions=1, bootstrap_profiles=2,
@@ -394,6 +394,7 @@ pub const REGISTERED_OPERATION_SURFACE_GROUPS: &[OperationSurfaceGroupDescriptor
             ServiceOperationId::PeerSignalCommandRelayV1,
             ServiceOperationId::PeerStrandWatchReadCurrentV1,
             ServiceOperationId::PeerStrandWatchCommandAuditReadV1,
+            ServiceOperationId::PeerMlsCommandReconcileRecoveryScopeV1,
         ],
     },
     OperationSurfaceGroupDescriptor {
@@ -468,6 +469,7 @@ pub const REGISTERED_OPERATION_SURFACE_GROUPS: &[OperationSurfaceGroupDescriptor
             ServiceOperationId::SelfRealmReadExportV1,
             ServiceOperationId::SelfMlsReadGroupStateMaterialV1,
             ServiceOperationId::SelfMlsReadRosterAuthorityV1,
+            ServiceOperationId::SelfMlsCommandReconcileRecoveryScopeV1,
         ],
     },
     OperationSurfaceGroupDescriptor {

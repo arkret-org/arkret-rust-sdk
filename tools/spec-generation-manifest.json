@@ -2199,18 +2199,31 @@
         "AgentHistoryCustody",
         "ContentRecoveryState",
         "ContentRecoveryCheckpoint",
+        "ContentProtection",
         "ContentRecoveryPreparationState",
         "ContentRecoveryPreparation",
-        "ContentProtection",
         "HistoryRequest",
         "ContentHistoryBackupAccess",
         "ContentRecoveryOldLeaf",
         "ContentRecoveryInventoryEntry",
         "ContentRecoveryInventory",
+        "ContentScopeRetirementProof",
         "ContentScopeCleanup",
         "ContentCleanupInventory",
         "ContentRecoverySourceAttestation",
-        "ContentBackupSourceAttestation"
+        "ContentBackupSourceAttestation",
+        "ContentRecoveryScopeCleanupRequestBody",
+        "ContentRecoveryScopeCleanupAuthorization",
+        "ContentScopeRetirementState",
+        "ContentRetiredScopeCleanup",
+        "ContentScopeCleanupPendingState",
+        "ContentRecoveryScopeCleanupPending",
+        "ContentScopeRetirementDeliveryAttestation",
+        "ContentRecoveryScopeCleanupRetired",
+        "ContentRecoveryScopeCleanupResponseBody",
+        "ContentScopeRetirementSigningKey",
+        "ContentScopeRetirementDeliverySigningKey",
+        "ContentRecoveryScopeCleanupSelfResponseBody"
       ]
     },
     {
@@ -2225,7 +2238,8 @@
       ],
       "provides": [
         "ContentRecoverySource",
-        "ContentBackupSource"
+        "ContentBackupSource",
+        "ContentRecoveryScopeCleanupSource"
       ]
     },
     {

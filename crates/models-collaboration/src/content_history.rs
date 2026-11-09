@@ -13,6 +13,30 @@ use crate::authority_commit::HistoricalProducerSignerFact;
 
 include!("generated/content_history_contracts.rs");
 
+impl ContentRecoveryScopeCleanupSource {
+    /// Shape and owning-Station binding only. Native method history, accepted
+    /// episode, current reader and inventory completeness are not inferred.
+    pub fn validate_shape(&self) -> Result<()> {
+        self.attestation.validate()?;
+        let account = self
+            .attestation
+            .replacement
+            .actor_id
+            .as_account_id()
+            .ok_or_else(|| {
+                WireError::Protocol("cleanup source requires an Account subject".into())
+            })?;
+        if self.origin_resolution.service_id != account.station_id
+            || self.origin_resolution.service_kind != "station"
+        {
+            return Err(WireError::Protocol(
+                "cleanup source differs from its owning Station".into(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 impl ContentBackupSource {
     /// Byte binding after independent original producer and typed-slot projection.
     /// This does not verify the Service method history, signature or storage.

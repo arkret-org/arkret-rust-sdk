@@ -1,5 +1,21 @@
 {
   "operations": {
+    "ak.self.mls.command.reconcile_recovery_scope.v1": {
+      "api": [
+        "crates/http-client/src/endpoints/mls.rs::Client::self_mls_reconcile_recovery_scope"
+      ],
+      "handler": [],
+      "test": [
+        "crates/http-client/tests/recovery_scope_cleanup.rs::cleanup_post_uses_full_request_and_refuses_wrong_proof_or_pending_disclosure"
+      ]
+    },
+    "ak.peer.mls.command.reconcile_recovery_scope.v1": {
+      "api": [
+        "crates/http-client/src/endpoints/mls.rs::Client::peer_mls_reconcile_recovery_scope"
+      ],
+      "handler": [],
+      "test": []
+    },
     "ak.edge.applet.read.ping.v1": {
       "api": [
         "crates/server/src/applet.rs::AppletHandler::ping"

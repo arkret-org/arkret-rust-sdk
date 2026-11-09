@@ -16,6 +16,36 @@ use arkret_wire::{
 use crate::{Client, Result, reject_path_segment};
 
 impl Client {
+    /// Observe a prepared episode's narrow cleanup result. The host verifies
+    /// both signatures, native qualification and first acceptance separately.
+    /// Operation: `ak.self.mls.command.reconcile_recovery_scope.v1`.
+    pub async fn self_mls_reconcile_recovery_scope(
+        &self,
+        request: &arkret_models_crypto::ContentRecoveryScopeCleanupRequestBody,
+    ) -> Result<arkret_models_crypto::ContentRecoveryScopeCleanupSelfResponseBody> {
+        request.validate()?;
+        let result: arkret_models_crypto::ContentRecoveryScopeCleanupSelfResponseBody = self
+            .post(arkret_wire::PATH_SELF_MLS_RECOVERY_SCOPE_CLEANUP, request)
+            .await?;
+        result.validate_for_request(request)?;
+        Ok(result)
+    }
+
+    /// Registered Station-to-governor command. Decoding its result does not
+    /// prove native retention, migration rights or a durable endpoint fence.
+    /// Operation: `ak.peer.mls.command.reconcile_recovery_scope.v1`.
+    pub async fn peer_mls_reconcile_recovery_scope(
+        &self,
+        request: &arkret_models_collaboration::content_history::ContentRecoveryScopeCleanupSource,
+    ) -> Result<arkret_models_crypto::ContentRecoveryScopeCleanupResponseBody> {
+        request.validate_shape()?;
+        let result: arkret_models_crypto::ContentRecoveryScopeCleanupResponseBody = self
+            .post(arkret_wire::PATH_PEER_MLS_RECOVERY_SCOPE_CLEANUP, request)
+            .await?;
+        result.validate_for_source(&request.attestation)?;
+        Ok(result)
+    }
+
     /// Observe inventory preparation for an already accepted native replacement.
     /// Callers bind the result to their qualified episode before using its private Blob.
     pub async fn self_mls_content_recovery(

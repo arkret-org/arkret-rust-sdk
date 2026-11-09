@@ -248,6 +248,91 @@ class ClosedModelsTests(unittest.TestCase):
                 self.generate()
             self.schema = original
 
+    def test_inline_finite_state_branch_preserves_all_tags_and_shared_fields(self):
+        self.schema = {"oneOf": [
+            {"type": "object", "additionalProperties": False, "required": ["state", "root"],
+             "properties": {"state": {"const": "rekeyed"}, "root": {"type": "string"}}},
+            {"type": "object", "additionalProperties": False, "required": ["state", "proof"],
+             "properties": {"state": {"enum": ["removed", "terminated"]}, "proof": {"type": "string"}}},
+        ]}
+        output = self.generate()
+        self.assertIn('Rekeyed {\n        root: String,', output)
+        for tag in ("Removed", "Terminated"):
+            self.assertIn(tag + ' {\n        proof: String,', output)
+        self.assertNotIn('state:', output)
+        original = copy.deepcopy(self.schema)
+        for values in (["rekeyed", "removed"], ["removed", "removed"], [], ["removed", 7]):
+            with self.subTest(values=values):
+                self.schema = copy.deepcopy(original)
+                self.schema["oneOf"][1]["properties"]["state"]["enum"] = values
+                with self.assertRaises(ValueError):
+                    self.generate()
+        self.schema = copy.deepcopy(original)
+        self.schema["oneOf"][1]["properties"]["state"]["enum"] = ["a_b", "aB"]
+        with self.assertRaisesRegex(ValueError, "duplicate Rust variant"):
+            self.generate()
+
+    def test_conditional_state_union_cannot_mix_retirement_evidence(self):
+        self.schema = {
+            "type": "object", "additionalProperties": False,
+            "required": ["state", "scope"],
+            "properties": {
+                "state": {"enum": ["removed", "terminated"]}, "scope": {"type": "string"},
+                "absence": {"type": "string"}, "terminal": {"type": "string"},
+            },
+            "allOf": [{
+                "if": {"properties": {"state": {"const": "removed"}}, "required": ["state"]},
+                "then": {"required": ["absence"], "not": {"required": ["terminal"]}},
+                "else": {"required": ["terminal"], "not": {"required": ["absence"]}},
+            }],
+        }
+        self.schema["properties"]["epoch"] = {"$ref": "decimal-integers.schema.json#/$defs/uint64_decimal"}
+        self.schema["required"].append("epoch")
+        (self.root / "decimal-integers.schema.json").write_text(json.dumps({
+            "$defs": {"uint64_decimal": {"type": "string"}}
+        }), encoding="utf-8")
+        output = self.generate()
+        self.assertEqual(output.count('serde(with = "arkret_canonical::serde_helpers::uint64_decimal")'), 2)
+        self.assertIn('Removed {\n        scope: String,\n        absence: String,', output)
+        self.assertIn('Terminated {\n        scope: String,\n        terminal: String,', output)
+        self.assertNotIn('Option<', output)
+        original = copy.deepcopy(self.schema)
+        for change in ("extra_field", "missing_forbidden", "overlapping_required", "wrong_tag", "root_constraint"):
+            with self.subTest(change=change):
+                self.schema = copy.deepcopy(original)
+                if change == "extra_field":
+                    self.schema["properties"]["unknown"] = {"type": "string"}
+                elif change == "missing_forbidden":
+                    self.schema["allOf"][0]["then"].pop("not")
+                elif change == "overlapping_required":
+                    self.schema["allOf"][0]["else"]["required"] = ["absence"]
+                elif change == "wrong_tag":
+                    self.schema["allOf"][0]["if"]["properties"]["state"]["const"] = "unregistered"
+                else:
+                    self.schema["not"] = {}
+                with self.assertRaisesRegex(ValueError, 'unsupported object composition'):
+                    self.generate()
+
+    def test_named_inline_union_cannot_broaden_closed_branch_membership(self):
+        self.schema = {"oneOf": [
+            {"type": "object", "additionalProperties": False, "required": ["state"],
+             "properties": {"state": {"const": "pending"}}},
+            {"type": "object", "additionalProperties": False, "required": ["cleanup"],
+             "properties": {"cleanup": {"type": "string"}}},
+        ]}
+        row = self.bindings["families"][0]["types"][0]
+        row['branch_variants'] = ['Pending', 'Retired']
+        # Named branches use real schema-pointer identities, never field lists
+        # supplied by a Rust binding or a permissive serde_json::Value branch.
+        for index, name in enumerate(['PendingBody', 'RetiredBody']):
+            self.bindings['references'][f'example.schema.json#/oneOf/{index}'] = name
+        output = self.generate()
+        self.assertIn('Pending(PendingBody)', output)
+        self.assertIn('Retired(RetiredBody)', output)
+        self.schema['oneOf'][1]['required'] = []
+        with self.assertRaisesRegex(ValueError, 'distinct closed required branch types'):
+            self.generate()
+
     def test_union_requires_disjoint_closed_required_kind(self):
         self.schema = {"oneOf": [{"$ref": "#/$defs/left"}, {"$ref": "#/$defs/right"}], "$defs": {}}
         for name in ("left", "right"):

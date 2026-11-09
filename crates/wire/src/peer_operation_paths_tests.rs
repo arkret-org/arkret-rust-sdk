@@ -4,6 +4,18 @@ use crate::ServiceOperationId;
 #[test]
 fn paths_match_generated_operation_registry() {
     assert_eq!(
+        ServiceOperationId::PeerMlsCommandReconcileRecoveryScopeV1
+            .descriptor()
+            .http_path,
+        PATH_PEER_MLS_RECOVERY_SCOPE_CLEANUP
+    );
+    assert_eq!(
+        ServiceOperationId::SelfMlsCommandReconcileRecoveryScopeV1
+            .descriptor()
+            .http_path,
+        PATH_SELF_MLS_RECOVERY_SCOPE_CLEANUP
+    );
+    assert_eq!(
         ServiceOperationId::PeerKeysReadLookupV1
             .descriptor()
             .http_path,

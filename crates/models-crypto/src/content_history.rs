@@ -10,6 +10,8 @@ use zeroize::Zeroizing;
 
 include!("generated/content_history_contracts.rs");
 
+mod scope_cleanup;
+
 /// Local unsigned signing input, never a wire authorization or storage proof.
 #[derive(Clone, Debug)]
 pub struct ContentBackupSourceDraft {
@@ -554,7 +556,8 @@ impl ContentRecoveryPreparation {
 
 impl ContentCleanupInventory {
     /// Compare every result to an independently frozen inventory, including empty census.
-    /// The caller must separately qualify native completeness and the winning Commit proofs.
+    /// Native completeness, retirement signatures, first qualification and
+    /// current delivery authority remain independent caller obligations.
     pub fn validate_for_inventory(
         &self,
         inventory: &ContentRecoveryInventory,
@@ -568,15 +571,143 @@ impl ContentCleanupInventory {
             return protocol("cleanup differs from its frozen inventory");
         }
         for (cleanup, entry) in self.scope_cleanups.iter().zip(&inventory.entries) {
-            if cleanup.effective_scope != entry.effective_scope
-                || cleanup.genesis_event_ref != entry.genesis_event_ref
-                || cleanup.remaining_old_leaf_count != 0
-            {
+            let (scope, genesis) = match cleanup {
+                ContentScopeCleanup::Rekeyed {
+                    effective_scope,
+                    genesis_event_ref,
+                    ..
+                }
+                | ContentScopeCleanup::Removed {
+                    effective_scope,
+                    genesis_event_ref,
+                    ..
+                }
+                | ContentScopeCleanup::Terminated {
+                    effective_scope,
+                    genesis_event_ref,
+                    ..
+                } => (effective_scope, genesis_event_ref),
+            };
+            if scope != &entry.effective_scope || genesis != &entry.genesis_event_ref {
                 return protocol("missing, reordered or unfinished scope cleanup");
             }
-            for root in &cleanup.root_refs {
-                sha256_ref(root)?;
+            match cleanup {
+                ContentScopeCleanup::Rekeyed {
+                    winning_commit,
+                    remaining_old_leaf_count,
+                    root_refs,
+                    backup_refs,
+                    ..
+                } => {
+                    if *remaining_old_leaf_count != 0
+                        || !(1..=256).contains(&root_refs.len())
+                        || !(1..=256).contains(&backup_refs.len())
+                        || !unique(root_refs)
+                        || !unique(backup_refs)
+                        || winning_commit.stream_ref
+                            != arkret_wire::CommitStreamRef::from_scope(scope, None)?
+                    {
+                        return protocol(
+                            "rekeyed cleanup lacks its exact scope or sufficient unique references",
+                        );
+                    }
+                    for root in root_refs {
+                        sha256_ref(root)?;
+                    }
+                }
+                ContentScopeCleanup::Removed {
+                    retirement_proof, ..
+                } if matches!(
+                    retirement_proof,
+                    ContentScopeRetirementProof::Removed { .. }
+                ) =>
+                {
+                    retirement_proof.validate_binding(
+                        &inventory.replacement,
+                        entry,
+                        inventory_digest,
+                    )?;
+                }
+                ContentScopeCleanup::Terminated {
+                    retirement_proof, ..
+                } if matches!(
+                    retirement_proof,
+                    ContentScopeRetirementProof::Terminated { .. }
+                ) =>
+                {
+                    retirement_proof.validate_binding(
+                        &inventory.replacement,
+                        entry,
+                        inventory_digest,
+                    )?;
+                }
+                _ => return protocol("cleanup state differs from its original retirement proof"),
             }
+        }
+        Ok(())
+    }
+}
+
+impl ContentScopeRetirementProof {
+    /// Local shape and byte binding only; this does not qualify a governor,
+    /// grant migration rights or verify a native terminal/fence transaction.
+    fn validate_binding(
+        &self,
+        replacement_endpoint: &ContentEndpoint,
+        entry: &ContentRecoveryInventoryEntry,
+        expected_digest: &arkret_wire::Hash,
+    ) -> Result<()> {
+        self.validate_shape()?;
+        match self {
+            Self::Removed {
+                remaining_old_leaf_count,
+                ..
+            } if *remaining_old_leaf_count != 0 => {
+                return protocol("removed proof retains a displaced endpoint");
+            }
+            Self::Terminated {
+                terminal_source_digest,
+                ..
+            } => sha256_ref(terminal_source_digest)?,
+            _ => {}
+        }
+        let (Self::Removed {
+            replacement,
+            inventory_digest,
+            inventory_entry_digest,
+            request_digest,
+            effective_scope,
+            genesis_event_ref,
+            scope_cut,
+            epoch,
+            nonce_base64url,
+            ..
+        }
+        | Self::Terminated {
+            replacement,
+            inventory_digest,
+            inventory_entry_digest,
+            request_digest,
+            effective_scope,
+            genesis_event_ref,
+            scope_cut,
+            epoch,
+            nonce_base64url,
+            ..
+        }) = self;
+        sha256_ref(inventory_entry_digest)?;
+        sha256_ref(request_digest)?;
+        bytes32(nonce_base64url)?;
+        if replacement != replacement_endpoint
+            || inventory_digest != expected_digest
+            || inventory_entry_digest.as_str() != arkret_canonical::canonical_sha256(entry)?
+            || effective_scope != &entry.effective_scope
+            || genesis_event_ref != &entry.genesis_event_ref
+            || scope_cut.stream_ref
+                != arkret_wire::CommitStreamRef::from_scope(effective_scope, None)?
+            || *epoch < entry.epoch
+        {
+            return protocol("retirement proof differs from the frozen subject or scope inventory");
         }
         Ok(())
     }

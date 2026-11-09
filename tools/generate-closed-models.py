@@ -31,6 +31,63 @@ def rust_name(wire: str) -> str:
     return name
 
 
+def discriminator_values(shape: dict) -> tuple[str, ...] | None:
+    """Only finite, unconditional string tags can become serde variants."""
+    if (not isinstance(shape, dict) or shape.get("type", "string") != "string"
+        or any(key in shape for key in ("$ref", "oneOf", "anyOf", "allOf", "not", "if"))
+        or ("const" in shape) == ("enum" in shape)):
+        return None
+    values = shape.get("enum", [shape.get("const")])
+    if (not isinstance(values, list) or not values
+        or not all(isinstance(value, str) for value in values)
+        or len(set(values)) != len(values)):
+        return None
+    return tuple(values)
+
+
+def conditional_closed_union(node: dict) -> dict | None:
+    """Expand one exact required/forbidden state split without inventing fields."""
+    clauses = node.get("allOf", [])
+    if (node.get("type") != "object" or node.get("additionalProperties") is not False
+        or any(key in node for key in ("$ref", "oneOf", "anyOf", "not", "if", "patternProperties", "dependentRequired", "dependentSchemas"))
+        or len(clauses) != 1 or set(clauses[0]) != {"if", "then", "else"}):
+        return None
+    clause = clauses[0]
+    condition = clause["if"]
+    if (set(condition) != {"properties", "required"}
+        or len(condition["properties"]) != 1
+        or set(condition["required"]) != set(condition["properties"])):
+        return None
+    tag, condition_shape = next(iter(condition["properties"].items()))
+    positive = discriminator_values(condition_shape)
+    properties = node.get("properties", {})
+    required = set(node.get("required", []))
+    tags = discriminator_values(properties.get(tag, {}))
+    if (positive is None or len(positive) != 1 or tags is None
+        or positive[0] not in tags or len(tags) < 2 or tag not in required):
+        return None
+    extra = []
+    forbidden = []
+    for side in ("then", "else"):
+        branch = clause[side]
+        if set(branch) != {"required", "not"} or set(branch["not"]) != {"required"}:
+            return None
+        extra.append(set(branch["required"]))
+        forbidden.append(set(branch["not"]["required"]))
+    if (any(len(fields) != 1 for fields in forbidden)
+        or extra != list(reversed(forbidden)) or extra[0] & extra[1]
+        or required & (extra[0] | extra[1])
+        or set(properties) != required | extra[0] | extra[1]):
+        return None
+    branches = []
+    for index, values in enumerate((positive, tuple(value for value in tags if value != positive[0]))):
+        fields = {field: shape for field, shape in properties.items() if field not in forbidden[index]}
+        fields[tag] = {"enum": list(values)}
+        branches.append({"type": "object", "additionalProperties": False,
+                         "required": list(fields), "properties": fields})
+    return {"oneOf": branches}
+
+
 class Generator:
     def decimal_kind(self, node: dict, pointer: str) -> str | None:
         target = normalize(node.get("$ref", ""), pointer)
@@ -221,6 +278,9 @@ class Generator:
             raise ValueError(f"Outcome requires a canonical settled processing role: {pointer}: {name}")
         if "rust" in row:
             return self.representation(row, node)
+        conditional = conditional_closed_union(node) if "allOf" in node else None
+        if conditional is not None:
+            node = conditional
         if any(key in node for key in ("anyOf", "allOf", "not", "if", "patternProperties", "dependentRequired", "dependentSchemas")):
             raise ValueError(f"unsupported object composition: {pointer}")
         traits = ["Clone", "Debug", "PartialEq", "serde::Serialize", "serde::Deserialize"]
@@ -238,34 +298,70 @@ class Generator:
             lines.append('#[expect(clippy::large_enum_variant, reason = "Keep schema-mapped wire variants inline; transport and runtime containers own allocation policy.")]')
         if "oneOf" in node and all("$ref" not in branch for branch in node["oneOf"]):
             branches = node["oneOf"]
+            inline_pointer = pointer + ("/oneOf/" if "#" in pointer else "#/oneOf/")
+            if "branch_variants" in row:
+                variants = row["branch_variants"]
+                if (len(variants) != len(branches) or not variants
+                    or len(set(variants)) != len(variants)):
+                    raise ValueError(f"closed union variant names differ from schema branches: {pointer}")
+                field_sets = []
+                types = []
+                for index, branch in enumerate(branches):
+                    fields = set(branch.get("properties", {}))
+                    branch_pointer = f"{inline_pointer}{index}"
+                    if (branch.get("type") != "object" or branch.get("additionalProperties") is not False
+                        or fields != set(branch.get("required", [])) or fields in field_sets
+                        or branch_pointer not in self.names
+                        or any(key in branch for key in ("oneOf", "anyOf", "allOf", "not", "if", "patternProperties", "dependentRequired", "dependentSchemas"))):
+                        raise ValueError(f"named inline union requires distinct closed required branch types: {pointer}")
+                    field_sets.append(fields)
+                    types.append(self.names[branch_pointer])
+                lines += ['#[serde(untagged)]', f"pub enum {name} {{"]
+                for variant, typ in zip(variants, types):
+                    if not re.fullmatch(r"[A-Z][A-Za-z0-9]*", variant):
+                        raise ValueError(f"unsupported Rust variant: {variant}")
+                    lines.append(f"    {variant}({typ}),")
+                return "\n".join(lines + ["}", ""])
             tags = [set(key for key, value in branch.get("properties", {}).items()
-                        if isinstance(value.get("const"), str)) for branch in branches]
+                        if discriminator_values(value) is not None) for branch in branches]
             common = set.intersection(*tags) if tags else set()
             if len(common) != 1:
-                raise ValueError(f"inline union requires one common constant discriminator: {pointer}")
+                raise ValueError(f"inline union requires one common finite discriminator: {pointer}")
             tag = common.pop()
             lines += [f'#[serde(tag = "{tag}", deny_unknown_fields)]', f"pub enum {name} {{"]
             values = set()
+            variant_names = set()
             for index, branch in enumerate(branches):
                 properties = branch.get("properties", {})
                 required = set(branch.get("required", []))
-                value = properties[tag]["const"]
+                branch_values = discriminator_values(properties[tag])
                 if (branch.get("type") != "object" or branch.get("additionalProperties") is not False
-                    or required != set(properties) or value in values
+                    or required != set(properties) or any(value in values for value in branch_values)
                     or any(key in branch for key in ("anyOf", "allOf", "not", "if", "patternProperties", "dependentRequired", "dependentSchemas"))):
                     raise ValueError(f"inline union requires closed required distinct branches: {pointer}")
-                values.add(value)
-                lines += [f'    #[serde(rename = {json.dumps(value)})]', f"    {rust_name(value)} {{"]
-                for field, shape in properties.items():
-                    if field == tag:
-                        continue
-                    if not re.fullmatch(r"[a-z][a-z0-9_]*", field) or field in {"type", "ref", "self", "mod"}:
-                        raise ValueError(f"unsupported Rust field name: {field}")
-                    typ, timestamp = self.rust_type(shape, f"{pointer}/oneOf/{index}/properties/{field}")
-                    if timestamp:
-                        lines.append(f'        #[serde(with = "{HELPERS}::canonical_timestamp")]')
-                    lines.append(f"        {field}: {typ},")
-                lines.append("    },")
+                for value in branch_values:
+                    variant = rust_name(value)
+                    if variant in variant_names:
+                        raise ValueError(f"duplicate Rust variant: {variant}")
+                    values.add(value)
+                    variant_names.add(variant)
+                    lines += [f'    #[serde(rename = {json.dumps(value)})]', f"    {variant} {{"]
+                    for field, shape in properties.items():
+                        if field == tag:
+                            continue
+                        if not re.fullmatch(r"[a-z][a-z0-9_]*", field) or field in {"type", "ref", "self", "mod"}:
+                            raise ValueError(f"unsupported Rust field name: {field}")
+                        field_pointer = (pointer + ("/properties/" if "#" in pointer else "#/properties/") + field
+                                         if conditional is not None else f"{inline_pointer}{index}/properties/{field}")
+                        typ, timestamp = self.rust_type(shape, field_pointer)
+                        if timestamp:
+                            lines.append(f'        #[serde(with = "{HELPERS}::canonical_timestamp")]')
+                        elif decimal := self.decimal_kind(shape, field_pointer):
+                            lines.append(f'        #[serde(with = "{HELPERS}::{decimal}")]')
+                            if row.get("openapi", True):
+                                lines.append('#[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]')
+                        lines.append(f"        {field}: {typ},")
+                    lines.append("    },")
         elif "oneOf" in node:
             lines += ['#[serde(untagged)]', f"pub enum {name} {{"]
             kinds = set()

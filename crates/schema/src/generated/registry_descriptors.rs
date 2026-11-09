@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json;
-//! sha256=482f33c0e97b5be42298bab65afede9354f5f8acce087e7b7805d0d9878138dd Input: registry/
+//! sha256=390a1962fd01dc1ce589b6b5e7977c3dec88b23d11364945394139c1aa5c1ad7 Input: registry/
 //! account-data-key-registry.json;
 //! sha256=0989a67abbe00359bf0974896a84210791dd75c26b7d77d8eb1bee7fcd70370e Entries: id_kinds=47,
-//! special_forms=15, actions=158, approval_carriers=2, schemas=232, account_data_patterns=24
+//! special_forms=15, actions=158, approval_carriers=2, schemas=238, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -4062,6 +4062,22 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/recovery-receipt.schema.json",
     },
     SchemaDescriptor {
+        schema_id: SchemaId::RECOVERY_SCOPE_CLEANUP_REQUEST_BODY_V1,
+        file: "schemas/content-encryption.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::RECOVERY_SCOPE_CLEANUP_RESPONSE_BODY_V1,
+        file: "schemas/content-encryption.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::RECOVERY_SCOPE_CLEANUP_SELF_RESPONSE_BODY_V1,
+        file: "schemas/content-encryption.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::RECOVERY_SCOPE_CLEANUP_SOURCE_V1,
+        file: "schemas/content-encryption.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: SchemaId::RECOVERY_SESSION_V1,
         file: "schemas/recovery-session.schema.json",
     },
@@ -4084,6 +4100,14 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::RSVP_V1,
         file: "schemas/rsvp.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::SCOPE_RETIREMENT_DELIVERY_ATTESTATION_V1,
+        file: "schemas/content-encryption.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::SCOPE_RETIREMENT_PROOF_V1,
+        file: "schemas/content-encryption.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::SDK_CONFORMANCE_CLAIM_V1,

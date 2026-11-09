@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json;
-//! sha256=482f33c0e97b5be42298bab65afede9354f5f8acce087e7b7805d0d9878138dd Entries: schema_ids=232,
-//! active=232
+//! sha256=390a1962fd01dc1ce589b6b5e7977c3dec88b23d11364945394139c1aa5c1ad7 Entries: schema_ids=238,
+//! active=238
 
 use serde::{Deserialize, Serialize};
 
@@ -197,12 +197,18 @@ pub enum SchemaId {
     RecoveryCompletionAttestationV1,
     RecoveryPolicyV1,
     RecoveryReceiptV1,
+    RecoveryScopeCleanupRequestBodyV1,
+    RecoveryScopeCleanupResponseBodyV1,
+    RecoveryScopeCleanupSelfResponseBodyV1,
+    RecoveryScopeCleanupSourceV1,
     RecoverySessionV1,
     RecoveryTerminalCommitV1,
     RegistrationDidEvidenceV1,
     RelationV1,
     ResourceSelectorV1,
     RsvpV1,
+    ScopeRetirementDeliveryAttestationV1,
+    ScopeRetirementProofV1,
     SdkConformanceClaimV1,
     SearchServiceV1,
     SecurityRotationLocalCommitV1,
@@ -433,12 +439,18 @@ impl SchemaId {
         Self::RecoveryCompletionAttestationV1,
         Self::RecoveryPolicyV1,
         Self::RecoveryReceiptV1,
+        Self::RecoveryScopeCleanupRequestBodyV1,
+        Self::RecoveryScopeCleanupResponseBodyV1,
+        Self::RecoveryScopeCleanupSelfResponseBodyV1,
+        Self::RecoveryScopeCleanupSourceV1,
         Self::RecoverySessionV1,
         Self::RecoveryTerminalCommitV1,
         Self::RegistrationDidEvidenceV1,
         Self::RelationV1,
         Self::ResourceSelectorV1,
         Self::RsvpV1,
+        Self::ScopeRetirementDeliveryAttestationV1,
+        Self::ScopeRetirementProofV1,
         Self::SdkConformanceClaimV1,
         Self::SearchServiceV1,
         Self::SecurityRotationLocalCommitV1,
@@ -669,12 +681,18 @@ impl SchemaId {
         Self::RecoveryCompletionAttestationV1,
         Self::RecoveryPolicyV1,
         Self::RecoveryReceiptV1,
+        Self::RecoveryScopeCleanupRequestBodyV1,
+        Self::RecoveryScopeCleanupResponseBodyV1,
+        Self::RecoveryScopeCleanupSelfResponseBodyV1,
+        Self::RecoveryScopeCleanupSourceV1,
         Self::RecoverySessionV1,
         Self::RecoveryTerminalCommitV1,
         Self::RegistrationDidEvidenceV1,
         Self::RelationV1,
         Self::ResourceSelectorV1,
         Self::RsvpV1,
+        Self::ScopeRetirementDeliveryAttestationV1,
+        Self::ScopeRetirementProofV1,
         Self::SdkConformanceClaimV1,
         Self::SearchServiceV1,
         Self::SecurityRotationLocalCommitV1,
@@ -1280,6 +1298,18 @@ impl SchemaId {
     /// by every proof, backup unlock, and MLS Welcome replay during the recovery. See
     /// identity/security-transactions.md §2 and crypto-media/device-lifecycle.md §14.
     pub const RECOVERY_RECEIPT_V1: &'static str = "ak.schema.recovery_receipt.v1";
+    /// Closed native recovery-scope retirement contract; see content-history.md section 10.1.
+    pub const RECOVERY_SCOPE_CLEANUP_REQUEST_BODY_V1: &'static str =
+        "ak.schema.recovery_scope_cleanup_request_body.v1";
+    /// Closed native recovery-scope retirement contract; see content-history.md section 10.1.
+    pub const RECOVERY_SCOPE_CLEANUP_RESPONSE_BODY_V1: &'static str =
+        "ak.schema.recovery_scope_cleanup_response_body.v1";
+    /// Closed native recovery-scope retirement contract; see content-history.md section 10.1.
+    pub const RECOVERY_SCOPE_CLEANUP_SELF_RESPONSE_BODY_V1: &'static str =
+        "ak.schema.recovery_scope_cleanup_self_response_body.v1";
+    /// Closed native recovery-scope retirement contract; see content-history.md section 10.1.
+    pub const RECOVERY_SCOPE_CLEANUP_SOURCE_V1: &'static str =
+        "ak.schema.recovery_scope_cleanup_source.v1";
     /// Wire contract for the device recovery session state machine, including create/get session
     /// shape, proof submit request and response helpers, the closed publication-authority snapshot,
     /// and did_root plus generic recovery proof transcripts. Session completion is owned
@@ -1298,6 +1328,12 @@ impl SchemaId {
     pub const RESOURCE_SELECTOR_V1: &'static str = "ak.schema.resource_selector.v1";
     /// Payload schema for ak.rsvp.set.
     pub const RSVP_V1: &'static str = "ak.schema.rsvp.v1";
+    /// Fresh current-governor delivery binding an immutable historical scope proof and exact
+    /// current request.
+    pub const SCOPE_RETIREMENT_DELIVERY_ATTESTATION_V1: &'static str =
+        "ak.schema.scope_retirement_delivery_attestation.v1";
+    /// Closed native recovery-scope retirement contract; see content-history.md section 10.1.
+    pub const SCOPE_RETIREMENT_PROOF_V1: &'static str = "ak.schema.scope_retirement_proof.v1";
     /// Machine-verifiable SDK release claim against the canonical sdk_conformance_contract.
     pub const SDK_CONFORMANCE_CLAIM_V1: &'static str = "ak.schema.sdk_conformance_claim.v1";
     /// Privacy-preserving search index manifest, blind index query, and policy shapes.
@@ -1618,12 +1654,24 @@ impl SchemaId {
             Self::RecoveryCompletionAttestationV1 => Self::RECOVERY_COMPLETION_ATTESTATION_V1,
             Self::RecoveryPolicyV1 => Self::RECOVERY_POLICY_V1,
             Self::RecoveryReceiptV1 => Self::RECOVERY_RECEIPT_V1,
+            Self::RecoveryScopeCleanupRequestBodyV1 => Self::RECOVERY_SCOPE_CLEANUP_REQUEST_BODY_V1,
+            Self::RecoveryScopeCleanupResponseBodyV1 => {
+                Self::RECOVERY_SCOPE_CLEANUP_RESPONSE_BODY_V1
+            }
+            Self::RecoveryScopeCleanupSelfResponseBodyV1 => {
+                Self::RECOVERY_SCOPE_CLEANUP_SELF_RESPONSE_BODY_V1
+            }
+            Self::RecoveryScopeCleanupSourceV1 => Self::RECOVERY_SCOPE_CLEANUP_SOURCE_V1,
             Self::RecoverySessionV1 => Self::RECOVERY_SESSION_V1,
             Self::RecoveryTerminalCommitV1 => Self::RECOVERY_TERMINAL_COMMIT_V1,
             Self::RegistrationDidEvidenceV1 => Self::REGISTRATION_DID_EVIDENCE_V1,
             Self::RelationV1 => Self::RELATION_V1,
             Self::ResourceSelectorV1 => Self::RESOURCE_SELECTOR_V1,
             Self::RsvpV1 => Self::RSVP_V1,
+            Self::ScopeRetirementDeliveryAttestationV1 => {
+                Self::SCOPE_RETIREMENT_DELIVERY_ATTESTATION_V1
+            }
+            Self::ScopeRetirementProofV1 => Self::SCOPE_RETIREMENT_PROOF_V1,
             Self::SdkConformanceClaimV1 => Self::SDK_CONFORMANCE_CLAIM_V1,
             Self::SearchServiceV1 => Self::SEARCH_SERVICE_V1,
             Self::SecurityRotationLocalCommitV1 => Self::SECURITY_ROTATION_LOCAL_COMMIT_V1,
@@ -1909,12 +1957,20 @@ impl SchemaId {
             Self::RecoveryCompletionAttestationV1 => "schemas/recovery-authority.schema.json",
             Self::RecoveryPolicyV1 => "schemas/recovery-policy.schema.json",
             Self::RecoveryReceiptV1 => "schemas/recovery-receipt.schema.json",
+            Self::RecoveryScopeCleanupRequestBodyV1 => "schemas/content-encryption.schema.json",
+            Self::RecoveryScopeCleanupResponseBodyV1 => "schemas/content-encryption.schema.json",
+            Self::RecoveryScopeCleanupSelfResponseBodyV1 => {
+                "schemas/content-encryption.schema.json"
+            }
+            Self::RecoveryScopeCleanupSourceV1 => "schemas/content-encryption.schema.json",
             Self::RecoverySessionV1 => "schemas/recovery-session.schema.json",
             Self::RecoveryTerminalCommitV1 => "schemas/security-transaction.schema.json",
             Self::RegistrationDidEvidenceV1 => "schemas/registration-did-evidence.schema.json",
             Self::RelationV1 => "schemas/relation.schema.json",
             Self::ResourceSelectorV1 => "schemas/resource-selector.schema.json",
             Self::RsvpV1 => "schemas/rsvp.schema.json",
+            Self::ScopeRetirementDeliveryAttestationV1 => "schemas/content-encryption.schema.json",
+            Self::ScopeRetirementProofV1 => "schemas/content-encryption.schema.json",
             Self::SdkConformanceClaimV1 => "schemas/sdk-conformance-claim.schema.json",
             Self::SearchServiceV1 => "schemas/search-service.schema.json",
             Self::SecurityRotationLocalCommitV1 => "schemas/security-transaction.schema.json",
@@ -2188,12 +2244,26 @@ impl SchemaId {
             Self::RECOVERY_COMPLETION_ATTESTATION_V1 => Some(Self::RecoveryCompletionAttestationV1),
             Self::RECOVERY_POLICY_V1 => Some(Self::RecoveryPolicyV1),
             Self::RECOVERY_RECEIPT_V1 => Some(Self::RecoveryReceiptV1),
+            Self::RECOVERY_SCOPE_CLEANUP_REQUEST_BODY_V1 => {
+                Some(Self::RecoveryScopeCleanupRequestBodyV1)
+            }
+            Self::RECOVERY_SCOPE_CLEANUP_RESPONSE_BODY_V1 => {
+                Some(Self::RecoveryScopeCleanupResponseBodyV1)
+            }
+            Self::RECOVERY_SCOPE_CLEANUP_SELF_RESPONSE_BODY_V1 => {
+                Some(Self::RecoveryScopeCleanupSelfResponseBodyV1)
+            }
+            Self::RECOVERY_SCOPE_CLEANUP_SOURCE_V1 => Some(Self::RecoveryScopeCleanupSourceV1),
             Self::RECOVERY_SESSION_V1 => Some(Self::RecoverySessionV1),
             Self::RECOVERY_TERMINAL_COMMIT_V1 => Some(Self::RecoveryTerminalCommitV1),
             Self::REGISTRATION_DID_EVIDENCE_V1 => Some(Self::RegistrationDidEvidenceV1),
             Self::RELATION_V1 => Some(Self::RelationV1),
             Self::RESOURCE_SELECTOR_V1 => Some(Self::ResourceSelectorV1),
             Self::RSVP_V1 => Some(Self::RsvpV1),
+            Self::SCOPE_RETIREMENT_DELIVERY_ATTESTATION_V1 => {
+                Some(Self::ScopeRetirementDeliveryAttestationV1)
+            }
+            Self::SCOPE_RETIREMENT_PROOF_V1 => Some(Self::ScopeRetirementProofV1),
             Self::SDK_CONFORMANCE_CLAIM_V1 => Some(Self::SdkConformanceClaimV1),
             Self::SEARCH_SERVICE_V1 => Some(Self::SearchServiceV1),
             Self::SECURITY_ROTATION_LOCAL_COMMIT_V1 => Some(Self::SecurityRotationLocalCommitV1),

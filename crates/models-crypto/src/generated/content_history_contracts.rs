@@ -2,7 +2,7 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/content-encryption.schema.json
-// sha256=50c13af7b767c57536bc8d7d145d6236424051ae83ce41b15e34f9aaaa4d315d
+// sha256=19f32215dc0fb4c9a2a42eac12881b4247370af6cc320ddb98af27aabc0e04ee
 //
 // Input: schemas/decimal-integers.schema.json
 // sha256=7ea09c46f777e010c72a1fd069b7fbefc7d66924e7b3ad5a5961ce9914858987
@@ -14,7 +14,7 @@
 // sha256=0cc25a02fe0d9a94f6e41f2cf8f64e492ba36362f1e69a699cf1e684924837ee
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=825d8d6aa965fe516029150f727237abbc8f6c6619f8df578a995cf5da35a97f
+// sha256=586dcc2160f190a9fbbcb1f5857251190e1fa6d65f55d7ab65cdec8105d1c8ef
 
 /// Counterpart: `content-encryption.schema.json#/$defs/root_context`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -320,17 +320,83 @@ pub struct ContentRecoveryInventory {
     pub entries: Vec<ContentRecoveryInventoryEntry>,
 }
 
+/// Counterpart: `content-encryption.schema.json#/$defs/scope_retirement_proof`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "state", deny_unknown_fields)]
+pub enum ContentScopeRetirementProof {
+    #[serde(rename = "removed")]
+    Removed {
+        replacement: ContentEndpoint,
+        inventory_digest: arkret_wire::Hash,
+        inventory_entry_digest: arkret_wire::Hash,
+        request_digest: arkret_wire::Hash,
+        effective_scope: arkret_wire::ScopeRef,
+        genesis_event_ref: arkret_wire::EventId,
+        governance_station_id: arkret_wire::DidCoreId,
+        governance_generation: u64,
+        scope_cut: arkret_wire::CommittedEventRef,
+        group_state_ref: arkret_wire::EventId,
+        #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
+        #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+        epoch: u64,
+        nonce_base64url: String,
+        #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+        attested_at: chrono::DateTime<chrono::Utc>,
+        verification_method: arkret_wire::DidUrl,
+        remaining_old_leaf_count: u32,
+        signature: crate::artifacts_keys::KeyOperationSignature,
+    },
+    #[serde(rename = "terminated")]
+    Terminated {
+        replacement: ContentEndpoint,
+        inventory_digest: arkret_wire::Hash,
+        inventory_entry_digest: arkret_wire::Hash,
+        request_digest: arkret_wire::Hash,
+        effective_scope: arkret_wire::ScopeRef,
+        genesis_event_ref: arkret_wire::EventId,
+        governance_station_id: arkret_wire::DidCoreId,
+        governance_generation: u64,
+        scope_cut: arkret_wire::CommittedEventRef,
+        group_state_ref: arkret_wire::EventId,
+        #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
+        #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+        epoch: u64,
+        nonce_base64url: String,
+        #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+        attested_at: chrono::DateTime<chrono::Utc>,
+        verification_method: arkret_wire::DidUrl,
+        terminal_source_digest: arkret_wire::Hash,
+        signature: crate::artifacts_keys::KeyOperationSignature,
+    },
+}
+
 /// Counterpart: `content-encryption.schema.json#/$defs/scope_cleanup`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ContentScopeCleanup {
-    pub effective_scope: arkret_wire::ScopeRef,
-    pub genesis_event_ref: arkret_wire::EventId,
-    pub winning_commit: arkret_wire::CommittedEventRef,
-    pub remaining_old_leaf_count: u32,
-    pub root_refs: Vec<arkret_wire::Hash>,
-    pub backup_refs: Vec<arkret_wire::BackupId>,
+#[serde(tag = "state", deny_unknown_fields)]
+pub enum ContentScopeCleanup {
+    #[serde(rename = "rekeyed")]
+    Rekeyed {
+        effective_scope: arkret_wire::ScopeRef,
+        genesis_event_ref: arkret_wire::EventId,
+        winning_commit: arkret_wire::CommittedEventRef,
+        remaining_old_leaf_count: u32,
+        root_refs: Vec<arkret_wire::Hash>,
+        backup_refs: Vec<arkret_wire::BackupId>,
+    },
+    #[serde(rename = "removed")]
+    Removed {
+        effective_scope: arkret_wire::ScopeRef,
+        genesis_event_ref: arkret_wire::EventId,
+        retirement_proof: ContentScopeRetirementProof,
+    },
+    #[serde(rename = "terminated")]
+    Terminated {
+        effective_scope: arkret_wire::ScopeRef,
+        genesis_event_ref: arkret_wire::EventId,
+        retirement_proof: ContentScopeRetirementProof,
+    },
 }
 
 /// Counterpart: `content-encryption.schema.json#/$defs/cleanup_inventory`.
@@ -380,4 +446,168 @@ pub struct ContentBackupSourceAttestation {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: chrono::DateTime<chrono::Utc>,
     pub signature: crate::artifacts_keys::KeyOperationSignature,
+}
+
+/// Counterpart: `content-encryption.schema.json#/$defs/recovery_scope_cleanup_request_body`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ContentRecoveryScopeCleanupRequestBody {
+    pub authorization_event_ref: arkret_wire::EventId,
+    pub inventory_digest: arkret_wire::Hash,
+    pub effective_scope: arkret_wire::ScopeRef,
+    pub genesis_event_ref: arkret_wire::EventId,
+    pub nonce_base64url: String,
+    pub delivery_challenge_base64url: String,
+}
+
+/// Counterpart: `content-encryption.schema.json#/$defs/recovery_scope_cleanup_authorization`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ContentRecoveryScopeCleanupAuthorization {
+    pub replacement: ContentEndpoint,
+    pub inventory_digest: arkret_wire::Hash,
+    pub inventory_entry: ContentRecoveryInventoryEntry,
+    pub destination_service_id: arkret_wire::DidCoreId,
+    pub nonce_base64url: String,
+    pub delivery_challenge_base64url: String,
+    pub verification_method: arkret_wire::DidUrl,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub attested_at: chrono::DateTime<chrono::Utc>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub expires_at: chrono::DateTime<chrono::Utc>,
+    pub signature: crate::artifacts_keys::KeyOperationSignature,
+}
+
+/// Counterpart:
+/// `content-encryption.schema.json#/$defs/recovery_scope_cleanup_response_body/oneOf/1/properties/
+/// cleanup/properties/state`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ContentScopeRetirementState {
+    #[serde(rename = "removed")]
+    Removed,
+    #[serde(rename = "terminated")]
+    Terminated,
+}
+
+/// Counterpart:
+/// `content-encryption.schema.json#/$defs/recovery_scope_cleanup_response_body/oneOf/1/properties/
+/// cleanup`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ContentRetiredScopeCleanup {
+    pub state: ContentScopeRetirementState,
+    pub effective_scope: arkret_wire::ScopeRef,
+    pub genesis_event_ref: arkret_wire::EventId,
+    pub retirement_proof: ContentScopeRetirementProof,
+}
+
+/// Counterpart:
+/// `content-encryption.schema.json#/$defs/recovery_scope_cleanup_response_body/oneOf/0/properties/
+/// state`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ContentScopeCleanupPendingState {
+    #[serde(rename = "pending")]
+    Pending,
+}
+
+/// Counterpart:
+/// `content-encryption.schema.json#/$defs/recovery_scope_cleanup_response_body/oneOf/0`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ContentRecoveryScopeCleanupPending {
+    pub state: ContentScopeCleanupPendingState,
+}
+
+/// Counterpart: `content-encryption.schema.json#/$defs/scope_retirement_delivery_attestation`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ContentScopeRetirementDeliveryAttestation {
+    pub request_digest: arkret_wire::Hash,
+    pub authorization_digest: arkret_wire::Hash,
+    pub proof_digest: arkret_wire::Hash,
+    pub recipient_service_id: arkret_wire::DidCoreId,
+    pub governance_station_id: arkret_wire::DidCoreId,
+    pub governance_generation: u64,
+    pub nonce_base64url: String,
+    pub delivery_challenge_base64url: String,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub attested_at: chrono::DateTime<chrono::Utc>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub expires_at: chrono::DateTime<chrono::Utc>,
+    pub verification_method: arkret_wire::DidUrl,
+    pub signature: crate::artifacts_keys::KeyOperationSignature,
+}
+
+/// Counterpart:
+/// `content-encryption.schema.json#/$defs/recovery_scope_cleanup_response_body/oneOf/1`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ContentRecoveryScopeCleanupRetired {
+    pub cleanup: ContentRetiredScopeCleanup,
+    pub delivery_attestation: ContentScopeRetirementDeliveryAttestation,
+}
+
+/// Counterpart: `content-encryption.schema.json#/$defs/recovery_scope_cleanup_response_body`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "Keep schema-mapped wire variants inline; transport and runtime containers own allocation policy."
+)]
+#[serde(untagged)]
+pub enum ContentRecoveryScopeCleanupResponseBody {
+    Pending(ContentRecoveryScopeCleanupPending),
+    Retired(ContentRecoveryScopeCleanupRetired),
+}
+
+/// Counterpart:
+/// `content-encryption.schema.json#/$defs/recovery_scope_cleanup_self_response_body/properties/
+/// attestor_signing_key`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ContentScopeRetirementSigningKey {
+    pub proof_digest: arkret_wire::Hash,
+    pub verification_method: arkret_wire::DidUrl,
+    pub public_key_base64url: arkret_wire::Base64UrlString,
+}
+
+/// Counterpart:
+/// `content-encryption.schema.json#/$defs/recovery_scope_cleanup_self_response_body/properties/
+/// delivery_signing_key`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ContentScopeRetirementDeliverySigningKey {
+    pub delivery_digest: arkret_wire::Hash,
+    pub verification_method: arkret_wire::DidUrl,
+    pub public_key_base64url: arkret_wire::Base64UrlString,
+}
+
+/// Counterpart: `content-encryption.schema.json#/$defs/recovery_scope_cleanup_self_response_body`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ContentRecoveryScopeCleanupSelfResponseBody {
+    pub delivery: ContentRecoveryScopeCleanupResponseBody,
+    #[serde(
+        default,
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub attestor_signing_key: Option<ContentScopeRetirementSigningKey>,
+    #[serde(
+        default,
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub delivery_signing_key: Option<ContentScopeRetirementDeliverySigningKey>,
 }
