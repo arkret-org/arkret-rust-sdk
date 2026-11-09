@@ -19,9 +19,47 @@ pub struct EventContentEnvelope {
 
 pub trait EventContentEnvelopesExt {
     fn event_content_envelopes(&self) -> Result<Vec<EventContentEnvelope>>;
+    fn event_content_protections_digest(&self) -> Result<arkret_wire::Hash>;
+    fn validate_content_backup_source_binding(
+        &self,
+        source: &arkret_models_crypto::ContentBackupSourceAttestation,
+        actual_producer: &arkret_models_crypto::ContentEndpoint,
+        destination: &arkret_wire::DidCoreId,
+    ) -> Result<()>;
 }
 
 impl EventContentEnvelopesExt for Event {
+    fn event_content_protections_digest(&self) -> Result<arkret_wire::Hash> {
+        let mut slots = self.event_content_envelopes()?;
+        if slots.is_empty() {
+            return Err(invalid(
+                "backup source requires registered encrypted content",
+            ));
+        }
+        slots.sort_by(|a, b| a.content_path.as_bytes().cmp(b.content_path.as_bytes()));
+        let rows: Result<Vec<_>> = slots.into_iter().map(|slot| {
+            let context = serde_json::to_value(slot.envelope.encryption_context)?;
+            Ok(serde_json::json!({"content_path":slot.content_path,"protection":context["protection"]}))
+        }).collect();
+        Ok(arkret_wire::Hash::new(arkret_canonical::canonical_sha256(
+            &rows?,
+        )?)?)
+    }
+
+    fn validate_content_backup_source_binding(
+        &self,
+        source: &arkret_models_crypto::ContentBackupSourceAttestation,
+        actual_producer: &arkret_models_crypto::ContentEndpoint,
+        destination: &arkret_wire::DidCoreId,
+    ) -> Result<()> {
+        source.validate_original_binding(
+            self,
+            actual_producer,
+            destination,
+            &self.event_content_protections_digest()?,
+        )
+    }
+
     fn event_content_envelopes(&self) -> Result<Vec<EventContentEnvelope>> {
         if !matches!(
             self.kind,
@@ -53,6 +91,57 @@ impl EventContentEnvelopesExt for Event {
 
 fn invalid(detail: impl Into<String>) -> WireError {
     WireError::Protocol(detail.into())
+}
+
+/// Complete cross-Station byte binding before native acceptance. The caller
+/// independently qualifies every actual producer and verifies each source's
+/// Service history/signature and retained storage. Local root checks are not
+/// replaced by this cross-Station operation.
+pub fn validate_cross_station_content_backup_sources(
+    events: &[&Event],
+    sources: Option<&[arkret_models_collaboration::content_history::ContentBackupSource]>,
+    actual_producers: &[arkret_models_crypto::ContentEndpoint],
+    destination: &arkret_wire::DidCoreId,
+    now: chrono::DateTime<chrono::Utc>,
+) -> Result<()> {
+    if events.len() != actual_producers.len() || events.len() > 2 {
+        return Err(invalid(
+            "backup sources require exact original producer coordinates",
+        ));
+    }
+    let mut required = Vec::new();
+    for (event, producer) in events.iter().zip(actual_producers) {
+        if !event.event_content_envelopes()?.is_empty() {
+            let account = producer.actor_id.as_account_id().ok_or_else(|| {
+                invalid("cross-Station backup source requires an Account producer")
+            })?;
+            if &account.station_id == destination {
+                return Err(invalid(
+                    "same-Station content requires native local root dependency checks",
+                ));
+            }
+            required.push((*event, producer));
+        }
+    }
+    match (required.is_empty(), sources) {
+        (true, None) => return Ok(()),
+        (false, Some(sources)) if sources.len() == required.len() => {
+            for (source, (event, producer)) in sources.iter().zip(required) {
+                source.attestation.validate_at(now)?;
+                source.validate_submission_binding(
+                    event,
+                    producer,
+                    destination,
+                    &event.event_content_protections_digest()?,
+                )?;
+            }
+            return Ok(());
+        }
+        _ => {}
+    }
+    Err(invalid(
+        "missing, extra, duplicate or unordered original backup sources",
+    ))
 }
 
 fn escape(key: &str) -> String {

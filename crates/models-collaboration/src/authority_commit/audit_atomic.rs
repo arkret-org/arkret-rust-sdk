@@ -208,6 +208,8 @@ impl AtomicSlotProducerEvidence {
 #[serde(deny_unknown_fields)]
 pub struct PeerAuthorityForwardAtomicRequestBody {
     pub branch: AuthorityForwardBranch,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content_backup_sources: Option<Vec<crate::content_history::ContentBackupSource>>,
     pub atomic_submission: AuditPairedEventUnitSubmission,
     pub atomic_producer_evidence: [AtomicSlotProducerEvidence; 2],
 }
@@ -215,6 +217,13 @@ pub struct PeerAuthorityForwardAtomicRequestBody {
 impl PeerAuthorityForwardAtomicRequestBody {
     pub fn validate(&self) -> Result<()> {
         self.atomic_submission.validate()?;
+        crate::content_history::validate_backup_source_candidates(
+            &[
+                &self.atomic_submission.events[0].event,
+                &self.atomic_submission.events[1].event,
+            ],
+            self.content_backup_sources.as_deref(),
+        )?;
         let digest = authority_forward_body_digest(self)?;
         for (slot, evidence) in self
             .atomic_submission

@@ -11,7 +11,7 @@
 // sha256=0cc25a02fe0d9a94f6e41f2cf8f64e492ba36362f1e69a699cf1e684924837ee
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=973940c1b2f35b239f2e75b4f8e41fe33a818d78b1b608381b2b70df42e49f18
+// sha256=825d8d6aa965fe516029150f727237abbc8f6c6619f8df578a995cf5da35a97f
 
 /// Counterpart: `service-operation-dtos.schema.json#/$defs/AgentSessionGrantRequestBody`.
 #[derive(Clone, Debug, Serialize, Deserialize)]

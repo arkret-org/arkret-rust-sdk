@@ -1,6 +1,9 @@
 //! Original owning-Station recovery proof; never a current routing source.
 
-use arkret_models_crypto::{ContentRecoveryBinding, ContentRecoverySourceAttestation};
+use arkret_models_crypto::{
+    ContentBackupSourceAttestation, ContentEndpoint, ContentRecoveryBinding,
+    ContentRecoverySourceAttestation,
+};
 use arkret_models_identity::AuthenticatedServiceResolution;
 use arkret_wire::{Event, EventKind, Hash, Result, WireError};
 use chrono::{DateTime, Utc};
@@ -10,13 +13,89 @@ use crate::authority_commit::HistoricalProducerSignerFact;
 
 include!("generated/content_history_contracts.rs");
 
+impl ContentBackupSource {
+    /// Byte binding after independent original producer and typed-slot projection.
+    /// This does not verify the Service method history, signature or storage.
+    pub fn validate_submission_binding(
+        &self,
+        event: &Event,
+        actual_producer: &ContentEndpoint,
+        destination: &arkret_wire::DidCoreId,
+        registered_protections_digest: &Hash,
+    ) -> Result<()> {
+        let source = &self.attestation;
+        source.validate()?;
+        let account = actual_producer.actor_id.as_account_id().ok_or_else(|| {
+            WireError::Protocol("backup source requires an actual Account producer".to_owned())
+        })?;
+        if self.origin_resolution.service_id != account.station_id
+            || self.origin_resolution.service_kind != "station"
+        {
+            return Err(WireError::Protocol(
+                "backup source is not the actual owning Station".to_owned(),
+            ));
+        }
+        source.validate_original_binding(
+            event,
+            actual_producer,
+            destination,
+            registered_protections_digest,
+        )
+    }
+}
+
+/// Candidate integrity only. Native admission independently enforces complete
+/// registered-slot coverage, issuer qualification, signature and destination.
+pub(crate) fn validate_backup_source_candidates(
+    events: &[&Event],
+    sources: Option<&[ContentBackupSource]>,
+) -> Result<()> {
+    let Some(sources) = sources else {
+        return Ok(());
+    };
+    if sources.is_empty() || sources.len() > events.len() || sources.len() > 2 {
+        return Err(WireError::Protocol(
+            "invalid number of original backup sources".to_owned(),
+        ));
+    }
+    let mut next = 0;
+    for source in sources {
+        source.attestation.validate()?;
+        let offset = events[next..]
+            .iter()
+            .position(|e| e.event_id == source.attestation.event_ref)
+            .ok_or_else(|| {
+                WireError::Protocol("extra, duplicate or unordered backup source".to_owned())
+            })?;
+        let event = events[next + offset];
+        next += offset + 1;
+        let declared = &source.attestation;
+        let account = declared
+            .producer
+            .actor_id
+            .as_account_id()
+            .expect("validated Account producer");
+        if declared.event_original_digest.as_str() != arkret_canonical::canonical_sha256(event)?
+            || declared.effective_scope != event.scope_ref
+            || &declared.producer.actor_id != event.executed_by.as_ref().unwrap_or(&event.actor_id)
+            || source.origin_resolution.service_id != account.station_id
+            || source.origin_resolution.service_kind != "station"
+        {
+            return Err(WireError::Protocol(
+                "backup-source candidate differs from original bytes".to_owned(),
+            ));
+        }
+    }
+    Ok(())
+}
+
 /// The original client carrier rejects source; only the owning Station emits this peer form.
 pub type PeerMlsCommitSubmission = arkret_wire::MlsCommitSubmission<ContentRecoverySource>;
 
 #[derive(Serialize)]
 struct UnsignedRecoverySourceAttestation<'a> {
     event_ref: &'a arkret_wire::EventId,
-    replacement: &'a arkret_models_crypto::ContentEndpoint,
+    replacement: &'a ContentEndpoint,
     effective_scope: &'a arkret_wire::ScopeRef,
     base_group_state_ref: &'a arkret_wire::EventId,
     #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]

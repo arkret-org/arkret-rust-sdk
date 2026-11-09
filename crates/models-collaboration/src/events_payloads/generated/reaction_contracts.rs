@@ -11,7 +11,7 @@
 // sha256=79f44b93062a197a5ed0854fa6ae7b113f028dd8e38369f40276457d00d93e0b
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=973940c1b2f35b239f2e75b4f8e41fe33a818d78b1b608381b2b70df42e49f18
+// sha256=825d8d6aa965fe516029150f727237abbc8f6c6619f8df578a995cf5da35a97f
 
 /// Counterpart: `current-state.schema.json#/$defs/reaction_assertion_entry`.
 /// One asserted element of the `message_reactions` keyed set

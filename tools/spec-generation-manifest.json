@@ -2209,7 +2209,8 @@
         "ContentRecoveryInventory",
         "ContentScopeCleanup",
         "ContentCleanupInventory",
-        "ContentRecoverySourceAttestation"
+        "ContentRecoverySourceAttestation",
+        "ContentBackupSourceAttestation"
       ]
     },
     {
@@ -2223,7 +2224,8 @@
         "schemas/content-encryption.schema.json"
       ],
       "provides": [
-        "ContentRecoverySource"
+        "ContentRecoverySource",
+        "ContentBackupSource"
       ]
     },
     {

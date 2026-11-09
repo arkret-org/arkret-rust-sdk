@@ -2,7 +2,7 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/content-encryption.schema.json
-// sha256=d88b52eea7b7e59339a88d67d629bc88477b57ab4c6646d3af55fce1ff8c509b
+// sha256=50c13af7b767c57536bc8d7d145d6236424051ae83ce41b15e34f9aaaa4d315d
 //
 // Input: schemas/decimal-integers.schema.json
 // sha256=7ea09c46f777e010c72a1fd069b7fbefc7d66924e7b3ad5a5961ce9914858987
@@ -14,7 +14,7 @@
 // sha256=0cc25a02fe0d9a94f6e41f2cf8f64e492ba36362f1e69a699cf1e684924837ee
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=973940c1b2f35b239f2e75b4f8e41fe33a818d78b1b608381b2b70df42e49f18
+// sha256=825d8d6aa965fe516029150f727237abbc8f6c6619f8df578a995cf5da35a97f
 
 /// Counterpart: `content-encryption.schema.json#/$defs/root_context`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -355,6 +355,25 @@ pub struct ContentRecoverySourceAttestation {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
     pub previous_epoch: u64,
     pub inventory_digest: arkret_wire::Hash,
+    pub verification_method: arkret_wire::DidUrl,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub attested_at: chrono::DateTime<chrono::Utc>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub expires_at: chrono::DateTime<chrono::Utc>,
+    pub signature: crate::artifacts_keys::KeyOperationSignature,
+}
+
+/// Counterpart: `content-encryption.schema.json#/$defs/backup_source_attestation`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ContentBackupSourceAttestation {
+    pub event_ref: arkret_wire::EventId,
+    pub event_original_digest: arkret_wire::Hash,
+    pub producer: ContentEndpoint,
+    pub effective_scope: arkret_wire::ScopeRef,
+    pub destination_service_id: arkret_wire::DidCoreId,
+    pub protections_digest: arkret_wire::Hash,
     pub verification_method: arkret_wire::DidUrl,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub attested_at: chrono::DateTime<chrono::Utc>,

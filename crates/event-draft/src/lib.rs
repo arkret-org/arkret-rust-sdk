@@ -36,7 +36,9 @@ pub use agent::{
 };
 pub use applet::AppletBridgeErrorBuilder;
 pub use calendar::{RsvpAuthoring, RsvpResponseBranch};
-pub use content_envelopes::{EventContentEnvelope, EventContentEnvelopesExt};
+pub use content_envelopes::{
+    EventContentEnvelope, EventContentEnvelopesExt, validate_cross_station_content_backup_sources,
+};
 pub use event_admission::{decode_event_for_submit, validate_event_for_submit};
 pub use event_intent::EventIntent;
 pub use event_payload::{

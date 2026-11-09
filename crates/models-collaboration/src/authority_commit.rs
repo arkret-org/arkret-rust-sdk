@@ -1002,6 +1002,8 @@ pub struct PeerAuthorityForwardEventRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mls_group_state_material: Option<MlsGroupStateMaterial>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content_backup_sources: Option<Vec<crate::content_history::ContentBackupSource>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub producer_device_evidence: Option<ForwardAccountDeviceSignerEvidence>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub producer_agent_evidence: Option<AgentProducerEvidence>,
@@ -1021,12 +1023,14 @@ impl PeerAuthorityForwardEventRequestBody {
     pub fn new_agent(
         event_submission: EventAdmissionSubmission,
         mls_group_state_material: Option<MlsGroupStateMaterial>,
+        content_backup_sources: Option<Vec<crate::content_history::ContentBackupSource>>,
         producer_agent_evidence: AgentProducerEvidence,
     ) -> Result<Self> {
         let request = Self {
             branch: AuthorityForwardBranch::AuthorityForward,
             event_submission,
             mls_group_state_material,
+            content_backup_sources,
             producer_device_evidence: None,
             producer_agent_evidence: Some(producer_agent_evidence),
         };
@@ -1040,12 +1044,14 @@ impl PeerAuthorityForwardEventRequestBody {
     pub fn new(
         event_submission: EventAdmissionSubmission,
         mls_group_state_material: Option<MlsGroupStateMaterial>,
+        content_backup_sources: Option<Vec<crate::content_history::ContentBackupSource>>,
         producer_device_evidence: Option<ForwardAccountDeviceSignerEvidence>,
     ) -> Result<Self> {
         let request = Self {
             branch: AuthorityForwardBranch::AuthorityForward,
             event_submission,
             mls_group_state_material,
+            content_backup_sources,
             producer_device_evidence,
             producer_agent_evidence: None,
         };
@@ -1055,6 +1061,10 @@ impl PeerAuthorityForwardEventRequestBody {
 
     pub fn validate(&self) -> Result<()> {
         self.event_submission.validate()?;
+        crate::content_history::validate_backup_source_candidates(
+            &[&self.event_submission.event],
+            self.content_backup_sources.as_deref(),
+        )?;
         let genesis = self.event_submission.event.kind == EventKind::MlsGenesis;
         match (&self.mls_group_state_material, genesis) {
             (Some(material), true) => material.validate()?,
@@ -1105,6 +1115,8 @@ pub struct PeerAuthorityForwardMlsRequestBody {
     pub mls_submission: crate::content_history::PeerMlsCommitSubmission,
     pub mls_group_state_material: MlsGroupStateMaterial,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content_backup_sources: Option<Vec<crate::content_history::ContentBackupSource>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub producer_device_evidence: Option<ForwardAccountDeviceSignerEvidence>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub producer_agent_evidence: Option<AgentProducerEvidence>,
@@ -1114,12 +1126,14 @@ impl PeerAuthorityForwardMlsRequestBody {
     pub fn new_agent(
         mls_submission: crate::content_history::PeerMlsCommitSubmission,
         mls_group_state_material: MlsGroupStateMaterial,
+        content_backup_sources: Option<Vec<crate::content_history::ContentBackupSource>>,
         producer_agent_evidence: AgentProducerEvidence,
     ) -> Result<Self> {
         let request = Self {
             branch: AuthorityForwardBranch::AuthorityForward,
             mls_submission,
             mls_group_state_material,
+            content_backup_sources,
             producer_device_evidence: None,
             producer_agent_evidence: Some(producer_agent_evidence),
         };
@@ -1131,12 +1145,14 @@ impl PeerAuthorityForwardMlsRequestBody {
     pub fn new(
         mls_submission: crate::content_history::PeerMlsCommitSubmission,
         mls_group_state_material: MlsGroupStateMaterial,
+        content_backup_sources: Option<Vec<crate::content_history::ContentBackupSource>>,
         producer_device_evidence: Option<ForwardAccountDeviceSignerEvidence>,
     ) -> Result<Self> {
         let request = Self {
             branch: AuthorityForwardBranch::AuthorityForward,
             mls_submission,
             mls_group_state_material,
+            content_backup_sources,
             producer_device_evidence,
             producer_agent_evidence: None,
         };
@@ -1146,6 +1162,10 @@ impl PeerAuthorityForwardMlsRequestBody {
 
     pub fn validate(&self) -> Result<()> {
         self.mls_submission.validate()?;
+        crate::content_history::validate_backup_source_candidates(
+            &[&self.mls_submission.commit_event],
+            self.content_backup_sources.as_deref(),
+        )?;
         self.mls_group_state_material.validate()?;
         if self
             .mls_submission

@@ -176,7 +176,10 @@
     "content-encryption.schema.json#/$defs/scope_cleanup/properties/root_refs/items": "arkret_wire::Hash",
     "content-encryption.schema.json#/$defs/key_selector/oneOf/1/properties/root_ref": "arkret_wire::Hash",
     "authority-commit-operations.schema.json#/$defs/agent_runtime_historical_signer_fact/properties/kind": "crate::authority_commit::AgentRuntimeHistoricalSignerFactKind",
-    "authority-commit-operations.schema.json#/$defs/agent_runtime_historical_signer_fact": "crate::authority_commit::AgentRuntimeHistoricalSignerFact"
+    "authority-commit-operations.schema.json#/$defs/agent_runtime_historical_signer_fact": "crate::authority_commit::AgentRuntimeHistoricalSignerFact",
+    "content-encryption.schema.json#/$defs/backup_source_attestation": "crate::content_history::ContentBackupSourceAttestation",
+    "content-encryption.schema.json#/$defs/backup_source_attestation/properties/event_original_digest": "arkret_wire::Hash",
+    "content-encryption.schema.json#/$defs/backup_source_attestation/properties/protections_digest": "arkret_wire::Hash"
   },
   "families": [
     {
@@ -17700,6 +17703,10 @@
         {
           "name": "ContentRecoverySourceAttestation",
           "schema": "content-encryption.schema.json#/$defs/recovery_source_attestation"
+        },
+        {
+          "name": "ContentBackupSourceAttestation",
+          "schema": "content-encryption.schema.json#/$defs/backup_source_attestation"
         }
       ]
     },
@@ -17722,6 +17729,32 @@
                 "name": "attestation",
                 "visibility": "pub",
                 "type": "ContentRecoverySourceAttestation",
+                "attributes": []
+              },
+              "origin_resolution": {
+                "name": "origin_resolution",
+                "visibility": "pub",
+                "type": "AuthenticatedServiceResolution",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "ContentBackupSource",
+          "schema": "content-encryption.schema.json#/$defs/backup_source",
+          "rust": {
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "signature": "pub struct ContentBackupSource",
+            "members": {
+              "attestation": {
+                "name": "attestation",
+                "visibility": "pub",
+                "type": "ContentBackupSourceAttestation",
                 "attributes": []
               },
               "origin_resolution": {

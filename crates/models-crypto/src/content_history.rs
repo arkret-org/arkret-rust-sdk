@@ -10,6 +10,73 @@ use zeroize::Zeroizing;
 
 include!("generated/content_history_contracts.rs");
 
+impl ContentBackupSourceAttestation {
+    /// Closed byte invariants; native storage and owning-Service role are separate.
+    pub fn validate(&self) -> Result<()> {
+        self.producer.validate()?;
+        self.effective_scope.canonical_mls_group_id()?;
+        sha256_ref(&self.event_original_digest)?;
+        sha256_ref(&self.protections_digest)?;
+        if self.producer.actor_id.as_account_id().is_none()
+            || self.signature.kid.as_str() != self.verification_method.as_str()
+            || self
+                .signature
+                .signature_algorithm
+                .as_ref()
+                .is_some_and(|a| a.as_str() != "Ed25519")
+            || self.expires_at <= self.attested_at
+            || self.expires_at - self.attested_at > chrono::Duration::seconds(300)
+        {
+            return protocol("invalid original backup-source binding or observation window");
+        }
+        Ok(())
+    }
+
+    pub fn signing_payload_bytes(&self) -> Result<Vec<u8>> {
+        self.validate()?;
+        let mut value = serde_json::to_value(self)?;
+        value
+            .as_object_mut()
+            .expect("attestation object")
+            .remove("signature");
+        let mut bytes = b"ak.content.backup_source.v1\n".to_vec();
+        bytes.extend(arkret_canonical::canonical_json_bytes(&value)?);
+        Ok(bytes)
+    }
+
+    pub fn validate_at(&self, now: chrono::DateTime<chrono::Utc>) -> Result<()> {
+        self.validate()?;
+        if now < self.attested_at || now >= self.expires_at {
+            return protocol("backup source is outside its observation window");
+        }
+        Ok(())
+    }
+
+    /// Original-byte integrity only; each supplied fact is independently qualified.
+    pub fn validate_original_binding(
+        &self,
+        event: &arkret_wire::Event,
+        actual_producer: &ContentEndpoint,
+        destination: &arkret_wire::DidCoreId,
+        registered_protections_digest: &arkret_wire::Hash,
+    ) -> Result<()> {
+        self.validate()?;
+        if self.producer != *actual_producer
+            || &actual_producer.actor_id != event.executed_by.as_ref().unwrap_or(&event.actor_id)
+            || self.event_ref != event.event_id
+            || self.event_original_digest.as_str() != arkret_canonical::canonical_sha256(event)?
+            || self.effective_scope != event.scope_ref
+            || &self.destination_service_id != destination
+            || &self.protections_digest != registered_protections_digest
+        {
+            return protocol(
+                "backup source differs from its complete original Event or actual producer",
+            );
+        }
+        Ok(())
+    }
+}
+
 /// A serialized recovery root is secret material, including in a decrypted keybag.
 #[derive(Clone, PartialEq, Eq)]
 pub struct ContentRootSecret(Zeroizing<[u8; 32]>);

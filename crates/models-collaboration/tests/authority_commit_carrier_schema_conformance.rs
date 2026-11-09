@@ -624,13 +624,18 @@ fn human_device_producer_requires_producer_device_evidence() {
 
     let submission: EventAdmissionSubmission = serde_json::from_value(human).unwrap();
     assert_eq!(
-        PeerAuthorityForwardEventRequestBody::new(submission.clone(), None, None)
+        PeerAuthorityForwardEventRequestBody::new(submission.clone(), None, None, None)
             .unwrap_err()
             .error_code(),
         Some(ErrorCode::SchemaViolation)
     );
-    PeerAuthorityForwardEventRequestBody::new(submission, None, Some(producer_device_evidence()))
-        .unwrap();
+    PeerAuthorityForwardEventRequestBody::new(
+        submission,
+        None,
+        None,
+        Some(producer_device_evidence()),
+    )
+    .unwrap();
 }
 
 #[test]
@@ -690,12 +695,14 @@ fn mls_forward_presence_follows_the_commit_event_producer() {
         human.clone().for_origin_forward(None),
         material.clone(),
         None,
+        None,
     )
     .unwrap_err();
     assert_eq!(error.error_code(), Some(ErrorCode::SchemaViolation));
     let request = PeerAuthorityForwardMlsRequestBody::new(
         human.for_origin_forward(None),
         material.clone(),
+        None,
         Some(evidence.clone()),
     )
     .unwrap();
@@ -717,6 +724,7 @@ fn mls_forward_presence_follows_the_commit_event_producer() {
         PeerAuthorityForwardMlsRequestBody::new(
             account_key.clone().for_origin_forward(None),
             material.clone(),
+            None,
             None
         )
         .unwrap_err()
@@ -727,6 +735,7 @@ fn mls_forward_presence_follows_the_commit_event_producer() {
         PeerAuthorityForwardMlsRequestBody::new(
             account_key.for_origin_forward(None),
             material,
+            None,
             Some(evidence)
         )
         .unwrap_err()

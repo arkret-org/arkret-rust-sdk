@@ -79,7 +79,8 @@ pub use arkret_event_draft::{
     MessageEventPayload, MlsEnvelopeOperationExt, ProjectedEventOperation, ProjectionContext,
     RsvpAuthoring, RsvpResponseBranch, StrandCreateObject, TypedEventDraft,
     ValidatedExtensionPayload, accountability_grant_intent, event_draft_kind_conformance_vectors,
-    local_operation_spec, rank_between, rank_exhausted, validate_event_payload,
+    local_operation_spec, rank_between, rank_exhausted,
+    validate_cross_station_content_backup_sources, validate_event_payload,
 };
 pub use arkret_hlc::{
     CURSOR_HANDLE_MIN_LEN, Cursor, CursorPurpose, HlcGenerator, generate_cursor_handle,

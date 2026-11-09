@@ -4188,6 +4188,14 @@
     {
       "rust_type": "crates/models-identity/src/generated/actor_profile_contracts.rs::PrivateProfileFields",
       "schema": "actor-profile.schema.json#/$defs/private_profile_fields"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/content_history_contracts.rs::ContentBackupSourceAttestation",
+      "schema": "content-encryption.schema.json#/$defs/backup_source_attestation"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/content_history_contracts.rs::ContentBackupSource",
+      "schema": "content-encryption.schema.json#/$defs/backup_source"
     }
   ],
   "exemptions": [
