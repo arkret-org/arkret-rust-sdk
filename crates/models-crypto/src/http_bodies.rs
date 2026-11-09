@@ -9,7 +9,7 @@ use std::collections::BTreeSet;
 use arkret_wire::{
     AccountId, ActorId, AuditReasonText, Base64UrlString, DeviceId, DidCoreId, DidUrl,
     DomainSeparationId, EventId, Hash, KeyPackageRef, KeypackageClaimId, MlsGroupId,
-    MlsWelcomeDeliveryId, NonEmptyString, RealmId, StrandId,
+    MlsWelcomeDeliveryId, NonEmptyString, RealmId, ScopeRef, StrandId,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -447,6 +447,7 @@ pub struct PeerKeyPackagesClaimFields {
     )]
     pub requester_actor_id: Option<ActorId>,
     pub intended_realm_id: RealmId,
+    pub effective_scope: ScopeRef,
     pub mls_group_id: MlsGroupId,
     pub claim_purpose: PeerKeyPackageClaimPurpose,
     #[serde(deserialize_with = "deserialize_keypackage_unique_nonempty")]
@@ -547,6 +548,7 @@ pub struct KeyPackagesClaimRequestBody {
     )]
     pub requester_actor_id: Option<ActorId>,
     pub intended_realm_id: RealmId,
+    pub effective_scope: ScopeRef,
     pub mls_group_id: MlsGroupId,
     pub claim_purpose: PeerKeyPackageClaimPurpose,
     #[serde(deserialize_with = "deserialize_keypackage_unique_nonempty")]
@@ -620,6 +622,7 @@ impl KeyPackagesClaimRequestBody {
             requester_account_id: self.requester_account_id.clone(),
             requester_actor_id: self.requester_actor_id.clone(),
             intended_realm_id: self.intended_realm_id.clone(),
+            effective_scope: self.effective_scope.clone(),
             mls_group_id: self.mls_group_id.clone(),
             claim_purpose: self.claim_purpose,
             required_capabilities: self.required_capabilities.clone(),
@@ -1032,6 +1035,8 @@ pub enum PeerKeyPackageClaimErrorCode {
 pub enum PeerKeyPackageClaimShapeError {
     #[error("claim_request_id must encode at least 128 bits and be at most 128 characters")]
     InvalidClaimRequestId,
+    #[error("effective_scope must match the intended Realm and canonical MLS group ID")]
+    InvalidEffectiveScope,
     #[error("required_capabilities must be non-empty and unique")]
     InvalidRequiredCapabilities,
     #[error("target_device_ids must be unique")]
@@ -1146,6 +1151,21 @@ pub fn validate_target_claim_evidence(
 fn validate_peer_claim_fields(
     request: &PeerKeyPackagesClaimFields,
 ) -> Result<(), PeerKeyPackageClaimShapeError> {
+    if request.effective_scope.realm_id_opt() != Some(&request.intended_realm_id)
+        || request
+            .effective_scope
+            .canonical_mls_group_id()
+            .ok()
+            .as_ref()
+            != Some(&request.mls_group_id)
+    {
+        return Err(PeerKeyPackageClaimShapeError::InvalidEffectiveScope);
+    }
+    if request.claim_purpose == PeerKeyPackageClaimPurpose::DirectConversation
+        && !matches!(request.effective_scope, ScopeRef::Realm { .. })
+    {
+        return Err(PeerKeyPackageClaimShapeError::InvalidDirectConversationFields);
+    }
     if !(22..=128).contains(&request.claim_request_id.as_str().len()) {
         return Err(PeerKeyPackageClaimShapeError::InvalidClaimRequestId);
     }
@@ -1216,7 +1236,11 @@ fn validate_peer_claim_fields(
                 .is_none_or(|id| id.realm_id != request.intended_realm_id)
     }) || request.requester_actor_id.is_some() && request.requester_account_id.is_some()
         || (realm_target || request.requester_actor_id.is_some())
-            && request.claim_purpose != PeerKeyPackageClaimPurpose::RealmMembership
+            && (request.claim_purpose != PeerKeyPackageClaimPurpose::RealmMembership
+                || !matches!(
+                    request.effective_scope,
+                    ScopeRef::Realm { .. } | ScopeRef::Circle { .. }
+                ))
     {
         return Err(PeerKeyPackageClaimShapeError::InvalidAuthorizationModel);
     }
@@ -1297,7 +1321,6 @@ struct PeerKeyPackageAuthorizationTranscript<'a> {
 
 #[derive(Serialize)]
 struct PeerKeyPackageAuthorizationMetadata<'a> {
-    kind: &'static str,
     verification_method: &'a DidUrl,
     #[serde(skip_serializing_if = "Option::is_none")]
     requester_device_id: Option<&'a DeviceId>,
@@ -1316,6 +1339,9 @@ pub fn keypackage_claim_authorization_signing_bytes(
     service_binding: &KeyPackagesClaimServiceBinding,
     authorization: &PeerKeyPackageRequesterAuthorization,
 ) -> arkret_canonical::Result<Vec<u8>> {
+    request
+        .validate_shape()
+        .map_err(|error| arkret_canonical::CanonicalError::Protocol(error.to_string()))?;
     let metadata = match authorization {
         PeerKeyPackageRequesterAuthorization::Device {
             verification_method,
@@ -1324,7 +1350,6 @@ pub fn keypackage_claim_authorization_signing_bytes(
             signed_at,
             ..
         } => PeerKeyPackageAuthorizationMetadata {
-            kind: "device",
             verification_method,
             requester_device_id: Some(requester_device_id),
             device_authorize_event_id: Some(device_authorize_event_id),
@@ -1339,7 +1364,6 @@ pub fn keypackage_claim_authorization_signing_bytes(
             signed_at,
             ..
         } => PeerKeyPackageAuthorizationMetadata {
-            kind: "realm_device",
             verification_method,
             requester_device_id: Some(requester_device_id),
             device_authorize_event_id: Some(device_authorize_event_id),
@@ -1354,7 +1378,6 @@ pub fn keypackage_claim_authorization_signing_bytes(
             signed_at,
             ..
         } => PeerKeyPackageAuthorizationMetadata {
-            kind: "agent",
             verification_method,
             requester_device_id: None,
             device_authorize_event_id: None,
@@ -1369,7 +1392,7 @@ pub fn keypackage_claim_authorization_signing_bytes(
         service_binding,
     };
     let canonical = arkret_canonical::canonical_json_bytes(&transcript)?;
-    let mut bytes = b"ak.keypackage-claim-authorization-v1\n".to_vec();
+    let mut bytes = b"ak.peer-keypackage-claim-authorization-v1\n".to_vec();
     bytes.extend(canonical);
     Ok(bytes)
 }

@@ -1137,7 +1137,7 @@ mod native_retry_tests {
         getrandom::fill(&mut entropy).unwrap();
         let id = arkret_canonical::base64url_encode(entropy);
         let mut body:KeyPackagesClaimRequestBody=serde_json::from_value(json!({
-            "claim_request_id":id,"target_actor_id":metadata.actor_id,"requester_actor_id":metadata.actor_id,"intended_realm_id":scope.realm_id(),"mls_group_id":scope.canonical_mls_group_id().unwrap(),"claim_purpose":"realm_membership","required_capabilities":["ak.content.v1"],
+            "claim_request_id":id,"target_actor_id":metadata.actor_id,"requester_actor_id":metadata.actor_id,"intended_realm_id":scope.realm_id(),"effective_scope":scope,"mls_group_id":scope.canonical_mls_group_id().unwrap(),"claim_purpose":"realm_membership","required_capabilities":["ak.content.v1"],
             "expires_at":arkret_canonical::format_timestamp_canonical(at+chrono::Duration::minutes(1)),"target_device_ids":[device],"service_binding":{"source_id":station,"destination_id":station},
             "requester_authorization":{"kind":"realm_device","verification_method":method,"requester_device_id":device,"device_authorize_event_id":authorization,"signed_at":arkret_canonical::format_timestamp_canonical(at),"signature":{"kid":method,"signature_algorithm":"Ed25519","signature":"AA"}}
         })).unwrap();

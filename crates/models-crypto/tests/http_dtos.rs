@@ -159,6 +159,12 @@ fn keypackage_claim_record_rejects_schema_invalid_scalars_and_mixed_authority() 
 
 #[test]
 fn keypackages_claim_outcome_uses_typed_records_and_failures() {
+    let scope = arkret_wire::ScopeRef::Realm {
+        realm_id: arkret_wire::RealmId::new(
+            "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
+        )
+        .unwrap(),
+    };
     let outcome = json!({
         "claim_request_id": "Y2xhaW0tbm9uY2U",
         "claims": [{
@@ -186,11 +192,12 @@ fn keypackages_claim_outcome_uses_typed_records_and_failures() {
                     "station_id": "ak:did_core:webvh:z6mkfixtureservice"
                 },
                 "intended_realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
+                "effective_scope": scope,
                 "requester_account_id": {
                     "principal_id": "ak:did_core:webvh:z6mkfixture",
                     "station_id": "ak:did_core:webvh:z6mkfixtureservice"
                 },
-                "mls_group_id": "QjKOSorlqs3IquY7OikTUTy_Z0mMiL0X2mK4jAOT4R4",
+                "mls_group_id": scope.canonical_mls_group_id().unwrap(),
                 "claim_purpose": "realm_membership",
                 "required_capabilities": ["ak.mls.profile.full"],
                 "target_device_ids": ["ak:device:01904100-0000-7000-8000-000000000001"],

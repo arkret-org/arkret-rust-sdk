@@ -52,7 +52,7 @@ fn key_material_request_at(
         "target_account_id":AccountId::new(core("bob"),core("destination")),
         "requester_account_id":AccountId::new(core("alice"),core("source")),
         "target_device_ids":["ak:device:0198ff00-0000-7000-8000-000000000002"],
-        "intended_realm_id":scope().realm_id(), "mls_group_id":scope().canonical_mls_group_id().unwrap(),
+        "intended_realm_id":scope().realm_id(), "effective_scope":scope(), "mls_group_id":scope().canonical_mls_group_id().unwrap(),
         "claim_purpose":"realm_membership", "required_capabilities":["mimi.content.v1"],
         "expires_at":arkret_canonical::format_timestamp_canonical(at+chrono::Duration::minutes(5)),
         "service_binding":{"source_id":core("source"),"destination_id":core("destination")},

@@ -84,6 +84,9 @@ impl MlsAddAuthorityAttestation {
             || self.commit_stream_position == 0
             || self.epoch == 0
             || !self.claim_record_digest.as_str().starts_with("sha256:")
+            || self.claim_receipt.request.effective_scope != self.effective_scope
+            || self.claim_receipt.request.intended_realm_id != self.realm_id
+            || self.claim_receipt.request.mls_group_id != self.mls_group_id
         {
             return Err(WireError::Protocol(
                 "MLS Add authority attestation selectors are inconsistent".to_owned(),

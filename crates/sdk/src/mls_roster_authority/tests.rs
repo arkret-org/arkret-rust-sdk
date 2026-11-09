@@ -260,12 +260,13 @@ fn manifest() -> (
 ) {
     let realm_id = RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap();
     let station = DidCoreId::new("ak:did_core:web:station.example").unwrap();
+    let scope = ScopeRef::Realm {
+        realm_id: realm_id.clone(),
+    };
     let request = MlsRosterAuthorityReadRequestBody {
         realm_id: realm_id.clone(),
-        effective_scope: ScopeRef::Realm {
-            realm_id: realm_id.clone(),
-        },
-        mls_group_id: MlsGroupId::new("QjKOSorlqs3IquY7OikTUTy_Z0mMiL0X2mK4jAOT4R4").unwrap(),
+        effective_scope: scope.clone(),
+        mls_group_id: scope.canonical_mls_group_id().unwrap(),
         genesis_event_ref: event(),
         target_commit_event_ref: event(),
         target_epoch: 0,
@@ -446,6 +447,7 @@ fn signed_two_page_roster() -> (
             "target_agent_verification_method": method,
             "target_agent_key_authorize_event_id": EventId::from_digest(arkret_canonical::DigestSuite::Sha256,[14;32]),
             "intended_realm_id": request.realm_id,
+            "effective_scope": request.effective_scope,
             "mls_group_id": request.mls_group_id,
             "claim_purpose": "realm_membership",
             "required_capabilities": [arkret_models_crypto::ARKRET_CONTENT_V1],
@@ -883,6 +885,7 @@ fn sidecar_add_attestation_preserves_exact_scope_and_historical_signature_checks
         attestation.attestor_station_id.clone(),
     ));
     attestation.claim_receipt.request.mls_group_id = attestation.mls_group_id.clone();
+    attestation.claim_receipt.request.effective_scope = attestation.effective_scope.clone();
     let kid = attestation.signature.kid.as_str().to_owned();
     attestation.claim_receipt.signature =
         arkret_signatures::keypackages::sign_keypackage_signing_input(
