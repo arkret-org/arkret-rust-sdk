@@ -4170,8 +4170,44 @@
       "schema": "content-encryption.schema.json#/$defs/recovery_inventory"
     },
     {
-      "rust_type": "crates/models-crypto/src/generated/content_history_contracts.rs::ContentScopeCleanup",
-      "schema": "content-encryption.schema.json#/$defs/scope_cleanup"
+      "rust_type": "crates/models-collaboration/src/generated/content_history_contracts.rs::ContentRecoveryScopeCleanupSource",
+      "schema": "content-encryption.schema.json#/$defs/recovery_scope_cleanup_source"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/content_history_contracts.rs::ContentRecoveryScopeCleanupRequestBody",
+      "schema": "content-encryption.schema.json#/$defs/recovery_scope_cleanup_request_body"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/content_history_contracts.rs::ContentRecoveryScopeCleanupAuthorization",
+      "schema": "content-encryption.schema.json#/$defs/recovery_scope_cleanup_authorization"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/content_history_contracts.rs::ContentRetiredScopeCleanup",
+      "schema": "content-encryption.schema.json#/$defs/recovery_scope_cleanup_response_body/oneOf/1/properties/cleanup"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/content_history_contracts.rs::ContentRecoveryScopeCleanupPending",
+      "schema": "content-encryption.schema.json#/$defs/recovery_scope_cleanup_response_body/oneOf/0"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/content_history_contracts.rs::ContentScopeRetirementDeliveryAttestation",
+      "schema": "content-encryption.schema.json#/$defs/scope_retirement_delivery_attestation"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/content_history_contracts.rs::ContentRecoveryScopeCleanupRetired",
+      "schema": "content-encryption.schema.json#/$defs/recovery_scope_cleanup_response_body/oneOf/1"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/content_history_contracts.rs::ContentScopeRetirementSigningKey",
+      "schema": "content-encryption.schema.json#/$defs/recovery_scope_cleanup_self_response_body/properties/attestor_signing_key"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/content_history_contracts.rs::ContentScopeRetirementDeliverySigningKey",
+      "schema": "content-encryption.schema.json#/$defs/recovery_scope_cleanup_self_response_body/properties/delivery_signing_key"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/content_history_contracts.rs::ContentRecoveryScopeCleanupSelfResponseBody",
+      "schema": "content-encryption.schema.json#/$defs/recovery_scope_cleanup_self_response_body"
     },
     {
       "rust_type": "crates/models-crypto/src/generated/content_history_contracts.rs::ContentCleanupInventory",
