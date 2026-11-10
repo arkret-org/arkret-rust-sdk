@@ -14,7 +14,9 @@ version.workspace = true
 
 [dependencies]
 anyhow = "1.0.104"
+arkret-bootstrap = { workspace = true }
 arkret-canonical = { workspace = true }
+arkret-crypto = { workspace = true, features = ["hpke", "identity-root"] }
 arkret-event-draft = { workspace = true, features = ["test-support"] }
 arkret-identity = { workspace = true }
 arkret-identifiers = { workspace = true }

@@ -35,6 +35,7 @@ pub mod hlc;
 pub mod keys;
 pub mod media_ice;
 pub mod negative;
+pub mod pcr_genesis;
 pub mod proof;
 pub mod service_identity;
 pub mod signed_event;
