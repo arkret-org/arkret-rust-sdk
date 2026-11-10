@@ -93,6 +93,54 @@ fn invalid(detail: impl Into<String>) -> WireError {
     WireError::Protocol(detail.into())
 }
 
+/// Decode only a registered ContentBlock plaintext slot before encryption.
+/// Metadata and arbitrary extension-shaped objects are not dependency sources.
+pub fn content_block_plaintext(
+    kind: &EventKind,
+    content_path: &str,
+    plaintext: &[u8],
+) -> Result<Option<arkret_models_collaboration::events_payloads::ContentBlock>> {
+    let whole = match kind {
+        EventKind::MessageCreate | EventKind::MessageRevise => {
+            content_path == "/payload/encrypted_content"
+        }
+        EventKind::MorphCreate | EventKind::StrandCreate => {
+            content_path == "/payload/object/encrypted_content"
+        }
+        _ => false,
+    };
+    let track = *kind == EventKind::StrandCreate
+        && content_path
+            .strip_prefix("/payload/object/tracks/")
+            .and_then(|value| value.strip_suffix("/encrypted_content"))
+            .is_some_and(|name| !name.is_empty() && unescape_segment(name).is_some());
+    let patch = if matches!(
+        kind,
+        EventKind::MorphUpdate | EventKind::StrandUpdate | EventKind::StrandTracksUpdate
+    ) {
+        if let Some(raw) = content_path.strip_prefix("/payload/patch/") {
+            let raw = raw.strip_suffix("/value").unwrap_or(raw);
+            if let Some(decoded) = unescape_segment(raw) {
+                let fields = parse_object_path(&decoded)?;
+                fields == ["encrypted_content"]
+                    || (*kind == EventKind::StrandUpdate
+                        && fields == ["tracks", "synthesis", "encrypted_content"])
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    } else {
+        false
+    };
+    if whole || track || patch {
+        Ok(Some(serde_json::from_slice(plaintext)?))
+    } else {
+        Ok(None)
+    }
+}
+
 /// Complete cross-Station byte binding before native acceptance. The caller
 /// independently qualifies every actual producer and verifies each source's
 /// Service history/signature and retained storage. Local root checks are not
@@ -146,6 +194,23 @@ pub fn validate_cross_station_content_backup_sources(
 
 fn escape(key: &str) -> String {
     key.replace('~', "~0").replace('/', "~1")
+}
+
+fn unescape_segment(raw: &str) -> Option<String> {
+    let mut decoded = String::with_capacity(raw.len());
+    let mut chars = raw.chars();
+    while let Some(ch) = chars.next() {
+        decoded.push(match ch {
+            '/' => return None,
+            '~' => match chars.next()? {
+                '0' => '~',
+                '1' => '/',
+                _ => return None,
+            },
+            ch => ch,
+        });
+    }
+    Some(decoded)
 }
 
 fn envelope(value: &Value, path: String, out: &mut Vec<EventContentEnvelope>) -> Result<()> {
@@ -486,5 +551,76 @@ mod tests {
             item.content_path,
             "/payload/patch/`metadata`.fields.calendar.location/value"
         );
+    }
+    #[test]
+    fn plaintext_dependency_source_is_a_registered_content_block_slot() {
+        let body = br#"{"kind":"ak.content.text","body":"original"}"#;
+        for (kind, path) in [
+            (EventKind::MessageCreate, "/payload/encrypted_content"),
+            (EventKind::MessageRevise, "/payload/encrypted_content"),
+            (EventKind::StrandCreate, "/payload/object/encrypted_content"),
+            (
+                EventKind::StrandCreate,
+                "/payload/object/tracks/synthesis/encrypted_content",
+            ),
+            (
+                EventKind::StrandCreate,
+                "/payload/object/tracks/a~1b~0c/encrypted_content",
+            ),
+            (
+                EventKind::StrandUpdate,
+                "/payload/patch/encrypted_content/value",
+            ),
+            (
+                EventKind::StrandUpdate,
+                "/payload/patch/tracks.synthesis.encrypted_content/value",
+            ),
+        ] {
+            assert_eq!(
+                content_block_plaintext(&kind, path, body)
+                    .unwrap()
+                    .unwrap()
+                    .body,
+                "original"
+            );
+            assert!(content_block_plaintext(&kind, path, b"not-json").is_err());
+        }
+        for (kind, path) in [
+            (EventKind::MessageCreate, "/payload/encrypted_metadata"),
+            (
+                EventKind::SpaceUpdate,
+                "/payload/patch/encrypted_content/value",
+            ),
+            (
+                EventKind::StrandUpdate,
+                "/payload/patch/encrypted_metadata/value",
+            ),
+            (
+                EventKind::StrandUpdate,
+                "/payload/patch/encrypted_content/ciphertext/value",
+            ),
+            (
+                EventKind::MessageCreate,
+                "/payload/x_extension/encrypted_content",
+            ),
+            (
+                EventKind::StrandCreate,
+                "/payload/object/tracks/a~2b/encrypted_content",
+            ),
+            (
+                EventKind::StrandCreate,
+                "/payload/object/tracks/a~/encrypted_content",
+            ),
+            (
+                EventKind::StrandUpdate,
+                "/payload/patch/encrypted~2_content/value",
+            ),
+        ] {
+            assert!(
+                content_block_plaintext(&kind, path, body)
+                    .unwrap()
+                    .is_none()
+            );
+        }
     }
 }

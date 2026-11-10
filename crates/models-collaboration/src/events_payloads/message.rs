@@ -204,6 +204,45 @@ impl ContentBlock {
         }
         Ok(refs.into_iter().collect())
     }
+
+    /// The registered descriptor slots only. Arbitrary extension JSON is not
+    /// a cryptographic dependency source. Identical references may repeat;
+    /// conflicting immutable descriptors for one resource are rejected.
+    pub fn encrypted_attachments(&self) -> Result<Vec<EncryptedAttachment>> {
+        fn collect(
+            block: &ContentBlock,
+            output: &mut BTreeMap<BlobRef, EncryptedAttachment>,
+        ) -> Result<()> {
+            let mut descriptors = Vec::new();
+            if let Some(value) = block.extra.get("attachment") {
+                descriptors.push(serde_json::from_value::<EncryptedAttachment>(
+                    value.clone(),
+                )?);
+            }
+            if let Some(value) = block.extra.get("attachments") {
+                descriptors.extend(serde_json::from_value::<Vec<EncryptedAttachment>>(
+                    value.clone(),
+                )?);
+            }
+            for descriptor in descriptors {
+                let reference = descriptor.blob_ref().clone();
+                if let Some(previous) = output.insert(reference, descriptor.clone())
+                    && previous != descriptor
+                {
+                    return Err(WireError::Protocol(
+                        "content has conflicting attachment descriptors".into(),
+                    ));
+                }
+            }
+            for part in &block.parts {
+                collect(part, output)?;
+            }
+            Ok(())
+        }
+        let mut descriptors = BTreeMap::new();
+        collect(self, &mut descriptors)?;
+        Ok(descriptors.into_values().collect())
+    }
     /// Build the sole E2EE long-text carrier with an existing typed descriptor.
     pub fn encrypted_long_text(full_body: &str, attachment: EncryptedAttachment) -> Result<Self> {
         let EncryptedAttachment::Stream(ref stream) = attachment else {
@@ -1303,6 +1342,43 @@ mod attribution_tests {
     use serde_json::json;
 
     use super::MessageCreatePayload;
+
+    #[test]
+    fn attachment_dependencies_use_registered_slots_and_reject_conflicting_references() {
+        let fixture =
+            arkret_schema_conformance::spec_json_artifact("fixtures/blob-content-key-fixture.json")
+                .unwrap();
+        let descriptor = fixture["descriptor_cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|case| case["name"] == "stream_valid")
+            .unwrap()["descriptor"]
+            .clone();
+        let block: super::ContentBlock = serde_json::from_value(json!({
+            "kind":"ak.content.composite", "body":"", "parts":[
+                {"kind":"ak.content.file", "body":"source", "blob_ref":descriptor["blob_ref"],
+                 "attachments":[descriptor,descriptor]},
+                {"kind":"ak.content.text", "body":"extension is not a source",
+                 "x_extension":{"attachments":[descriptor]}}
+            ]
+        }))
+        .unwrap();
+        assert_eq!(block.encrypted_attachments().unwrap().len(), 1);
+        assert_eq!(block.parts[1].encrypted_attachments().unwrap().len(), 0);
+        let mut conflicting = block;
+        let mut changed = descriptor.clone();
+        changed["media_type"] = json!("text/plain");
+        conflicting.parts[0]
+            .extra
+            .insert("attachments".into(), json!([descriptor, changed]));
+        assert!(conflicting.encrypted_attachments().is_err());
+        let singular: super::ContentBlock = serde_json::from_value(json!({
+            "kind":"ak.content.text","body":"typed singular slot","attachment":descriptor,
+        }))
+        .unwrap();
+        assert_eq!(singular.encrypted_attachments().unwrap().len(), 1);
+    }
 
     #[test]
     fn message_payload_rejects_obsolete_agent_context() {

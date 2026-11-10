@@ -636,6 +636,21 @@ fn later_reader_opens_original_attachment_with_public_epoch_and_retained_root() 
     materials.content_original = None;
     let roster = verify_mls_self_historical_content_roster(materials).unwrap();
     let producer = roster.content_endpoint(&input.original).unwrap();
+    let arkret_wire::MlsWelcomeRecipientEndpoint::Device { device_id } = &producer.endpoint else {
+        unreachable!()
+    };
+    roster
+        .validate_content_endpoint_for_device(input.original.actual_signer(), device_id, &producer)
+        .unwrap();
+    assert!(
+        roster
+            .validate_content_endpoint_for_device(
+                &input.request.caller_actor_id,
+                device_id,
+                &producer
+            )
+            .is_err()
+    );
     roster
         .validate_content_endpoint_for_original(&input.original, &producer)
         .unwrap();
@@ -708,11 +723,29 @@ fn later_reader_opens_original_attachment_with_public_epoch_and_retained_root() 
     changed.authorization_event_ref = EventId::from_digest(DigestSuite::Sha256, [73; 32]);
     assert!(
         roster
+            .validate_content_endpoint_for_device(
+                input.original.actual_signer(),
+                device_id,
+                &changed
+            )
+            .is_err()
+    );
+    assert!(
+        roster
             .validate_content_endpoint_for_original(&input.original, &changed)
             .is_err()
     );
     changed = producer.clone();
     changed.signature_key_base64url = arkret_canonical::base64url_encode([74; 32]);
+    assert!(
+        roster
+            .validate_content_endpoint_for_device(
+                input.original.actual_signer(),
+                device_id,
+                &changed
+            )
+            .is_err()
+    );
     assert!(
         roster
             .validate_content_endpoint_for_original(&input.original, &changed)

@@ -81,6 +81,36 @@ impl VerifiedMlsHistoricalContentRoster {
         Ok(())
     }
 
+    /// Authoring hosts independently qualify their actual native Account and
+    /// Device before using this public historical leaf lookup. No membership
+    /// or native authoring authority is conferred by these selector values.
+    pub fn validate_content_endpoint_for_device(
+        &self,
+        actor: &arkret_wire::ActorId,
+        device: &arkret_wire::DeviceId,
+        endpoint: &ContentEndpoint,
+    ) -> Result<(), String> {
+        endpoint.validate().map_err(|error| error.to_string())?;
+        if endpoint.actor_id != *actor
+            || !matches!(&endpoint.endpoint,
+            arkret_wire::MlsWelcomeRecipientEndpoint::Device { device_id } if device_id == device)
+        {
+            return Err("attachment producer differs from the actual authoring Device".into());
+        }
+        let mut matching = self.bindings.iter().filter(|binding| binding.actor_id == *actor
+            && matches!(&binding.endpoint, arkret_models_crypto::MlsEndpointIdentity::HumanDevice { device_id, .. } if device_id == device));
+        let binding = matching
+            .next()
+            .ok_or("authoring Device has no original accepted leaf")?;
+        if matching.next().is_some()
+            || binding.device_authorize_event_id.as_ref() != Some(&endpoint.authorization_event_ref)
+            || binding.signature_key.as_str() != endpoint.signature_key_base64url
+        {
+            return Err("attachment producer differs from its original accepted leaf".into());
+        }
+        Ok(())
+    }
+
     /// The host first consumes this exact original and verifies its native
     /// producer key through the authenticated source. Leaf attribution alone
     /// is not an Event signature verifier or a history-disclosure grant.
