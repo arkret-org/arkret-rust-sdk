@@ -205,3 +205,52 @@ fn formal_cleanup_signing_domains_and_two_projection_roles_remain_separate() {
         assert!(disclosed.validate_for_request(&request).is_err());
     }
 }
+
+#[test]
+fn predecessor_associations_are_required_ordered_and_signed_but_outside_stable_intent() {
+    use arkret_models_crypto::{
+        ContentRecoveryScopeCleanupAuthorization, ContentRecoveryScopeCleanupResponseBody,
+    };
+    // Byte/shape bindings do not prove Native predecessor census, supersedes,
+    // an immutable reservation or cross-episode fulfillment.
+    let f = fixture();
+    let original = &f["scope_retirement"]["authorization"];
+    let source: ContentRecoveryScopeCleanupAuthorization =
+        serde_json::from_value(original.clone()).unwrap();
+    source.validate().unwrap();
+    assert_eq!(
+        canonical_json_bytes(&source).unwrap(),
+        canonical_json_bytes(original).unwrap()
+    );
+    let mut missing = original.clone();
+    missing
+        .as_object_mut()
+        .unwrap()
+        .remove("predecessor_authorization_event_refs");
+    assert!(serde_json::from_value::<ContentRecoveryScopeCleanupAuthorization>(missing).is_err());
+    let mut null = original.clone();
+    null["predecessor_authorization_event_refs"] = Value::Null;
+    assert!(serde_json::from_value::<ContentRecoveryScopeCleanupAuthorization>(null).is_err());
+    let mut refs = [111, 112].map(|byte| {
+        arkret_wire::EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [byte; 32])
+    });
+    refs.sort_by(|left, right| left.as_str().as_bytes().cmp(right.as_str().as_bytes()));
+    let mut associated = source.clone();
+    associated.predecessor_authorization_event_refs = refs.to_vec();
+    associated.validate().unwrap();
+    assert_eq!(
+        associated.intent_digest().unwrap(),
+        source.intent_digest().unwrap()
+    );
+    assert_ne!(
+        associated.signing_bytes().unwrap(),
+        source.signing_bytes().unwrap()
+    );
+    let response: ContentRecoveryScopeCleanupResponseBody =
+        serde_json::from_value(f["scope_retirement"]["deliveries"]["removed"].clone()).unwrap();
+    assert!(response.validate_for_source(&associated).is_err());
+    associated.predecessor_authorization_event_refs.reverse();
+    assert!(associated.validate().is_err());
+    associated.predecessor_authorization_event_refs = vec![refs[0].clone(), refs[0].clone()];
+    assert!(associated.validate().is_err());
+}

@@ -58,10 +58,19 @@ impl ContentRecoveryScopeCleanupAuthorization {
             .canonical_mls_group_id()?;
         bytes32(&self.nonce_base64url)?;
         bytes32(&self.delivery_challenge_base64url)?;
+        if self
+            .predecessor_authorization_event_refs
+            .windows(2)
+            .any(|pair| pair[0].as_str().as_bytes() >= pair[1].as_str().as_bytes())
+        {
+            return protocol("cleanup predecessor authorizations must be unique and UTF-8 sorted");
+        }
         validate_signature_shape(&self.signature, &self.verification_method)
     }
 
     /// Stable I excludes route, current challenge, method and source renewal.
+    /// Predecessor references are a separately frozen native association,
+    /// authenticated by the complete source signature rather than this digest.
     /// Its hash is not native authorization or an outer transport cache key.
     pub fn intent_digest(&self) -> Result<arkret_wire::Hash> {
         #[derive(Serialize)]

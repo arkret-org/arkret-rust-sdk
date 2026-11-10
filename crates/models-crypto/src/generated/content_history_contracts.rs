@@ -2,7 +2,7 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/content-encryption.schema.json
-// sha256=0b61dfee11f30ae111291dde7c3604f8c8322a999a4e552498a2e5f758e98576
+// sha256=b17a2174599d5171d5621f062d5775b20dc75f7e20e2b5827cb7def6cd326ff5
 //
 // Input: schemas/decimal-integers.schema.json
 // sha256=7ea09c46f777e010c72a1fd069b7fbefc7d66924e7b3ad5a5961ce9914858987
@@ -470,6 +470,7 @@ pub struct ContentRecoveryScopeCleanupAuthorization {
     pub inventory_digest: arkret_wire::Hash,
     pub inventory_entry: ContentRecoveryInventoryEntry,
     pub destination_service_id: arkret_wire::DidCoreId,
+    pub predecessor_authorization_event_refs: Vec<arkret_wire::EventId>,
     pub nonce_base64url: String,
     pub delivery_challenge_base64url: String,
     pub verification_method: arkret_wire::DidUrl,
