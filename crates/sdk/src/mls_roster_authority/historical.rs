@@ -67,6 +67,20 @@ impl VerifiedMlsHistoricalContentRoster {
         .map_err(|error| error.to_string())
     }
 
+    /// The host authenticates the enclosing descriptor's original separately.
+    /// This checks only its exact original leaf and authorization provenance.
+    pub fn validate_content_endpoint_for_original(
+        &self,
+        original: &Event,
+        endpoint: &ContentEndpoint,
+    ) -> Result<(), String> {
+        endpoint.validate().map_err(|error| error.to_string())?;
+        if self.content_endpoint(original)? != *endpoint {
+            return Err("descriptor producer differs from its original signed endpoint".into());
+        }
+        Ok(())
+    }
+
     /// The host first consumes this exact original and verifies its native
     /// producer key through the authenticated source. Leaf attribution alone
     /// is not an Event signature verifier or a history-disclosure grant.

@@ -629,6 +629,116 @@ fn later_authorized_reader_uses_genesis_public_material_without_a_prejoin_event(
 }
 
 #[test]
+fn later_reader_opens_original_attachment_with_public_epoch_and_retained_root() {
+    let input = later_reader_fixture();
+    let mut materials = input.input();
+    materials.genesis_original = None;
+    materials.content_original = None;
+    let roster = verify_mls_self_historical_content_roster(materials).unwrap();
+    let producer = roster.content_endpoint(&input.original).unwrap();
+    roster
+        .validate_content_endpoint_for_original(&input.original, &producer)
+        .unwrap();
+    let context = arkret_models_crypto::AttachmentContentKeyContext {
+        effective_scope: input.context.effective_scope.clone(),
+        genesis_event_ref: input.context.genesis_event_ref.clone(),
+        epoch: input.context.epoch,
+        scheme: arkret_crypto::blob_aead::SCHEME_STREAM.into(),
+        encryption_algorithm: arkret_crypto::blob_aead::ALG_STREAM_XCHACHA.into(),
+        content_key_salt: arkret_models_crypto::AttachmentContentKeySalt::from_bytes([71; 32]),
+        producer: producer.clone(),
+    };
+    let key = arkret_crypto::content_history::derive_attachment_content_key(&input.root, &context)
+        .unwrap();
+    let resolver = |reference: &arkret_models_crypto::EncryptedAttachmentGroupStateRef| {
+        (reference.event_id().ok().as_ref() == Some(&input.context.group_state_ref)).then(|| {
+            arkret_crypto::blob_aead::ResolvedAttachmentGroupState {
+                effective_scope: input.context.effective_scope.clone(),
+                genesis_event_ref: input.context.genesis_event_ref.clone(),
+                epoch: input.context.epoch,
+            }
+        })
+    };
+    for reference in [
+        arkret_models_crypto::EncryptedAttachmentGroupStateRef::Event(
+            input.context.group_state_ref.clone(),
+        ),
+        arkret_models_crypto::EncryptedAttachmentGroupStateRef::Digest(
+            arkret_wire::Hash::new(input.context.group_state_ref.event_digest().to_string())
+                .unwrap(),
+        ),
+    ] {
+        let parameters = arkret_crypto::blob_aead::StreamEncryptParams {
+            key_ref: arkret_models_crypto::EncryptedAttachmentKeyRef {
+                algorithm: arkret_models_crypto::EncryptedAttachmentKeyAlgorithm::Mls,
+                group_state_ref: reference,
+            },
+            content_context: context.clone(),
+            digest_suite: DigestSuite::Sha256,
+            media_type: "application/octet-stream".into(),
+            segment_bytes: 262144,
+        };
+        let (ciphertext, descriptor) = arkret_crypto::blob_aead::encrypt_stream(
+            b"original archived attachment",
+            &key,
+            &parameters,
+            &resolver,
+        )
+        .unwrap();
+        roster
+            .validate_content_endpoint_for_original(&input.original, descriptor.producer())
+            .unwrap();
+        assert_eq!(
+            arkret_crypto::blob_aead::decrypt_stream(&ciphertext, &descriptor, &key, &resolver)
+                .unwrap(),
+            b"original archived attachment"
+        );
+        let mut changed = descriptor.clone();
+        let arkret_models_crypto::EncryptedAttachment::Stream(stream) = &mut changed else {
+            unreachable!()
+        };
+        stream.content_key_salt =
+            arkret_models_crypto::AttachmentContentKeySalt::from_bytes([72; 32]);
+        assert!(
+            arkret_crypto::blob_aead::decrypt_stream(&ciphertext, &changed, &key, &resolver)
+                .is_err()
+        );
+    }
+    let mut changed = producer.clone();
+    changed.authorization_event_ref = EventId::from_digest(DigestSuite::Sha256, [73; 32]);
+    assert!(
+        roster
+            .validate_content_endpoint_for_original(&input.original, &changed)
+            .is_err()
+    );
+    changed = producer.clone();
+    changed.signature_key_base64url = arkret_canonical::base64url_encode([74; 32]);
+    assert!(
+        roster
+            .validate_content_endpoint_for_original(&input.original, &changed)
+            .is_err()
+    );
+    changed = producer.clone();
+    changed.actor_id = input.request.caller_actor_id.clone();
+    assert!(
+        roster
+            .validate_content_endpoint_for_original(&input.original, &changed)
+            .is_err()
+    );
+    changed = producer;
+    changed.endpoint = arkret_wire::MlsWelcomeRecipientEndpoint::Device {
+        device_id: "ak:device:01904100-0000-7000-8000-000000000099"
+            .parse()
+            .unwrap(),
+    };
+    assert!(
+        roster
+            .validate_content_endpoint_for_original(&input.original, &changed)
+            .is_err()
+    );
+}
+
+#[test]
 fn old_epoch_authority_excludes_future_adds_and_surplus_recovery_material() {
     let mut input = later_reader_fixture();
     let peer = verify_mls_member_roster_authority_pages(&input.pages, &input.request).unwrap();
