@@ -5,7 +5,7 @@
 // sha256=51276d41d5ca6dde5257d686a51b678c57467c4377417653060861c8ec8fb854
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=586dcc2160f190a9fbbcb1f5857251190e1fa6d65f55d7ab65cdec8105d1c8ef
+// sha256=8754dda4399255a8d93502ff99e0f2e245ea00988a5263e7f64cf21d1eada652
 
 /// Counterpart: `principal-operations.schema.json#/$defs/sidecar_stream_head`.
 /// Accepted refs of one Sidecar's control stream. Circle membership and Sidecar

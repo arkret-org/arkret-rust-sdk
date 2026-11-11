@@ -8,7 +8,7 @@
 //! sha256=12c6338f4680c74863df4fb44a782ce08bf15a489ee12c019864141f0f6962f2
 //!
 //! Bindings: tools/closed-model-bindings.json
-//! sha256=586dcc2160f190a9fbbcb1f5857251190e1fa6d65f55d7ab65cdec8105d1c8ef
+//! sha256=8754dda4399255a8d93502ff99e0f2e245ea00988a5263e7f64cf21d1eada652
 
 /// Counterpart: `realm-actor.schema.json#/$defs/control_scope/properties/kind`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]

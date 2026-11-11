@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json;
-//! sha256=4e17d862e668523b1677e15c08c7496e358f86d9e6ccef34dcb1b02083933214
+//! sha256=49be3985a23599eb4fea09aa3fb88cd689aff2df697285190bed9fac9f3d642b
 //! Entries: protocol_time_tolerances=2, protocol_time_tolerance_scenarios=3
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

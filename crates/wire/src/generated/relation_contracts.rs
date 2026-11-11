@@ -11,7 +11,7 @@
 // sha256=c3ca87e220c0585e60e93bf4cc0aa94b1b4b22d90ad1cf5dc1a6f8fe97ea198a
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=586dcc2160f190a9fbbcb1f5857251190e1fa6d65f55d7ab65cdec8105d1c8ef
+// sha256=8754dda4399255a8d93502ff99e0f2e245ea00988a5263e7f64cf21d1eada652
 
 /// Counterpart: `relation.schema.json#/$defs/relation_definition`.
 /// Closed authoring input for `ak.relation.create`.

@@ -10,7 +10,7 @@ use crate::internal_prelude::*;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MorphUpdatePayload {
-    pub target_ref: MorphId,
+    pub morph_id: MorphId,
     pub patch: Patch,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expected_state_digest: Option<Hash>,
@@ -20,7 +20,7 @@ impl MorphUpdatePayload {
     pub fn for_morph(morph_id: MorphId, patch: Patch) -> Result<Self> {
         validate_morph_update_patch(&patch)?;
         Ok(Self {
-            target_ref: morph_id,
+            morph_id,
             patch,
             expected_state_digest: None,
         })

@@ -38,10 +38,10 @@ fn strand_tracks_update_accepts_configuration_leaf_patch() {
         .unwrap();
 
     assert_eq!(
-        payload["target_ref"],
+        payload["strand_id"],
         "ak:strand:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1"
     );
-    assert!(payload.get("strand_id").is_none());
+    assert!(payload.get("target_ref").is_none());
     assert!(payload.get("tracks").is_none());
     assert!(payload.get("patch").is_some());
     event_payload_validator_catalog()

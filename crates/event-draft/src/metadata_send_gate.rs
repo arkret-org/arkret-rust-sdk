@@ -329,7 +329,7 @@ mod tests {
             let (target, id) = if kind == EventKind::SpaceUpdate {
                 ("space_id", SPACE)
             } else {
-                ("target_ref", STRAND)
+                ("strand_id", STRAND)
             };
             let structural = if kind == EventKind::SpaceUpdate {
                 json!({"rank": "U"})
@@ -375,7 +375,7 @@ mod tests {
             let (target, id) = if kind == EventKind::SpaceUpdate {
                 ("space_id", SPACE)
             } else {
-                ("target_ref", STRAND)
+                ("strand_id", STRAND)
             };
             for patch in [
                 json!(null),

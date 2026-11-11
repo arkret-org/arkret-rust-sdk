@@ -5,13 +5,13 @@
 // sha256=373a7a8a913f21d112f9145b25e452bc3d7527d859425191f63dd3d0daab37e0
 //
 // Input: schemas/event-payload.schema.json
-// sha256=c1b7f6c9f9f4ceb88c4b7c2924da91d09b11c7dd9ef63fe1e1097a133c1d6fe0
+// sha256=acfbdce31eae2f3c3f4ca550f3506c9ecd500e4de81b3517fe8167903934c7c4
 //
 // Input: schemas/realm-organization-operations.schema.json
 // sha256=cb36954bb1f984ec3bea96289ede428accabc65334aa74fa356b6fd609fe56f9
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=586dcc2160f190a9fbbcb1f5857251190e1fa6d65f55d7ab65cdec8105d1c8ef
+// sha256=8754dda4399255a8d93502ff99e0f2e245ea00988a5263e7f64cf21d1eada652
 
 /// Counterpart: `realm-link-operations.schema.json#/$defs/realm_link_list`.
 /// `realm-link-operations.schema.json#/$defs/realm_link_list`.

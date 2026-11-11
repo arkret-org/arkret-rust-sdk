@@ -94,9 +94,9 @@ impl ActorProfileUpdatePayload {
                 "actor profile update projection needs an ak.profile.update Event".to_owned(),
             ));
         }
-        if current.id.as_ref() != Some(&self.target_ref) {
+        if current.id.as_ref() != Some(&self.actor_profile_id) {
             return Err(WireError::Protocol(
-                "ak.profile.update target_ref does not match the current profile".to_owned(),
+                "ak.profile.update actor_profile_id does not match the current profile".to_owned(),
             ));
         }
         self.validate_paths()?;
@@ -211,7 +211,7 @@ mod tests {
             json!({"$op":"set","value":fixture["kat"]["envelope"]}),
         ] {
             let payload: ActorProfileUpdatePayload = serde_json::from_value(json!({
-                "target_ref":current.id,"patch":{"encrypted_private_fields":slot}
+                "actor_profile_id":current.id,"patch":{"encrypted_private_fields":slot}
             }))
             .unwrap();
             payload.validate_for_account_self_service().unwrap();
@@ -232,7 +232,7 @@ mod tests {
         }
         let retained = current.encrypted_private_fields.clone();
         let display: ActorProfileUpdatePayload = serde_json::from_value(json!({
-            "target_ref":current.id,"patch":{"display_name":"Public update"}
+            "actor_profile_id":current.id,"patch":{"display_name":"Public update"}
         }))
         .unwrap();
         let next = display
@@ -252,7 +252,7 @@ mod tests {
             json!({"encrypted_private_fields":null}),
         ] {
             let payload: ActorProfileUpdatePayload = serde_json::from_value(json!({
-                "target_ref":current.id,"patch":patch
+                "actor_profile_id":current.id,"patch":patch
             }))
             .unwrap();
             assert!(payload.validate_paths().is_err());
@@ -263,7 +263,7 @@ mod tests {
     fn update_is_a_delta_with_derived_update_members() {
         let current = created();
         let payload: ActorProfileUpdatePayload = serde_json::from_value(json!({
-            "target_ref": current.id,
+            "actor_profile_id": current.id,
             "patch": {"display_name": "Alice C.", "profile_fields.biography": {"$op": "unset"}},
             "expected_state_digest": ActorProfileUpdatePayload::state_digest(&current).unwrap()
         }))
@@ -291,7 +291,7 @@ mod tests {
             json!({"schema": "ak.schema.other.v1"}),
         ] {
             let Ok(payload) = serde_json::from_value::<ActorProfileUpdatePayload>(json!({
-                "target_ref": current.id,
+                "actor_profile_id": current.id,
                 "patch": patch
             })) else {
                 continue;
@@ -304,7 +304,7 @@ mod tests {
             assert!(payload.apply(&update, &current).is_err(), "{patch}");
         }
         let stale: ActorProfileUpdatePayload = serde_json::from_value(json!({
-            "target_ref": current.id,
+            "actor_profile_id": current.id,
             "patch": {"display_name": "Alice C."},
             "expected_state_digest": format!("sha256:{}", "0".repeat(64))
         }))
@@ -316,7 +316,7 @@ mod tests {
         );
         assert!(stale.apply(&update, &current).is_err());
         let foreign: ActorProfileUpdatePayload = serde_json::from_value(json!({
-            "target_ref": "ak:actor_profile:AWxu9WEa6ZSBa79XtJFqrj3WsshthqPPUDPk-cMq5gZM",
+            "actor_profile_id": "ak:actor_profile:AWxu9WEa6ZSBa79XtJFqrj3WsshthqPPUDPk-cMq5gZM",
             "patch": {"display_name": "Alice C."}
         }))
         .unwrap();

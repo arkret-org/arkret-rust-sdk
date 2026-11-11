@@ -111,7 +111,7 @@ pub fn direct_conversation_structure_admits(
                         .is_none_or(|state| state == ObjectState::Active)
             }),
         EventKind::StrandUpdate => {
-            let Some(current) = target_chat("target_ref") else {
+            let Some(current) = target_chat("strand_id") else {
                 return false;
             };
             chat(current)

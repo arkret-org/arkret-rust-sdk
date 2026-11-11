@@ -74,7 +74,7 @@ fn patch_event_family_maps_to_canonical_payloads() {
             "ak.strand.update",
             "strand_patch_payload",
             json!({
-                "target_ref": "ak:strand:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-",
+                "strand_id": "ak:strand:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-",
                 "patch": { "metadata.title": { "$op": "set", "value": "Roadmap" } }
             }),
         ),
@@ -82,7 +82,7 @@ fn patch_event_family_maps_to_canonical_payloads() {
             "ak.morph.update",
             "morph_update_payload",
             json!({
-                "target_ref": "ak:morph:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-",
+                "morph_id": "ak:morph:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-",
                 "patch": { "metadata.title": { "$op": "set", "value": "Roadmap" } }
             }),
         ),
@@ -98,7 +98,7 @@ fn patch_event_family_maps_to_canonical_payloads() {
             "ak.profile.update",
             "actor_profile_update_payload",
             json!({
-                "target_ref": "ak:actor_profile:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-",
+                "actor_profile_id": "ak:actor_profile:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-",
                 "patch": { "title": { "$op": "set", "value": "Roadmap" } }
             }),
         ),
@@ -129,7 +129,7 @@ fn patch_event_family_maps_to_canonical_payloads() {
         .validate_payload(
             "ak.profile.realm_override",
             &json!({
-                "target_ref": "ak:actor_profile:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-",
+                "actor_profile_id": "ak:actor_profile:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-",
                 "target_realm_id": "ak:realm:AQM8rE4gp8l4axkSbbb9_dkqwWE8ZPYHwFsC24o2mrIL",
                 "patch": { "title": { "$op": "set", "value": "Roadmap" } }
             }),
@@ -149,7 +149,7 @@ fn patch_event_family_maps_to_canonical_payloads() {
         .validate_payload(
             "ak.strand.tracks.update",
             &json!({
-                "target_ref": "ak:strand:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-",
+                "strand_id": "ak:strand:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-",
                 "patch": { "tracks.synthesis.is_primary": { "$op": "set", "value": true } }
             }),
         )
@@ -161,12 +161,12 @@ fn patch_event_family_maps_to_canonical_payloads() {
             .validate_payload(
                 "ak.strand.update",
                 &json!({
-                    "target_ref": "ak:morph:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-",
+                    "strand_id": "ak:morph:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-",
                     "patch": { "metadata.title": { "$op": "set", "value": "Roadmap" } }
                 }),
             )
             .is_err(),
-        "ak.strand.update target_ref must be a Strand id"
+        "ak.strand.update strand_id must be a Strand id"
     );
 }
 
@@ -180,7 +180,7 @@ fn morph_update_rejects_create_locked_morph_kind() {
         .validate_payload(
             "ak.morph.update",
             &json!({
-                "target_ref": "ak:morph:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-",
+                "morph_id": "ak:morph:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-",
                 "patch": { "metadata.title": { "$op": "set", "value": "Roadmap" } }
             }),
         )
@@ -190,7 +190,7 @@ fn morph_update_rejects_create_locked_morph_kind() {
             .validate_payload(
                 "ak.morph.update",
                 &json!({
-                    "target_ref": "ak:morph:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-",
+                    "morph_id": "ak:morph:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-",
                     "patch": { "morph_kind": { "$op": "set", "value": "task" } }
                 }),
             )
@@ -202,12 +202,12 @@ fn morph_update_rejects_create_locked_morph_kind() {
             .validate_payload(
                 "ak.morph.update",
                 &json!({
-                    "target_ref": "ak:strand:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-",
+                    "morph_id": "ak:strand:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-",
                     "patch": { "metadata.title": { "$op": "set", "value": "Roadmap" } }
                 }),
             )
             .is_err(),
-        "ak.morph.update target_ref must be a Morph id"
+        "ak.morph.update morph_id must be a Morph id"
     );
 }
 

@@ -5,7 +5,7 @@
 // sha256=dbf2c1e1db194b7f51e4cc6f6befd3805b6b182bdd8daf298746c34ee6375bde
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=586dcc2160f190a9fbbcb1f5857251190e1fa6d65f55d7ab65cdec8105d1c8ef
+// sha256=8754dda4399255a8d93502ff99e0f2e245ea00988a5263e7f64cf21d1eada652
 
 /// Counterpart: `account-subscribe-frame.schema.json#/$defs/account_filter`.
 /// The Account subscribe filter,

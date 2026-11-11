@@ -84,7 +84,7 @@ pub fn validate_resolved_actor_profile(row: &ResolvedActorProfile) -> Result<Act
         EventKind::ProfileUpdate => {
             let payload: crate::events_payloads::ActorProfileUpdatePayload =
                 crate::events_payloads::event_wire::decode_payload_after_kind_validation(event)?;
-            payload.target_ref
+            payload.actor_profile_id
         }
         _ => {
             return Err(WireError::Protocol(

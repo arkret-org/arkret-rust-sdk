@@ -49,7 +49,7 @@ impl RealmSetDefaultStrandPayload {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StrandPatchPayload {
-    pub target_ref: StrandId,
+    pub strand_id: StrandId,
     pub patch: Patch,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expected_state_digest: Option<Hash>,
@@ -71,7 +71,7 @@ impl StrandPatchPayload {
         let mut patch = Patch::new();
         patch.insert_op("topic", op)?;
         let payload = Self {
-            target_ref: strand_id,
+            strand_id,
             patch,
             expected_state_digest: Some(expected_state_digest),
         };
@@ -115,7 +115,7 @@ impl StrandPatchPayload {
 
     pub fn for_strand(strand_id: StrandId, patch: Patch) -> Result<Self> {
         let payload = Self {
-            target_ref: strand_id,
+            strand_id,
             patch,
             expected_state_digest: None,
         };

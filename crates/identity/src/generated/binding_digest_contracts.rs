@@ -5,7 +5,7 @@
 // sha256=24ce65b5dac11e00aba03d5d059426386fd0a4f2bab2e3cf30d2a86eb8dee2d6
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=586dcc2160f190a9fbbcb1f5857251190e1fa6d65f55d7ab65cdec8105d1c8ef
+// sha256=8754dda4399255a8d93502ff99e0f2e245ea00988a5263e7f64cf21d1eada652
 
 /// Counterpart: `did-binding-contracts.schema.json#/$defs/evidence_dependencies`.
 /// The structured dependency record a binding carries so witness-level

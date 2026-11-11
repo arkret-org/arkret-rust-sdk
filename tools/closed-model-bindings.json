@@ -1004,8 +1004,8 @@
               "#[serde(deny_unknown_fields)]"
             ],
             "members": {
-              "target_ref": {
-                "name": "target_ref",
+              "actor_profile_id": {
+                "name": "actor_profile_id",
                 "visibility": "pub",
                 "type": "ActorProfileId",
                 "attributes": []
@@ -3058,10 +3058,10 @@
               "#[serde(deny_unknown_fields)]"
             ],
             "members": {
-              "target_ref": {
-                "name": "target_ref",
+              "actor_profile_id": {
+                "name": "actor_profile_id",
                 "visibility": "pub",
-                "type": "String",
+                "type": "ActorProfileId",
                 "attributes": []
               },
               "target_realm_id": {
