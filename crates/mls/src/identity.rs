@@ -757,7 +757,7 @@ impl ArkretMlsIdentity {
             scope: scope.clone(),
             group_id: scope.canonical_mls_group_id()?,
             leaf_bindings: BTreeMap::new(),
-            signal_nonce_counter: 0,
+            signal_nonce_counter: Default::default(),
             own_pending_commit_digest: None,
             content_roots: BTreeMap::new(),
         };
@@ -816,7 +816,7 @@ impl ArkretMlsIdentity {
             scope: scope.clone(),
             group_id: scope.canonical_mls_group_id()?,
             leaf_bindings: BTreeMap::new(),
-            signal_nonce_counter: 0,
+            signal_nonce_counter: Default::default(),
             own_pending_commit_digest: None,
             content_roots: BTreeMap::new(),
         };

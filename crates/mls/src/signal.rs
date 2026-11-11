@@ -8,12 +8,14 @@ use std::mem::size_of;
 
 use arkret_canonical::{base64url_decode, base64url_encode};
 use arkret_crypto::{AeadNonceContext, AeadNonceReplayTracker, compose_aead_nonce};
-use arkret_models_crypto::MlsEndpointIdentity;
+use arkret_models_crypto::{ContentEndpoint, MlsEndpointIdentity};
 use arkret_signatures::{PublicKeyMaterial, verify_ed25519_signal_proof};
 use arkret_wire::{
-    EventId, MAX_SIGNAL_PLAINTEXT_BYTES, RealmCommitId, ReasonCode, SIGNAL_AEAD_PURPOSE,
-    SIGNAL_AEAD_SCHEME, SignalAeadBinding, SignalEncryptedPayload, SignalEnvelope,
+    EventId, MAX_SIGNAL_PLAINTEXT_BYTES, MlsWelcomeRecipientEndpoint, RealmCommitId, ReasonCode,
+    SIGNAL_AEAD_PURPOSE, SIGNAL_AEAD_SCHEME, SignalAeadBinding, SignalEncryptedPayload,
+    SignalEnvelope, StationSigningKey,
 };
+use serde::{Deserialize, Serialize};
 use zeroize::Zeroizing;
 
 use crate::group::{ArkretMlsGroup, ExporterAeadSuite};
@@ -24,6 +26,71 @@ use crate::{MlsError as Error, Result};
 pub struct EncryptedSignalPayload {
     pub encrypted_payload: SignalEncryptedPayload,
     pub nonce_counter: u64,
+}
+
+/// Local counter continuity belongs to the exact verified encryption domain.
+/// Missing counter state is not a fresh endpoint and must not deserialize as 0.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct SignalNonceCounter {
+    pub(crate) context: Option<AeadNonceContext>,
+    pub(crate) next: u64,
+}
+
+impl SignalNonceCounter {
+    fn next_for(&self, context: &AeadNonceContext) -> u64 {
+        if self.context.as_ref() == Some(context) {
+            self.next
+        } else {
+            0
+        }
+    }
+
+    pub(crate) fn merge(&self, other: &Self) -> Result<Self> {
+        if self.context == other.context {
+            return Ok(Self {
+                context: self.context.clone(),
+                next: self.next.max(other.next),
+            });
+        }
+        match (&self.context, &other.context) {
+            (None, _) if self.next == 0 => Ok(other.clone()),
+            (_, None) if other.next == 0 => Ok(self.clone()),
+            (Some(left), Some(right))
+                if left.mls_group_id == right.mls_group_id && left.epoch != right.epoch =>
+            {
+                Ok(if left.epoch > right.epoch {
+                    self.clone()
+                } else {
+                    other.clone()
+                })
+            }
+            _ => Err(Error::Protocol(
+                "frozen MLS state conflicts with its Signal nonce domain".into(),
+            )),
+        }
+    }
+
+    pub(crate) fn validate(&self, group_id: &arkret_wire::MlsGroupId, epoch: u64) -> Result<()> {
+        match &self.context {
+            None if self.next == 0 => Ok(()),
+            Some(context) if &context.mls_group_id == group_id && context.epoch <= epoch => {
+                let endpoint: ContentEndpoint = serde_json::from_str(&context.sender_domain)?;
+                endpoint.validate()?;
+                if arkret_canonical::canonical::canonical_json_bytes(&endpoint)?
+                    != context.sender_domain.as_bytes()
+                {
+                    return Err(Error::Protocol(
+                        "Signal nonce domain is not canonical".into(),
+                    ));
+                }
+                Ok(())
+            }
+            _ => Err(Error::Protocol(
+                "Signal nonce allocator continuity is missing or inconsistent".into(),
+            )),
+        }
+    }
 }
 
 /// Independently resolved current authority for a Signal sender.
@@ -50,7 +117,28 @@ impl SignalSenderAuthority<'_> {
 
 impl ArkretMlsGroup {
     pub fn signal_nonce_counter(&self) -> u64 {
-        self.signal_nonce_counter
+        self.signal_nonce_counter.next
+    }
+
+    /// Derive the local allocator domain only from the installed accepted leaf.
+    pub fn local_signal_nonce_context(&self) -> Result<AeadNonceContext> {
+        let endpoint = self.local_content_endpoint()?;
+        endpoint.validate()?;
+        Ok(AeadNonceContext {
+            mls_group_id: self.group_id(),
+            epoch: self.epoch(),
+            sender_domain: String::from_utf8(arkret_canonical::canonical::canonical_json_bytes(
+                &endpoint,
+            )?)
+            .map_err(|error| Error::Protocol(error.to_string()))?,
+        })
+    }
+
+    /// Return the next safe floor for an external, atomically durable allocator.
+    pub fn signal_nonce_reservation(&self) -> Result<(AeadNonceContext, u64)> {
+        let context = self.local_signal_nonce_context()?;
+        let next = self.signal_nonce_counter.next_for(&context);
+        Ok((context, next))
     }
 
     /// Encrypt a Signal from the current epoch. The caller must persist the
@@ -59,6 +147,27 @@ impl ArkretMlsGroup {
         &mut self,
         binding: &SignalAeadBinding<'_>,
         plaintext: &[u8],
+    ) -> Result<EncryptedSignalPayload> {
+        self.encrypt_signal_payload_inner(binding, plaintext, None)
+    }
+
+    /// Consume an already durably reserved nonce. A different accepted domain or
+    /// a stale reservation fails closed, and the caller must burn that value.
+    pub fn encrypt_signal_payload_with_reserved_nonce(
+        &mut self,
+        binding: &SignalAeadBinding<'_>,
+        plaintext: &[u8],
+        context: &AeadNonceContext,
+        counter: u64,
+    ) -> Result<EncryptedSignalPayload> {
+        self.encrypt_signal_payload_inner(binding, plaintext, Some((context, counter)))
+    }
+
+    fn encrypt_signal_payload_inner(
+        &mut self,
+        binding: &SignalAeadBinding<'_>,
+        plaintext: &[u8],
+        reservation: Option<(&AeadNonceContext, u64)>,
     ) -> Result<EncryptedSignalPayload> {
         binding.validate()?;
         if plaintext.len() > MAX_SIGNAL_PLAINTEXT_BYTES {
@@ -73,12 +182,35 @@ impl ArkretMlsGroup {
             ));
         }
         let sender_domain = self.verified_signal_sender_domain(binding)?;
-        let counter = self.signal_nonce_counter;
+        let context = signal_nonce_context(binding, &sender_domain)?;
+        if context != self.local_signal_nonce_context()? {
+            return Err(Error::Protocol(
+                "Signal sender differs from the local accepted endpoint".into(),
+            ));
+        }
+        let floor = self.signal_nonce_counter.next_for(&context);
+        let counter = match reservation {
+            Some((reserved_context, counter))
+                if reserved_context == &context && counter >= floor =>
+            {
+                counter
+            }
+            None => floor,
+            _ => {
+                return Err(Error::Protocol(
+                    "Signal nonce reservation is stale or belongs to another endpoint domain"
+                        .into(),
+                ));
+            }
+        };
         let nonce = signal_nonce(binding, &sender_domain, suite, counter)?;
-        self.signal_nonce_counter = self
-            .signal_nonce_counter
+        let next = counter
             .checked_add(1)
             .ok_or_else(|| Error::Crypto("signal nonce counter overflow".to_owned()))?;
+        self.signal_nonce_counter = SignalNonceCounter {
+            context: Some(context),
+            next,
+        };
 
         let nonce_b64 = base64url_encode(&nonce);
         let aad = binding.aad_bytes(&nonce_b64)?;
@@ -154,10 +286,6 @@ impl ArkretMlsGroup {
             ));
         }
         let leaf = self.verified_signal_sender_leaf(&envelope.aead_binding())?;
-        let current_key = current_authority
-            .public_key()
-            .ed25519_bytes()
-            .map_err(|error| Error::Protocol(error.to_string()))?;
         let authority_matches_leaf = match (&current_authority, &leaf.endpoint) {
             (
                 SignalSenderAuthority::AccountDevice {
@@ -184,9 +312,7 @@ impl ArkretMlsGroup {
             }
             _ => false,
         };
-        if base64url_decode(leaf.signature_key.as_str())?.as_slice() != current_key
-            || !authority_matches_leaf
-        {
+        if !authority_matches_leaf {
             return Err(Error::Protocol(
                 "signal current endpoint authority differs from the accepted MLS leaf".to_owned(),
             ));
@@ -197,6 +323,60 @@ impl ArkretMlsGroup {
             &envelope.aead_binding(),
             &envelope.encrypted_payload.nonce,
             &envelope.encrypted_payload.ciphertext,
+            replay,
+        )
+    }
+
+    /// Open under the current signing-key projection delivered by the
+    /// authenticated recipient Station, independently of the MLS leaf key.
+    pub fn open_signal_envelope_with_station_key(
+        &self,
+        envelope: &SignalEnvelope,
+        key: &StationSigningKey,
+        accepted_group_state_ref: &str,
+        accepted_authority_commit_id: &RealmCommitId,
+        replay: &mut AeadNonceReplayTracker,
+    ) -> Result<Vec<u8>> {
+        key.validate()?;
+        if key.actor != envelope.sender_actor_id
+            || key.verification_method != envelope.proof.verification_method
+        {
+            return Err(Error::Protocol(
+                "Signal Station key does not bind the exact sender".into(),
+            ));
+        }
+        let public_key = PublicKeyMaterial::Ed25519Raw {
+            bytes: base64url_decode(key.public_key_base64url.as_str())?,
+        };
+        let authority = match &envelope.sender_device_id {
+            Some(device) => {
+                if key
+                    .verification_method
+                    .as_str()
+                    .split_once('#')
+                    .map(|(_, fragment)| fragment)
+                    != Some(device.as_str())
+                {
+                    return Err(Error::Protocol(
+                        "Signal Station key names another Device".into(),
+                    ));
+                }
+                SignalSenderAuthority::AccountDevice {
+                    public_key: &public_key,
+                    device_authorize_event_id: &key.authorization_ref,
+                }
+            }
+            None => SignalSenderAuthority::Agent {
+                public_key: &public_key,
+                verification_method: &key.verification_method,
+                agent_key_authorize_event_id: &key.authorization_ref,
+            },
+        };
+        self.open_signal_envelope(
+            envelope,
+            authority,
+            accepted_group_state_ref,
+            accepted_authority_commit_id,
             replay,
         )
     }
@@ -258,7 +438,34 @@ impl ArkretMlsGroup {
 
     fn verified_signal_sender_domain(&self, binding: &SignalAeadBinding<'_>) -> Result<Vec<u8>> {
         let leaf = self.verified_signal_sender_leaf(binding)?;
-        arkret_models_crypto::mls_basic_credential_identity(&leaf.actor_id).map_err(Into::into)
+        let (endpoint, authorization_event_ref) = match &leaf.endpoint {
+            MlsEndpointIdentity::HumanDevice { device_id, .. } => (
+                MlsWelcomeRecipientEndpoint::Device {
+                    device_id: device_id.clone(),
+                },
+                leaf.device_authorize_event_id.clone().ok_or_else(|| {
+                    Error::Protocol("Signal Device leaf omits its authorization Event".into())
+                })?,
+            ),
+            MlsEndpointIdentity::AgentRuntime {
+                verification_method,
+                agent_key_authorize_event_id,
+                ..
+            } => (
+                MlsWelcomeRecipientEndpoint::AgentRuntime {
+                    verification_method: verification_method.clone(),
+                },
+                agent_key_authorize_event_id.clone(),
+            ),
+        };
+        let endpoint = ContentEndpoint {
+            actor_id: leaf.actor_id,
+            endpoint,
+            authorization_event_ref,
+            signature_key_base64url: leaf.signature_key.to_string(),
+        };
+        endpoint.validate()?;
+        arkret_canonical::canonical::canonical_json_bytes(&endpoint).map_err(Into::into)
     }
 
     fn verified_signal_sender_leaf(
@@ -268,14 +475,18 @@ impl ArkretMlsGroup {
         let matching = self
             .verified_leaf_bindings()?
             .into_iter()
-            .filter(|leaf| match (&leaf.endpoint, binding.sender_device_id) {
-                (MlsEndpointIdentity::HumanDevice { device_id, .. }, Some(sender_device_id)) => {
-                    device_id == sender_device_id
-                }
-                (MlsEndpointIdentity::AgentRuntime { agent_id, .. }, None) => {
-                    agent_id == binding.sender_actor_id.signing_principal_id()
-                }
-                _ => false,
+            .filter(|leaf| {
+                &leaf.actor_id == binding.sender_actor_id
+                    && match (&leaf.endpoint, binding.sender_device_id) {
+                        (
+                            MlsEndpointIdentity::HumanDevice { device_id, .. },
+                            Some(sender_device_id),
+                        ) => device_id == sender_device_id,
+                        (MlsEndpointIdentity::AgentRuntime { agent_id, .. }, None) => {
+                            agent_id == binding.sender_actor_id.signing_principal_id()
+                        }
+                        _ => false,
+                    }
             })
             .collect::<Vec<_>>();
         if matching.len() != 1 {

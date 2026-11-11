@@ -3,7 +3,7 @@
 //! Input: registry/proof-context-registry.json;
 //! sha256=56191a28852805b7a1afd2278bea5b77c86e7a286d39285ee987205177b8259a Input: registry/
 //! exporter-label-registry.json;
-//! sha256=4a304d8ba93b7c9a258f2d47801ffdc76ebfadbcedf8d62f71ed6430dd32bd50 Input: registry/
+//! sha256=99383803ea8d87be955f9d8785d46c20bd98348e59739c73af31505ab76f3391 Input: registry/
 //! digest-suite-registry.json;
 //! sha256=6b9b7550f45a079a6f68cedadf331309baf338d55d9abae347712f698d1c0a37 Input: registry/
 //! signature-alg-registry.json;
@@ -1516,7 +1516,12 @@ pub const EXPORTER_LABELS: &[ExporterLabelDescriptor] = &[
         id: ExporterLabelId::SignalV1,
         label: "ak.signal-v1",
         primitive: Some("ExpandWithLabel"),
-        context_fields: &["sender_domain"],
+        context_fields: &[
+            "actor_id",
+            "endpoint",
+            "authorization_event_ref",
+            "signature_key_base64url",
+        ],
         output_bytes: "AEAD.Nk",
         empty_context_forbidden: true,
         forbid_reuse_with: &["ak.reaction-routing-v1"],

@@ -109,7 +109,7 @@ pub(super) fn handshake_policy(scope: &ScopeRef) -> Result<openmls::prelude::Wir
 #[non_exhaustive]
 pub enum ExporterAeadSuite {
     /// `MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519`: `AEAD.Nk` = 16,
-    /// `N_AEAD` = 12, leaving a 4-byte sender nonce prefix.
+    /// `N_AEAD` = 12; the durable u64 counter is zero-padded to that width.
     Aes128Gcm,
 }
 
@@ -255,7 +255,7 @@ pub struct ArkretMlsGroup {
     /// Monotonic per-device AEAD nonce counter for the
     /// `ak.signal_exporter_aead.v1` Signal scheme. Persisted with the group
     /// snapshot so a device never repeats a nonce within one MLS epoch.
-    pub(super) signal_nonce_counter: u64,
+    pub(super) signal_nonce_counter: crate::signal::SignalNonceCounter,
     /// Exact wire identity of this holder's staged Commit. Own ciphertext
     /// cannot be authenticated by replaying it through OpenMLS after sending.
     pub(super) own_pending_commit_digest: Option<Hash>,
@@ -338,14 +338,9 @@ struct OpenMlsStateSnapshot {
     signer_public_key: String,
     storage_entries: BTreeMap<String, String>,
     leaf_bindings: BTreeMap<u32, MlsVerifiedLeafBinding>,
-    /// Persisted monotonic Signal AEAD nonce counter. `encoding.md` §10.1
-    /// makes persistence mandatory: a device that cannot recover its counter
-    /// for an epoch MUST advance the epoch rather than restart at 0. The
-    /// counter only ever reaches this snapshot from an in-memory value that
-    /// has already been advanced past every nonce this device emitted, so a
-    /// missing field can only mean "never encrypted a Signal", i.e. 0.
-    #[serde(default, skip_serializing_if = "is_zero_u64")]
-    signal_nonce_counter: u64,
+    /// Required counter continuity and its exact verified endpoint domain.
+    /// Missing state cannot be interpreted as a fresh counter.
+    signal_nonce_counter: crate::signal::SignalNonceCounter,
     own_pending_commit_digest: Option<Hash>,
 }
 
@@ -390,10 +385,6 @@ impl InstalledMlsRecovery {
         let (info, tree) = group.public_group_state_bytes()?;
         replay.verify_publication(&info, &tree)
     }
-}
-
-fn is_zero_u64(value: &u64) -> bool {
-    *value == 0
 }
 
 impl ArkretMlsGroup {
@@ -974,7 +965,7 @@ impl ArkretMlsGroup {
             signer_public_key: encode(self.identity.signer.public()),
             storage_entries: snapshot_provider_storage(&self.identity.provider)?,
             leaf_bindings: self.leaf_bindings.clone(),
-            signal_nonce_counter: self.signal_nonce_counter,
+            signal_nonce_counter: self.signal_nonce_counter.clone(),
             own_pending_commit_digest: self.own_pending_commit_digest.clone(),
         };
         Ok(MlsGroupStateRecord {
@@ -1074,6 +1065,17 @@ impl ArkretMlsGroup {
             content_roots: snapshot.content_roots,
         };
         restored.install_verified_leaf_bindings(bindings.into_values().collect())?;
+        restored
+            .signal_nonce_counter
+            .validate(&restored.group_id(), restored.epoch())?;
+        if let Some(context) = &restored.signal_nonce_counter.context
+            && context.epoch == restored.epoch()
+            && context != &restored.local_signal_nonce_context()?
+        {
+            return Err(Error::Protocol(
+                "restored Signal allocator belongs to another accepted endpoint".into(),
+            ));
+        }
         if let Some(recovery) = &restored.installed_recovery {
             recovery.verify_group(&restored)?;
         }
@@ -1266,7 +1268,9 @@ impl ArkretMlsGroup {
             // used and skipped generations. Never rewind to the frozen copy.
             saved.storage_entries.insert(key.clone(), value.clone());
         }
-        saved.signal_nonce_counter = live.signal_nonce_counter.max(saved.signal_nonce_counter);
+        saved.signal_nonce_counter = live
+            .signal_nonce_counter
+            .merge(&saved.signal_nonce_counter)?;
         for (context, root) in live.content_roots {
             if saved
                 .content_roots
@@ -1895,7 +1899,7 @@ impl ArkretMlsGroup {
             group_id,
             installed_recovery: None,
             leaf_bindings: BTreeMap::new(),
-            signal_nonce_counter: 0,
+            signal_nonce_counter: Default::default(),
             own_pending_commit_digest: None,
             content_roots: BTreeMap::new(),
         })

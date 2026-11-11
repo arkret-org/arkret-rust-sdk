@@ -176,7 +176,7 @@ impl PreparedMlsRecoveryExternalCommit {
             installed_recovery: Some(evidence.clone()),
             content_roots: BTreeMap::new(),
             leaf_bindings: BTreeMap::new(),
-            signal_nonce_counter: 0,
+            signal_nonce_counter: Default::default(),
             own_pending_commit_digest: None,
         };
         evidence.verify_group(&candidate)?;
@@ -249,7 +249,7 @@ impl PreparedMlsRecoveryExternalCommit {
             installed_recovery: Some(frozen.evidence.clone()),
             content_roots: BTreeMap::new(),
             leaf_bindings: BTreeMap::new(),
-            signal_nonce_counter: 0,
+            signal_nonce_counter: Default::default(),
             own_pending_commit_digest: None,
         };
         if candidate.has_pending_commit()

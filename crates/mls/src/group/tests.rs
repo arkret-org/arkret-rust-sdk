@@ -2,6 +2,9 @@ use arkret_wire::{DeviceId, RealmId};
 
 use super::*;
 
+#[path = "tests/signal_endpoint.rs"]
+mod signal_endpoint;
+
 fn identity() -> ArkretMlsIdentity {
     ArkretMlsIdentity::new_test_human_device(
         ActorId::account(arkret_wire::AccountId::new(
@@ -770,8 +773,10 @@ fn self_update_authenticates_the_next_governance_binding_before_installation() {
 fn frozen_commit_recovery_preserves_live_ratchets_and_rejects_another_private_base() {
     let scope = realm_scope();
     let binding = transition_binding(&scope, event(1), 1);
-    let base = identity()
+    let mut base = identity()
         .create_group_with_governance_binding(&scope, &genesis_binding(&scope))
+        .unwrap();
+    base.install_local_creator_binding(base.local_actor_id().clone(), Some(event(86)))
         .unwrap();
     let base_record = base.export_state_record().unwrap();
     let mut original = ArkretMlsGroup::restore_from_state_record(&base_record).unwrap();
@@ -787,7 +792,10 @@ fn frozen_commit_recovery_preserves_live_ratchets_and_rejects_another_private_ba
             b"one base-epoch application message",
         )
         .unwrap();
-    live.signal_nonce_counter = 7;
+    live.signal_nonce_counter = crate::signal::SignalNonceCounter {
+        context: Some(live.local_signal_nonce_context().unwrap()),
+        next: 7,
+    };
     let competing = live
         .self_update_commit_with_governance_binding(&binding)
         .unwrap();
@@ -795,7 +803,7 @@ fn frozen_commit_recovery_preserves_live_ratchets_and_rejects_another_private_ba
     let mut resumed = live
         .resume_frozen_pending_commit(&frozen, &accepted, &binding)
         .unwrap();
-    assert_eq!(resumed.signal_nonce_counter, 7);
+    assert_eq!(resumed.signal_nonce_counter(), 7);
     let live_storage = snapshot_provider_storage(&live.identity.provider).unwrap();
     let resumed_storage = snapshot_provider_storage(&resumed.identity.provider).unwrap();
     let frozen_snapshot: OpenMlsStateSnapshot =
@@ -884,8 +892,10 @@ fn sidecar_frozen_add_verifies_public_transition_without_rewinding_live_ratchets
         )),
     )
     .unwrap();
-    let base = identity()
+    let mut base = identity()
         .create_group_with_governance_binding(&scope, &genesis)
+        .unwrap();
+    base.install_local_creator_binding(base.local_actor_id().clone(), Some(event(86)))
         .unwrap();
     let (group_info, tree) = base.public_group_state_bytes().unwrap();
     let mut tracker = crate::MlsPublicGroupTracker::from_external(
@@ -962,7 +972,10 @@ fn sidecar_frozen_add_verifies_public_transition_without_rewinding_live_ratchets
             b"later application",
         )
         .unwrap();
-    live.signal_nonce_counter = 7;
+    live.signal_nonce_counter = crate::signal::SignalNonceCounter {
+        context: Some(live.local_signal_nonce_context().unwrap()),
+        next: 7,
+    };
     let competing = live
         .add_member_with_governance_binding(&claimed_keypackage(&agent), &binding)
         .unwrap();
@@ -1002,7 +1015,7 @@ fn sidecar_frozen_add_verifies_public_transition_without_rewinding_live_ratchets
         .unwrap();
     assert_eq!(resumed.epoch(), 0);
     assert!(resumed.has_pending_commit());
-    assert_eq!(resumed.signal_nonce_counter, 7);
+    assert_eq!(resumed.signal_nonce_counter(), 7);
     let live_storage = snapshot_provider_storage(&live.identity.provider).unwrap();
     let resumed_storage = snapshot_provider_storage(&resumed.identity.provider).unwrap();
     for (key, value) in &live_storage {
@@ -1759,16 +1772,15 @@ fn application_message_pair_with_member(
 }
 
 #[test]
-fn signal_audit_reproduces_same_actor_device_key_nonce_collision() {
+fn signal_same_actor_devices_separate_key_nonce_and_replay_domains() {
     use arkret_crypto::AeadNonceReplayTracker;
     use arkret_wire::{
         RealmCommitId, SIGNAL_AEAD_PURPOSE, SIGNAL_AEAD_SCHEME, SignalAeadBinding, SignalClass,
         SignalKeyRef,
     };
 
-    // Diagnostic counterexample, not a security acceptance test. Once the
-    // protocol corrects the sender domain, replace these collision assertions
-    // with a regression proving independent endpoint keys and replay domains.
+    // Real Add/Welcome and production AEAD must separate same-Actor devices,
+    // even when independently allocated counters and wire nonces are equal.
     let member = ArkretMlsIdentity::new_test_human_device(
         identity().actor_id,
         DeviceId::new("ak:device:01904100-0000-7000-8000-000000000076").unwrap(),
@@ -1861,7 +1873,11 @@ fn signal_audit_reproduces_same_actor_device_key_nonce_collision() {
         .zip(&second_plaintext[..length])
         .map(|(a, b)| a ^ b)
         .collect::<Vec<_>>();
-    assert_eq!(ciphertext_xor, plaintext_xor);
+    assert_ne!(ciphertext_xor, plaintext_xor);
+    assert_ne!(
+        first.local_signal_nonce_context().unwrap(),
+        second.local_signal_nonce_context().unwrap()
+    );
 
     let mut replay = AeadNonceReplayTracker::default();
     assert_eq!(
@@ -1875,7 +1891,7 @@ fn signal_audit_reproduces_same_actor_device_key_nonce_collision() {
             .unwrap(),
         first_plaintext
     );
-    assert!(
+    assert_eq!(
         first
             .decrypt_signal_payload(
                 &second_binding,
@@ -1883,7 +1899,8 @@ fn signal_audit_reproduces_same_actor_device_key_nonce_collision() {
                 &second_payload.encrypted_payload.ciphertext,
                 &mut replay
             )
-            .is_err()
+            .unwrap(),
+        second_plaintext
     );
     assert_eq!(
         first
@@ -1896,8 +1913,15 @@ fn signal_audit_reproduces_same_actor_device_key_nonce_collision() {
             .unwrap(),
         second_plaintext
     );
-    println!(
-        "confirmed: same Actor, distinct Device/key, same epoch and counter => Signal key/nonce reuse despite different AAD; ciphertext XOR leaks plaintext XOR; shared replay domain rejects second device"
+    assert!(
+        first
+            .decrypt_signal_payload(
+                &second_binding,
+                &second_payload.encrypted_payload.nonce,
+                &second_payload.encrypted_payload.ciphertext,
+                &mut replay
+            )
+            .is_err()
     );
 }
 
