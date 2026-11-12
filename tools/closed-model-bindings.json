@@ -116,6 +116,10 @@
     "event-payload.schema.json#/$defs/timestamp": "chrono::DateTime<chrono::Utc>",
     "realm-invite-link.schema.json#/$defs/proof/properties/transcript_digest": "arkret_wire::Hash",
     "realm-invite-link.schema.json#/$defs/limits/properties/max_lifetime_seconds": "u32",
+    "realm-invite-link.schema.json#/$defs/limits/properties/max_use_count_per_link": "u32",
+    "realm-invite-link.schema.json#/$defs/create_payload/properties/max_use_count": "u32",
+    "realm-invite-link.schema.json#/$defs/definition_value/properties/max_use_count": "u32",
+    "realm-invite-link.schema.json#/$defs/view/properties/max_use_count": "u32",
     "realm-invite-link.schema.json#/$defs/view/properties/use_count": "u32",
     "realm-invite-link.schema.json#/$defs/link_public_key": "String",
     "common-ids.schema.json#/$defs/account_id": "arkret_wire::AccountId",
@@ -202,11 +206,7 @@
     "content-encryption.schema.json#/$defs/recovery_scope_cleanup_self_response_body/properties/delivery_signing_key": "crate::content_history::ContentScopeRetirementDeliverySigningKey",
     "content-encryption.schema.json#/$defs/recovery_scope_cleanup_self_response_body/properties/delivery_signing_key/properties/delivery_digest": "arkret_wire::Hash",
     "content-encryption.schema.json#/$defs/recovery_scope_cleanup_self_response_body/properties/delivery_signing_key/properties/public_key_base64url": "arkret_wire::Base64UrlString",
-    "content-encryption.schema.json#/$defs/recovery_scope_cleanup_self_response_body": "crate::content_history::ContentRecoveryScopeCleanupSelfResponseBody",
-    "realm-invite-link.schema.json#/$defs/limits/properties/max_use_count_per_link": "u32",
-    "realm-invite-link.schema.json#/$defs/create_payload/properties/max_use_count": "u32",
-    "realm-invite-link.schema.json#/$defs/definition_value/properties/max_use_count": "u32",
-    "realm-invite-link.schema.json#/$defs/view/properties/max_use_count": "u32"
+    "content-encryption.schema.json#/$defs/recovery_scope_cleanup_self_response_body": "crate::content_history::ContentRecoveryScopeCleanupSelfResponseBody"
   },
   "families": [
     {
@@ -301,7 +301,7 @@
               "/// Per-pin limited-trust record",
               "/// (`did-binding-contracts.schema.json#/$defs/limited_trust`).",
               "///",
-              "/// Â§5.5 replaced the old single \"reason\" with one state per pin, because the two",
+              "/// \u00c2\u00a75.5 replaced the old single \"reason\" with one state per pin, because the two",
               "/// pins fail independently and for different reasons: a `did:webvh` binding that",
               "/// lost only `version_id` because the resolver did not surface it is a resolver",
               "/// defect, while a `did:key` binding that has no history at all is a terminal",
@@ -339,14 +339,14 @@
               "/// One registered freshness profile row",
               "/// (`did-binding-contracts.schema.json#/$defs/freshness_profile`).",
               "///",
-              "/// Â§5.4 makes every DID authority call site reference exactly one profile id",
-              "/// through its operation / action registration â€” natural-language tier guessing",
+              "/// \u00c2\u00a75.4 makes every DID authority call site reference exactly one profile id",
+              "/// through its operation / action registration \u00e2\u20ac\u201d natural-language tier guessing",
               "/// (\"directory-ish, so any cache will do\") is forbidden, and an unknown id is",
               "/// treated as `high`, never as \"anything cached is fine\".",
               "///",
               "/// `fresh_for_seconds` is the **single** freshness threshold: `refresh_at =",
               "/// verified_at + fresh_for_seconds` and an authority call's `max_age` is the",
-              "/// same value. Two separately maintained constants are exactly the drift Â§5.4",
+              "/// same value. Two separately maintained constants are exactly the drift \u00c2\u00a75.4",
               "/// forbids, so [`Self::requirement`] is the only way to obtain a",
               "/// [`FreshnessRequirement`] from a profile.",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
@@ -416,7 +416,7 @@
               "///",
               "/// A witness revocation, an organization merge or a falsified consistency proof",
               "/// arrives as a *coordinate* (witness DID, organization, log head), never as a",
-              "/// digest â€” digests are one-way, so `evidence_digest` cannot answer \"which",
+              "/// digest \u00e2\u20ac\u201d digests are one-way, so `evidence_digest` cannot answer \"which",
               "/// bindings depend on witness X\". This record can, and a store that declares",
               "/// evidence-bearing methods MUST index it at least by witness DID.",
               "#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]",
@@ -3262,7 +3262,7 @@
               "/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_organization_payload`.",
               "///",
               "/// Organization-side endorsement or revocation for a Realm relationship. The",
-              "/// reducer cell subject is `(organization_id, relationship)` â€” `statement_id`",
+              "/// reducer cell subject is `(organization_id, relationship)` \u00e2\u20ac\u201d `statement_id`",
               "/// is audit identity, not the cell subject. Field order mirrors the spec schema",
               "/// `properties` ordering.",
               "#[derive(Clone, Debug, Serialize, Deserialize)]",
@@ -3482,7 +3482,7 @@
               "/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/cross_object_redaction_payload`.",
               "///",
               "/// `ak.redaction` is the cross-object redaction kind. Per",
-              "/// `models/common-fields.md` Â§5.1 (Message exemption) its target set excludes",
+              "/// `models/common-fields.md` \u00c2\u00a75.1 (Message exemption) its target set excludes",
               "/// Message: `message_id` is not a member and `target_ref` cannot spell",
               "/// `ak:message:`, because Message reaches `state=redacted` only through the",
               "/// object-scoped `ak.message.redact`. This type is the single place that",
@@ -4003,7 +4003,7 @@
               "/// (`event-payload.schema.json#/$defs/strand_move_payload`).",
               "///",
               "/// Moves a Strand between List Spaces. The destination is single-sourced by",
-              "/// `target_space_id` â€” writers MUST NOT put `list_space_id` directly on the",
+              "/// `target_space_id` \u00e2\u20ac\u201d writers MUST NOT put `list_space_id` directly on the",
               "/// payload (`additionalProperties:false` enforces this; the reducer compiles",
               "/// `target_space_id` into the position cell). `from_space_id` is an optional",
               "/// hint the reducer can infer. Required: `board_space_id`, `strand_id`,",
@@ -4994,11 +4994,11 @@
               "/// Wire counterpart:",
               "/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_alias_declaration`.",
               "///",
-              "/// `ak.realm.alias` declaration â€” the ONLY wire carrier of a Realm alias.",
+              "/// `ak.realm.alias` declaration \u00e2\u20ac\u201d the ONLY wire carrier of a Realm alias.",
               "///",
               "/// `realm.schema.json` is a closed object with no `alias` property, and",
               "/// Realm genesis/profile payloads MUST NOT carry one",
-              "/// (`discovery/object-addressing.md` Â§3.3).",
+              "/// (`discovery/object-addressing.md` \u00c2\u00a73.3).",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
             ],
@@ -5662,7 +5662,7 @@
               "///",
               "/// The profile is fixed to the discussion track family and the plaintext",
               "/// therefore carries no `track_name` at all",
-              "/// (`zh/discovery/profiles-presence.md` Â§3.5).",
+              "/// (`zh/discovery/profiles-presence.md` \u00c2\u00a73.5).",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
             ],
@@ -5715,7 +5715,7 @@
               "/// Event history, so it carries no `id`, no `schema`, no `created_at` and no",
               "/// `realm_id`. Realm scope is already bound into the ciphertext by the Signal",
               "/// AAD, the sending device and send time are on the signed envelope, and the",
-              "/// payload kind is the `kind` const. One type both seals and opens â€” the",
+              "/// payload kind is the `kind` const. One type both seals and opens \u00e2\u20ac\u201d the",
               "/// closed schema and this struct describe the same five fields, so a sender's",
               "/// own bytes deserialize back.",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
@@ -6426,7 +6426,7 @@
               "///",
               "/// This is the single Rust expression of",
               "/// `identity-resolution.schema.json#/$defs/service_route_projection`",
-              "/// (`sync/service-surface.md` Â§2.6). It is produced either locally by",
+              "/// (`sync/service-surface.md` \u00c2\u00a72.6). It is produced either locally by",
               "/// [`AuthenticatedServiceResolution::projection`] after method-native",
               "/// verification, or handed over already verified inside an own-Station result",
               "/// such as the media service binding. There is deliberately only one type: a",
@@ -6593,6 +6593,14 @@
               "#[serde(deny_unknown_fields)]"
             ],
             "members": {
+              "field_required": {
+                "name": "field_required",
+                "visibility": "pub",
+                "type": "Option<bool>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
+                ]
+              },
               "enum_values": {
                 "name": "enum_values",
                 "visibility": "pub",
@@ -6614,14 +6622,6 @@
                 "visibility": "pub",
                 "type": "String",
                 "attributes": []
-              },
-              "field_required": {
-                "name": "field_required",
-                "visibility": "pub",
-                "type": "Option<bool>",
-                "attributes": [
-                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
-                ]
               }
             }
           }
@@ -9274,7 +9274,7 @@
               "/// one number could not state where this result stands in all of them.",
               "///",
               "/// Convergence is by stable domain selector plus `expected_revision` CAS, so a",
-              "/// caller writes back against the `revision` of the exact entry it read â€” never",
+              "/// caller writes back against the `revision` of the exact entry it read \u00e2\u20ac\u201d never",
               "/// against a whole-Realm token.",
               "/// Field declaration order is byte-for-byte the `properties` order of",
               "/// `account-state-view.schema.json#/$defs/current`.",
@@ -9419,7 +9419,7 @@
               "/// The Account Authority populates it from a Station-local revocation",
               "/// admission record, which is the only source of the origin-derived",
               "/// authorization Event and generation. That record deliberately carries no",
-              "/// RealmCommit witness, so this binding names the authorization Event alone â€”",
+              "/// RealmCommit witness, so this binding names the authorization Event alone \u00e2\u20ac\u201d",
               "/// it is not a `CommittedEventRef` and MUST NOT be taken from client input, a",
               "/// local cache or a private lookup.",
               "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
@@ -10736,7 +10736,7 @@
               "/// `keys-operations.schema.json#/$defs/backup_active_series_state`.",
               "///",
               "/// v1 registers exactly one backup class, `secret_storage` (key-management",
-              "/// Â§7.5.0 / Â§7.6.1). The object is closed: an `mls_history` or private class",
+              "/// \u00c2\u00a77.5.0 / \u00c2\u00a77.6.1). The object is closed: an `mls_history` or private class",
               "/// member is schema-invalid and is rejected rather than ignored.",
               "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
@@ -10848,7 +10848,7 @@
             "signature": "pub struct KeyBackupSummary",
             "attributes": [
               "/// `keys-operations.schema.json#/$defs/backup_metadata`: the closed list",
-              "/// summary of one stored envelope (key-management Â§7.6.1).",
+              "/// summary of one stored envelope (key-management \u00c2\u00a77.6.1).",
               "///",
               "/// Field order is the schema `properties` order. Optional members are absent",
               "/// or carry a value; only the schema's tristate members (`supersedes_id`,",
@@ -11890,7 +11890,7 @@
               "/// Closed applicant proof for one automatic join gate",
               "/// (`event-payload.schema.json#/$defs/join_gate_proof`).",
               "///",
-              "/// The binding tuple â€” gate, Realm, applicant, policy revision, creation time â€”",
+              "/// The binding tuple \u00e2\u20ac\u201d gate, Realm, applicant, policy revision, creation time \u00e2\u20ac\u201d",
               "/// rides as wire members and is covered by `proofs`, so a proof replayed across",
               "/// Realms, applicants or policy revisions fails by field comparison before any",
               "/// signature is checked. Freshness is judged against the enclosing Event's",
@@ -11988,7 +11988,7 @@
               "/// (`event-payload.schema.json#/$defs/membership_payload`).",
               "///",
               "/// `additionalProperties:false`: the removed `handle` / `from` keys that older",
-              "/// inkson call sites tried to emit are intentionally NOT representable here â€”",
+              "/// inkson call sites tried to emit are intentionally NOT representable here \u00e2\u20ac\u201d",
               "/// `handle` has no spec-legal home in this payload (the member identity is",
               "/// carried by `member_id`; handle evidence lives in signed `HandleClaim`",
               "/// objects on the roster, not the durable membership event), and the FSM",
