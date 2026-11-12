@@ -51,17 +51,15 @@ pub fn sign_realm_actor_backup_handover_offer(
     Ok(serde_json::from_value(value)?)
 }
 
-pub fn verify_realm_actor_backup_handover_offer(
+fn verify_handover_offer_original(
     offer: &RealmActorContentBackupHandoverOffer,
     accepted_new_service_document: &DidDocument,
-    evaluated_at: chrono::DateTime<chrono::Utc>,
 ) -> Result<()> {
     offer.realm_actor_id.validate()?;
     offer.next_content_backup_recipient.validate()?;
     if arkret_wire::project_did_to_core_id(&accepted_new_service_document.id)?
         != offer.new_service_id
-        || evaluated_at < offer.signature.created_at
-        || evaluated_at >= offer.expires_at
+        || offer.expires_at <= offer.signature.created_at
     {
         return Err(invalid(
             "archive offer does not bind the accepted new Service or freshness cut",
@@ -86,6 +84,34 @@ pub fn verify_realm_actor_backup_handover_offer(
         &key,
     )
     .map_err(Into::into)
+}
+
+pub fn verify_realm_actor_backup_handover_offer(
+    offer: &RealmActorContentBackupHandoverOffer,
+    accepted_original_service_document: &DidDocument,
+    evaluated_at: chrono::DateTime<chrono::Utc>,
+) -> Result<()> {
+    verify_handover_offer_original(offer, accepted_original_service_document)?;
+    import_evaluated_at(offer, evaluated_at, None)?;
+    Ok(())
+}
+
+fn import_evaluated_at(
+    offer: &RealmActorContentBackupHandoverOffer,
+    confirmed_at: chrono::DateTime<chrono::Utc>,
+    retained_imported_at: Option<chrono::DateTime<chrono::Utc>>,
+) -> Result<chrono::DateTime<chrono::Utc>> {
+    let imported_at = retained_imported_at.unwrap_or(confirmed_at);
+    if imported_at < offer.signature.created_at
+        || imported_at >= offer.expires_at
+        || imported_at > confirmed_at
+        || confirmed_at < offer.signature.created_at
+    {
+        return Err(invalid(
+            "archive offer was not durably imported during its original validity interval",
+        ));
+    }
+    Ok(imported_at)
 }
 
 fn transfer_info(offer: &RealmActorContentBackupHandoverOffer) -> Result<Vec<u8>> {
@@ -387,44 +413,80 @@ pub fn seal_realm_actor_backup_handover(
     })
 }
 
-/// Open with the fresh manager-only private key, verify the full packet source
-/// set, and durably import before signing the challenge response. The callback
-/// is the deployment's atomic manager archive-vault import, not a DeviceStore.
-#[expect(
-    clippy::too_many_arguments,
-    reason = "Keep the independent immutable-source authority, fresh archive key, accepted Service signer and durable import callback explicit at this security boundary."
-)]
-pub fn import_realm_actor_backup_handover(
-    sealed: &RealmActorContentBackupSealedHandover,
-    fresh_private: &SecretBytes,
-    accepted_new_service_document: &DidDocument,
-    authority: &crate::VerifiedRealmAuthority,
-    keys: &dyn crate::RealmAuthorityKeyDirectory,
-    method: DidUrl,
-    signing_key: &SigningKey,
-    evaluated_at: chrono::DateTime<chrono::Utc>,
-    durable_import: impl FnOnce(&RealmActorContentBackupHandoverPlaintext) -> Result<()>,
-) -> Result<RealmActorContentBackupHandoverConfirmation> {
-    verify_realm_actor_backup_handover_offer(
-        &sealed.offer,
-        accepted_new_service_document,
-        evaluated_at,
-    )?;
+/// Trusted runtime inputs from two independent Service-document cuts. This is
+/// neither a wire carrier nor deserializable current authority.
+pub struct RealmActorBackupHandoverImportContext<'a> {
+    pub offer_original_document: &'a DidDocument,
+    pub confirmation_current_document: &'a DidDocument,
+    pub confirmation_method: DidUrl,
+    pub confirmation_signing_key: &'a SigningKey,
+    pub confirmed_at: chrono::DateTime<chrono::Utc>,
+}
+
+/// Exact private-vault lookup identity. Its hashes bind the complete sealed
+/// packet and decrypted cut; it grants no manager or current permission.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RealmActorBackupHandoverImportIdentity {
+    pub realm_actor_id: arkret_wire::RealmActorId,
+    pub sealed_digest: Hash,
+    pub offer_digest: Hash,
+    pub inventory_digest: Hash,
+    pub handover_digest: Hash,
+}
+
+fn validate_confirmation_signer(
+    offer: &RealmActorContentBackupHandoverOffer,
+    context: &RealmActorBackupHandoverImportContext<'_>,
+) -> Result<()> {
+    let document = context.confirmation_current_document;
+    if arkret_wire::project_did_to_core_id(&document.id)? != offer.new_service_id
+        || context.confirmed_at < offer.signature.created_at
+    {
+        return Err(invalid(
+            "archive confirmation does not bind the current new Service/time",
+        ));
+    }
     crate::validate_verification_method_relationship(
-        accepted_new_service_document,
-        &method,
-        &accepted_new_service_document.id,
+        document,
+        &context.confirmation_method,
+        &document.id,
         crate::DidVerificationRelationship::AssertionMethod,
     )
     .map_err(invalid)?;
-    let expected_signer =
-        crate::public_key_material_from_document(accepted_new_service_document, &method)
-            .map_err(invalid)?;
-    if expected_signer.ed25519_bytes()? != signing_key.verifying_key().to_bytes() {
+    let key = crate::public_key_material_from_document(document, &context.confirmation_method)
+        .map_err(invalid)?;
+    if key.ed25519_bytes()? != context.confirmation_signing_key.verifying_key().to_bytes() {
         return Err(invalid(
-            "archive importer signing key differs from the accepted new Service method",
+            "archive confirmation signer differs from its current accepted Service document",
         ));
     }
+    Ok(())
+}
+
+/// Open and verify the complete private cut before durable import and signing.
+/// `retained_imported_at` must read an existing immutable manager-vault record
+/// for this exact identity; it must never guess/backdate a new import. An absent
+/// record evaluates offer freshness at `confirmed_at`, before mutation. The
+/// durable callback imports the verified cut atomically and preserves the given
+/// original import time on cold/idempotent replay. Both callbacks are trusted
+/// local storage adapters, never public verified flags or network DTOs.
+pub fn import_realm_actor_backup_handover(
+    sealed: &RealmActorContentBackupSealedHandover,
+    fresh_private: &SecretBytes,
+    authority: &crate::VerifiedRealmAuthority,
+    keys: &dyn crate::RealmAuthorityKeyDirectory,
+    context: &RealmActorBackupHandoverImportContext<'_>,
+    retained_imported_at: impl FnOnce(
+        &RealmActorBackupHandoverImportIdentity,
+    ) -> Result<Option<chrono::DateTime<chrono::Utc>>>,
+    durable_import: impl FnOnce(
+        &RealmActorBackupHandoverImportIdentity,
+        &RealmActorContentBackupHandoverPlaintext,
+        chrono::DateTime<chrono::Utc>,
+    ) -> Result<()>,
+) -> Result<RealmActorContentBackupHandoverConfirmation> {
+    verify_handover_offer_original(&sealed.offer, context.offer_original_document)?;
+    validate_confirmation_signer(&sealed.offer, context)?;
     if arkret_canonical::base64url_encode(
         arkret_crypto::hpke::x25519_public_key(fresh_private.expose()).map_err(invalid)?,
     ) != sealed
@@ -454,6 +516,18 @@ pub fn import_realm_actor_backup_handover(
     );
     let plaintext: RealmActorContentBackupHandoverPlaintext = serde_json::from_slice(&bytes)?;
     validate_plaintext(&sealed.offer, &plaintext)?;
+    let identity = RealmActorBackupHandoverImportIdentity {
+        realm_actor_id: sealed.offer.realm_actor_id.clone(),
+        sealed_digest: Hash::new(arkret_canonical::canonical_sha256(sealed)?)?,
+        offer_digest: plaintext.offer_digest.clone(),
+        inventory_digest: plaintext.inventory_manifest.inventory_digest()?,
+        handover_digest: Hash::new(arkret_canonical::canonical_sha256(&plaintext)?)?,
+    };
+    let original_imported_at = import_evaluated_at(
+        &sealed.offer,
+        context.confirmed_at,
+        retained_imported_at(&identity)?,
+    )?;
     crate::verify_realm_actor_archive_inventory(&plaintext.inventory_manifest, authority, keys)?;
     for entry in &plaintext.inventory_manifest.entries {
         if let RealmActorArchiveInventoryEntry::Backup(entry) = entry {
@@ -483,13 +557,13 @@ pub fn import_realm_actor_backup_handover(
         }
     }
     let input = confirmation_input(&plaintext)?;
-    durable_import(&plaintext)?;
+    durable_import(&identity, &plaintext, original_imported_at)?;
     let signature = arkret_signatures::detached_object::sign_detached_object(
         &input,
         DetachedSignatureContext::RealmActorContentBackupConfirmation,
-        method,
-        evaluated_at,
-        signing_key,
+        context.confirmation_method.clone(),
+        context.confirmed_at,
+        context.confirmation_signing_key,
     )?;
     let mut value = serde_json::to_value(input)?;
     value["signature"] = serde_json::to_value(signature)?;
@@ -618,6 +692,118 @@ mod tests {
             .is_err()
         );
     }
+    fn formal_offer_document() -> (
+        serde_json::Value,
+        RealmActorContentBackupSealedHandover,
+        DidDocument,
+    ) {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../../arkret-spec/spec/v1/artifacts/fixtures/realm-actor-content-backup-fixture.json"
+        )).unwrap();
+        let sealed: RealmActorContentBackupSealedHandover =
+            serde_json::from_value(fixture["private_handover"]["sealed"].clone()).unwrap();
+        let method = &sealed.offer.signature.verification_method;
+        let did = crate::verification_method_did(method.as_str()).unwrap();
+        let public = arkret_canonical::base64url_decode(
+            fixture["handover_offer_case"]["public_key_base64url"]
+                .as_str()
+                .unwrap(),
+        )
+        .unwrap();
+        let public: [u8; 32] = public.as_slice().try_into().unwrap();
+        // Leaf signature relationship inputs: callers independently qualify
+        // each original/current document. No current document is patched with
+        // an old verification method to make the old offer pass.
+        let document = serde_json::from_value(serde_json::json!({
+            "id":did,"verificationMethod":[{"id":method,"type":"Multikey","controller":did,
+                "publicKeyMultibase":arkret_canonical::ed25519_pubkey_to_did_key_multibase(&public)}],"assertionMethod":[method]
+        })).unwrap();
+        (fixture, sealed, document)
+    }
+
+    #[test]
+    fn cold_import_after_service_key_rotation_preserves_offer_and_signs_confirmation_at_real_now() {
+        let (fixture, sealed, original_document) = formal_offer_document();
+        let first_imported_at = sealed.offer.signature.created_at + chrono::Duration::seconds(1);
+        let now = sealed.offer.expires_at + chrono::Duration::hours(1);
+        assert_eq!(
+            import_evaluated_at(&sealed.offer, now, Some(first_imported_at)).unwrap(),
+            first_imported_at
+        );
+        verify_handover_offer_original(&sealed.offer, &original_document).unwrap();
+        let current_key = SigningKey::from_bytes(&[93; 32]);
+        let method = DidUrl::new(format!("{}#rotated-current", original_document.id)).unwrap();
+        let current_document: DidDocument = serde_json::from_value(serde_json::json!({
+            "id":original_document.id,"verificationMethod":[{"id":method,"type":"Multikey","controller":original_document.id,
+            "publicKeyMultibase":arkret_canonical::ed25519_pubkey_to_did_key_multibase(current_key.verifying_key().as_bytes())}],
+            "assertionMethod":[method]
+        })).unwrap();
+        let context = RealmActorBackupHandoverImportContext {
+            offer_original_document: &original_document,
+            confirmation_current_document: &current_document,
+            confirmation_method: method.clone(),
+            confirmation_signing_key: &current_key,
+            confirmed_at: now,
+        };
+        validate_confirmation_signer(&sealed.offer, &context).unwrap();
+        assert!(verify_handover_offer_original(&sealed.offer, &current_document).is_err());
+        let old_context = RealmActorBackupHandoverImportContext {
+            confirmation_current_document: &original_document,
+            ..context
+        };
+        assert!(validate_confirmation_signer(&sealed.offer, &old_context).is_err());
+        let plaintext: RealmActorContentBackupHandoverPlaintext =
+            serde_json::from_value(fixture["private_handover"]["plaintext"].clone()).unwrap();
+        let expected = confirmation_input(&plaintext).unwrap();
+        let signature = arkret_signatures::detached_object::sign_detached_object(
+            &expected,
+            DetachedSignatureContext::RealmActorContentBackupConfirmation,
+            method,
+            now,
+            &current_key,
+        )
+        .unwrap();
+        assert_eq!(signature.created_at, now);
+        assert_ne!(signature.created_at, first_imported_at);
+        let mut value = serde_json::to_value(&expected).unwrap();
+        value["signature"] = serde_json::to_value(signature).unwrap();
+        let confirmation: RealmActorContentBackupHandoverConfirmation =
+            serde_json::from_value(value).unwrap();
+        let pending = PendingRealmActorBackupHandover { sealed, expected };
+        let packet_before = arkret_canonical::canonical_json_bytes(pending.sealed()).unwrap();
+        let checkpoint = pending.export_private_checkpoint().unwrap();
+        drop(pending);
+        let restored =
+            PendingRealmActorBackupHandover::resume_private_checkpoint(&checkpoint).unwrap();
+        assert_eq!(
+            arkret_canonical::canonical_json_bytes(restored.sealed()).unwrap(),
+            packet_before
+        );
+        restored
+            .verify_confirmation(&confirmation, &current_document)
+            .unwrap();
+        assert!(
+            restored
+                .verify_confirmation(&confirmation, &original_document)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn expired_offer_without_durable_import_and_invalid_retained_import_times_are_refused() {
+        let (_, sealed, document) = formal_offer_document();
+        let now = sealed.offer.expires_at + chrono::Duration::seconds(1);
+        assert!(verify_realm_actor_backup_handover_offer(&sealed.offer, &document, now).is_err());
+        assert!(import_evaluated_at(&sealed.offer, now, None).is_err());
+        for invalid in [
+            sealed.offer.signature.created_at - chrono::Duration::seconds(1),
+            sealed.offer.expires_at,
+            now + chrono::Duration::seconds(1),
+        ] {
+            assert!(import_evaluated_at(&sealed.offer, now, Some(invalid)).is_err());
+        }
+    }
+
     fn hex_bytes(hex: &str) -> Vec<u8> {
         hex.as_bytes()
             .as_chunks::<2>()

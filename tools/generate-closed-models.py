@@ -26,7 +26,7 @@ def normalize(pointer: str, owner: str = "") -> str:
 
 
 def rust_name(wire: str) -> str:
-    name = "".join(part[:1].upper() + part[1:] for part in wire.split("_"))
+    name = "".join(part[:1].upper() + part[1:] for part in re.split(r"[._]", wire))
     if not re.fullmatch(r"[A-Z][A-Za-z0-9]*", name):
         raise ValueError(f"unsupported Rust variant: {wire}")
     return name

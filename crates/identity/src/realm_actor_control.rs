@@ -188,7 +188,7 @@ pub fn verify_realm_actor_initial_resolution(
             "Realm actor creation proof is outside its validity interval",
         ));
     }
-    crate::validate_realm_actor_content_backup_recipient(
+    crate::validate_realm_actor_content_backup_recipient_for_actor(
         &payload.actor_id,
         &payload.recovery.content_backup_recipient,
         &document,
@@ -433,10 +433,50 @@ pub fn verify_realm_actor_manager_successor(
         &key,
     )
     .map_err(|error| invalid(&error.to_string()))?;
-    crate::validate_realm_actor_content_backup_recipient(
+    crate::validate_realm_actor_content_backup_recipient_for_actor(
         actor,
         &payload.next_content_backup_recipient,
         &document,
     )?;
     Ok(document)
+}
+
+/// Bind a public archive recipient to an independently authenticated original DID document.
+/// This checks no current manager, authorization, inventory or private-key custody.
+pub fn validate_realm_actor_content_backup_recipient(
+    document: &crate::DidDocument,
+    recipient: &arkret_models_crypto::RealmActorContentBackupRecipient,
+) -> Result<()> {
+    crate::realm_actor_content_backup::validate_recipient_document(recipient, document)
+}
+
+/// Read only the named X25519 agreement from an independently authenticated original.
+pub fn realm_actor_content_backup_recipient_from_document(
+    document: &crate::DidDocument,
+    key_agreement_ref: &arkret_wire::DidUrl,
+) -> Result<arkret_models_crypto::RealmActorContentBackupRecipient> {
+    let encoded = document
+        .verification_methods
+        .get(key_agreement_ref.as_str())
+        .ok_or_else(|| {
+            rejected(
+                ErrorCode::SignatureInvalid,
+                "archive agreement method is absent",
+            )
+        })?;
+    let bytes = arkret_canonical::decode_multibase_base58btc(encoded)
+        .map_err(|error| rejected(ErrorCode::SignatureInvalid, &error.to_string()))?;
+    if bytes.len() != 34 || bytes[..2] != [0xec, 0x01] {
+        return Err(rejected(
+            ErrorCode::SignatureInvalid,
+            "archive agreement must be canonical X25519 Multikey",
+        ));
+    }
+    let recipient = arkret_models_crypto::RealmActorContentBackupRecipient {
+        key_agreement_ref: key_agreement_ref.clone(),
+        hpke_suite: arkret_models_crypto::RealmActorContentBackupRecipientHpkeSuite::AkHpkeX25519AeadChacha20poly1305V1,
+        public_key_base64url: arkret_canonical::base64url_encode(&bytes[2..]),
+    };
+    validate_realm_actor_content_backup_recipient(document, &recipient)?;
+    Ok(recipient)
 }

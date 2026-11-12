@@ -256,7 +256,7 @@ pub fn verify_realm_actor_recovery_plan(
     )
     .map_err(invalid)?;
     if let Some(recipient) = &payload.next_content_backup_recipient {
-        crate::validate_realm_actor_content_backup_recipient(
+        crate::validate_realm_actor_content_backup_recipient_for_actor(
             &payload.target_actor_id,
             recipient,
             &document,
@@ -318,7 +318,7 @@ pub fn verify_realm_actor_recovery_publication(
         &begin.next_resolution.version_id,
     )?;
     if let Some(recipient) = &begin.next_content_backup_recipient {
-        crate::validate_realm_actor_content_backup_recipient(
+        crate::validate_realm_actor_content_backup_recipient_for_actor(
             &begin.target_actor_id,
             recipient,
             &document,

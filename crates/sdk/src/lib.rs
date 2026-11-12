@@ -245,6 +245,9 @@ pub use arkret_models_collaboration::{
 };
 pub use arkret_models_crypto::artifacts_keys::*;
 pub use arkret_models_crypto::authority_set_policy::*;
+pub use arkret_models_crypto::content_history::{
+    RealmActorContentBackupRecipient, RealmActorContentBackupRecipientHpkeSuite,
+};
 pub use arkret_models_crypto::encrypted_attachment::*;
 pub use arkret_models_crypto::encrypted_envelope::{
     EncryptedPayload, EventContentPreEncryptionHeader, EventContentRoutingContext,

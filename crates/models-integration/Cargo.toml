@@ -17,15 +17,16 @@ openapi = [
     "dep:salvo-oapi",
     "arkret-models-collaboration/openapi",
     "arkret-models-identity/openapi",
+    "arkret-models-crypto/openapi",
     "arkret-wire/openapi",
     "salvo-oapi/chrono",
 ]
 
 [dependencies]
 arkret-canonical = { workspace = true }
-arkret-models-crypto = { workspace = true }
 arkret-models-collaboration = { workspace = true }
 arkret-models-identity = { workspace = true }
+arkret-models-crypto = { workspace = true }
 arkret-wire = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }
 salvo-oapi = { workspace = true, optional = true }

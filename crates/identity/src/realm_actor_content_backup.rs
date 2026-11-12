@@ -6,8 +6,25 @@ use arkret_wire::ActorId;
 
 use crate::{DidDocument, IdentityError, Result};
 
-pub fn validate_realm_actor_content_backup_recipient(
+/// Check both the full target Actor and its independently accepted original
+/// document. This stronger contract is distinct from the document-only API.
+pub fn validate_realm_actor_content_backup_recipient_for_actor(
     actor: &ActorId,
+    recipient: &RealmActorContentBackupRecipient,
+    accepted_document: &DidDocument,
+) -> Result<()> {
+    let actor = actor.as_realm_actor_id().ok_or_else(|| {
+        IdentityError::Protocol("native archive recipient requires a Realm actor".into())
+    })?;
+    if arkret_wire::project_did_to_core_id(&accepted_document.id)? != actor.principal_id {
+        return Err(IdentityError::Protocol(
+            "archive document belongs to another Actor".into(),
+        ));
+    }
+    validate_recipient_document(recipient, accepted_document)
+}
+
+pub(crate) fn validate_recipient_document(
     recipient: &RealmActorContentBackupRecipient,
     accepted_document: &DidDocument,
 ) -> Result<()> {
@@ -17,11 +34,14 @@ pub fn validate_realm_actor_content_backup_recipient(
                 .into(),
         )
     };
-    let actor = actor.as_realm_actor_id().ok_or_else(invalid)?;
     recipient.validate()?;
-    if arkret_wire::project_did_to_core_id(&accepted_document.id)? != actor.principal_id {
-        return Err(invalid());
-    }
+    crate::validate_verification_method_relationship(
+        accepted_document,
+        &recipient.key_agreement_ref,
+        &accepted_document.id,
+        crate::DidVerificationRelationship::KeyAgreement,
+    )
+    .map_err(|error| IdentityError::Protocol(error.to_string()))?;
     let normalized = arkret_models_identity::normalized_did_document(accepted_document)?;
     let absolute = |reference: &str| {
         if reference.starts_with('#') {
@@ -31,19 +51,6 @@ pub fn validate_realm_actor_content_backup_recipient(
         }
     };
     let selected = recipient.key_agreement_ref.as_str();
-    if !normalized["key_agreements"]
-        .as_array()
-        .is_some_and(|agreements| {
-            agreements.iter().any(|entry| {
-                entry
-                    .get("verification_method")
-                    .and_then(serde_json::Value::as_str)
-                    .is_some_and(|method| absolute(method) == selected)
-            })
-        })
-    {
-        return Err(invalid());
-    }
     let method = normalized["verification_methods"]
         .as_array()
         .and_then(|methods| {
@@ -505,7 +512,7 @@ pub fn verify_realm_actor_archive_inventory(
                                 "archive recipient native receipt names another original document",
                             ));
                         }
-                        validate_realm_actor_content_backup_recipient(
+                        validate_realm_actor_content_backup_recipient_for_actor(
                             &actor, descriptor, &document,
                         )?;
                     }

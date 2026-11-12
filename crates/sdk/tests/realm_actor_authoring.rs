@@ -343,6 +343,105 @@ fn manager_handover_requires_two_native_rotations_new_control_and_service_accept
 }
 
 #[test]
+fn creation_recipient_requires_original_key_agreement_even_with_valid_control_signature() {
+    let (candidate, _) = candidate();
+    let at = candidate.control_signature.created_at;
+    arkret_identity::verify_realm_actor_initial_resolution(&candidate, at).unwrap();
+    let document: DidDocument = serde_json::from_value(
+        candidate.method_history_evidence.webvh_material().1[0]["state"].clone(),
+    )
+    .unwrap();
+    assert_eq!(
+        arkret_identity::realm_actor_content_backup_recipient_from_document(
+            &document,
+            &candidate
+                .recovery
+                .content_backup_recipient
+                .key_agreement_ref
+        )
+        .unwrap(),
+        candidate.recovery.content_backup_recipient
+    );
+    assert!(
+        arkret_identity::realm_actor_content_backup_recipient_from_document(
+            &document,
+            &candidate.control_method_kid
+        )
+        .is_err()
+    );
+    arkret_identity::validate_realm_actor_content_backup_recipient(
+        &document,
+        &candidate.recovery.content_backup_recipient,
+    )
+    .unwrap();
+    arkret_identity::validate_realm_actor_content_backup_recipient_for_actor(
+        &candidate.actor_id,
+        &candidate.recovery.content_backup_recipient,
+        &document,
+    )
+    .unwrap();
+    let mut other = candidate.actor_id.as_realm_actor_id().unwrap().clone();
+    other.principal_id = DidCoreId::new("ak:did_core:web:other.example").unwrap();
+    assert!(
+        arkret_identity::validate_realm_actor_content_backup_recipient_for_actor(
+            &ActorId::realm(other),
+            &candidate.recovery.content_backup_recipient,
+            &document,
+        )
+        .is_err()
+    );
+    assert!(
+        arkret_identity::validate_realm_actor_content_backup_recipient_for_actor(
+            &ActorId::service(project_did_to_core_id(&document.id).unwrap()),
+            &candidate.recovery.content_backup_recipient,
+            &document,
+        )
+        .is_err()
+    );
+    for change in 0..3 {
+        let mut changed = candidate.clone();
+        match change {
+            0 => {
+                changed
+                    .recovery
+                    .content_backup_recipient
+                    .public_key_base64url = arkret_canonical::base64url_encode([0; 32])
+            }
+            1 => {
+                changed
+                    .recovery
+                    .content_backup_recipient
+                    .public_key_base64url = serde_json::from_str::<serde_json::Value>(include_str!(
+                    "../../../../arkret-spec/spec/v1/artifacts/fixtures/realm-actor-content-backup-fixture.json"
+                )).unwrap()["next_recipient"]["public_key_base64url"].as_str().unwrap().to_owned()
+            }
+            _ => {
+                changed.recovery.content_backup_recipient.key_agreement_ref =
+                    changed.control_method_kid.clone()
+            }
+        }
+        changed.control_signature = sign_detached_object(
+            &changed.creation_transcript(),
+            DetachedSignatureContext::RealmActorCreation,
+            changed.control_method_kid.clone(),
+            at,
+            &SigningKey::from_bytes(&[33; 32]),
+        )
+        .unwrap();
+        assert!(arkret_identity::verify_realm_actor_initial_resolution(&changed, at).is_err());
+    }
+    let mut missing = serde_json::to_value(&candidate).unwrap();
+    missing["recovery"]
+        .as_object_mut()
+        .unwrap()
+        .remove("content_backup_recipient");
+    assert!(serde_json::from_value::<RealmActorCreatePayload>(missing).is_err());
+    let mut null = serde_json::to_value(&candidate).unwrap();
+    null["recovery"]["content_backup_recipient"] = serde_json::Value::Null;
+    assert!(serde_json::from_value::<RealmActorCreatePayload>(null).is_err());
+}
+
+#[test]
 fn creation_uses_real_independent_webvh_history_and_control_proof() {
     let (candidate, signer) = candidate();
     let at = candidate.control_signature.created_at;

@@ -12,6 +12,15 @@ spec.loader.exec_module(module)
 
 
 class ClosedModelsTests(unittest.TestCase):
+    def test_dotted_suite_constant_preserves_exact_wire_value(self):
+        self.schema = {"type": "string", "const": "ak.hpke_x25519_aead_chacha20poly1305.v1"}
+        output = self.generate()
+        self.assertIn('serde(rename = "ak.hpke_x25519_aead_chacha20poly1305.v1")', output)
+        self.assertIn("AkHpkeX25519AeadChacha20poly1305V1,", output)
+        self.schema = {"type": "string", "enum": ["ak.suite", "ak_suite"]}
+        with self.assertRaisesRegex(ValueError, "duplicate Rust variant"):
+            self.generate()
+
     def test_manifest_provides_match_actual_generated_declarations(self):
         entry = {'generator': 'closed-models', 'outputs': ['out.rs'], 'provides': ['Example']}
         module.validate_manifest_provides(self.bindings, {'entries': [entry]})

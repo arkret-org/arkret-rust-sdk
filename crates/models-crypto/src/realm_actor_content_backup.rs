@@ -7,6 +7,9 @@ use zeroize::Zeroizing;
 
 include!("generated/realm_actor_content_backup_contracts.rs");
 
+/// Historical public Rust spelling of the sole canonical suite type.
+pub use ContentBackupRecipientHpkeSuite as RealmActorContentBackupRecipientHpkeSuite;
+
 // Serde remote-Self emits the canonical field decoder without a second DTO.
 // Cross-field/curve invariants are then enforced at actual Deserialize ingress.
 macro_rules! checked_native_serde {
