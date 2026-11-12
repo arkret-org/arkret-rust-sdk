@@ -2919,7 +2919,7 @@
     },
     {
       "rust_type": "crates/models-crypto/src/key_backup_operations.rs::KeysBackupsIssueUnlockChallengeRequestBody",
-      "schema": "keys-operations.schema.json#/$defs/keys_backups_issue_unlock_challenge_request_body"
+      "schema": "keys-operations.schema.json#/$defs/keys_backups_issue_unlock_challenge_request_body/oneOf/0"
     },
     {
       "rust_type": "crates/models-crypto/src/key_backup_operations.rs::KeysBackupsUnlockChallenge",
@@ -2931,7 +2931,7 @@
     },
     {
       "rust_type": "crates/models-crypto/src/key_backup_operations.rs::KeysBackupsReplaceResponseBody",
-      "schema": "keys-operations.schema.json#/$defs/keys_backups_replace_response_body"
+      "schema": "keys-operations.schema.json#/$defs/keys_backups_replace_response_body/oneOf/0"
     },
     {
       "rust_type": "crates/models-crypto/src/key_backup_operations.rs::KeysBackupsIssueDeleteChallengeRequestBody",
@@ -4240,6 +4240,170 @@
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/generated/agent_contracts.rs::AgentDraftAccountDataValue",
       "schema": "agent-draft-private.schema.json#/$defs/agent_draft_account_data_value"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/realm_actor_content_backup_contracts.rs::RealmActorContentBackupRecipient",
+      "schema": "realm-actor.schema.json#/$defs/content_backup_recipient"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/realm_actor_content_backup_contracts.rs::RealmActorBackupAuthBinding",
+      "schema": "key-backup.schema.json#/$defs/realm_actor_backup_auth_binding"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/realm_actor_content_backup_contracts.rs::RealmActorBackupHeadQuery",
+      "schema": "keys-operations.schema.json#/$defs/keys_backups_list_query/oneOf/1"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/realm_actor_content_backup_contracts.rs::RealmActorArchiveInventoryQuery",
+      "schema": "keys-operations.schema.json#/$defs/keys_backups_list_query/oneOf/2"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/realm_actor_content_backup_contracts.rs::RealmActorBackupActiveSeriesState",
+      "schema": "keys-operations.schema.json#/$defs/realm_actor_backup_active_series_state"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/realm_actor_content_backup_contracts.rs::RealmActorBackupHeadEntry",
+      "schema": "keys-operations.schema.json#/$defs/realm_actor_backup_head_entry"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/realm_actor_content_backup_contracts.rs::RealmActorBackupMetadataEncryption",
+      "schema": "keys-operations.schema.json#/$defs/realm_actor_backup_metadata/properties/encryption"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/realm_actor_content_backup_contracts.rs::RealmActorBackupMetadata",
+      "schema": "keys-operations.schema.json#/$defs/realm_actor_backup_metadata"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/realm_actor_content_backup_contracts.rs::RealmActorBackupSeriesHeadResponseBody",
+      "schema": "keys-operations.schema.json#/$defs/realm_actor_backup_series_head_response_body"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/realm_actor_content_backup_contracts.rs::RealmActorBackupUnlockChallenge",
+      "schema": "keys-operations.schema.json#/$defs/realm_actor_backup_unlock_challenge"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/realm_actor_content_backup_contracts.rs::RealmActorBackupUnlockResponseBody",
+      "schema": "keys-operations.schema.json#/$defs/realm_actor_backup_unlock_response_body"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/realm_actor_content_backup_contracts.rs::RealmActorContentBackupAdmission",
+      "schema": "keys-operations.schema.json#/$defs/realm_actor_content_backup_admission"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/realm_actor_content_backup_contracts.rs::RealmActorContentBackupAdmissionSignatureInput",
+      "schema": "keys-operations.schema.json#/$defs/realm_actor_content_backup_admission_signature_input"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/realm_actor_content_backup_contracts.rs::ContentBackupNextPrepareInput",
+      "schema": "realm-actor-material.schema.json#/$defs/content_backup_next_prepare_input"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/realm_actor_content_backup_contracts.rs::CurrentRealmActorKeyBackupActiveSeries",
+      "schema": "current-state.schema.json#/$defs/current_realm_actor_key_backup_active_series"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/realm_actor_content_backup_contracts.rs::RealmActorKeyBackupActiveSeriesSelector",
+      "schema": "current-state.schema.json#/$defs/realm_actor_key_backup_active_series_selector"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/realm_actor_content_backup_contracts.rs::RealmActorKeyBackupActiveSeriesValue",
+      "schema": "current-state.schema.json#/$defs/realm_actor_key_backup_active_series_value"
+    },
+    {
+      "rust_type": "crates/models-integration/src/generated/realm_actor_content_backup_contracts.rs::RealmActorArchiveBackupEntry",
+      "schema": "keys-operations.schema.json#/$defs/realm_actor_archive_backup_entry"
+    },
+    {
+      "rust_type": "crates/models-integration/src/generated/realm_actor_content_backup_contracts.rs::RealmActorArchiveInventoryManifest",
+      "schema": "keys-operations.schema.json#/$defs/realm_actor_archive_inventory_manifest"
+    },
+    {
+      "rust_type": "crates/models-integration/src/generated/realm_actor_content_backup_contracts.rs::RealmActorArchiveInventoryPage",
+      "schema": "keys-operations.schema.json#/$defs/realm_actor_archive_inventory_page"
+    },
+    {
+      "rust_type": "crates/models-integration/src/generated/realm_actor_content_backup_contracts.rs::RealmActorArchiveRecipientEntry",
+      "schema": "keys-operations.schema.json#/$defs/realm_actor_archive_recipient_entry"
+    },
+    {
+      "rust_type": "crates/models-integration/src/generated/realm_actor_content_backup_contracts.rs::RealmActorArchiveSeriesEntry",
+      "schema": "keys-operations.schema.json#/$defs/realm_actor_archive_series_entry"
+    },
+    {
+      "rust_type": "crates/models-integration/src/generated/realm_actor_content_backup_contracts.rs::RealmActorArchiveUnlockResponseBody",
+      "schema": "keys-operations.schema.json#/$defs/realm_actor_archive_unlock_response_body"
+    },
+    {
+      "rust_type": "crates/models-integration/src/generated/realm_actor_content_backup_contracts.rs::RealmActorBackupGovernanceHistory",
+      "schema": "keys-operations.schema.json#/$defs/realm_actor_backup_governance_history"
+    },
+    {
+      "rust_type": "crates/models-integration/src/generated/realm_actor_content_backup_contracts.rs::RealmActorBackupGovernanceOriginal",
+      "schema": "keys-operations.schema.json#/$defs/realm_actor_backup_governance_original"
+    },
+    {
+      "rust_type": "crates/models-integration/src/generated/realm_actor_content_backup_contracts.rs::RealmActorBackupGovernanceTransition",
+      "schema": "keys-operations.schema.json#/$defs/realm_actor_backup_governance_transition"
+    },
+    {
+      "rust_type": "crates/models-integration/src/generated/realm_actor_content_backup_contracts.rs::RealmActorContentBackupHandoverConfirmation",
+      "schema": "keys-operations.schema.json#/$defs/realm_actor_content_backup_handover_confirmation"
+    },
+    {
+      "rust_type": "crates/models-integration/src/generated/realm_actor_content_backup_contracts.rs::RealmActorContentBackupHandoverConfirmationSignatureInput",
+      "schema": "keys-operations.schema.json#/$defs/realm_actor_content_backup_handover_confirmation_signature_input"
+    },
+    {
+      "rust_type": "crates/models-integration/src/generated/realm_actor_content_backup_contracts.rs::RealmActorContentBackupHandoverOffer",
+      "schema": "keys-operations.schema.json#/$defs/realm_actor_content_backup_handover_offer"
+    },
+    {
+      "rust_type": "crates/models-integration/src/generated/realm_actor_content_backup_contracts.rs::RealmActorContentBackupHandoverOfferSignatureInput",
+      "schema": "keys-operations.schema.json#/$defs/realm_actor_content_backup_handover_offer_signature_input"
+    },
+    {
+      "rust_type": "crates/models-integration/src/generated/realm_actor_content_backup_contracts.rs::RealmActorContentBackupHandoverPlaintext",
+      "schema": "keys-operations.schema.json#/$defs/realm_actor_content_backup_handover_plaintext"
+    },
+    {
+      "rust_type": "crates/models-integration/src/generated/realm_actor_content_backup_contracts.rs::RealmActorContentBackupPrivateRecipientKey",
+      "schema": "keys-operations.schema.json#/$defs/realm_actor_content_backup_private_recipient_key"
+    },
+    {
+      "rust_type": "crates/models-integration/src/generated/realm_actor_content_backup_contracts.rs::RealmActorContentBackupSealedHandover",
+      "schema": "keys-operations.schema.json#/$defs/realm_actor_content_backup_sealed_handover"
+    },
+    {
+      "rust_type": "crates/models-integration/src/generated/realm_actor_content_backup_contracts.rs::RealmActorContentBackupSource",
+      "schema": "keys-operations.schema.json#/$defs/realm_actor_content_backup_source"
+    },
+    {
+      "rust_type": "crates/models-integration/src/generated/realm_actor_content_backup_contracts.rs::RealmActorBackupEventMaterial",
+      "schema": "realm-actor-material.schema.json#/$defs/event_material"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/realm_actor_content_backup_contracts.rs::RealmActorBackupPutResponseBody",
+      "schema": "keys-operations.schema.json#/$defs/keys_backups_replace_response_body/oneOf/1"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/realm_actor_content_backup_contracts.rs::RealmActorBackupIssueUnlockChallengeRequestBody",
+      "schema": "keys-operations.schema.json#/$defs/keys_backups_issue_unlock_challenge_request_body/oneOf/1"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/realm_actor_content_backup.rs::KeysBackupsUnlockOperationRequestBody",
+      "schema": "keys-operations.schema.json#/$defs/keys_backups_unlock_request_body"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/realm_actor_content_backup_contracts.rs::RealmActorDeviceKeyBackupUnlockProof",
+      "schema": "key-backup-unlock-proof.schema.json",
+      "schema_field_set": "accepted",
+      "schema_branch": 2
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/realm_actor_content_backup_contracts.rs::RealmActorManagerKeyBackupUnlockProof",
+      "schema": "key-backup-unlock-proof.schema.json",
+      "schema_field_set": "accepted",
+      "schema_branch": 3
     }
   ],
   "exemptions": [

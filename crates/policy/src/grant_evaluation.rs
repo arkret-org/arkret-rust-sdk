@@ -590,7 +590,7 @@ fn approval_only_constraint(constraint: &GrantConstraint) -> bool {
                 | "guardian_approval_required"
                 | "controller_approval_required"
                 | "approval_mode"
-                | "approval_actor_ids"
+                | "approval_principal_ids"
                 | "approval_relation"
                 | "approval_threshold"
                 | "timeout"

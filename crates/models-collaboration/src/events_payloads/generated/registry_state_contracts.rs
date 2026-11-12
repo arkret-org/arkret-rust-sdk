@@ -8,7 +8,7 @@
 // sha256=7c7522a769204b050b9711b53c1b911bc660645962ed6c0243f95fae72473f78
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=2db9dc0b757e082d561722a2301e943a7422e79691dd5632a5a2ec129045cc3f
+// sha256=bb8c3350621b1f35ac031f7e6919326951b3576cd3c52db20323ba3e6e740687
 
 /// Counterpart: `event-payload.schema.json#/$defs/resource_discovery_state_value`.
 /// `resource_discovery_state_value`.

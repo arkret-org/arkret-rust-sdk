@@ -329,6 +329,23 @@ class Generator:
     def declaration(self, row: dict) -> str:
         pointer, name = row["schema"], row["name"]
         node = self.node(pointer)
+        if "closed_branch" in row:
+            # A specialized API can own one canonical authority branch while
+            # the established legacy API continues owning its original branch.
+            # All fields, requirements and exclusions are schema-derived.
+            branch = node["oneOf"][row["closed_branch"]]
+            properties = dict(node["properties"])
+            properties.update(branch.get("properties", {}))
+            required = list(dict.fromkeys(node.get("required", []) + branch.get("required", [])))
+            forbidden = branch.get("not", {}).get("anyOf", [])
+            for exclusion in forbidden:
+                if set(exclusion) != {"required"} or len(exclusion["required"]) != 1:
+                    raise ValueError(f"unsupported authority-branch exclusion: {pointer}")
+                properties.pop(exclusion["required"][0], None)
+            if not set(required) <= properties.keys():
+                raise ValueError(f"authority branch requires a forbidden field: {pointer}")
+            node = {"type": "object", "additionalProperties": False,
+                    "properties": properties, "required": required}
         if name.endswith("Outcome") and node.get("x-arkret-name-role") not in {"terminal_outcome", "attempt_outcome"}:
             raise ValueError(f"Outcome requires a canonical settled processing role: {pointer}: {name}")
         if "rust" in row:
@@ -339,7 +356,9 @@ class Generator:
         if any(key in node for key in ("anyOf", "allOf", "not", "if", "patternProperties", "dependentRequired", "dependentSchemas")):
             raise ValueError(f"unsupported object composition: {pointer}")
         traits = ["Clone", "Debug", "PartialEq", "serde::Serialize", "serde::Deserialize"]
-        if row.get("eq", True):
+        if not row.get("partial_eq", True):
+            traits.remove("PartialEq")
+        if row.get("eq", row.get("partial_eq", True)):
             traits.insert(3, "Eq")
         if row.get("copy"):
             traits.insert(1, "Copy")
@@ -349,8 +368,27 @@ class Generator:
         if row.get("openapi", True):
             lines.append('#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]')
         lines.append(f'#[derive({", ".join(traits)})]')
+        if row.get("remote_self"):
+            lines.append('#[serde(remote = "Self")]')
         if row.get("expect_large_enum_variant"):
             lines.append('#[expect(clippy::large_enum_variant, reason = "Keep schema-mapped wire variants inline; transport and runtime containers own allocation policy.")]')
+        if "reference_variants" in row:
+            # Representation hooks select only Rust names/types. Membership and
+            # order still come exclusively from the canonical oneOf branches.
+            variants = row["reference_variants"]
+            branches = node.get("oneOf", [])
+            if len(variants) != len(branches) or not branches:
+                raise ValueError(f"named reference union branch drift: {pointer}")
+            lines += ['#[serde(untagged)]', f"pub enum {name} {{"]
+            for index, (variant, typ) in enumerate(variants.items()):
+                if not re.fullmatch(r"[A-Z][A-Za-z0-9]*", variant):
+                    raise ValueError(f"unsupported named reference variant: {variant}")
+                branch = branches[index]
+                if not ("$ref" in branch or "allOf" in branch or
+                        (branch.get("type") == "object" and branch.get("additionalProperties") is False)):
+                    raise ValueError(f"named reference union is not a closed typed branch: {pointer}/{index}")
+                lines.append(f"    {variant}({typ}),")
+            return "\n".join(lines + ["}", ""])
         if "oneOf" in node and all("$ref" not in branch for branch in node["oneOf"]):
             branches = node["oneOf"]
             inline_pointer = pointer + ("/oneOf/" if "#" in pointer else "#/oneOf/")

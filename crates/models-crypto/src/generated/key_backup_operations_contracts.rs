@@ -2,7 +2,7 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/keys-operations.schema.json
-// sha256=6ec0f5d46bc4a7b5a6a89d21d8344aeaf2ca04101e9dfe555807fc153aeb2e2e
+// sha256=8dc3a9556fd7ff9a27bb8ea8014b6b7a859692c94e40b7b7b4202192e3ea7dcf
 //
 // Input: schemas/authorization-operations.schema.json
 // sha256=b367d60aeb13aa9e524c5201cc1857d8ac9defd5c78293f696a4f4c0a5d4450b
@@ -20,13 +20,13 @@
 // sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=2db9dc0b757e082d561722a2301e943a7422e79691dd5632a5a2ec129045cc3f
+// sha256=bb8c3350621b1f35ac031f7e6919326951b3576cd3c52db20323ba3e6e740687
 
 /// Counterpart: `keys-operations.schema.json#/$defs/backup_active_series_state`.
 /// `keys-operations.schema.json#/$defs/backup_active_series_state`.
 ///
 /// v1 registers exactly one backup class, `secret_storage` (key-management
-/// Â§7.5.0 / Â§7.6.1). The object is closed: an `mls_history` or private class
+/// §7.5.0 / §7.6.1). The object is closed: an `mls_history` or private class
 /// member is schema-invalid and is rejected rather than ignored.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -70,7 +70,7 @@ pub struct KeyBackupSummaryEncryption {
 
 /// Counterpart: `keys-operations.schema.json#/$defs/backup_metadata`.
 /// `keys-operations.schema.json#/$defs/backup_metadata`: the closed list
-/// summary of one stored envelope (key-management Â§7.6.1).
+/// summary of one stored envelope (key-management §7.6.1).
 ///
 /// Field order is the schema `properties` order. Optional members are absent
 /// or carry a value; only the schema's tristate members (`supersedes_id`,

@@ -23,6 +23,9 @@ impl RealmActorManagerChangePayload {
             new_service_id: self.new_service_id.clone(),
             new_registration_ref: self.new_registration_ref.clone(),
             management_authorization_ref: self.management_authorization_ref.clone(),
+            next_content_backup_recipient: self.next_content_backup_recipient.clone(),
+            content_backup_inventory_digest: self.content_backup_inventory_digest.clone(),
+            content_backup_handover_digest: self.content_backup_handover_digest.clone(),
             next_resolution: self.next_resolution.clone(),
             method_history_evidence: self.method_history_evidence.clone(),
         }
@@ -88,6 +91,7 @@ impl RealmActorCreatePayload {
             WireError::Protocol("Realm actor creation requires a full Realm ActorId".into())
         })?;
         self.method_history_evidence.validate_shape()?;
+        self.recovery.content_backup_recipient.validate()?;
         let boundary = self.method_history_evidence.boundary();
         let signature = &self.control_signature;
         if self.schema != Self::SCHEMA
@@ -158,6 +162,7 @@ impl RealmActorCreatePayload {
             recovery: RealmActorCreationTranscriptRecovery {
                 kind: RealmActorCreationTranscriptRecoveryKind::ManagerNative,
                 enabled: self.recovery.enabled,
+                content_backup_recipient: self.recovery.content_backup_recipient.clone(),
             },
         }
     }
@@ -254,7 +259,7 @@ pub fn realm_actor_creation_current_rows(
             CurrentSelector::RealmActorRecovery {
                 actor_id: actor.clone(),
             },
-            serde_json::json!({"kind":"manager_native","enabled":true,"pending":null}),
+            serde_json::json!({"kind":"manager_native","enabled":candidate.recovery.enabled,"pending":null, "content_backup_recipient":candidate.recovery.content_backup_recipient,"content_backup_recipient_ref":accepted}),
         ),
     ];
     Ok(rows

@@ -14,7 +14,7 @@
 // sha256=0cc25a02fe0d9a94f6e41f2cf8f64e492ba36362f1e69a699cf1e684924837ee
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=2db9dc0b757e082d561722a2301e943a7422e79691dd5632a5a2ec129045cc3f
+// sha256=bb8c3350621b1f35ac031f7e6919326951b3576cd3c52db20323ba3e6e740687
 
 /// Counterpart: `event-payload.schema.json#/$defs/realm_owner_transfer_payload`.
 /// Counterpart for
@@ -54,7 +54,7 @@ pub struct RealmFreezePayload {
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_organization_payload`.
 ///
 /// Organization-side endorsement or revocation for a Realm relationship. The
-/// reducer cell subject is `(organization_id, relationship)` â€” `statement_id`
+/// reducer cell subject is `(organization_id, relationship)` — `statement_id`
 /// is audit identity, not the cell subject. Field order mirrors the spec schema
 /// `properties` ordering.
 #[derive(Clone, Debug, Serialize, Deserialize)]

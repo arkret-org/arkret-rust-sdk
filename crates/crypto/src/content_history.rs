@@ -20,7 +20,9 @@ use crate::{Error, Result};
 #[path = "content_history_backup.rs"]
 mod backup_draft;
 #[cfg(feature = "backup")]
-pub use backup_draft::{ContentRootBackupAuthor, ContentRootBackupDraft};
+pub use backup_draft::{
+    ContentRootBackupAuthor, ContentRootBackupDraft, RealmActorContentRootBackupDraft,
+};
 
 pub const CONTENT_ROOT_LABEL: &str = "ak.epoch-content-root-v1";
 pub const CONTENT_KEY_LABEL: &str = "ak.content-v1";

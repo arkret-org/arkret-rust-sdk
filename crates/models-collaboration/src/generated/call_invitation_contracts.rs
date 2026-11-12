@@ -8,7 +8,7 @@
 //! sha256=7c7522a769204b050b9711b53c1b911bc660645962ed6c0243f95fae72473f78
 //!
 //! Input: schemas/current-state.schema.json
-//! sha256=106ec4b74fb996d95cfd8631d60e22c1c72cc1f7d16232bebf10f21a62ff1d47
+//! sha256=b9b2fcecf87470a1def1e55bf536bdb637b04f0e6f42083d5ed9962a80b14c61
 //!
 //! Input: schemas/consent-operations.schema.json
 //! sha256=a367b21ca191391ab7a62c8b1413a48f9866b7cdca5692c65e5bd58c5a330b09
@@ -17,7 +17,7 @@
 //! sha256=0cc25a02fe0d9a94f6e41f2cf8f64e492ba36362f1e69a699cf1e684924837ee
 //!
 //! Bindings: tools/closed-model-bindings.json
-//! sha256=2db9dc0b757e082d561722a2301e943a7422e79691dd5632a5a2ec129045cc3f
+//! sha256=bb8c3350621b1f35ac031f7e6919326951b3576cd3c52db20323ba3e6e740687
 
 /// Counterpart: `call-invitation-operations.schema.json#/$defs/media`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

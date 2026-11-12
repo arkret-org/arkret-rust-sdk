@@ -41,6 +41,22 @@ class LayeringTests(unittest.TestCase):
         self.assertEqual(result, 0, output)
         self.assertIn("layering OK", output)
 
+    def test_native_archive_behavior_and_leaf_carrier_edges_are_precise(self) -> None:
+        result, output = self.run_gate({
+            "arkret-identity": ["arkret-crypto"],
+            "arkret-models-integration": ["arkret-models-crypto"],
+        })
+        self.assertEqual(result, 0, output)
+        for owner, target in [
+            ("arkret-crypto", "arkret-identity"),
+            ("arkret-models-crypto", "arkret-models-integration"),
+            ("arkret-models-integration", "arkret-crypto"),
+        ]:
+            with self.subTest(owner=owner, target=target):
+                result, output = self.run_gate({owner: [target]})
+                self.assertEqual(result, 1, output)
+                self.assertIn(f"{owner}: forbidden edge -> {target}", output)
+
     def test_unrelated_cross_domain_edge_is_still_rejected(self) -> None:
         result, output = self.run_gate({"arkret-models-discovery": ["arkret-models-collaboration"]})
         self.assertEqual(result, 1)

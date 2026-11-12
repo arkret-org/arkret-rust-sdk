@@ -7,7 +7,7 @@
 //! 1. derive the cold root keypair and its next-generation pre-rotation commitment,
 //! 2. construct the inception webvh log entry with `{SCID}` placeholders (`versionId` is the bare
 //!    `{SCID}` placeholder, per DIF did:webvh v1.0),
-//! 3. derive the SCID (base58btc sha256-multihash — no multibase prefix — of the canonical-JCS
+//! 3. derive the SCID (base58btc sha256-multihash â€” no multibase prefix â€” of the canonical-JCS
 //!    skeleton),
 //! 4. substitute the SCID and compute `versionId = 1-<entryHash>`, where the entryHash preimage
 //!    carries `versionId = <SCID>` (the predecessor anchor) and no `proof`,
@@ -111,7 +111,7 @@ pub struct PreparedInception {
     /// The matching HTTPS authority (`host` or `host:port`).
     #[zeroize(skip)]
     pub https_authority: String,
-    /// Normalised webvh `local_id` — the URL path segment under
+    /// Normalised webvh `local_id` â€” the URL path segment under
     /// `/webvh/<local_id>/did.json`.
     #[zeroize(skip)]
     pub local_id: String,
@@ -154,7 +154,7 @@ pub struct PreparedInception {
     pub log_url: String,
     /// 32-byte ed25519 secret seed for the DID key.
     pub did_key_seed: [u8; 32],
-    /// 32-byte ed25519 secret seed for the update key — caller must persist
+    /// 32-byte ed25519 secret seed for the update key â€” caller must persist
     /// this (encrypted) to sign future rotations.
     pub update_key_seed: [u8; 32],
     /// 32-byte ed25519 secret seed for the precommitted next update key.
@@ -355,7 +355,7 @@ pub fn validate_principal_inception_operation(
             "principal inception SCID does not match the wrapper DID".to_owned(),
         ));
     }
-    // identity-did.md §3.4.4: a published entry MUST NOT retain a literal
+    // identity-did.md Â§3.4.4: a published entry MUST NOT retain a literal
     // `{SCID}`. Rejecting it here also keeps the reverse substitution below
     // unambiguous.
     if super::skeleton::webvh_scid_placeholder_present(&entry) {
@@ -754,7 +754,7 @@ pub struct PrincipalInceptionInput<'a> {
     /// Coland's public base endpoint. Drives the in-document
     /// `serviceEndpoint` and the `also_known_as` reverse-link surface.
     pub principal_endpoint: &'a Url,
-    /// Stable per-user identifier — typically the user's ULID lower-cased.
+    /// Stable per-user identifier â€” typically the user's ULID lower-cased.
     /// Validated against the canonical embedded-provider local-id profile.
     pub local_id: &'a str,
     /// Optional `alsoKnownAs` entries (e.g. the user's `@handle@host`).
@@ -798,6 +798,9 @@ pub struct RealmActorInceptionInput<'a> {
     pub root_seed: &'a [u8; SECRET_KEY_LENGTH],
     pub next_root_public_key_multibase: &'a str,
     pub controller_public_key: &'a [u8; 32],
+    /// Independently generated archive X25519 public key. Its private half is
+    /// retained by the manager archive vault, never the daily controller.
+    pub content_backup_public_key: &'a [u8; 32],
 }
 
 /// Inputs for the first Agent DID update, published only after the
@@ -924,6 +927,13 @@ pub fn prepare_realm_actor_inception(
     input: &RealmActorInceptionInput<'_>,
 ) -> Result<PreparedPrincipalInception, WebvhInceptionError> {
     let controller_key = encode_ed25519_pubkey_multibase(input.controller_public_key);
+    arkret_models_crypto::validate_native_archive_recipient_public_key(&base64url_encode(
+        input.content_backup_public_key,
+    ))
+    .map_err(|error| WebvhInceptionError::InvalidProof(error.to_string()))?;
+    let mut archive_multikey = vec![0xec, 0x01];
+    archive_multikey.extend_from_slice(input.content_backup_public_key);
+    let archive_multikey = arkret_canonical::encode_multibase_base58btc(archive_multikey);
     prepare_identity_inception(
         input.principal_endpoint,
         input.principal_endpoint,
@@ -936,11 +946,14 @@ pub fn prepare_realm_actor_inception(
         true,
         |did, _endpoint| {
             let method = format!("{did}#managed-controller");
+            let archive_method = format!("{did}#content-backup");
             Ok(json!({
                 "@context": ["https://www.w3.org/ns/did/v1"],
                 "id": did,
                 "verificationMethod": [{"id": method, "type": "Multikey", "controller": did,
-                    "publicKeyMultibase": controller_key}],
+                    "publicKeyMultibase": controller_key},
+                    {"id":archive_method,"type":"Multikey","controller":did,"publicKeyMultibase":archive_multikey}],
+                "keyAgreement": [archive_method],
                 "authentication": [method],
                 "assertionMethod": [method],
                 "alsoKnownAs": [],
@@ -1622,7 +1635,7 @@ pub struct ServiceRotationInput<'a> {
     /// current document; nothing here invents document content.
     pub state: &'a Value,
     /// Seed of the update key this entry is signed with. `identity-did.md`
-    /// §3.7 I-4 requires it to be the key the previous entry pre-committed.
+    /// Â§3.7 I-4 requires it to be the key the previous entry pre-committed.
     pub current_update_seed: &'a [u8; SECRET_KEY_LENGTH],
     /// Public half of the update key the *next* successor must present. The
     /// service generates it before this entry is published and must persist it:
@@ -1647,13 +1660,13 @@ pub struct PreparedServiceRotation {
 
 /// Build one service-DID successor after validating the complete preceding log.
 ///
-/// The service, not its Provider, controls its own DID: `identity-did.md` §3.7
+/// The service, not its Provider, controls its own DID: `identity-did.md` Â§3.7
 /// makes inception, rotation, endpoint update and registration-key migration
 /// all signed by update keys the service holds, and a Provider that hosts the
 /// log must never possess them. This builder is the rotation half of that rule;
 /// `prepare_service_registration_inception*` is the inception half.
 ///
-/// Two invariants come straight from §3.7 I-4 and are enforced here rather than
+/// Two invariants come straight from Â§3.7 I-4 and are enforced here rather than
 /// deferred to the Provider: the entry is signed by exactly the key the previous
 /// entry pre-committed, and the key it pre-commits for its own successor has
 /// never been an active update key in this log. A Provider re-checks the first
@@ -2786,9 +2799,9 @@ fn verify_constructed_webvh_proof(entry: &Value) -> Result<(), String> {
         .map_err(|error| error.to_string())
 }
 
-/// `base58btc(0x12 0x20 || sha256(bytes))` — the sha2-256 multihash, base58btc
+/// `base58btc(0x12 0x20 || sha256(bytes))` â€” the sha2-256 multihash, base58btc
 /// encoded WITHOUT a multibase prefix, per DIF did:webvh v1.0 (SCIDs and entry
-/// hashes are 46-char `Qm…` strings; multibase `z` applies to keys/signatures
+/// hashes are 46-char `Qmâ€¦` strings; multibase `z` applies to keys/signatures
 /// only).
 fn sha256_multihash_base58btc(bytes: &[u8]) -> String {
     arkret_canonical::sha256_multihash_base58btc(bytes)
@@ -2799,7 +2812,7 @@ fn encode_ed25519_pubkey_multibase(public_key: &[u8; 32]) -> String {
 }
 
 /// Derive the embedded provider authority. Returns (method_authority,
-/// https_authority) — the first uses `%3A` for ports (DID-syntax safe), the
+/// https_authority) â€” the first uses `%3A` for ports (DID-syntax safe), the
 /// second uses a literal colon (URL-syntax safe).
 fn authority_pair(endpoint: &Url) -> Result<(String, String), WebvhInceptionError> {
     let host = endpoint

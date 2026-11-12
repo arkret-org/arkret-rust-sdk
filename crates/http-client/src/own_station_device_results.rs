@@ -542,6 +542,297 @@ impl OwnStationDeviceClient {
         )?;
         self.bind((after.map(str::to_owned), limit), value)
     }
+
+    /// Submit the exact immutable original. This deliberately does not refresh
+    /// prepare input or re-evaluate today's business cut before a fixed retry.
+    /// The server authenticates the original requester and distinguishes replay
+    /// from first acceptance transactionally.
+    pub async fn put_native_key_backup(
+        &self,
+        packet: &arkret_models_crypto::KeyBackup,
+        idempotency_key: &str,
+    ) -> Result<
+        BoundOwnStationDeviceResponse<
+            arkret_models_crypto::KeyBackup,
+            arkret_models_crypto::RealmActorBackupPutResponseBody,
+        >,
+    > {
+        self.check_context()?;
+        packet.validate()?;
+        if packet.actor_id != self.context.actor_id
+            || packet.device_id.as_ref() != Some(&self.context.device_id)
+            || packet.signature_proof.device_authorize_event_id.as_ref()
+                != Some(&self.context.authorization_event_id)
+            || packet
+                .contents
+                .first()
+                .and_then(|i| i.root_context.as_ref())
+                .map(|c| &c.effective_scope)
+                != Some(&self.context.effective_scope)
+        {
+            return Err(protocol(
+                "native PUT differs from its exact original requester or scope",
+            ));
+        }
+        let value: arkret_models_crypto::RealmActorBackupPutResponseBody = self
+            .client
+            .put_with_options(
+                &format!("/_arkret/self/keys/backups/{}", packet.backup_id),
+                packet,
+                &crate::ClientRequestOptions::new().idempotency_key(idempotency_key),
+            )
+            .await?;
+        if value.backup_id != packet.backup_id
+            || value.ciphertext_digest != packet.ciphertext_digest
+        {
+            return Err(protocol("native PUT ACK differs from its immutable packet"));
+        }
+        self.validate_native_packet_result(packet, &value.admission)?;
+        self.bind(packet.clone(), value)
+    }
+
+    pub async fn realm_actor_backup_prepare_input(
+        &self,
+        request_nonce: String,
+        authority: &arkret_identity::VerifiedRealmAuthority,
+        resolution: &arkret_models_identity::AuthenticatedServiceResolution,
+        keys: &(dyn arkret_identity::RealmAuthorityKeyDirectory + Sync),
+    ) -> Result<
+        BoundOwnStationDeviceResponse<
+            arkret_models_integration::RealmActorMaterialRequestBody,
+            arkret_models_crypto::ContentBackupNextPrepareInput,
+        >,
+    > {
+        self.check_context()?;
+        if &self.context.binding.service_id != authority.current_service_id()
+            || self.context.governance_generation != authority.current_generation()
+            || self.context.effective_scope.realm_id_opt() != Some(authority.realm_id())
+        {
+            return Err(protocol(
+                "native prepare input authority differs from captured Device context",
+            ));
+        }
+        let request = arkret_models_integration::RealmActorMaterialRequestBody::Current {
+            actor_id: self.context.actor_id.clone(),
+            request_nonce,
+            selectors: vec![
+                arkret_wire::CurrentSelector::RealmActorRecovery {
+                    actor_id: self.context.actor_id.clone(),
+                },
+                arkret_wire::CurrentSelector::RealmActorKeyBackupActiveSeries {
+                    actor_id: self.context.actor_id.clone(),
+                    effective_scope: self.context.effective_scope.clone(),
+                    backup_kind: arkret_wire::RealmActorBackupKind::SecretStorage,
+                },
+            ],
+        };
+        let material = self
+            .client
+            .realm_actor_material(
+                &request,
+                &self.context.actor_id,
+                authority,
+                resolution,
+                keys,
+            )
+            .await?;
+        let input = material
+            .material()
+            .content_backup_prepare_input(&self.context.actor_id, &self.context.effective_scope)?
+            .clone();
+        self.bind(request, input)
+    }
+
+    /// Only the selected series' exact current head metadata is returned.
+    pub async fn native_key_backup_head(
+        &self,
+        query: &arkret_models_crypto::RealmActorBackupHeadQuery,
+    ) -> Result<
+        BoundOwnStationDeviceResponse<
+            arkret_models_crypto::RealmActorBackupHeadQuery,
+            arkret_models_crypto::RealmActorBackupSeriesHeadResponseBody,
+        >,
+    > {
+        self.check_context()?;
+        if self.context.actor_id.as_realm_actor_id() != Some(&query.realm_actor_id)
+            || self.context.effective_scope != query.effective_scope()
+        {
+            return Err(protocol(
+                "native backup head request differs from its Device scope",
+            ));
+        }
+        let pairs = arkret_models_crypto::KeysBackupsListParameters::Device(query.clone())
+            .to_query_pairs()?;
+        let value: arkret_models_crypto::RealmActorBackupSeriesHeadResponseBody = self
+            .client
+            .send_json(
+                self.client
+                    .request(reqwest::Method::GET, "/_arkret/self/keys/backups")?
+                    .query(&pairs),
+            )
+            .await?;
+        if value.realm_actor_id != query.realm_actor_id
+            || value.effective_scope != query.effective_scope()
+            || value.active_series.realm_actor_id != query.realm_actor_id
+            || value.active_series.effective_scope != value.effective_scope
+            || value.items.len() > 1
+        {
+            return Err(protocol(
+                "native backup head response changed its actor, scope or cardinality",
+            ));
+        }
+        for item in &value.items {
+            if item.metadata.actor_id != self.context.actor_id
+                || item.admission.realm_actor_id != query.realm_actor_id
+                || item.admission.effective_scope != query.effective_scope()
+                || item.metadata.backup_id != item.admission.backup_id
+                || item.metadata.ciphertext_digest != item.admission.ciphertext_digest
+                || item.metadata.device_id != item.admission.device_id
+                || item.metadata.auth_binding.manager_ref != item.admission.manager_ref
+                || item.metadata.auth_binding.recovery_ref != item.admission.recovery_ref
+                || item.metadata.auth_binding.recipient_ref != item.admission.recipient_ref
+                || item.metadata.auth_binding.device_generation != item.admission.device_generation
+                || item.admission.signature.context
+                    != arkret_wire::DetachedSignatureContext::RealmActorContentBackupAdmission
+                || item.admission.signature.created_at != item.admission.accepted_at
+                || value.active_series.secret_storage.series_id() != Some(&item.metadata.series_id)
+            {
+                return Err(protocol(
+                    "native head metadata differs from its immutable admission or selected series",
+                ));
+            }
+        }
+        self.bind(query.clone(), value)
+    }
+
+    pub async fn issue_native_key_backup_unlock_challenge(
+        &self,
+        backup_id: &arkret_wire::BackupId,
+        request: &arkret_models_crypto::RealmActorBackupIssueUnlockChallengeRequestBody,
+    ) -> Result<
+        BoundOwnStationDeviceResponse<
+            (
+                arkret_wire::BackupId,
+                arkret_models_crypto::RealmActorBackupIssueUnlockChallengeRequestBody,
+            ),
+            arkret_models_crypto::RealmActorBackupUnlockChallenge,
+        >,
+    > {
+        use arkret_models_crypto::{
+            RealmActorBackupUnlockChallengeKind as Kind,
+            RealmActorBackupUnlockChallengePurpose as Purpose,
+        };
+        self.check_context()?;
+        if request.kind != Kind::RealmActorDevice
+            || request.purpose != Purpose::SeriesPredecessor
+            || self.context.actor_id.as_realm_actor_id() != Some(&request.realm_actor_id)
+            || self.context.effective_scope != request.effective_scope
+        {
+            return Err(protocol(
+                "native challenge must select this Device's exact head scope",
+            ));
+        }
+        let value: arkret_models_crypto::RealmActorBackupUnlockChallenge = self
+            .client
+            .post(
+                &format!("/_arkret/self/keys/backups/{backup_id}/unlock-challenge"),
+                request,
+            )
+            .await?;
+        value.validate_for_native_request(request, backup_id)?;
+        if value.audience.as_str() != self.client.base_url.origin().ascii_serialization() {
+            return Err(protocol(
+                "native unlock challenge changed the bound service origin",
+            ));
+        }
+        if value.requesting_device_id.as_ref() != Some(&self.context.device_id)
+            || value.device_authorize_event_id.as_ref()
+                != Some(&self.context.authorization_event_id)
+            || value.service_id != self.context.binding.service_id
+        {
+            return Err(protocol(
+                "native challenge changed its current requester or bound Station",
+            ));
+        }
+        self.bind((backup_id.clone(), request.clone()), value)
+    }
+
+    /// Independently verifies the complete original packet with the immutable
+    /// original Device key supplied by this bound Station. A sibling author is
+    /// legitimate; it is never impersonated as a PUT requester.
+    pub async fn unlock_native_key_backup(
+        &self,
+        challenge: &BoundOwnStationDeviceResponse<
+            (
+                arkret_wire::BackupId,
+                arkret_models_crypto::RealmActorBackupIssueUnlockChallengeRequestBody,
+            ),
+            arkret_models_crypto::RealmActorBackupUnlockChallenge,
+        >,
+    ) -> Result<
+        BoundOwnStationDeviceResponse<
+            arkret_models_crypto::RealmActorDeviceKeyBackupUnlockProof,
+            arkret_models_crypto::RealmActorBackupUnlockResponseBody,
+        >,
+    > {
+        use ed25519_dalek::Signer as _;
+        self.check_context()?;
+        if challenge.context != self.context {
+            return Err(protocol(
+                "unlock challenge belongs to another Device incarnation",
+            ));
+        }
+        let challenge = challenge.value()?;
+        let signer = self
+            .client
+            .http_message_signer
+            .as_ref()
+            .ok_or_else(|| protocol("native unlock lacks its actual signer"))?;
+        let fingerprint =
+            arkret_canonical::ed25519_pubkey_to_did_key_multibase(&self.context.public_key);
+        let method = arkret_wire::DidUrl::new(format!("did:key:{fingerprint}#{fingerprint}"))
+            .map_err(protocol)?;
+        let proof = challenge.sign_device_unlock_proof(method, |bytes| {
+            Ok(signer.signing_key().sign(bytes).to_bytes().to_vec())
+        })?;
+        let request = arkret_models_crypto::KeysBackupsUnlockOperationRequestBody {
+            proof: arkret_models_crypto::KeyBackupUnlockProofBody::Device(proof.clone()),
+        };
+        let value: arkret_models_crypto::RealmActorBackupUnlockResponseBody = self
+            .client
+            .post(
+                &format!("/_arkret/self/keys/backups/{}/unlock", proof.backup_id),
+                &request,
+            )
+            .await?;
+        self.validate_native_packet_result(&value.backup, &value.admission)?;
+        if value.backup.backup_id != proof.backup_id
+            || value.admission.envelope_digest != proof.envelope_digest
+            || value.backup.ciphertext_digest != proof.ciphertext_digest
+            || value.backup.series_id != proof.series_id
+        {
+            return Err(protocol("native unlock returned another exact packet"));
+        }
+        self.bind(proof, value)
+    }
+
+    fn validate_native_packet_result(
+        &self,
+        packet: &arkret_models_crypto::KeyBackup,
+        admission: &arkret_models_crypto::RealmActorContentBackupAdmission,
+    ) -> Result<()> {
+        if packet.actor_id != self.context.actor_id
+            || admission.effective_scope != self.context.effective_scope
+        {
+            return Err(protocol(
+                "native packet result differs from its bound Device scope",
+            ));
+        }
+        arkret_signatures::realm_actor_content_backup::verify_realm_actor_backup_packet(
+            packet, admission,
+        )
+        .map_err(protocol)
+    }
 }
 
 fn protocol(message: impl std::fmt::Display) -> Error {

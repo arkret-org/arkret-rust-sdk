@@ -2127,7 +2127,14 @@ pub fn validate_new_producer_admission_fact(
     if matches!(
         event.kind,
         EventKind::RealmActorRecoveryBegin | EventKind::RealmActorControlReset
-    ) {
+    ) || (event.kind == EventKind::KeyBackupActiveSeries
+        && event
+            .payload
+            .get("actor_id")
+            .and_then(|v| v.get("kind"))
+            .and_then(serde_json::Value::as_str)
+            == Some("realm"))
+    {
         return match fact {
             Some(HistoricalProducerSignerFact::RealmRecoveryService(f)) => {
                 f.validate_event_binding(event, suite)
@@ -2280,12 +2287,30 @@ impl RealmRecoveryServiceHistoricalSignerFact {
                 != Some(&self.verification_method)
             || self.manager_ref.stream_ref != control_stream
             || self.recovery_ref.stream_ref != control_stream
-            || event.payload.get("target_actor_id")
+            || event
+                .payload
+                .get(if event.kind == EventKind::KeyBackupActiveSeries {
+                    "actor_id"
+                } else {
+                    "target_actor_id"
+                })
                 != Some(&serde_json::to_value(&self.target_actor_id)?)
         {
             return Err(invalid());
         }
         match event.kind {
+            EventKind::KeyBackupActiveSeries => {
+                let record: crate::events_payloads::KeyBackupActiveSeries =
+                    serde_json::from_value(serde_json::to_value(&event.payload)?)?;
+                crate::events_payloads::validate_key_backup_active_series_record(&record)
+                    .map_err(|_| invalid())?;
+                if record.actor_id.as_realm_actor_id().is_none()
+                    || record.manager_ref.as_ref() != Some(&self.manager_ref)
+                    || record.recovery_ref.as_ref() != Some(&self.recovery_ref)
+                {
+                    return Err(invalid());
+                }
+            }
             EventKind::RealmActorRecoveryBegin => {
                 if event.payload.get("manager_ref")
                     != Some(&serde_json::to_value(&self.manager_ref)?)

@@ -5,14 +5,14 @@
 // sha256=a5a2c6b1d3a4da06fb9c254a758ed2497a2924296931e10b5cfcf4f2261b92f5
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=2db9dc0b757e082d561722a2301e943a7422e79691dd5632a5a2ec129045cc3f
+// sha256=bb8c3350621b1f35ac031f7e6919326951b3576cd3c52db20323ba3e6e740687
 
 /// Counterpart: `identity-resolution.schema.json#/$defs/service_route_projection`.
 /// Derived route projection of one verified service DID state.
 ///
 /// This is the single Rust expression of
 /// `identity-resolution.schema.json#/$defs/service_route_projection`
-/// (`sync/service-surface.md` Â§2.6). It is produced either locally by
+/// (`sync/service-surface.md` §2.6). It is produced either locally by
 /// [`AuthenticatedServiceResolution::projection`] after method-native
 /// verification, or handed over already verified inside an own-Station result
 /// such as the media service binding. There is deliberately only one type: a

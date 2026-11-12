@@ -146,6 +146,12 @@ pub enum DetachedSignatureContext {
     RealmActorRecoveryAcceptance,
     #[serde(rename = "ak.realm_actor_material_signature.v1")]
     RealmActorMaterial,
+    #[serde(rename = "ak.realm_actor_content_backup_admission_signature.v1")]
+    RealmActorContentBackupAdmission,
+    #[serde(rename = "ak.realm_actor_content_backup_offer_signature.v1")]
+    RealmActorContentBackupOffer,
+    #[serde(rename = "ak.realm_actor_content_backup_confirmation_signature.v1")]
+    RealmActorContentBackupConfirmation,
 }
 
 impl DetachedSignatureContext {
@@ -154,6 +160,15 @@ impl DetachedSignatureContext {
     /// one context can never verify under another.
     pub fn as_wire_str(self) -> &'static str {
         match self {
+            Self::RealmActorContentBackupAdmission => {
+                "ak.realm_actor_content_backup_admission_signature.v1"
+            }
+            Self::RealmActorContentBackupOffer => {
+                "ak.realm_actor_content_backup_offer_signature.v1"
+            }
+            Self::RealmActorContentBackupConfirmation => {
+                "ak.realm_actor_content_backup_confirmation_signature.v1"
+            }
             Self::RealmActorCreation => {
                 crate::DomainSeparationId::REALM_ACTOR_CREATION_SIGNATURE_V1
             }
@@ -187,7 +202,7 @@ impl DetachedSignatureContext {
     }
 
     /// Every context the closed enum admits, in declaration order.
-    pub const ALL: [Self; 11] = [
+    pub const ALL: [Self; 14] = [
         Self::RealmCommit,
         Self::RealmAuthorityHandoffOld,
         Self::RealmAuthorityHandoffNewAcceptance,
@@ -199,6 +214,9 @@ impl DetachedSignatureContext {
         Self::RealmActorManagerAcceptance,
         Self::RealmActorRecoveryAcceptance,
         Self::RealmActorMaterial,
+        Self::RealmActorContentBackupAdmission,
+        Self::RealmActorContentBackupOffer,
+        Self::RealmActorContentBackupConfirmation,
     ];
 }
 
@@ -1637,6 +1655,14 @@ fn deserialize_realm_actor_selector<'de, D: Deserializer<'de>>(
     Ok(actor)
 }
 
+/// Closed class used by native backup current selectors.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RealmActorBackupKind {
+    #[serde(rename = "secret_storage")]
+    SecretStorage,
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
@@ -1679,6 +1705,12 @@ pub enum CurrentSelector {
     RealmActorRecovery {
         #[serde(deserialize_with = "deserialize_realm_actor_selector")]
         actor_id: ActorId,
+    },
+    RealmActorKeyBackupActiveSeries {
+        #[serde(deserialize_with = "deserialize_realm_actor_selector")]
+        actor_id: ActorId,
+        effective_scope: ScopeRef,
+        backup_kind: RealmActorBackupKind,
     },
     Sidecar {
         sidecar_id: SidecarId,
@@ -1939,6 +1971,12 @@ enum FlatCurrentSelector {
     RealmActorRecovery {
         #[serde(deserialize_with = "deserialize_realm_actor_selector")]
         actor_id: ActorId,
+    },
+    RealmActorKeyBackupActiveSeries {
+        #[serde(deserialize_with = "deserialize_realm_actor_selector")]
+        actor_id: ActorId,
+        effective_scope: ScopeRef,
+        backup_kind: RealmActorBackupKind,
     },
     Sidecar {
         sidecar_id: SidecarId,
@@ -2297,6 +2335,28 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                     }
                     FlatCurrentSelector::RealmActorRecovery { actor_id } => {
                         Self::RealmActorRecovery { actor_id }
+                    }
+                    FlatCurrentSelector::RealmActorKeyBackupActiveSeries {
+                        actor_id,
+                        effective_scope,
+                        backup_kind,
+                    } => {
+                        let ActorId::Realm { realm_actor_id } = &actor_id else {
+                            return Err(serde::de::Error::custom(
+                                "native series requires Realm actor",
+                            ));
+                        };
+                        if !matches!(&effective_scope, ScopeRef::Realm { realm_id } | ScopeRef::Circle { realm_id, .. } if realm_id == &realm_actor_id.realm_id)
+                        {
+                            return Err(serde::de::Error::custom(
+                                "native series requires the actor's Realm or Circle",
+                            ));
+                        }
+                        Self::RealmActorKeyBackupActiveSeries {
+                            actor_id,
+                            effective_scope,
+                            backup_kind,
+                        }
                     }
                     FlatCurrentSelector::Sidecar { sidecar_id } => Self::Sidecar { sidecar_id },
                     FlatCurrentSelector::SidecarContext {

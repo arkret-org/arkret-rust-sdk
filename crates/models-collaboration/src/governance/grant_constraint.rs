@@ -501,7 +501,7 @@ pub struct GrantConstraint {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub approval_mode: Option<ApprovalWorkflowMode>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub approval_actor_ids: Vec<DidCoreId>,
+    pub approval_principal_ids: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub approval_relation: Option<GrantApprovalRelation>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -637,7 +637,7 @@ impl GrantConstraint {
             resource_kind: None,
             approval_required: None,
             approval_mode: None,
-            approval_actor_ids: Vec::new(),
+            approval_principal_ids: Vec::new(),
             approval_relation: None,
             timeout: None,
             approval_threshold: None,

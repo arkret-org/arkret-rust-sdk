@@ -1262,7 +1262,7 @@ mod managed_scope_tests {
         let rules = registry["device_authentication"]["operation_scope_rules"]
             .as_array()
             .unwrap();
-        assert_eq!(rules.len(), 22);
+        assert_eq!(rules.len(), 26);
         for rule in rules {
             let operation =
                 ServiceOperationId::from_wire(rule["operation_id"].as_str().unwrap()).unwrap();
@@ -1271,12 +1271,24 @@ mod managed_scope_tests {
                     assert_eq!(rule["mode"], "all_actions");
                     assert_eq!(serde_json::to_value(actions).unwrap(), rule["actions"]);
                 }
+                ManagedDeviceScopeRule::AllActionsAndControl { actions, control } => {
+                    assert_eq!(rule["mode"], "all_actions");
+                    assert_eq!(serde_json::to_value(actions).unwrap(), rule["actions"]);
+                    assert_eq!(control, ManagedDeviceControl::NativeRootBackup);
+                    assert_eq!(actions.len(), 1);
+                    assert_eq!(actions[0].as_str(), operation.as_str());
+                    assert_eq!(
+                        rule["control_rule"],
+                        "exact_self_native_root_scope_and_current_epoch_for_PUT_same_scope_predecessor_ciphertext_for_reads_no_archive_private_key_or_manager_role"
+                    );
+                }
                 ManagedDeviceScopeRule::SubmittedBusinessActions => {
                     assert_eq!(rule["mode"], "submitted_business_actions")
                 }
                 ManagedDeviceScopeRule::DeviceControl(control) => {
                     assert_eq!(rule["mode"], "device_control");
                     let expected = match control {
+                        ManagedDeviceControl::NativeRootBackup => panic!("native backup is an action-plus-control gate, never action-free Device control"),
                         ManagedDeviceControl::OwnExactPreviouslyDeliveredItemsAck => {
                             "own_exact_previously_delivered_items_ack"
                         }
@@ -1289,8 +1301,8 @@ mod managed_scope_tests {
                         ManagedDeviceControl::OwnExactDurableWelcomeReceiptConsume => {
                             "own_exact_durable_welcome_receipt_consume"
                         }
-                        ManagedDeviceControl::OwnExactDeviceAuthorizationMaterialRead => {
-                            "own_exact_device_authorization_material_read"
+                        ManagedDeviceControl::OwnExactDeviceAuthorizationOrNativeBackupCurrentMaterialRead => {
+                            "own_exact_device_authorization_or_native_backup_current_material_read"
                         }
                     };
                     assert_eq!(rule["control_rule"], expected);

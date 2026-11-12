@@ -12,7 +12,12 @@ pub struct KeyBackupActiveSeriesSignatureProof {
     pub verification_method: DidUrl,
     pub signature_algorithm: KeyBackupSignatureAlgorithm,
     pub signature: Base64UrlString,
-    pub device_authorize_event_id: EventId,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub device_authorize_event_id: Option<EventId>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -24,6 +29,7 @@ struct UnsignedKeyBackupActiveSeriesAuthData {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(remote = "Self")]
 pub struct KeyBackupActiveSeries {
     pub schema: String,
     pub actor_id: ActorId,
@@ -31,7 +37,36 @@ pub struct KeyBackupActiveSeries {
     pub active_series_id: BackupSeriesId,
     pub series_pointer_version: u64,
     pub previous_series_ids: Vec<BackupSeriesId>,
-    pub source_commit_ref: KeyBackupSourceCommitRef,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub source_commit_ref: Option<KeyBackupSourceCommitRef>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub effective_scope: Option<ScopeRef>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub manager_ref: Option<CommittedEventRef>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub recovery_ref: Option<CommittedEventRef>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub recipient_ref: Option<CommittedEventRef>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     pub signature_proof: KeyBackupActiveSeriesSignatureProof,
@@ -50,6 +85,25 @@ pub struct KeyBackupActiveSeries {
 
     #[serde(flatten)]
     pub extra: BTreeMap<String, Value>,
+}
+
+impl Serialize for KeyBackupActiveSeries {
+    fn serialize<S: serde::Serializer>(
+        &self,
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error> {
+        KeyBackupActiveSeries::serialize(self, serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for KeyBackupActiveSeries {
+    fn deserialize<D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> std::result::Result<Self, D::Error> {
+        let record = KeyBackupActiveSeries::deserialize(deserializer)?;
+        validate_key_backup_active_series_record(&record).map_err(serde::de::Error::custom)?;
+        Ok(record)
+    }
 }
 
 /// Authoring-only active-series record before a signature exists.
@@ -179,13 +233,17 @@ impl UnsignedKeyBackupActiveSeries {
             active_series_id: self.active_series_id,
             series_pointer_version: self.series_pointer_version,
             previous_series_ids: self.previous_series_ids,
-            source_commit_ref: self.source_commit_ref,
+            source_commit_ref: Some(self.source_commit_ref),
+            effective_scope: None,
+            manager_ref: None,
+            recovery_ref: None,
+            recipient_ref: None,
             issued_at: self.issued_at,
             signature_proof: KeyBackupActiveSeriesSignatureProof {
                 verification_method: self.signature_proof.verification_method,
                 signature_algorithm: self.signature_proof.signature_algorithm,
                 signature,
-                device_authorize_event_id: self.signature_proof.device_authorize_event_id,
+                device_authorize_event_id: Some(self.signature_proof.device_authorize_event_id),
             },
             custodian_actor_id: self.custodian_actor_id,
             custody_authorization_ref: self.custody_authorization_ref,
@@ -201,25 +259,15 @@ impl KeyBackupActiveSeries {
     /// from this transcript. Keeping that operation on the public model avoids
     /// every producer and verifier growing its own JSON-shape implementation.
     pub fn signing_payload_bytes(&self) -> Result<Vec<u8>> {
-        let unsigned = UnsignedKeyBackupActiveSeries {
-            schema: self.schema.clone(),
-            actor_id: self.actor_id.clone(),
-            backup_kind: self.backup_kind,
-            active_series_id: self.active_series_id.clone(),
-            series_pointer_version: self.series_pointer_version,
-            previous_series_ids: self.previous_series_ids.clone(),
-            source_commit_ref: self.source_commit_ref.clone(),
-            issued_at: self.issued_at,
-            signature_proof: UnsignedKeyBackupActiveSeriesAuthData {
-                verification_method: self.signature_proof.verification_method.clone(),
-                signature_algorithm: self.signature_proof.signature_algorithm,
-                device_authorize_event_id: self.signature_proof.device_authorize_event_id.clone(),
-            },
-            custodian_actor_id: self.custodian_actor_id.clone(),
-            custody_authorization_ref: self.custody_authorization_ref.clone(),
-            extra: self.extra.clone(),
-        };
-        unsigned.signing_payload_bytes()
+        validate_key_backup_active_series_record(self)
+            .map_err(|e| WireError::Protocol(e.to_string()))?;
+        let mut value = serde_json::to_value(self)?;
+        value
+            .get_mut("signature_proof")
+            .and_then(Value::as_object_mut)
+            .ok_or_else(|| WireError::Protocol("missing active series proof".into()))?
+            .remove("signature");
+        Ok(canonical::canonical_json_bytes(&value)?)
     }
 }
 
@@ -231,6 +279,7 @@ pub struct KeyBackupActiveSeriesHead {
     pub series_pointer_version: u64,
     pub previous_series_ids: Vec<BackupSeriesId>,
     pub record_digest: String,
+    pub effective_scope: Option<ScopeRef>,
 }
 
 /// Current authority-projected generation and accepted device authorization used
@@ -242,11 +291,27 @@ pub struct ControllerBackupTrustAnchor {
 }
 
 impl ControllerBackupTrustAnchor {
-    pub fn from_record(record: &KeyBackupActiveSeries) -> Self {
-        Self {
-            authorize_event_id: record.signature_proof.device_authorize_event_id.clone(),
-            generation_ref: record.source_commit_ref.device_generation_ref,
-        }
+    pub fn from_record(record: &KeyBackupActiveSeries) -> Result<Self> {
+        validate_key_backup_active_series_record(record)
+            .map_err(|e| WireError::Protocol(e.to_string()))?;
+        Ok(Self {
+            authorize_event_id: record
+                .signature_proof
+                .device_authorize_event_id
+                .clone()
+                .ok_or_else(|| {
+                    WireError::Protocol(
+                        "native Service series has no Controller Device trust anchor".into(),
+                    )
+                })?,
+            generation_ref: record
+                .source_commit_ref
+                .as_ref()
+                .ok_or_else(|| {
+                    WireError::Protocol("native Service series has no PCR generation".into())
+                })?
+                .device_generation_ref,
+        })
     }
 }
 
@@ -330,7 +395,10 @@ pub fn validate_key_backup_active_series_transition(
             Err(KeyBackupActiveSeriesTransitionError::PointerVersionGap)
         };
     };
-    if current.actor_id != record.actor_id || current.backup_kind != record.backup_kind {
+    if current.actor_id != record.actor_id
+        || current.backup_kind != record.backup_kind
+        || current.effective_scope != record.effective_scope
+    {
         return Err(KeyBackupActiveSeriesTransitionError::ActorOrClassMismatch);
     }
     if record.series_pointer_version == current.series_pointer_version {
@@ -354,6 +422,45 @@ pub fn validate_key_backup_active_series_transition(
 pub fn validate_key_backup_active_series_record(
     record: &KeyBackupActiveSeries,
 ) -> std::result::Result<(), KeyBackupActiveSeriesTransitionError> {
+    match &record.actor_id {
+        ActorId::Realm { realm_actor_id } => {
+            let scope = record
+                .effective_scope
+                .as_ref()
+                .ok_or(KeyBackupActiveSeriesTransitionError::SchemaMismatch)?;
+            arkret_models_crypto::validate_realm_actor_backup_scope(realm_actor_id, scope)
+                .map_err(|_| KeyBackupActiveSeriesTransitionError::ActorOrClassMismatch)?;
+            if record.source_commit_ref.is_some()
+                || record.signature_proof.device_authorize_event_id.is_some()
+                || record.custodian_actor_id.is_some()
+                || record.custody_authorization_ref.is_some()
+                || record.manager_ref.is_none()
+                || record.recovery_ref.is_none()
+                || record.recipient_ref.is_none()
+            {
+                return Err(KeyBackupActiveSeriesTransitionError::SchemaMismatch);
+            }
+        }
+        _ => {
+            if record
+                .source_commit_ref
+                .as_ref()
+                .is_none_or(|source| source.device_generation_ref == 0)
+                || record.signature_proof.device_authorize_event_id.is_none()
+                || record.effective_scope.is_some()
+                || record.manager_ref.is_some()
+                || record.recovery_ref.is_some()
+                || record.recipient_ref.is_some()
+            {
+                return Err(KeyBackupActiveSeriesTransitionError::SchemaMismatch);
+            }
+        }
+    }
+    if record.series_pointer_version == 0
+        || record.signature_proof.signature_algorithm != KeyBackupSignatureAlgorithm::Ed25519
+    {
+        return Err(KeyBackupActiveSeriesTransitionError::SchemaMismatch);
+    }
     if record.custodian_actor_id.is_some() != record.custody_authorization_ref.is_some() {
         return Err(KeyBackupActiveSeriesTransitionError::SchemaMismatch);
     }
@@ -405,6 +512,7 @@ pub fn key_backup_active_series_head(
         series_pointer_version: record.series_pointer_version,
         previous_series_ids: record.previous_series_ids.clone(),
         record_digest,
+        effective_scope: record.effective_scope.clone(),
     })
 }
 
@@ -420,6 +528,98 @@ fn valid_active_series_extension_key(key: &str) -> bool {
         && chars.all(|candidate| {
             candidate.is_ascii_lowercase() || candidate.is_ascii_digit() || candidate == '_'
         })
+}
+
+/// Local unsigned manager-Service series selection. This is not a Device
+/// authorization or an accepted current projection.
+#[derive(Clone, Debug)]
+pub struct UnsignedRealmActorKeyBackupActiveSeries {
+    actor_id: RealmActorId,
+    effective_scope: ScopeRef,
+    active_series_id: BackupSeriesId,
+    series_pointer_version: u64,
+    previous_series_ids: Vec<BackupSeriesId>,
+    manager_ref: CommittedEventRef,
+    recovery_ref: CommittedEventRef,
+    recipient_ref: CommittedEventRef,
+    issued_at: DateTime<Utc>,
+    verification_method: DidUrl,
+}
+
+impl UnsignedRealmActorKeyBackupActiveSeries {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        actor_id: RealmActorId,
+        effective_scope: ScopeRef,
+        active_series_id: BackupSeriesId,
+        series_pointer_version: u64,
+        previous_series_ids: Vec<BackupSeriesId>,
+        manager_ref: CommittedEventRef,
+        recovery_ref: CommittedEventRef,
+        recipient_ref: CommittedEventRef,
+        issued_at: DateTime<Utc>,
+        verification_method: DidUrl,
+    ) -> Result<Self> {
+        arkret_models_crypto::validate_realm_actor_backup_scope(&actor_id, &effective_scope)?;
+        if series_pointer_version == 0
+            || previous_series_ids.contains(&active_series_id)
+            || previous_series_ids
+                .iter()
+                .collect::<std::collections::BTreeSet<_>>()
+                .len()
+                != previous_series_ids.len()
+        {
+            return Err(WireError::Protocol(
+                "invalid native active series selection".into(),
+            ));
+        }
+        Ok(Self {
+            actor_id,
+            effective_scope,
+            active_series_id,
+            series_pointer_version,
+            previous_series_ids,
+            manager_ref,
+            recovery_ref,
+            recipient_ref,
+            issued_at,
+            verification_method,
+        })
+    }
+
+    fn unsigned(&self) -> Value {
+        serde_json::json!({
+            "schema": SchemaId::KEY_BACKUP_ACTIVE_SERIES_V1,
+            "actor_id": ActorId::Realm { realm_actor_id: self.actor_id.clone() },
+            "backup_kind": BackupKind::SecretStorage,
+            "active_series_id": self.active_series_id,
+            "series_pointer_version": self.series_pointer_version,
+            "previous_series_ids": self.previous_series_ids,
+            "effective_scope": self.effective_scope,
+            "manager_ref": self.manager_ref, "recovery_ref": self.recovery_ref,
+            "recipient_ref": self.recipient_ref,
+            "issued_at": arkret_canonical::format_timestamp_canonical(self.issued_at),
+            "signature_proof": {"verification_method": self.verification_method, "signature_algorithm": "Ed25519"}
+        })
+    }
+
+    pub fn signing_payload_bytes(&self) -> Result<Vec<u8>> {
+        Ok(canonical::canonical_json_bytes(&self.unsigned())?)
+    }
+
+    pub fn attach_signature(self, signature: Base64UrlString) -> Result<KeyBackupActiveSeries> {
+        if arkret_canonical::base64url_decode(signature.as_str())?.len() != 64 {
+            return Err(WireError::Protocol(
+                "native series requires an actual Ed25519 signature".into(),
+            ));
+        }
+        let mut value = self.unsigned();
+        value["signature_proof"]["signature"] = serde_json::to_value(signature)?;
+        let record: KeyBackupActiveSeries = serde_json::from_value(value)?;
+        validate_key_backup_active_series_record(&record)
+            .map_err(|e| WireError::Protocol(e.to_string()))?;
+        Ok(record)
+    }
 }
 
 #[cfg(test)]
@@ -490,7 +690,7 @@ mod tests {
         assert_eq!(
             value["source_commit_ref"],
             json!({
-                "realm_commit_id": record.source_commit_ref.realm_commit_id,
+                "realm_commit_id": record.source_commit_ref.as_ref().unwrap().realm_commit_id,
                 "device_generation_ref": 3,
             })
         );
@@ -511,7 +711,12 @@ mod tests {
                 .unwrap();
         assert_eq!(
             unsigned["source_commit_ref"]["realm_commit_id"],
-            record.source_commit_ref.realm_commit_id.as_str()
+            record
+                .source_commit_ref
+                .as_ref()
+                .unwrap()
+                .realm_commit_id
+                .as_str()
         );
         assert_eq!(unsigned["source_commit_ref"]["device_generation_ref"], 3);
         assert!(unsigned.get("source_ref").is_none());

@@ -45,6 +45,7 @@ pub mod objects;
 pub mod poll;
 pub mod prepared_event_draft;
 pub mod principal_operations;
+pub mod realm_actor_content_backup;
 mod serde_absence;
 pub mod session_grant_bodies;
 pub mod session_grants;
@@ -62,6 +63,7 @@ pub use events_payloads::{
 };
 pub use governance::audit::{AccessKind, AuditPolicyAccessPayload};
 pub use prepared_event_draft::PreparedEventDraft;
+pub use realm_actor_content_backup::*;
 
 macro_rules! string_marker {
     ($name:ident, $variant:ident, $wire:literal) => {

@@ -2,7 +2,7 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/current-state.schema.json
-// sha256=106ec4b74fb996d95cfd8631d60e22c1c72cc1f7d16232bebf10f21a62ff1d47
+// sha256=b9b2fcecf87470a1def1e55bf536bdb637b04f0e6f42083d5ed9962a80b14c61
 //
 // Input: schemas/event-payload.schema.json
 // sha256=e57f2773764165f5a2e6047ae5491cdf152476deb73c83b2f6c14fff58925305
@@ -11,7 +11,7 @@
 // sha256=79f44b93062a197a5ed0854fa6ae7b113f028dd8e38369f40276457d00d93e0b
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=2db9dc0b757e082d561722a2301e943a7422e79691dd5632a5a2ec129045cc3f
+// sha256=bb8c3350621b1f35ac031f7e6919326951b3576cd3c52db20323ba3e6e740687
 
 /// Counterpart: `current-state.schema.json#/$defs/reaction_assertion_entry`.
 /// One asserted element of the `message_reactions` keyed set

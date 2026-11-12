@@ -84,6 +84,7 @@ pub struct KeyBackupSourceCommitRef {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(remote = "Self")]
 pub struct KeyBackup {
     pub backup_id: BackupId,
     pub actor_id: ActorId,
@@ -177,8 +178,47 @@ pub struct KeyBackup {
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub custody_authorization_ref: Option<EventId>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub auth_binding: Option<crate::RealmActorBackupAuthBinding>,
     #[serde(default, flatten)]
     pub extra: XExtensionMap,
+}
+
+impl Serialize for KeyBackup {
+    fn serialize<S: Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
+        KeyBackup::serialize(self, serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for KeyBackup {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> std::result::Result<Self, D::Error> {
+        let value = Value::deserialize(deserializer)?;
+        let native = value
+            .get("actor_id")
+            .and_then(|v| v.get("kind"))
+            .and_then(Value::as_str)
+            == Some("realm");
+        if native
+            && value
+                .as_object()
+                .is_some_and(|object| object.contains_key("expires_at"))
+        {
+            return Err(D::Error::custom(
+                "native root backups forbid expires_at, including null",
+            ));
+        }
+        // Serde's remote-Self derive supplies the exact same field decoder,
+        // without introducing a second wire DTO or changing nullable legacy fields.
+        let record = KeyBackup::deserialize(value).map_err(D::Error::custom)?;
+        if native {
+            record.validate().map_err(D::Error::custom)?;
+        }
+        Ok(record)
+    }
 }
 
 impl KeyBackup {
@@ -186,6 +226,48 @@ impl KeyBackup {
 
     pub fn validate(&self) -> Result<()> {
         self.signature_proof.validate()?;
+        let native = match &self.actor_id {
+            ActorId::Realm { realm_actor_id } => {
+                realm_actor_id.validate()?;
+                let binding = self.auth_binding.as_ref().ok_or_else(|| {
+                    WireError::Protocol(
+                        "native backup requires its accepted public auth binding".into(),
+                    )
+                })?;
+                binding.validate()?;
+                if self.expires_at.is_some()
+                    || self.source_commit_ref.is_some()
+                    || self.recovery_policy_ref.is_some()
+                    || self.custodian_actor_id.is_some()
+                    || self.custody_authorization_ref.is_some()
+                    || self.device_id.is_none()
+                    || self.signature_proof.device_authorize_event_id.is_none()
+                    || self.signature_proof.agent_authorization_event_ref.is_some()
+                    || self.signature_proof.signature_algorithm
+                        != KeyBackupSignatureAlgorithm::Ed25519
+                    || self.encryption.recipient_method
+                        != KeyBackupRecipientMethod::RealmActorRecovery
+                    || self.encryption.hpke_suite.as_deref()
+                        != Some(HPKE_SUITE_X25519_CHACHA20POLY1305_V1)
+                    || self.contents.len() != 1
+                    || self.contents[0].item_kind != SecretStorageItemKind::ContentEpochRoot
+                {
+                    return protocol(
+                        "native root backup cannot borrow expiry, Account, Agent or PCR authority",
+                    );
+                }
+                true
+            }
+            _ => {
+                if self.auth_binding.is_some()
+                    || self.encryption.recipient_method
+                        == KeyBackupRecipientMethod::RealmActorRecovery
+                {
+                    return protocol("native backup authority is restricted to a Realm actor");
+                }
+                false
+            }
+        };
         if self.custodian_actor_id.is_some() != self.custody_authorization_ref.is_some() {
             return protocol("Agent backup custody subject and authorization must appear together");
         }
@@ -204,7 +286,9 @@ impl KeyBackup {
         if root_count > 0
             && (root_count != self.contents.len()
                 || self.mixed_secret_storage.unwrap_or(false)
-                || self.encryption.recipient_method != KeyBackupRecipientMethod::RecoveryPublicKey
+                || (!native
+                    && self.encryption.recipient_method
+                        != KeyBackupRecipientMethod::RecoveryPublicKey)
                 || self
                     .encryption
                     .hpke_suite
@@ -292,6 +376,22 @@ impl KeyBackup {
             || arkret_canonical::sha256_digest(&ciphertext) != self.ciphertext_digest.as_str()
         {
             return protocol("backup ciphertext does not match its canonical SHA-256 address");
+        }
+        Ok(())
+    }
+
+    pub fn validate_native_recipient(
+        &self,
+        recipient: &crate::RealmActorContentBackupRecipient,
+    ) -> Result<()> {
+        self.validate()?;
+        recipient.validate()?;
+        if self.auth_binding.is_none()
+            || self.encryption.recipient_key_ref.as_deref()
+                != Some(recipient.key_agreement_ref.as_str())
+            || self.encryption.hpke_suite.as_deref() != Some(HPKE_SUITE_X25519_CHACHA20POLY1305_V1)
+        {
+            return protocol("native backup differs from its accepted archive recipient");
         }
         Ok(())
     }
@@ -455,6 +555,7 @@ pub enum KeyBackupRecipientMethod {
     PassphraseKdf,
     RecoveryPublicKey,
     SecretStorageKey,
+    RealmActorRecovery,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -537,7 +638,8 @@ impl KeyBackupEncryption {
                     return protocol("secret_storage_key has inconsistent encryption fields");
                 }
             }
-            KeyBackupRecipientMethod::RecoveryPublicKey => {
+            KeyBackupRecipientMethod::RecoveryPublicKey
+            | KeyBackupRecipientMethod::RealmActorRecovery => {
                 if self.kdf.is_some()
                     || self.recipient_key_ref.as_deref().is_none_or(str::is_empty)
                     || self.aead.enc.is_none()

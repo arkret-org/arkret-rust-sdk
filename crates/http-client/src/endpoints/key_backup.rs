@@ -11,6 +11,95 @@ use arkret_wire::BackupId;
 use crate::{Client, Result, reject_path_segment};
 
 impl Client {
+    fn require_backup_manager_transport(&self) -> Result<()> {
+        if self.service_signature_identity.is_none()
+            || self.auth.is_some()
+            || self.managed_device_signature_identity.is_some()
+        {
+            return Err(crate::Error::Protocol(
+                "native archive reads require the actual manager Service signature transport"
+                    .into(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Manager-only archive DTOs. The caller validates full immutable sources
+    /// and the all-page manifest; this raw response is not a verified capability.
+    pub async fn realm_actor_backup_archive_inventory(
+        &self,
+        query: &arkret_models_crypto::RealmActorArchiveInventoryQuery,
+    ) -> Result<arkret_models_integration::RealmActorArchiveInventoryPage> {
+        self.require_backup_manager_transport()?;
+        let pairs = arkret_models_crypto::KeysBackupsListParameters::Manager(query.clone())
+            .to_query_pairs()?;
+        let value: arkret_models_integration::RealmActorArchiveInventoryPage = self
+            .send_json(
+                self.request(reqwest::Method::GET, "/_arkret/self/keys/backups")?
+                    .query(&pairs),
+            )
+            .await?;
+        if value.realm_actor_id != query.realm_actor_id
+            || value.entries.len() > 200
+            || value.has_more != value.next_cursor.is_some()
+            || arkret_canonical::canonical_json_bytes(&value)?.len() > 4_194_304
+        {
+            return Err(crate::Error::Protocol(
+                "archive inventory response changed its actor or page boundary".into(),
+            ));
+        }
+        Ok(value)
+    }
+
+    pub async fn issue_realm_actor_archive_unlock_challenge(
+        &self,
+        backup_id: &BackupId,
+        request: &arkret_models_crypto::RealmActorBackupIssueUnlockChallengeRequestBody,
+    ) -> Result<arkret_models_crypto::RealmActorBackupUnlockChallenge> {
+        self.require_backup_manager_transport()?;
+        request.validate()?;
+        if request.kind
+            != arkret_models_crypto::RealmActorBackupUnlockChallengeKind::RealmActorManager
+        {
+            return Err(crate::Error::Protocol(
+                "manager cannot borrow a Device head intent".into(),
+            ));
+        }
+        let value: arkret_models_crypto::RealmActorBackupUnlockChallenge = self
+            .post(
+                &format!("/_arkret/self/keys/backups/{backup_id}/unlock-challenge"),
+                request,
+            )
+            .await?;
+        value.validate_for_native_request(request, backup_id)?;
+        Ok(value)
+    }
+
+    pub async fn unlock_realm_actor_archive_backup(
+        &self,
+        proof: &arkret_models_crypto::RealmActorManagerKeyBackupUnlockProof,
+    ) -> Result<arkret_models_integration::RealmActorArchiveUnlockResponseBody> {
+        self.require_backup_manager_transport()?;
+        proof.validate()?;
+        let request = arkret_models_crypto::KeysBackupsUnlockOperationRequestBody {
+            proof: arkret_models_crypto::KeyBackupUnlockProofBody::Manager(proof.clone()),
+        };
+        let value: arkret_models_integration::RealmActorArchiveUnlockResponseBody = self
+            .post(
+                &format!("/_arkret/self/keys/backups/{}/unlock", proof.backup_id),
+                &request,
+            )
+            .await?;
+        if value.backup.backup_id != proof.backup_id
+            || value.native_source.admission.envelope_digest != proof.envelope_digest
+        {
+            return Err(crate::Error::Protocol(
+                "archive unlock returned another immutable packet".into(),
+            ));
+        }
+        Ok(value)
+    }
+
     pub async fn publish_recovery_policy(
         &self,
         request: &arkret_identity::VerifiedSubmission<arkret_wire::EventAdmissionSubmission>,

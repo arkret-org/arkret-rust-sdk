@@ -20,6 +20,7 @@ pub mod management_review;
 pub mod models_push;
 pub mod push;
 pub mod push_vocab;
+pub mod realm_actor_content_backup;
 
 pub use applet::*;
 pub use applet_audit_payload::*;
@@ -33,3 +34,4 @@ pub use management_review::*;
 pub use models_push::*;
 pub use push::*;
 pub use push_vocab::*;
+pub use realm_actor_content_backup::*;

@@ -5,7 +5,7 @@
 // sha256=24ce65b5dac11e00aba03d5d059426386fd0a4f2bab2e3cf30d2a86eb8dee2d6
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=2db9dc0b757e082d561722a2301e943a7422e79691dd5632a5a2ec129045cc3f
+// sha256=bb8c3350621b1f35ac031f7e6919326951b3576cd3c52db20323ba3e6e740687
 
 /// Counterpart: `did-binding-contracts.schema.json#/$defs/evidence_dependencies`.
 /// The structured dependency record a binding carries so witness-level
@@ -14,7 +14,7 @@
 ///
 /// A witness revocation, an organization merge or a falsified consistency proof
 /// arrives as a *coordinate* (witness DID, organization, log head), never as a
-/// digest â€” digests are one-way, so `evidence_digest` cannot answer "which
+/// digest — digests are one-way, so `evidence_digest` cannot answer "which
 /// bindings depend on witness X". This record can, and a store that declares
 /// evidence-bearing methods MUST index it at least by witness DID.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]

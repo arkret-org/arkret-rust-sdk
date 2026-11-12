@@ -146,6 +146,12 @@ pub enum RealmActorRequestStatus {
 pub enum RealmActorMaterial {
     Current {
         entries: Vec<RealmActorMaterialCurrentEntry>,
+        #[serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+        )]
+        next_prepare_input: Option<arkret_models_crypto::ContentBackupNextPrepareInput>,
     },
     Event {
         event: Event,
@@ -235,7 +241,8 @@ pub fn realm_actor_selector_subject(selector: &CurrentSelector) -> Option<&Actor
         | CurrentSelector::RealmActorDeviceAuthorization { actor_id, .. }
         | CurrentSelector::RealmActorDeviceRevocationProposals { actor_id, .. }
         | CurrentSelector::RealmActorProfile { actor_id }
-        | CurrentSelector::RealmActorRecovery { actor_id } => Some(actor_id),
+        | CurrentSelector::RealmActorRecovery { actor_id }
+        | CurrentSelector::RealmActorKeyBackupActiveSeries { actor_id, .. } => Some(actor_id),
         _ => None,
     }
 }
@@ -321,7 +328,7 @@ impl RealmActorMaterialResponseBody {
             return Err(invalid());
         }
         match (&self.purpose, &self.material) {
-            (RealmActorMaterialPurpose::Current, RealmActorMaterial::Current { entries }) => {
+            (RealmActorMaterialPurpose::Current, RealmActorMaterial::Current { entries, .. }) => {
                 if self.control_stream_head.is_none() || !(1..=16).contains(&entries.len()) {
                     return Err(invalid());
                 }
@@ -358,6 +365,7 @@ impl RealmActorMaterialResponseBody {
                                 CurrentSelector::RealmActorDeviceAuthorization { .. }
                                     | CurrentSelector::RealmActorDeviceRevocationProposals { .. }
                                     | CurrentSelector::RealmActorProfile { .. }
+                                    | CurrentSelector::RealmActorKeyBackupActiveSeries { .. }
                             ) {
                                 return Err(invalid());
                             }
@@ -438,6 +446,79 @@ impl RealmActorMaterialResponseBody {
 }
 
 impl RealmActorMaterialResponseBody {
+    /// Extract only the bound public next input. No control original, DID
+    /// document, private scope roster or historical key material is disclosed.
+    pub fn content_backup_prepare_input(
+        &self,
+        actor: &ActorId,
+        scope: &arkret_wire::ScopeRef,
+    ) -> Result<&arkret_models_crypto::ContentBackupNextPrepareInput> {
+        self.validate()?;
+        let RealmActorMaterial::Current {
+            entries,
+            next_prepare_input: Some(input),
+        } = &self.material
+        else {
+            return Err(invalid());
+        };
+        if &self.actor_id != actor || entries.len() != 2 {
+            return Err(invalid());
+        }
+        input.validate()?;
+        let mut recovery = None;
+        let mut series = None;
+        for entry in entries {
+            let RealmActorMaterialCurrentEntry::Present {
+                current_state:
+                    CurrentState::Value {
+                        selector, value, ..
+                    },
+                source_ref,
+            } = entry
+            else {
+                return Err(invalid());
+            };
+            match selector {
+                CurrentSelector::RealmActorRecovery { actor_id } if actor_id == actor => {
+                    if recovery.is_some() {
+                        return Err(invalid());
+                    }
+                    recovery = Some((
+                        source_ref,
+                        serde_json::from_value::<crate::RealmActorRecoveryValue>(value.clone())?,
+                    ));
+                }
+                CurrentSelector::RealmActorKeyBackupActiveSeries {
+                    actor_id,
+                    effective_scope,
+                    ..
+                } if actor_id == actor && effective_scope == scope => {
+                    if series.is_some() {
+                        return Err(invalid());
+                    }
+                    series = Some(serde_json::from_value::<
+                        arkret_models_collaboration::RealmActorKeyBackupActiveSeriesValue,
+                    >(value.clone())?);
+                }
+                _ => return Err(invalid()),
+            }
+        }
+        let (recovery_ref, recovery) = recovery.ok_or_else(invalid)?;
+        let series = series.ok_or_else(invalid)?;
+        if series.series_pointer_version == 0
+            || recovery.pending.is_some()
+            || input.auth_binding.recovery_ref != *recovery_ref
+            || recovery.content_backup_recipient != input.content_backup_recipient
+            || recovery.content_backup_recipient_ref != input.auth_binding.recipient_ref
+            || series.recipient_ref != input.auth_binding.recipient_ref
+            || series.manager_ref != input.auth_binding.manager_ref
+            || series.active_series_id != input.active_series_id
+        {
+            return Err(invalid());
+        }
+        Ok(input)
+    }
+
     pub fn validate_for_request(
         &self,
         request: &RealmActorMaterialRequestBody,
@@ -458,7 +539,7 @@ impl RealmActorMaterialResponseBody {
         match (request, &self.material) {
             (
                 RealmActorMaterialRequestBody::Current { selectors, .. },
-                RealmActorMaterial::Current { entries },
+                RealmActorMaterial::Current { entries, .. },
             ) => {
                 if selectors.len() != entries.len()
                     || selectors.iter().zip(entries).any(|(requested, returned)| {

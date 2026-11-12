@@ -2,13 +2,13 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/authority-commit-operations.schema.json
-// sha256=be7a4b17001814924e2888913c4889166a4971a20de5bdc1057dc22e9c8694b1
+// sha256=145ad1e0a66b0548a1e081d8eecb6a8c0f999745dbf1ac50f8039ca1c84b8d0e
 //
 // Input: schemas/common-ids.schema.json
 // sha256=0cc25a02fe0d9a94f6e41f2cf8f64e492ba36362f1e69a699cf1e684924837ee
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=2db9dc0b757e082d561722a2301e943a7422e79691dd5632a5a2ec129045cc3f
+// sha256=bb8c3350621b1f35ac031f7e6919326951b3576cd3c52db20323ba3e6e740687
 
 /// Counterpart: `authority-commit-operations.schema.json#/$defs/mls_group_state_material`.
 /// Raw public material of one forwarded MLS Genesis or Commit

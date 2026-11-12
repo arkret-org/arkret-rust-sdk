@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/forbidden-wire-fields.json;
-//! sha256=462f6ccbe51d42333d0dc907311099103983e337020a909ee8e17a09bbebca2d
-//! Entries: forbidden_wire_fields=237
+//! sha256=1fdc61a70eb848a68db1a1498bf7c68cb7a7f687352001a3efa1f48c1e191b7e
+//! Entries: forbidden_wire_fields=238
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ForbiddenWireSelector {
@@ -2513,6 +2513,20 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
         }],
         match_kind: "field",
         match_values: &["cleartext_sha256"],
+        value_pointer: "",
+    },
+    ForbiddenWireFieldDescriptor {
+        id: "grant_constraint_approval_actor_ids_to_principal_ids",
+        context: "grant_constraint",
+        rejection_level: "hard_reject",
+        selectors: &[ForbiddenWireSelector {
+            document_kind: "schema_instance",
+            schema_ref: "grant-constraint.schema.json",
+            instance_pointer: "",
+            match_scope: "root",
+        }],
+        match_kind: "field",
+        match_values: &["approval_actor_ids"],
         value_pointer: "",
     },
     ForbiddenWireFieldDescriptor {

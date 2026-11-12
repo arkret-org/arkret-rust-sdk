@@ -450,6 +450,18 @@ def validate(
             field_set = entry.get("schema_field_set", "declared")
             if field_set not in {"declared", "accepted"}:
                 raise ValueError(f"unknown schema_field_set {field_set!r}")
+            if "schema_branch" in entry:
+                index = entry["schema_branch"]
+                branches = node.get("oneOf")
+                if (field_set != "accepted" or type(index) is not int
+                    or not isinstance(branches, list) or not 0 <= index < len(branches)
+                    or node.get("type") != "object"
+                    or node.get("additionalProperties") is not False):
+                    raise ValueError("schema_branch requires one exact branch of a closed object and accepted field-set checking")
+                # Retain the root's common properties and constraints. Only
+                # canonical presence bans in the selected authority branch can
+                # remove members; mappings cannot supply a field allowlist.
+                node = {**node, "oneOf": [branches[index]]}
             schema_fields = schema_property_names(resolver, schema_path, node, accepted=field_set == "accepted")
             decimal_formats = decimal_property_formats(resolver, schema_path, node)
             if serializer is not None:

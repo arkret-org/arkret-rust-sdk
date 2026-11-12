@@ -5,10 +5,10 @@
 // sha256=e57f2773764165f5a2e6047ae5491cdf152476deb73c83b2f6c14fff58925305
 //
 // Input: schemas/event-envelope.schema.json
-// sha256=c3ca87e220c0585e60e93bf4cc0aa94b1b4b22d90ad1cf5dc1a6f8fe97ea198a
+// sha256=415ab158dba84775e3c5a6a86ddd5b7227361c222447c97624a7429a1ed86393
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=2db9dc0b757e082d561722a2301e943a7422e79691dd5632a5a2ec129045cc3f
+// sha256=bb8c3350621b1f35ac031f7e6919326951b3576cd3c52db20323ba3e6e740687
 
 /// Counterpart: `event-payload.schema.json#/$defs/strand_create_payload`.
 /// Counterpart for
@@ -37,7 +37,7 @@ pub struct StrandStageSetPayload {
 /// (`event-payload.schema.json#/$defs/strand_move_payload`).
 ///
 /// Moves a Strand between List Spaces. The destination is single-sourced by
-/// `target_space_id` â€” writers MUST NOT put `list_space_id` directly on the
+/// `target_space_id` — writers MUST NOT put `list_space_id` directly on the
 /// payload (`additionalProperties:false` enforces this; the reducer compiles
 /// `target_space_id` into the position cell). `from_space_id` is an optional
 /// hint the reducer can infer. Required: `board_space_id`, `strand_id`,

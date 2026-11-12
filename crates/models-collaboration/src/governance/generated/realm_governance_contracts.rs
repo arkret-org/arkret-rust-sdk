@@ -11,7 +11,7 @@
 // sha256=31743f8703624fa7dba59d2bc40328e85c1bd6ba88cc60cdca6d61896922ac82
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=2db9dc0b757e082d561722a2301e943a7422e79691dd5632a5a2ec129045cc3f
+// sha256=bb8c3350621b1f35ac031f7e6919326951b3576cd3c52db20323ba3e6e740687
 
 /// Counterpart: `realm-link-operations.schema.json#/$defs/realm_link_list`.
 /// `realm-link-operations.schema.json#/$defs/realm_link_list`.
@@ -28,11 +28,11 @@ pub struct RealmLinkList {
 /// Wire counterpart:
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_alias_declaration`.
 ///
-/// `ak.realm.alias` declaration â€” the ONLY wire carrier of a Realm alias.
+/// `ak.realm.alias` declaration — the ONLY wire carrier of a Realm alias.
 ///
 /// `realm.schema.json` is a closed object with no `alias` property, and
 /// Realm genesis/profile payloads MUST NOT carry one
-/// (`discovery/object-addressing.md` Â§3.3).
+/// (`discovery/object-addressing.md` §3.3).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmAliasDeclarationPayload {

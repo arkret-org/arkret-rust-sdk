@@ -79,8 +79,11 @@ ALLOWED_EDGES: dict[str, set[str]] = {
     # ae2bd748f5973b57df8c09d888651080b716be4e removed the duplicate
     # AppletCommittedEvent DTO: integration reexports its sole collaboration
     # owner, including retained device evidence and exact authority cuts.
+    # Native archive inventory owns full Event/fact material here and embeds
+    # the sole low-level crypto-model packet/receipt/secret carriers. This is a
+    # data-to-data edge; the reverse edge and crypto behavior remain forbidden.
     "arkret-models-integration": _WIRE
-    | {"arkret-models-identity", "arkret-models-collaboration"},
+    | {"arkret-models-identity", "arkret-models-collaboration", "arkret-models-crypto"},
     "arkret-models-discovery": _WIRE | {"arkret-models-identity"},
     "arkret-models": _WIRE
     | {
@@ -186,6 +189,11 @@ ALLOWED_EDGES: dict[str, set[str]] = {
     # is cycle-free), mirroring the batch 4b auth->keystore precedent.
     "arkret-identity": _WIRE
     | {
+        # Optional native-backup behavior verifies immutable identity sources,
+        # opens the manager-only HPKE transfer and confirms only after durable
+        # import. It consumes the existing crypto machine; no model -> behavior
+        # edge or reverse crypto -> identity dependency is authorized.
+        "arkret-crypto",
         # Immutable publication values reuse the complete typed payload gate.
         "arkret-models-crypto",
         "arkret-event-draft",

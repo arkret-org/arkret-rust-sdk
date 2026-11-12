@@ -80,6 +80,7 @@ fn content_action(action: &str) -> bool {
                 matches!(
                     arkret_wire::applet_managed_device_scope_rule(operation),
                     Some(arkret_wire::ManagedDeviceScopeRule::AllActions(actions))
+                        | Some(arkret_wire::ManagedDeviceScopeRule::AllActionsAndControl { actions, control: arkret_wire::ManagedDeviceControl::NativeRootBackup })
                         if actions.iter().any(|required| required.as_str() == action)
                 )
             })

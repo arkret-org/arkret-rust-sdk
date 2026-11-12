@@ -2,7 +2,7 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/current-state.schema.json
-// sha256=106ec4b74fb996d95cfd8631d60e22c1c72cc1f7d16232bebf10f21a62ff1d47
+// sha256=b9b2fcecf87470a1def1e55bf536bdb637b04f0e6f42083d5ed9962a80b14c61
 //
 // Input: schemas/event-payload.schema.json
 // sha256=e57f2773764165f5a2e6047ae5491cdf152476deb73c83b2f6c14fff58925305
@@ -23,7 +23,7 @@
 // sha256=0aeb76477ec3d0ff335ea072a019a0b7d4371ff5890add72cf986fe5167e8de3
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=2db9dc0b757e082d561722a2301e943a7422e79691dd5632a5a2ec129045cc3f
+// sha256=bb8c3350621b1f35ac031f7e6919326951b3576cd3c52db20323ba3e6e740687
 
 /// Counterpart: `current-state.schema.json#/$defs/invite_directed_invitee_value`.
 /// Closed value of the `invite_directed_invitee` current state
@@ -55,7 +55,7 @@ pub struct InviteLiveTargetOccupant {
 /// Closed applicant proof for one automatic join gate
 /// (`event-payload.schema.json#/$defs/join_gate_proof`).
 ///
-/// The binding tuple â€” gate, Realm, applicant, policy revision, creation time â€”
+/// The binding tuple — gate, Realm, applicant, policy revision, creation time —
 /// rides as wire members and is covered by `proofs`, so a proof replayed across
 /// Realms, applicants or policy revisions fails by field comparison before any
 /// signature is checked. Freshness is judged against the enclosing Event's
@@ -90,7 +90,7 @@ pub struct JoinGateProof {
 /// (`event-payload.schema.json#/$defs/membership_payload`).
 ///
 /// `additionalProperties:false`: the removed `handle` / `from` keys that older
-/// inkson call sites tried to emit are intentionally NOT representable here â€”
+/// inkson call sites tried to emit are intentionally NOT representable here —
 /// `handle` has no spec-legal home in this payload (the member identity is
 /// carried by `member_id`; handle evidence lives in signed `HandleClaim`
 /// objects on the roster, not the durable membership event), and the FSM

@@ -72,6 +72,7 @@ fn candidate() -> (RealmActorCreatePayload, Ed25519PayloadSigner) {
         root_seed: &root,
         next_root_public_key_multibase: &next_key,
         controller_public_key: control.verifying_key().as_bytes(),
+        content_backup_public_key: &[9; 32],
     })
     .unwrap();
     let document: DidDocument =
@@ -122,7 +123,10 @@ fn candidate() -> (RealmActorCreatePayload, Ed25519PayloadSigner) {
         "method_history_evidence":evidence,"control_method_kid":method,
         "expires_at":"2026-10-20T00:05:00.000Z",
         "external_ref":{"protocol":"matrix","instance_id":"chat.example","external_id":"external-user"},
-        "recovery":{"kind":"manager_native","enabled":true}
+        "recovery":{"kind":"manager_native","enabled":true,"content_backup_recipient":{
+            "key_agreement_ref":format!("{}#content-backup",document.id),
+            "hpke_suite":"ak.hpke_x25519_aead_chacha20poly1305.v1",
+            "public_key_base64url":arkret_canonical::base64url_encode([9;32])}}
     });
     let transcript: RealmActorCreationTranscript = serde_json::from_value(value.clone()).unwrap();
     value["control_signature"] = serde_json::to_value(
@@ -201,7 +205,23 @@ fn manager_handover_requires_two_native_rotations_new_control_and_service_accept
     let current = control(entries.last().unwrap(), method.clone());
     append(&mut entries, &state, 46, 47, 2);
     let transition = entries.clone();
-    state["verificationMethod"] = json!([next_method]);
+    let mut archive_method = state["verificationMethod"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|method| {
+            method["id"]
+                .as_str()
+                .is_some_and(|id| id.ends_with("#content-backup"))
+        })
+        .unwrap()
+        .clone();
+    let mut archive_multikey = vec![0xec, 0x01];
+    archive_multikey.extend_from_slice(&[10; 32]);
+    archive_method["publicKeyMultibase"] = json!(arkret_canonical::encode_multibase_base58btc(
+        archive_multikey
+    ));
+    state["verificationMethod"] = json!([next_method, archive_method]);
     state["assertionMethod"] = json!([method]);
     state["authentication"] = json!([method]);
     append(&mut entries, &state, 47, 48, 3);
@@ -253,6 +273,10 @@ fn manager_handover_requires_two_native_rotations_new_control_and_service_accept
             "management_authorization_ref":creation.creation_authorization_ref,
             "next_resolution":{"did":did,"version_id":terminal["versionId"],"method_history_head":head},
             "method_history_evidence":evidence,
+            "next_content_backup_recipient":{"key_agreement_ref":format!("{did}#content-backup"),
+                "hpke_suite":"ak.hpke_x25519_aead_chacha20poly1305.v1","public_key_base64url":arkret_canonical::base64url_encode([10;32])},
+            "content_backup_inventory_digest":arkret_canonical::sha256_digest(b"manager-successor unit test archive cut; not a storage acceptance"),
+            "content_backup_handover_digest":arkret_canonical::sha256_digest(b"manager-successor unit test private transfer commitment; not a durable import"),
         });
         let mut transcript = unsigned.clone();
         transcript["actor_id"] = json!(creation.actor_id);

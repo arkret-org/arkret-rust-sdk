@@ -2,13 +2,13 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/current-state.schema.json
-// sha256=106ec4b74fb996d95cfd8631d60e22c1c72cc1f7d16232bebf10f21a62ff1d47
+// sha256=b9b2fcecf87470a1def1e55bf536bdb637b04f0e6f42083d5ed9962a80b14c61
 //
 // Input: schemas/agent-provision.schema.json
 // sha256=9fd05ffd6b0ea5ee7437f17c2883c0d1811fe7e77e1cfc46c3405c63b4788e27
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=2db9dc0b757e082d561722a2301e943a7422e79691dd5632a5a2ec129045cc3f
+// sha256=bb8c3350621b1f35ac031f7e6919326951b3576cd3c52db20323ba3e6e740687
 
 /// Counterpart: `current-state.schema.json#/$defs/agent_selector_claim_value`.
 /// Value of the `agent_selector_claim` current state

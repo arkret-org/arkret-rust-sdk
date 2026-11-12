@@ -17,19 +17,19 @@
 // sha256=734acbd160b1f7cf05a971cfc53a81a83990704c8e3d144c8fd7796767b57394
 //
 // Input: schemas/authority-commit-operations.schema.json
-// sha256=be7a4b17001814924e2888913c4889166a4971a20de5bdc1057dc22e9c8694b1
+// sha256=145ad1e0a66b0548a1e081d8eecb6a8c0f999745dbf1ac50f8039ca1c84b8d0e
 //
 // Input: schemas/time.schema.json
 // sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
 //
 // Input: schemas/key-backup.schema.json
-// sha256=55f0ed177b975a998f2869f0834489f86b1ee265ce795df50d540ca6c4ab6ec0
+// sha256=e9280313666a5fc0055a9f15edaa9e4716369fb362e6a808b64f919a1c8a398d
 //
 // Input: schemas/keypackage-operations.schema.json
 // sha256=c6d3efc76c853e71ee4cbf6eda707cd0e89139e85441d3616fadfeda84f0ad41
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=2db9dc0b757e082d561722a2301e943a7422e79691dd5632a5a2ec129045cc3f
+// sha256=bb8c3350621b1f35ac031f7e6919326951b3576cd3c52db20323ba3e6e740687
 
 /// Counterpart: `content-encryption.schema.json#/$defs/root_context`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

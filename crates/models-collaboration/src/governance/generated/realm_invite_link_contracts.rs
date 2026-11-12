@@ -11,10 +11,10 @@
 // sha256=0cc25a02fe0d9a94f6e41f2cf8f64e492ba36362f1e69a699cf1e684924837ee
 //
 // Input: schemas/realm-join-intake.schema.json
-// sha256=412c1b19e8b505cacbe0c029a55466e2c132028231cf56c73eff250c02a1be64
+// sha256=cb687e509069f1fbb51f994d67db65147340c90190894272b49b322641827f12
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=2db9dc0b757e082d561722a2301e943a7422e79691dd5632a5a2ec129045cc3f
+// sha256=bb8c3350621b1f35ac031f7e6919326951b3576cd3c52db20323ba3e6e740687
 
 /// Counterpart: `realm-invite-link.schema.json#/$defs/proof/properties/signature_algorithm`.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]

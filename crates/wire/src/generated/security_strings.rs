@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/proof-context-registry.json;
-//! sha256=56191a28852805b7a1afd2278bea5b77c86e7a286d39285ee987205177b8259a Input: registry/
+//! sha256=caec242952220e46493648d6a3bb837f34219a2fe7add8d25a45f1940f514ea4 Input: registry/
 //! exporter-label-registry.json;
 //! sha256=99383803ea8d87be955f9d8785d46c20bd98348e59739c73af31505ab76f3391 Input: registry/
 //! digest-suite-registry.json;
@@ -17,7 +17,7 @@
 //! aead-profile-registry.json;
 //! sha256=273e1225d568d3d4c39fe2f19c2397b96dfc3e256b6ec1b5b852b43c16550343
 //! Entries: proof_contexts=35, exporter_labels=10, digest_suites=3, signature_algorithms=4,
-//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=2, domain_separations=45, aead_profiles=2
+//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=2, domain_separations=48, aead_profiles=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(usize)]
@@ -326,6 +326,9 @@ pub enum DomainSeparationId {
     PeerContactControlReceiptV1,
     PeerContactMirrorReceiptV1,
     RealmOrganizationStatementV1,
+    RealmActorContentBackupAdmissionSignatureV1,
+    RealmActorContentBackupConfirmationSignatureV1,
+    RealmActorContentBackupOfferSignatureV1,
     RealmActorControlAcceptanceSignatureV1,
     RealmActorCreationSignatureV1,
     RealmActorManagerAcceptanceSignatureV1,
@@ -375,6 +378,9 @@ impl DomainSeparationId {
         Self::PeerContactControlReceiptV1,
         Self::PeerContactMirrorReceiptV1,
         Self::RealmOrganizationStatementV1,
+        Self::RealmActorContentBackupAdmissionSignatureV1,
+        Self::RealmActorContentBackupConfirmationSignatureV1,
+        Self::RealmActorContentBackupOfferSignatureV1,
         Self::RealmActorControlAcceptanceSignatureV1,
         Self::RealmActorCreationSignatureV1,
         Self::RealmActorManagerAcceptanceSignatureV1,
@@ -439,6 +445,12 @@ impl DomainSeparationId {
     pub const PEER_CONTACT_CONTROL_RECEIPT_V1: &'static str = "ak.peer_contact.control_receipt.v1";
     pub const PEER_CONTACT_MIRROR_RECEIPT_V1: &'static str = "ak.peer_contact.mirror_receipt.v1";
     pub const REALM_ORGANIZATION_STATEMENT_V1: &'static str = "ak.realm.organization.statement.v1";
+    pub const REALM_ACTOR_CONTENT_BACKUP_ADMISSION_SIGNATURE_V1: &'static str =
+        "ak.realm_actor_content_backup_admission_signature.v1";
+    pub const REALM_ACTOR_CONTENT_BACKUP_CONFIRMATION_SIGNATURE_V1: &'static str =
+        "ak.realm_actor_content_backup_confirmation_signature.v1";
+    pub const REALM_ACTOR_CONTENT_BACKUP_OFFER_SIGNATURE_V1: &'static str =
+        "ak.realm_actor_content_backup_offer_signature.v1";
     pub const REALM_ACTOR_CONTROL_ACCEPTANCE_SIGNATURE_V1: &'static str =
         "ak.realm_actor_control_acceptance_signature.v1";
     pub const REALM_ACTOR_CREATION_SIGNATURE_V1: &'static str =
@@ -507,6 +519,15 @@ impl DomainSeparationId {
             Self::PeerContactControlReceiptV1 => Self::PEER_CONTACT_CONTROL_RECEIPT_V1,
             Self::PeerContactMirrorReceiptV1 => Self::PEER_CONTACT_MIRROR_RECEIPT_V1,
             Self::RealmOrganizationStatementV1 => Self::REALM_ORGANIZATION_STATEMENT_V1,
+            Self::RealmActorContentBackupAdmissionSignatureV1 => {
+                Self::REALM_ACTOR_CONTENT_BACKUP_ADMISSION_SIGNATURE_V1
+            }
+            Self::RealmActorContentBackupConfirmationSignatureV1 => {
+                Self::REALM_ACTOR_CONTENT_BACKUP_CONFIRMATION_SIGNATURE_V1
+            }
+            Self::RealmActorContentBackupOfferSignatureV1 => {
+                Self::REALM_ACTOR_CONTENT_BACKUP_OFFER_SIGNATURE_V1
+            }
             Self::RealmActorControlAcceptanceSignatureV1 => {
                 Self::REALM_ACTOR_CONTROL_ACCEPTANCE_SIGNATURE_V1
             }
@@ -591,6 +612,15 @@ impl DomainSeparationId {
             Self::PEER_CONTACT_CONTROL_RECEIPT_V1 => Some(Self::PeerContactControlReceiptV1),
             Self::PEER_CONTACT_MIRROR_RECEIPT_V1 => Some(Self::PeerContactMirrorReceiptV1),
             Self::REALM_ORGANIZATION_STATEMENT_V1 => Some(Self::RealmOrganizationStatementV1),
+            Self::REALM_ACTOR_CONTENT_BACKUP_ADMISSION_SIGNATURE_V1 => {
+                Some(Self::RealmActorContentBackupAdmissionSignatureV1)
+            }
+            Self::REALM_ACTOR_CONTENT_BACKUP_CONFIRMATION_SIGNATURE_V1 => {
+                Some(Self::RealmActorContentBackupConfirmationSignatureV1)
+            }
+            Self::REALM_ACTOR_CONTENT_BACKUP_OFFER_SIGNATURE_V1 => {
+                Some(Self::RealmActorContentBackupOfferSignatureV1)
+            }
             Self::REALM_ACTOR_CONTROL_ACCEPTANCE_SIGNATURE_V1 => {
                 Some(Self::RealmActorControlAcceptanceSignatureV1)
             }

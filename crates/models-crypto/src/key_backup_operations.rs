@@ -9,6 +9,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::{BackupKind, KeyBackupRecipientMethod, KeyBackupSignatureAlgorithm};
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyBackupsListQuery {

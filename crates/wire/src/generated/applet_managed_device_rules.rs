@@ -1,9 +1,9 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/applet-managed-authority-registry.json;
-//! sha256=a596ae7994158e3e446ac7f41bdb70743b021854c79cd9efd632ac7fbd8aca67 Input: registry/
-//! contract-registry.json; sha256=7cac01b210f0c5f798339f5585de0fe3b8be4cfee00b213677857ab4b1afdd55
-//! Entries: managed_device_operations=22
+//! sha256=7ac4fc8b43ebbfa4a6bec67303849d07c35ea38c89418d5d0fd9d8c2dbeb8cba Input: registry/
+//! contract-registry.json; sha256=88adae49fd9b661987aab650635e40eb0c59f9ae395c8ba14d0aa21a87ed9948
+//! Entries: managed_device_operations=26
 
 use super::{CapabilityActionId, ServiceOperationId};
 
@@ -13,12 +13,17 @@ pub enum ManagedDeviceControl {
     OwnExactKeypackageRevoke,
     OwnScopeBoundKeypackageUpload,
     OwnExactDurableWelcomeReceiptConsume,
-    OwnExactDeviceAuthorizationMaterialRead,
+    OwnExactDeviceAuthorizationOrNativeBackupCurrentMaterialRead,
+    NativeRootBackup,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ManagedDeviceScopeRule {
     AllActions(&'static [CapabilityActionId]),
+    AllActionsAndControl {
+        actions: &'static [CapabilityActionId],
+        control: ManagedDeviceControl,
+    },
     SubmittedBusinessActions,
     DeviceControl(ManagedDeviceControl),
 }
@@ -101,8 +106,32 @@ pub const fn applet_managed_device_scope_rule(
             ManagedDeviceScopeRule::SubmittedBusinessActions
         }
         ServiceOperationId::SelfRealmActorReadMaterialV1 => ManagedDeviceScopeRule::DeviceControl(
-            ManagedDeviceControl::OwnExactDeviceAuthorizationMaterialRead,
+            ManagedDeviceControl::OwnExactDeviceAuthorizationOrNativeBackupCurrentMaterialRead,
         ),
+        ServiceOperationId::SelfKeysBackupsResourceReplaceV1 => {
+            ManagedDeviceScopeRule::AllActionsAndControl {
+                actions: &[CapabilityActionId::SelfKeysBackupsResourceReplaceV1],
+                control: ManagedDeviceControl::NativeRootBackup,
+            }
+        }
+        ServiceOperationId::SelfKeysBackupsReadListV1 => {
+            ManagedDeviceScopeRule::AllActionsAndControl {
+                actions: &[CapabilityActionId::SelfKeysBackupsReadListV1],
+                control: ManagedDeviceControl::NativeRootBackup,
+            }
+        }
+        ServiceOperationId::SelfKeysBackupsCommandIssueUnlockChallengeV1 => {
+            ManagedDeviceScopeRule::AllActionsAndControl {
+                actions: &[CapabilityActionId::SelfKeysBackupsCommandIssueUnlockChallengeV1],
+                control: ManagedDeviceControl::NativeRootBackup,
+            }
+        }
+        ServiceOperationId::SelfKeysBackupsCommandUnlockV1 => {
+            ManagedDeviceScopeRule::AllActionsAndControl {
+                actions: &[CapabilityActionId::SelfKeysBackupsCommandUnlockV1],
+                control: ManagedDeviceControl::NativeRootBackup,
+            }
+        }
         _ => return None,
     })
 }

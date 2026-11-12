@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json;
-//! sha256=7cac01b210f0c5f798339f5585de0fe3b8be4cfee00b213677857ab4b1afdd55 Entries: registered=158
+//! sha256=88adae49fd9b661987aab650635e40eb0c59f9ae395c8ba14d0aa21a87ed9948 Entries: registered=162
 
 use serde::{Deserialize, Serialize};
 
@@ -142,6 +142,10 @@ pub enum CapabilityActionId {
     SelfBlobUploadCreateV1,
     SelfCommittedEventReadScanV1,
     SelfCommittedEventStreamSubscribeV1,
+    SelfKeysBackupsCommandIssueUnlockChallengeV1,
+    SelfKeysBackupsCommandUnlockV1,
+    SelfKeysBackupsReadListV1,
+    SelfKeysBackupsResourceReplaceV1,
     SelfRealmStateSnapshotReadByRefV1,
     SelfRealmStateSnapshotReadManifestHeadV1,
     SpaceArchive,
@@ -304,6 +308,10 @@ impl CapabilityActionId {
         Self::SelfBlobUploadCreateV1,
         Self::SelfCommittedEventReadScanV1,
         Self::SelfCommittedEventStreamSubscribeV1,
+        Self::SelfKeysBackupsCommandIssueUnlockChallengeV1,
+        Self::SelfKeysBackupsCommandUnlockV1,
+        Self::SelfKeysBackupsReadListV1,
+        Self::SelfKeysBackupsResourceReplaceV1,
         Self::SelfRealmStateSnapshotReadByRefV1,
         Self::SelfRealmStateSnapshotReadManifestHeadV1,
         Self::SpaceArchive,
@@ -472,6 +480,13 @@ impl CapabilityActionId {
         "ak.self.committed_event.read.scan.v1";
     pub const SELF_COMMITTED_EVENT_STREAM_SUBSCRIBE_V1: &'static str =
         "ak.self.committed_event.stream.subscribe.v1";
+    pub const SELF_KEYS_BACKUPS_COMMAND_ISSUE_UNLOCK_CHALLENGE_V1: &'static str =
+        "ak.self.keys.backups.command.issue_unlock_challenge.v1";
+    pub const SELF_KEYS_BACKUPS_COMMAND_UNLOCK_V1: &'static str =
+        "ak.self.keys.backups.command.unlock.v1";
+    pub const SELF_KEYS_BACKUPS_READ_LIST_V1: &'static str = "ak.self.keys.backups.read.list.v1";
+    pub const SELF_KEYS_BACKUPS_RESOURCE_REPLACE_V1: &'static str =
+        "ak.self.keys.backups.resource.replace.v1";
     pub const SELF_REALM_STATE_SNAPSHOT_READ_BY_REF_V1: &'static str =
         "ak.self.realm_state_snapshot.read.by_ref.v1";
     pub const SELF_REALM_STATE_SNAPSHOT_READ_MANIFEST_HEAD_V1: &'static str =
@@ -639,6 +654,12 @@ impl CapabilityActionId {
             Self::SelfCommittedEventStreamSubscribeV1 => {
                 Self::SELF_COMMITTED_EVENT_STREAM_SUBSCRIBE_V1
             }
+            Self::SelfKeysBackupsCommandIssueUnlockChallengeV1 => {
+                Self::SELF_KEYS_BACKUPS_COMMAND_ISSUE_UNLOCK_CHALLENGE_V1
+            }
+            Self::SelfKeysBackupsCommandUnlockV1 => Self::SELF_KEYS_BACKUPS_COMMAND_UNLOCK_V1,
+            Self::SelfKeysBackupsReadListV1 => Self::SELF_KEYS_BACKUPS_READ_LIST_V1,
+            Self::SelfKeysBackupsResourceReplaceV1 => Self::SELF_KEYS_BACKUPS_RESOURCE_REPLACE_V1,
             Self::SelfRealmStateSnapshotReadByRefV1 => {
                 Self::SELF_REALM_STATE_SNAPSHOT_READ_BY_REF_V1
             }
@@ -811,6 +832,14 @@ impl CapabilityActionId {
             Self::SELF_COMMITTED_EVENT_READ_SCAN_V1 => Some(Self::SelfCommittedEventReadScanV1),
             Self::SELF_COMMITTED_EVENT_STREAM_SUBSCRIBE_V1 => {
                 Some(Self::SelfCommittedEventStreamSubscribeV1)
+            }
+            Self::SELF_KEYS_BACKUPS_COMMAND_ISSUE_UNLOCK_CHALLENGE_V1 => {
+                Some(Self::SelfKeysBackupsCommandIssueUnlockChallengeV1)
+            }
+            Self::SELF_KEYS_BACKUPS_COMMAND_UNLOCK_V1 => Some(Self::SelfKeysBackupsCommandUnlockV1),
+            Self::SELF_KEYS_BACKUPS_READ_LIST_V1 => Some(Self::SelfKeysBackupsReadListV1),
+            Self::SELF_KEYS_BACKUPS_RESOURCE_REPLACE_V1 => {
+                Some(Self::SelfKeysBackupsResourceReplaceV1)
             }
             Self::SELF_REALM_STATE_SNAPSHOT_READ_BY_REF_V1 => {
                 Some(Self::SelfRealmStateSnapshotReadByRefV1)

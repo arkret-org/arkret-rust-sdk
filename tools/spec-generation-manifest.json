@@ -2260,6 +2260,112 @@
       "provides": [
         "MlsRosterRecoverySigningKey"
       ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-crypto/src/generated/realm_actor_content_backup_contracts.rs"
+      ],
+      "owner": "arkret-models-crypto",
+      "mode": "schema-closed-models",
+      "artifacts": [
+        "schemas/key-backup.schema.json",
+        "schemas/keys-operations.schema.json",
+        "schemas/realm-actor-material.schema.json",
+        "schemas/realm-actor.schema.json"
+      ],
+      "provides": [
+        "ContentBackupRecipientHpkeSuite",
+        "RealmActorContentBackupRecipient",
+        "RealmActorBackupAuthBindingKind",
+        "RealmActorBackupAuthBinding",
+        "KeysBackupsIssueUnlockChallengeResponseBody",
+        "KeysBackupsListQueryOneOf1Purpose",
+        "RealmActorBackupHeadQuery",
+        "KeysBackupsListQueryOneOf2Purpose",
+        "RealmActorArchiveInventoryQuery",
+        "KeysBackupsListParameters",
+        "RealmActorBackupActiveSeriesState",
+        "RealmActorBackupHeadEntry",
+        "RealmActorBackupMetadataBackupKind",
+        "RealmActorBackupMetadataEncryptionRecipientMethod",
+        "RealmActorBackupMetadataEncryptionHpkeSuite",
+        "RealmActorBackupMetadataEncryption",
+        "RealmActorBackupMetadata",
+        "RealmActorBackupSeriesHeadResponseBodyPurpose",
+        "RealmActorBackupSeriesHeadResponseBody",
+        "RealmActorBackupUnlockChallengeOperation",
+        "RealmActorBackupUnlockChallengeKind",
+        "RealmActorBackupUnlockChallengePurpose",
+        "RealmActorBackupUnlockChallenge",
+        "RealmActorBackupUnlockResponseBody",
+        "RealmActorContentBackupAdmission",
+        "RealmActorContentBackupAdmissionSignatureInput",
+        "ContentBackupNextPrepareInput",
+        "RealmActorBackupPutResponseBody",
+        "RealmActorBackupIssueUnlockChallengeRequestBody",
+        "RealmActorDeviceKeyBackupUnlockProof",
+        "RealmActorManagerKeyBackupUnlockProof",
+        "KeysBackupsReplaceOperationResponseBody",
+        "KeysBackupsIssueUnlockChallengeBody"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-collaboration/src/generated/realm_actor_content_backup_contracts.rs"
+      ],
+      "owner": "arkret-models-collaboration",
+      "mode": "schema-closed-models",
+      "artifacts": [
+        "schemas/current-state.schema.json"
+      ],
+      "provides": [
+        "CurrentRealmActorKeyBackupActiveSeries",
+        "RealmActorKeyBackupActiveSeriesSelectorKind",
+        "RealmActorKeyBackupActiveSeriesSelectorBackupKind",
+        "RealmActorKeyBackupActiveSeriesSelector",
+        "RealmActorKeyBackupActiveSeriesValue"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-integration/src/generated/realm_actor_content_backup_contracts.rs"
+      ],
+      "owner": "arkret-models-integration",
+      "mode": "schema-closed-models",
+      "artifacts": [
+        "schemas/keys-operations.schema.json"
+      ],
+      "provides": [
+        "KeysBackupsListResponseBody",
+        "KeysBackupsUnlockResponseBody",
+        "RealmActorArchiveBackupEntryKind",
+        "RealmActorArchiveBackupEntry",
+        "RealmActorArchiveInventoryEntry",
+        "RealmActorArchiveInventoryManifest",
+        "RealmActorArchiveInventoryPagePurpose",
+        "RealmActorArchiveInventoryPage",
+        "RealmActorArchiveRecipientEntryKind",
+        "RealmActorArchiveRecipientEntry",
+        "RealmActorArchiveSeriesEntryKind",
+        "RealmActorArchiveSeriesEntry",
+        "RealmActorArchiveUnlockResponseBody",
+        "RealmActorBackupGovernanceHistory",
+        "RealmActorBackupGovernanceOriginal",
+        "RealmActorBackupGovernanceTransition",
+        "RealmActorContentBackupHandoverConfirmation",
+        "RealmActorContentBackupHandoverConfirmationSignatureInput",
+        "RealmActorContentBackupHandoverOffer",
+        "RealmActorContentBackupHandoverOfferSignatureInput",
+        "RealmActorContentBackupHandoverPlaintext",
+        "RealmActorContentBackupPrivateRecipientKey",
+        "RealmActorContentBackupSealedHandoverHpkeSuite",
+        "RealmActorContentBackupSealedHandover",
+        "RealmActorContentBackupSource",
+        "RealmActorBackupEventMaterial"
+      ]
     }
   ]
 }

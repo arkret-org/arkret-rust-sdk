@@ -1347,6 +1347,22 @@ impl Event {
                 "event external_ref requires a signed applet_id (event-envelope allOf)".to_owned(),
             );
         }
+        let native_backup_series = self.kind == EventKind::KeyBackupActiveSeries
+            && self
+                .payload
+                .get("actor_id")
+                .and_then(|actor| actor.get("kind"))
+                .and_then(Value::as_str)
+                == Some("realm");
+        if native_backup_series
+            && (!matches!(self.actor_id, ActorId::Service { .. })
+                || !matches!(self.scope_ref, ScopeRef::RealmControl { .. })
+                || self.applet_id.is_none()
+                || self.authorization_ref.is_some()
+                || self.executed_by.is_some())
+        {
+            return Err("native backup series requires an original Service Applet realm_control Event without business delegation".into());
+        }
         let private_control = matches!(self.scope_ref, ScopeRef::RealmControl { .. })
             && ((self.actor_id.as_realm_actor_id().is_some()
                 && matches!(
@@ -1361,10 +1377,10 @@ impl Event {
                         | EventKind::ProfileUpdate
                 ))
                 || (matches!(self.actor_id, ActorId::Service { .. })
-                    && matches!(
+                    && (matches!(
                         self.kind,
                         EventKind::RealmActorRecoveryBegin | EventKind::RealmActorControlReset
-                    )));
+                    ) || native_backup_series)));
         if self.applet_id.is_some() && private_control {
             if self.authorization_ref.is_some() || self.executed_by.is_some() {
                 return Err("Realm control and recovery Events forbid business authorization_ref and executed_by".into());
@@ -1869,6 +1885,46 @@ mod event_wire_surface_tests {
             AuthorizationRef::new("ak:grant:AdIAmf-J5rIPxEomGXwJblJdhNg-TllVN8uRTI85EUIM").unwrap(),
         );
         assert!(serde_json::from_value::<Event>(serde_json::to_value(&event).unwrap()).is_err());
+    }
+
+    #[test]
+    fn native_backup_series_service_exception_has_exact_envelope_and_subject_bounds() {
+        let mut event = base_event();
+        let subject = ActorId::realm(crate::RealmActorId {
+            realm_id: event.realm_id.clone(),
+            principal_id: event.actor_id.signing_principal_id().clone(),
+        });
+        event.kind = EventKind::KeyBackupActiveSeries;
+        event.actor_id = ActorId::service(subject.signing_principal_id().clone());
+        event.scope_ref = ScopeRef::RealmControl {
+            realm_id: event.realm_id.clone(),
+        };
+        event.applet_id =
+            Some(AppletId::new("ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb").unwrap());
+        event.payload = BTreeMap::from([(
+            "actor_id".to_owned(),
+            serde_json::to_value(subject).unwrap(),
+        )]);
+        let baseline = serde_json::to_value(&event).unwrap();
+        serde_json::from_value::<Event>(baseline.clone()).unwrap();
+        let mut wrong_subject = baseline.clone();
+        wrong_subject["payload"]["actor_id"] = serde_json::to_value(base_event().actor_id).unwrap();
+        assert!(serde_json::from_value::<Event>(wrong_subject).is_err());
+        let mut wrong_signer = baseline.clone();
+        wrong_signer["actor_id"] = serde_json::to_value(base_event().actor_id).unwrap();
+        assert!(serde_json::from_value::<Event>(wrong_signer).is_err());
+        let mut business_scope = baseline.clone();
+        business_scope["scope_ref"] = json!({"kind":"realm","realm_id":event.realm_id});
+        assert!(serde_json::from_value::<Event>(business_scope).is_err());
+        let mut no_applet = baseline.clone();
+        no_applet.as_object_mut().unwrap().remove("applet_id");
+        assert!(serde_json::from_value::<Event>(no_applet).is_err());
+        let mut delegated = baseline.clone();
+        delegated["executed_by"] = serde_json::to_value(base_event().actor_id).unwrap();
+        assert!(serde_json::from_value::<Event>(delegated).is_err());
+        let mut grant = baseline;
+        grant["authorization_ref"] = json!("ak:grant:AdIAmf-J5rIPxEomGXwJblJdhNg-TllVN8uRTI85EUIM");
+        assert!(serde_json::from_value::<Event>(grant).is_err());
     }
 
     #[test]

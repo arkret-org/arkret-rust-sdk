@@ -5,17 +5,17 @@
 // sha256=e57f2773764165f5a2e6047ae5491cdf152476deb73c83b2f6c14fff58925305
 //
 // Input: schemas/current-state.schema.json
-// sha256=106ec4b74fb996d95cfd8631d60e22c1c72cc1f7d16232bebf10f21a62ff1d47
+// sha256=b9b2fcecf87470a1def1e55bf536bdb637b04f0e6f42083d5ed9962a80b14c61
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=2db9dc0b757e082d561722a2301e943a7422e79691dd5632a5a2ec129045cc3f
+// sha256=bb8c3350621b1f35ac031f7e6919326951b3576cd3c52db20323ba3e6e740687
 
 /// Counterpart: `event-payload.schema.json#/$defs/cross_object_redaction_payload`.
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/cross_object_redaction_payload`.
 ///
 /// `ak.redaction` is the cross-object redaction kind. Per
-/// `models/common-fields.md` Â§5.1 (Message exemption) its target set excludes
+/// `models/common-fields.md` §5.1 (Message exemption) its target set excludes
 /// Message: `message_id` is not a member and `target_ref` cannot spell
 /// `ak:message:`, because Message reaches `state=redacted` only through the
 /// object-scoped `ak.message.redact`. This type is the single place that

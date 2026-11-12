@@ -14,14 +14,16 @@ version.workspace = true
 [features]
 default = []
 collaboration = [
+    "content-backup",
     "dep:arkret-models-collaboration",
     "dep:arkret-models-identity",
     "dep:arkret-state",
     "dep:arkret-schema",
 ]
+content-backup = ["dep:arkret-models-crypto"]
 keypackages = ["dep:arkret-models-crypto"]
 service-identity = ["dep:arkret-models-identity"]
-webvh = ["dep:arkret-models-identity"]
+webvh = ["dep:arkret-models-identity", "content-backup"]
 signer = []
 
 [dependencies]

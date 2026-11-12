@@ -26,6 +26,23 @@ class SchemaStructGateTests(unittest.TestCase):
             }], 'exemptions': []}), encoding='utf-8')
             return validate(registry, schemas, root)
 
+    def test_closed_authority_branch_retains_common_fields_and_only_its_presence_bans(self):
+        source = "#[derive(Serialize, Deserialize)] pub struct Payload { common: String, native: String }"
+        props = {"common": {}, "native": {}, "legacy": {}}
+        branches = [
+            {"not": {"required": ["native"]}},
+            {"not": {"required": ["legacy"]}},
+        ]
+        mapping = {"schema_field_set": "accepted", "schema_branch": 1}
+        self.assertEqual(self.representation_fixture(source, mapping, props, additionalProperties=False, oneOf=branches), [])
+        for bad_index in [True, -1, 2, "1"]:
+            errors = self.representation_fixture(source, {**mapping, "schema_branch": bad_index}, props, additionalProperties=False, oneOf=branches)
+            self.assertTrue(any("schema_branch" in error for error in errors), errors)
+        errors = self.representation_fixture(source, {**mapping, "schema_branch": 0}, props, additionalProperties=False, oneOf=branches)
+        self.assertTrue(any("field mismatch" in error for error in errors), errors)
+        errors = self.representation_fixture(source.replace("native:", "hidden:"), mapping, props, additionalProperties=False, oneOf=branches)
+        self.assertTrue(any("Rust-only=['hidden']" in error for error in errors), errors)
+
     def test_private_wire_adapter_is_checked_instead_of_domain_members(self):
         source = '''#[derive(Serialize, Deserialize)]
 #[serde(try_from = "PayloadWire")]

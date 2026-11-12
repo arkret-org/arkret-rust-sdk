@@ -24,6 +24,8 @@ pub mod approval_signature;
 // `arkret_wire::DetachedObjectSignature` and the authority-commit, snapshot and
 // MLS Welcome seams all need it without any model feature.
 pub mod detached_object;
+#[cfg(feature = "content-backup")]
+pub mod realm_actor_content_backup;
 
 pub use eddsa_jcs_2022::{
     DATA_INTEGRITY_PROOF_TYPE, DataIntegrityProofPurpose, EDDSA_JCS_2022_CRYPTOSUITE,

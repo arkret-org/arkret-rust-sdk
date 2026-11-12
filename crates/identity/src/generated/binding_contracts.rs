@@ -5,13 +5,13 @@
 // sha256=24ce65b5dac11e00aba03d5d059426386fd0a4f2bab2e3cf30d2a86eb8dee2d6
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=2db9dc0b757e082d561722a2301e943a7422e79691dd5632a5a2ec129045cc3f
+// sha256=bb8c3350621b1f35ac031f7e6919326951b3576cd3c52db20323ba3e6e740687
 
 /// Counterpart: `did-binding-contracts.schema.json#/$defs/limited_trust`.
 /// Per-pin limited-trust record
 /// (`did-binding-contracts.schema.json#/$defs/limited_trust`).
 ///
-/// Â§5.5 replaced the old single "reason" with one state per pin, because the two
+/// §5.5 replaced the old single "reason" with one state per pin, because the two
 /// pins fail independently and for different reasons: a `did:webvh` binding that
 /// lost only `version_id` because the resolver did not surface it is a resolver
 /// defect, while a `did:key` binding that has no history at all is a terminal
@@ -32,14 +32,14 @@ pub struct LimitedTrust {
 /// One registered freshness profile row
 /// (`did-binding-contracts.schema.json#/$defs/freshness_profile`).
 ///
-/// Â§5.4 makes every DID authority call site reference exactly one profile id
-/// through its operation / action registration â€” natural-language tier guessing
+/// §5.4 makes every DID authority call site reference exactly one profile id
+/// through its operation / action registration — natural-language tier guessing
 /// ("directory-ish, so any cache will do") is forbidden, and an unknown id is
 /// treated as `high`, never as "anything cached is fine".
 ///
 /// `fresh_for_seconds` is the **single** freshness threshold: `refresh_at =
 /// verified_at + fresh_for_seconds` and an authority call's `max_age` is the
-/// same value. Two separately maintained constants are exactly the drift Â§5.4
+/// same value. Two separately maintained constants are exactly the drift §5.4
 /// forbids, so [`Self::requirement`] is the only way to obtain a
 /// [`FreshnessRequirement`] from a profile.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

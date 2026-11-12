@@ -188,6 +188,11 @@ pub fn verify_realm_actor_initial_resolution(
             "Realm actor creation proof is outside its validity interval",
         ));
     }
+    crate::validate_realm_actor_content_backup_recipient(
+        &payload.actor_id,
+        &payload.recovery.content_backup_recipient,
+        &document,
+    )?;
     Ok(document)
 }
 
@@ -428,5 +433,10 @@ pub fn verify_realm_actor_manager_successor(
         &key,
     )
     .map_err(|error| invalid(&error.to_string()))?;
+    crate::validate_realm_actor_content_backup_recipient(
+        actor,
+        &payload.next_content_backup_recipient,
+        &document,
+    )?;
     Ok(document)
 }

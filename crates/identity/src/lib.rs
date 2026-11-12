@@ -113,3 +113,9 @@ pub use verifier::{
 
 pub mod realm_actor_recovery;
 pub use realm_actor_recovery::*;
+pub mod realm_actor_content_backup;
+pub use realm_actor_content_backup::*;
+#[cfg(feature = "native-backup")]
+pub mod realm_actor_backup_handover;
+#[cfg(feature = "native-backup")]
+pub use realm_actor_backup_handover::*;

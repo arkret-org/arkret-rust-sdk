@@ -224,7 +224,94 @@
     "event-payload.schema.json#/$defs/did_core_id": "arkret_wire::DidCoreId",
     "event-payload.schema.json#/$defs/digest": "arkret_wire::Hash",
     "event-payload.schema.json#/$defs/non_empty_string": "arkret_wire::NonEmptyString",
-    "event-payload.schema.json#/$defs/agent_action_target": "crate::events_payloads::agent::AgentActionTarget"
+    "event-payload.schema.json#/$defs/agent_action_target": "crate::events_payloads::agent::AgentActionTarget",
+    "detached-object-signature.schema.json#/$defs/realm_actor_content_backup_admission_signature": "arkret_wire::DetachedObjectSignature",
+    "detached-object-signature.schema.json#/$defs/realm_actor_content_backup_confirmation_signature": "arkret_wire::DetachedObjectSignature",
+    "detached-object-signature.schema.json#/$defs/realm_actor_content_backup_offer_signature": "arkret_wire::DetachedObjectSignature",
+    "realm-actor.schema.json#/$defs/content_backup_recipient": "arkret_models_crypto::RealmActorContentBackupRecipient",
+    "current-state.schema.json#/$defs/current_realm_actor_key_backup_active_series": "arkret_models_collaboration::CurrentRealmActorKeyBackupActiveSeries",
+    "current-state.schema.json#/$defs/realm_actor_key_backup_active_series_selector": "arkret_models_collaboration::RealmActorKeyBackupActiveSeriesSelector",
+    "current-state.schema.json#/$defs/realm_actor_key_backup_active_series_value": "arkret_models_collaboration::RealmActorKeyBackupActiveSeriesValue",
+    "key-backup.schema.json#/$defs/realm_actor_backup_auth_binding": "arkret_models_crypto::RealmActorBackupAuthBinding",
+    "keys-operations.schema.json#/$defs/keys_backups_issue_unlock_challenge_response_body": "arkret_models_crypto::KeysBackupsIssueUnlockChallengeResponseBody",
+    "keys-operations.schema.json#/$defs/keys_backups_list_query": "arkret_models_crypto::KeysBackupsListParameters",
+    "keys-operations.schema.json#/$defs/keys_backups_list_response_body": "arkret_models_integration::KeysBackupsListResponseBody",
+    "keys-operations.schema.json#/$defs/keys_backups_unlock_response_body": "arkret_models_integration::KeysBackupsUnlockResponseBody",
+    "keys-operations.schema.json#/$defs/realm_actor_archive_backup_entry": "arkret_models_integration::RealmActorArchiveBackupEntry",
+    "keys-operations.schema.json#/$defs/realm_actor_archive_inventory_entry": "arkret_models_integration::RealmActorArchiveInventoryEntry",
+    "keys-operations.schema.json#/$defs/realm_actor_archive_inventory_manifest": "arkret_models_integration::RealmActorArchiveInventoryManifest",
+    "keys-operations.schema.json#/$defs/realm_actor_archive_inventory_page": "arkret_models_integration::RealmActorArchiveInventoryPage",
+    "keys-operations.schema.json#/$defs/realm_actor_archive_recipient_entry": "arkret_models_integration::RealmActorArchiveRecipientEntry",
+    "keys-operations.schema.json#/$defs/realm_actor_archive_series_entry": "arkret_models_integration::RealmActorArchiveSeriesEntry",
+    "keys-operations.schema.json#/$defs/realm_actor_archive_unlock_response_body": "arkret_models_integration::RealmActorArchiveUnlockResponseBody",
+    "keys-operations.schema.json#/$defs/realm_actor_backup_active_series_state": "arkret_models_crypto::RealmActorBackupActiveSeriesState",
+    "keys-operations.schema.json#/$defs/realm_actor_backup_governance_history": "arkret_models_integration::RealmActorBackupGovernanceHistory",
+    "keys-operations.schema.json#/$defs/realm_actor_backup_governance_original": "arkret_models_integration::RealmActorBackupGovernanceOriginal",
+    "keys-operations.schema.json#/$defs/realm_actor_backup_governance_transition": "arkret_models_integration::RealmActorBackupGovernanceTransition",
+    "keys-operations.schema.json#/$defs/realm_actor_backup_head_entry": "arkret_models_crypto::RealmActorBackupHeadEntry",
+    "keys-operations.schema.json#/$defs/realm_actor_backup_metadata": "arkret_models_crypto::RealmActorBackupMetadata",
+    "keys-operations.schema.json#/$defs/realm_actor_backup_series_head_response_body": "arkret_models_crypto::RealmActorBackupSeriesHeadResponseBody",
+    "keys-operations.schema.json#/$defs/realm_actor_backup_unlock_challenge": "arkret_models_crypto::RealmActorBackupUnlockChallenge",
+    "keys-operations.schema.json#/$defs/realm_actor_backup_unlock_response_body": "arkret_models_crypto::RealmActorBackupUnlockResponseBody",
+    "keys-operations.schema.json#/$defs/realm_actor_content_backup_admission": "arkret_models_crypto::RealmActorContentBackupAdmission",
+    "keys-operations.schema.json#/$defs/realm_actor_content_backup_admission_signature_input": "arkret_models_crypto::RealmActorContentBackupAdmissionSignatureInput",
+    "keys-operations.schema.json#/$defs/realm_actor_content_backup_handover_confirmation": "arkret_models_integration::RealmActorContentBackupHandoverConfirmation",
+    "keys-operations.schema.json#/$defs/realm_actor_content_backup_handover_confirmation_signature_input": "arkret_models_integration::RealmActorContentBackupHandoverConfirmationSignatureInput",
+    "keys-operations.schema.json#/$defs/realm_actor_content_backup_handover_offer": "arkret_models_integration::RealmActorContentBackupHandoverOffer",
+    "keys-operations.schema.json#/$defs/realm_actor_content_backup_handover_offer_signature_input": "arkret_models_integration::RealmActorContentBackupHandoverOfferSignatureInput",
+    "keys-operations.schema.json#/$defs/realm_actor_content_backup_handover_plaintext": "arkret_models_integration::RealmActorContentBackupHandoverPlaintext",
+    "keys-operations.schema.json#/$defs/realm_actor_content_backup_private_recipient_key": "arkret_models_integration::RealmActorContentBackupPrivateRecipientKey",
+    "keys-operations.schema.json#/$defs/realm_actor_content_backup_sealed_handover": "arkret_models_integration::RealmActorContentBackupSealedHandover",
+    "keys-operations.schema.json#/$defs/realm_actor_content_backup_source": "arkret_models_integration::RealmActorContentBackupSource",
+    "realm-actor-material.schema.json#/$defs/content_backup_next_prepare_input": "arkret_models_crypto::ContentBackupNextPrepareInput",
+    "common-ids.schema.json#/$defs/realm_actor_id": "arkret_wire::RealmActorId",
+    "common-ids.schema.json#/$defs/realm_actor": "arkret_wire::ActorId",
+    "common-ids.schema.json#/$defs/circle_id": "arkret_wire::CircleId",
+    "common-ids.schema.json#/$defs/device_id": "arkret_wire::DeviceId",
+    "common-ids.schema.json#/$defs/realm_commit_id": "arkret_wire::RealmCommitId",
+    "authority-commit-operations.schema.json#/$defs/historical_producer_signer_fact": "arkret_models_collaboration::authority_commit::HistoricalProducerSignerFact",
+    "realm-actor-material.schema.json#/$defs/event_material": "crate::RealmActorBackupEventMaterial",
+    "identity-resolution.schema.json#/$defs/authenticated_service_resolution": "arkret_models_identity::AuthenticatedServiceResolution",
+    "realm-authority-handoff.schema.json": "arkret_wire::RealmAuthorityHandoff",
+    "realm-commit.schema.json": "arkret_wire::RealmCommit",
+    "realm-commit.schema.json#/properties/authority_ref": "arkret_wire::RealmCommitAuthorityRef",
+    "event-envelope.schema.json": "arkret_wire::Event",
+    "applet-install-plan.schema.json#/$defs/effective_scope": "arkret_wire::ScopeRef",
+    "account-operations.schema.json#/$defs/sha256_digest": "arkret_wire::Hash",
+    "keys-operations.schema.json#/$defs/backup_id": "arkret_wire::BackupId",
+    "keys-operations.schema.json#/$defs/device_id": "arkret_wire::DeviceId",
+    "keys-operations.schema.json#/$defs/backup_series_id": "arkret_wire::BackupSeriesId",
+    "agent-operations.schema.json#/$defs/backup_series_id": "arkret_wire::BackupSeriesId",
+    "keys-operations.schema.json#/$defs/backup_kind": "arkret_models_crypto::BackupKind",
+    "keys-operations.schema.json#/$defs/base64url": "arkret_wire::Base64UrlString",
+    "keys-operations.schema.json#/$defs/request_id": "arkret_wire::NonEmptyString",
+    "keys-operations.schema.json#/$defs/cursor": "arkret_wire::Cursor",
+    "keys-operations.schema.json#/$defs/non_empty_string": "arkret_wire::NonEmptyString",
+    "keys-operations.schema.json#/$defs/digest": "arkret_wire::Hash",
+    "keys-operations.schema.json#/$defs/timestamp": "chrono::DateTime<chrono::Utc>",
+    "keys-operations.schema.json#/$defs/keys_backups_page": "arkret_models_crypto::KeysBackupsPage",
+    "keys-operations.schema.json#/$defs/keys_backups_unlock_challenge": "arkret_models_crypto::KeysBackupsUnlockChallenge",
+    "keys-operations.schema.json#/$defs/backup_active_series_pointer": "arkret_models_crypto::BackupActiveSeriesPointer",
+    "key-backup.schema.json": "arkret_models_crypto::KeyBackup",
+    "key-backup-active-series.schema.json": "arkret_models_collaboration::events_payloads::KeyBackupActiveSeries",
+    "realm-actor.schema.json#/$defs/content_backup_recipient/properties/hpke_suite": "arkret_models_crypto::ContentBackupRecipientHpkeSuite",
+    "current-state.schema.json#/$defs/realm_actor_key_backup_active_series_selector/properties/kind": "arkret_models_collaboration::RealmActorKeyBackupActiveSeriesSelectorKind",
+    "current-state.schema.json#/$defs/realm_actor_key_backup_active_series_selector/properties/backup_kind": "arkret_models_collaboration::RealmActorKeyBackupActiveSeriesSelectorBackupKind",
+    "key-backup.schema.json#/$defs/realm_actor_backup_auth_binding/properties/kind": "arkret_models_crypto::RealmActorBackupAuthBindingKind",
+    "keys-operations.schema.json#/$defs/keys_backups_list_query/oneOf/1/properties/purpose": "arkret_models_crypto::KeysBackupsListQueryOneOf1Purpose",
+    "keys-operations.schema.json#/$defs/keys_backups_list_query/oneOf/2/properties/purpose": "arkret_models_crypto::KeysBackupsListQueryOneOf2Purpose",
+    "keys-operations.schema.json#/$defs/realm_actor_archive_backup_entry/properties/kind": "arkret_models_integration::RealmActorArchiveBackupEntryKind",
+    "keys-operations.schema.json#/$defs/realm_actor_archive_inventory_page/properties/purpose": "arkret_models_integration::RealmActorArchiveInventoryPagePurpose",
+    "keys-operations.schema.json#/$defs/realm_actor_archive_recipient_entry/properties/kind": "arkret_models_integration::RealmActorArchiveRecipientEntryKind",
+    "keys-operations.schema.json#/$defs/realm_actor_archive_series_entry/properties/kind": "arkret_models_integration::RealmActorArchiveSeriesEntryKind",
+    "keys-operations.schema.json#/$defs/realm_actor_backup_metadata/properties/backup_kind": "arkret_models_crypto::RealmActorBackupMetadataBackupKind",
+    "keys-operations.schema.json#/$defs/realm_actor_backup_metadata/properties/encryption/properties/recipient_method": "arkret_models_crypto::RealmActorBackupMetadataEncryptionRecipientMethod",
+    "keys-operations.schema.json#/$defs/realm_actor_backup_metadata/properties/encryption/properties/hpke_suite": "arkret_models_crypto::RealmActorBackupMetadataEncryptionHpkeSuite",
+    "keys-operations.schema.json#/$defs/realm_actor_backup_series_head_response_body/properties/purpose": "arkret_models_crypto::RealmActorBackupSeriesHeadResponseBodyPurpose",
+    "keys-operations.schema.json#/$defs/realm_actor_backup_unlock_challenge/properties/operation": "arkret_models_crypto::RealmActorBackupUnlockChallengeOperation",
+    "keys-operations.schema.json#/$defs/realm_actor_backup_unlock_challenge/properties/kind": "arkret_models_crypto::RealmActorBackupUnlockChallengeKind",
+    "keys-operations.schema.json#/$defs/realm_actor_backup_unlock_challenge/properties/purpose": "arkret_models_crypto::RealmActorBackupUnlockChallengePurpose",
+    "keys-operations.schema.json#/$defs/realm_actor_content_backup_sealed_handover/properties/hpke_suite": "arkret_models_integration::RealmActorContentBackupSealedHandoverHpkeSuite"
   },
   "families": [
     {
@@ -319,7 +406,7 @@
               "/// Per-pin limited-trust record",
               "/// (`did-binding-contracts.schema.json#/$defs/limited_trust`).",
               "///",
-              "/// \u00c2\u00a75.5 replaced the old single \"reason\" with one state per pin, because the two",
+              "/// §5.5 replaced the old single \"reason\" with one state per pin, because the two",
               "/// pins fail independently and for different reasons: a `did:webvh` binding that",
               "/// lost only `version_id` because the resolver did not surface it is a resolver",
               "/// defect, while a `did:key` binding that has no history at all is a terminal",
@@ -357,14 +444,14 @@
               "/// One registered freshness profile row",
               "/// (`did-binding-contracts.schema.json#/$defs/freshness_profile`).",
               "///",
-              "/// \u00c2\u00a75.4 makes every DID authority call site reference exactly one profile id",
-              "/// through its operation / action registration \u00e2\u20ac\u201d natural-language tier guessing",
+              "/// §5.4 makes every DID authority call site reference exactly one profile id",
+              "/// through its operation / action registration — natural-language tier guessing",
               "/// (\"directory-ish, so any cache will do\") is forbidden, and an unknown id is",
               "/// treated as `high`, never as \"anything cached is fine\".",
               "///",
               "/// `fresh_for_seconds` is the **single** freshness threshold: `refresh_at =",
               "/// verified_at + fresh_for_seconds` and an authority call's `max_age` is the",
-              "/// same value. Two separately maintained constants are exactly the drift \u00c2\u00a75.4",
+              "/// same value. Two separately maintained constants are exactly the drift §5.4",
               "/// forbids, so [`Self::requirement`] is the only way to obtain a",
               "/// [`FreshnessRequirement`] from a profile.",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
@@ -434,7 +521,7 @@
               "///",
               "/// A witness revocation, an organization merge or a falsified consistency proof",
               "/// arrives as a *coordinate* (witness DID, organization, log head), never as a",
-              "/// digest \u00e2\u20ac\u201d digests are one-way, so `evidence_digest` cannot answer \"which",
+              "/// digest — digests are one-way, so `evidence_digest` cannot answer \"which",
               "/// bindings depend on witness X\". This record can, and a store that declares",
               "/// evidence-bearing methods MUST index it at least by witness DID.",
               "#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]",
@@ -3445,7 +3532,7 @@
               "/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_organization_payload`.",
               "///",
               "/// Organization-side endorsement or revocation for a Realm relationship. The",
-              "/// reducer cell subject is `(organization_id, relationship)` \u00e2\u20ac\u201d `statement_id`",
+              "/// reducer cell subject is `(organization_id, relationship)` — `statement_id`",
               "/// is audit identity, not the cell subject. Field order mirrors the spec schema",
               "/// `properties` ordering.",
               "#[derive(Clone, Debug, Serialize, Deserialize)]",
@@ -3665,7 +3752,7 @@
               "/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/cross_object_redaction_payload`.",
               "///",
               "/// `ak.redaction` is the cross-object redaction kind. Per",
-              "/// `models/common-fields.md` \u00c2\u00a75.1 (Message exemption) its target set excludes",
+              "/// `models/common-fields.md` §5.1 (Message exemption) its target set excludes",
               "/// Message: `message_id` is not a member and `target_ref` cannot spell",
               "/// `ak:message:`, because Message reaches `state=redacted` only through the",
               "/// object-scoped `ak.message.redact`. This type is the single place that",
@@ -4186,7 +4273,7 @@
               "/// (`event-payload.schema.json#/$defs/strand_move_payload`).",
               "///",
               "/// Moves a Strand between List Spaces. The destination is single-sourced by",
-              "/// `target_space_id` \u00e2\u20ac\u201d writers MUST NOT put `list_space_id` directly on the",
+              "/// `target_space_id` — writers MUST NOT put `list_space_id` directly on the",
               "/// payload (`additionalProperties:false` enforces this; the reducer compiles",
               "/// `target_space_id` into the position cell). `from_space_id` is an optional",
               "/// hint the reducer can infer. Required: `board_space_id`, `strand_id`,",
@@ -5177,11 +5264,11 @@
               "/// Wire counterpart:",
               "/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_alias_declaration`.",
               "///",
-              "/// `ak.realm.alias` declaration \u00e2\u20ac\u201d the ONLY wire carrier of a Realm alias.",
+              "/// `ak.realm.alias` declaration — the ONLY wire carrier of a Realm alias.",
               "///",
               "/// `realm.schema.json` is a closed object with no `alias` property, and",
               "/// Realm genesis/profile payloads MUST NOT carry one",
-              "/// (`discovery/object-addressing.md` \u00c2\u00a73.3).",
+              "/// (`discovery/object-addressing.md` §3.3).",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
             ],
@@ -5845,7 +5932,7 @@
               "///",
               "/// The profile is fixed to the discussion track family and the plaintext",
               "/// therefore carries no `track_name` at all",
-              "/// (`zh/discovery/profiles-presence.md` \u00c2\u00a73.5).",
+              "/// (`zh/discovery/profiles-presence.md` §3.5).",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
             ],
@@ -5898,7 +5985,7 @@
               "/// Event history, so it carries no `id`, no `schema`, no `created_at` and no",
               "/// `realm_id`. Realm scope is already bound into the ciphertext by the Signal",
               "/// AAD, the sending device and send time are on the signed envelope, and the",
-              "/// payload kind is the `kind` const. One type both seals and opens \u00e2\u20ac\u201d the",
+              "/// payload kind is the `kind` const. One type both seals and opens — the",
               "/// closed schema and this struct describe the same five fields, so a sender's",
               "/// own bytes deserialize back.",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
@@ -6609,7 +6696,7 @@
               "///",
               "/// This is the single Rust expression of",
               "/// `identity-resolution.schema.json#/$defs/service_route_projection`",
-              "/// (`sync/service-surface.md` \u00c2\u00a72.6). It is produced either locally by",
+              "/// (`sync/service-surface.md` §2.6). It is produced either locally by",
               "/// [`AuthenticatedServiceResolution::projection`] after method-native",
               "/// verification, or handed over already verified inside an own-Station result",
               "/// such as the media service binding. There is deliberately only one type: a",
@@ -9457,7 +9544,7 @@
               "/// one number could not state where this result stands in all of them.",
               "///",
               "/// Convergence is by stable domain selector plus `expected_revision` CAS, so a",
-              "/// caller writes back against the `revision` of the exact entry it read \u00e2\u20ac\u201d never",
+              "/// caller writes back against the `revision` of the exact entry it read — never",
               "/// against a whole-Realm token.",
               "/// Field declaration order is byte-for-byte the `properties` order of",
               "/// `account-state-view.schema.json#/$defs/current`.",
@@ -9602,7 +9689,7 @@
               "/// The Account Authority populates it from a Station-local revocation",
               "/// admission record, which is the only source of the origin-derived",
               "/// authorization Event and generation. That record deliberately carries no",
-              "/// RealmCommit witness, so this binding names the authorization Event alone \u00e2\u20ac\u201d",
+              "/// RealmCommit witness, so this binding names the authorization Event alone —",
               "/// it is not a `CommittedEventRef` and MUST NOT be taken from client input, a",
               "/// local cache or a private lookup.",
               "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
@@ -10919,7 +11006,7 @@
               "/// `keys-operations.schema.json#/$defs/backup_active_series_state`.",
               "///",
               "/// v1 registers exactly one backup class, `secret_storage` (key-management",
-              "/// \u00c2\u00a77.5.0 / \u00c2\u00a77.6.1). The object is closed: an `mls_history` or private class",
+              "/// §7.5.0 / §7.6.1). The object is closed: an `mls_history` or private class",
               "/// member is schema-invalid and is rejected rather than ignored.",
               "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
@@ -11031,7 +11118,7 @@
             "signature": "pub struct KeyBackupSummary",
             "attributes": [
               "/// `keys-operations.schema.json#/$defs/backup_metadata`: the closed list",
-              "/// summary of one stored envelope (key-management \u00c2\u00a77.6.1).",
+              "/// summary of one stored envelope (key-management §7.6.1).",
               "///",
               "/// Field order is the schema `properties` order. Optional members are absent",
               "/// or carry a value; only the schema's tristate members (`supersedes_id`,",
@@ -12073,7 +12160,7 @@
               "/// Closed applicant proof for one automatic join gate",
               "/// (`event-payload.schema.json#/$defs/join_gate_proof`).",
               "///",
-              "/// The binding tuple \u00e2\u20ac\u201d gate, Realm, applicant, policy revision, creation time \u00e2\u20ac\u201d",
+              "/// The binding tuple — gate, Realm, applicant, policy revision, creation time —",
               "/// rides as wire members and is covered by `proofs`, so a proof replayed across",
               "/// Realms, applicants or policy revisions fails by field comparison before any",
               "/// signature is checked. Freshness is judged against the enclosing Event's",
@@ -12171,7 +12258,7 @@
               "/// (`event-payload.schema.json#/$defs/membership_payload`).",
               "///",
               "/// `additionalProperties:false`: the removed `handle` / `from` keys that older",
-              "/// inkson call sites tried to emit are intentionally NOT representable here \u00e2\u20ac\u201d",
+              "/// inkson call sites tried to emit are intentionally NOT representable here —",
               "/// `handle` has no spec-legal home in this payload (the member identity is",
               "/// carried by `member_id`; handle evidence lives in signed `HandleClaim`",
               "/// objects on the roster, not the durable membership event), and the FSM",
@@ -16199,6 +16286,12 @@
                 "visibility": "pub",
                 "type": "bool",
                 "attributes": []
+              },
+              "content_backup_recipient": {
+                "name": "content_backup_recipient",
+                "visibility": "pub",
+                "type": "arkret_models_crypto::RealmActorContentBackupRecipient",
+                "attributes": []
               }
             }
           }
@@ -16348,6 +16441,12 @@
                 "name": "enabled",
                 "visibility": "pub",
                 "type": "bool",
+                "attributes": []
+              },
+              "content_backup_recipient": {
+                "name": "content_backup_recipient",
+                "visibility": "pub",
+                "type": "arkret_models_crypto::RealmActorContentBackupRecipient",
                 "attributes": []
               }
             }
@@ -16701,6 +16800,24 @@
                 "visibility": "pub",
                 "type": "crate::AppletManagedActorMethodHistoryEvidence",
                 "attributes": []
+              },
+              "next_content_backup_recipient": {
+                "name": "next_content_backup_recipient",
+                "visibility": "pub",
+                "type": "arkret_models_crypto::RealmActorContentBackupRecipient",
+                "attributes": []
+              },
+              "content_backup_inventory_digest": {
+                "name": "content_backup_inventory_digest",
+                "visibility": "pub",
+                "type": "arkret_wire::Hash",
+                "attributes": []
+              },
+              "content_backup_handover_digest": {
+                "name": "content_backup_handover_digest",
+                "visibility": "pub",
+                "type": "arkret_wire::Hash",
+                "attributes": []
               }
             }
           }
@@ -16785,6 +16902,24 @@
                 "name": "method_history_evidence",
                 "visibility": "pub",
                 "type": "crate::AppletManagedActorMethodHistoryEvidence",
+                "attributes": []
+              },
+              "content_backup_inventory_digest": {
+                "name": "content_backup_inventory_digest",
+                "visibility": "pub",
+                "type": "arkret_wire::Hash",
+                "attributes": []
+              },
+              "next_content_backup_recipient": {
+                "name": "next_content_backup_recipient",
+                "visibility": "pub",
+                "type": "arkret_models_crypto::RealmActorContentBackupRecipient",
+                "attributes": []
+              },
+              "content_backup_handover_digest": {
+                "name": "content_backup_handover_digest",
+                "visibility": "pub",
+                "type": "arkret_wire::Hash",
                 "attributes": []
               }
             }
@@ -16959,6 +17094,14 @@
                 "visibility": "pub",
                 "type": "arkret_wire::DetachedObjectSignature",
                 "attributes": []
+              },
+              "next_content_backup_recipient": {
+                "name": "next_content_backup_recipient",
+                "visibility": "pub",
+                "type": "Option<arkret_models_crypto::RealmActorContentBackupRecipient>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
+                ]
               }
             }
           }
@@ -17063,6 +17206,14 @@
                 "type": "chrono::DateTime<chrono::Utc>",
                 "attributes": [
                   "#[serde(with = \"arkret_canonical::serde_helpers::canonical_timestamp\")]"
+                ]
+              },
+              "next_content_backup_recipient": {
+                "name": "next_content_backup_recipient",
+                "visibility": "pub",
+                "type": "Option<arkret_models_crypto::RealmActorContentBackupRecipient>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
                 ]
               }
             }
@@ -17341,6 +17492,18 @@
                 "name": "pending",
                 "visibility": "pub",
                 "type": "Option<RealmActorRecoveryIntent>",
+                "attributes": []
+              },
+              "content_backup_recipient_ref": {
+                "name": "content_backup_recipient_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::CommittedEventRef",
+                "attributes": []
+              },
+              "content_backup_recipient": {
+                "name": "content_backup_recipient",
+                "visibility": "pub",
+                "type": "arkret_models_crypto::RealmActorContentBackupRecipient",
                 "attributes": []
               }
             }
@@ -18113,6 +18276,2365 @@
                 "name": "public_key_base64url",
                 "visibility": "pub",
                 "type": "Base64UrlString",
+                "attributes": []
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "output": "crates/models-crypto/src/generated/realm_actor_content_backup_contracts.rs",
+      "inline": true,
+      "types": [
+        {
+          "name": "ContentBackupRecipientHpkeSuite",
+          "schema": "realm-actor.schema.json#/$defs/content_backup_recipient/properties/hpke_suite",
+          "openapi": true,
+          "variant_names": {
+            "ak.hpke_x25519_aead_chacha20poly1305.v1": "Value"
+          }
+        },
+        {
+          "name": "RealmActorContentBackupRecipient",
+          "schema": "realm-actor.schema.json#/$defs/content_backup_recipient",
+          "rust": {
+            "signature": "pub struct RealmActorContentBackupRecipient",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]",
+              "#[serde(remote = \"Self\")]"
+            ],
+            "members": {
+              "key_agreement_ref": {
+                "name": "key_agreement_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::DidUrl",
+                "attributes": []
+              },
+              "hpke_suite": {
+                "name": "hpke_suite",
+                "visibility": "pub",
+                "type": "ContentBackupRecipientHpkeSuite",
+                "attributes": []
+              },
+              "public_key_base64url": {
+                "name": "public_key_base64url",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "RealmActorBackupAuthBindingKind",
+          "schema": "key-backup.schema.json#/$defs/realm_actor_backup_auth_binding/properties/kind",
+          "openapi": true,
+          "variant_names": {
+            "realm_device": "Value"
+          }
+        },
+        {
+          "name": "RealmActorBackupAuthBinding",
+          "schema": "key-backup.schema.json#/$defs/realm_actor_backup_auth_binding",
+          "rust": {
+            "signature": "pub struct RealmActorBackupAuthBinding",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]",
+              "#[serde(remote = \"Self\")]"
+            ],
+            "members": {
+              "kind": {
+                "name": "kind",
+                "visibility": "pub",
+                "type": "RealmActorBackupAuthBindingKind",
+                "attributes": []
+              },
+              "manager_ref": {
+                "name": "manager_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::CommittedEventRef",
+                "attributes": []
+              },
+              "recovery_ref": {
+                "name": "recovery_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::CommittedEventRef",
+                "attributes": []
+              },
+              "recipient_ref": {
+                "name": "recipient_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::CommittedEventRef",
+                "attributes": []
+              },
+              "device_generation": {
+                "name": "device_generation",
+                "visibility": "pub",
+                "type": "u64",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "KeysBackupsIssueUnlockChallengeResponseBody",
+          "schema": "keys-operations.schema.json#/$defs/keys_backups_issue_unlock_challenge_response_body",
+          "reference_variants": {
+            "Account": "crate::KeysBackupsUnlockChallenge",
+            "Native": "RealmActorBackupUnlockChallenge"
+          },
+          "partial_eq": false,
+          "openapi": true,
+          "expect_large_enum_variant": true
+        },
+        {
+          "name": "KeysBackupsListQueryOneOf1Purpose",
+          "schema": "keys-operations.schema.json#/$defs/keys_backups_list_query/oneOf/1/properties/purpose",
+          "openapi": true,
+          "variant_names": {
+            "series_predecessor": "Value"
+          }
+        },
+        {
+          "name": "RealmActorBackupHeadQuery",
+          "schema": "keys-operations.schema.json#/$defs/keys_backups_list_query/oneOf/1",
+          "rust": {
+            "signature": "pub struct RealmActorBackupHeadQuery",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "purpose": {
+                "name": "purpose",
+                "visibility": "pub",
+                "type": "KeysBackupsListQueryOneOf1Purpose",
+                "attributes": []
+              },
+              "realm_actor_id": {
+                "name": "realm_actor_id",
+                "visibility": "pub",
+                "type": "arkret_wire::RealmActorId",
+                "attributes": []
+              },
+              "circle_id": {
+                "name": "circle_id",
+                "visibility": "pub",
+                "type": "Option<arkret_wire::CircleId>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "name": "KeysBackupsListQueryOneOf2Purpose",
+          "schema": "keys-operations.schema.json#/$defs/keys_backups_list_query/oneOf/2/properties/purpose",
+          "openapi": true,
+          "variant_names": {
+            "archive_inventory": "Value"
+          }
+        },
+        {
+          "name": "RealmActorArchiveInventoryQuery",
+          "schema": "keys-operations.schema.json#/$defs/keys_backups_list_query/oneOf/2",
+          "rust": {
+            "signature": "pub struct RealmActorArchiveInventoryQuery",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "purpose": {
+                "name": "purpose",
+                "visibility": "pub",
+                "type": "KeysBackupsListQueryOneOf2Purpose",
+                "attributes": []
+              },
+              "realm_actor_id": {
+                "name": "realm_actor_id",
+                "visibility": "pub",
+                "type": "arkret_wire::RealmActorId",
+                "attributes": []
+              },
+              "cursor": {
+                "name": "cursor",
+                "visibility": "pub",
+                "type": "Option<arkret_wire::Cursor>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
+                ]
+              },
+              "limit": {
+                "name": "limit",
+                "visibility": "pub",
+                "type": "Option<u64>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "name": "KeysBackupsListParameters",
+          "schema": "keys-operations.schema.json#/$defs/keys_backups_list_query",
+          "reference_variants": {
+            "Account": "crate::KeyBackupsListQuery",
+            "Device": "RealmActorBackupHeadQuery",
+            "Manager": "RealmActorArchiveInventoryQuery"
+          },
+          "partial_eq": false,
+          "openapi": true
+        },
+        {
+          "name": "RealmActorBackupActiveSeriesState",
+          "schema": "keys-operations.schema.json#/$defs/realm_actor_backup_active_series_state",
+          "rust": {
+            "signature": "pub struct RealmActorBackupActiveSeriesState",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "realm_actor_id": {
+                "name": "realm_actor_id",
+                "visibility": "pub",
+                "type": "arkret_wire::RealmActorId",
+                "attributes": []
+              },
+              "effective_scope": {
+                "name": "effective_scope",
+                "visibility": "pub",
+                "type": "arkret_wire::ScopeRef",
+                "attributes": []
+              },
+              "manager_ref": {
+                "name": "manager_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::CommittedEventRef",
+                "attributes": []
+              },
+              "recovery_ref": {
+                "name": "recovery_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::CommittedEventRef",
+                "attributes": []
+              },
+              "recipient_ref": {
+                "name": "recipient_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::CommittedEventRef",
+                "attributes": []
+              },
+              "authority_commit_id": {
+                "name": "authority_commit_id",
+                "visibility": "pub",
+                "type": "arkret_wire::RealmCommitId",
+                "attributes": []
+              },
+              "secret_storage": {
+                "name": "secret_storage",
+                "visibility": "pub",
+                "type": "crate::BackupActiveSeriesPointer",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "RealmActorBackupHeadEntry",
+          "schema": "keys-operations.schema.json#/$defs/realm_actor_backup_head_entry",
+          "rust": {
+            "signature": "pub struct RealmActorBackupHeadEntry",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "metadata": {
+                "name": "metadata",
+                "visibility": "pub",
+                "type": "RealmActorBackupMetadata",
+                "attributes": []
+              },
+              "admission": {
+                "name": "admission",
+                "visibility": "pub",
+                "type": "RealmActorContentBackupAdmission",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "RealmActorBackupMetadataBackupKind",
+          "schema": "keys-operations.schema.json#/$defs/realm_actor_backup_metadata/properties/backup_kind",
+          "openapi": true,
+          "variant_names": {
+            "secret_storage": "Value"
+          }
+        },
+        {
+          "name": "RealmActorBackupMetadataEncryptionRecipientMethod",
+          "schema": "keys-operations.schema.json#/$defs/realm_actor_backup_metadata/properties/encryption/properties/recipient_method",
+          "openapi": true,
+          "variant_names": {
+            "realm_actor_recovery": "Value"
+          }
+        },
+        {
+          "name": "RealmActorBackupMetadataEncryptionHpkeSuite",
+          "schema": "keys-operations.schema.json#/$defs/realm_actor_backup_metadata/properties/encryption/properties/hpke_suite",
+          "openapi": true,
+          "variant_names": {
+            "ak.hpke_x25519_aead_chacha20poly1305.v1": "Value"
+          }
+        },
+        {
+          "name": "RealmActorBackupMetadataEncryption",
+          "schema": "keys-operations.schema.json#/$defs/realm_actor_backup_metadata/properties/encryption",
+          "rust": {
+            "signature": "pub struct RealmActorBackupMetadataEncryption",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "recipient_method": {
+                "name": "recipient_method",
+                "visibility": "pub",
+                "type": "RealmActorBackupMetadataEncryptionRecipientMethod",
+                "attributes": []
+              },
+              "recipient_key_ref": {
+                "name": "recipient_key_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::DidUrl",
+                "attributes": []
+              },
+              "hpke_suite": {
+                "name": "hpke_suite",
+                "visibility": "pub",
+                "type": "RealmActorBackupMetadataEncryptionHpkeSuite",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "RealmActorBackupMetadata",
+          "schema": "keys-operations.schema.json#/$defs/realm_actor_backup_metadata",
+          "rust": {
+            "signature": "pub struct RealmActorBackupMetadata",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "backup_id": {
+                "name": "backup_id",
+                "visibility": "pub",
+                "type": "arkret_wire::BackupId",
+                "attributes": []
+              },
+              "actor_id": {
+                "name": "actor_id",
+                "visibility": "pub",
+                "type": "arkret_wire::ActorId",
+                "attributes": []
+              },
+              "device_id": {
+                "name": "device_id",
+                "visibility": "pub",
+                "type": "arkret_wire::DeviceId",
+                "attributes": []
+              },
+              "backup_kind": {
+                "name": "backup_kind",
+                "visibility": "pub",
+                "type": "RealmActorBackupMetadataBackupKind",
+                "attributes": []
+              },
+              "backup_version": {
+                "name": "backup_version",
+                "visibility": "pub",
+                "type": "arkret_wire::NonEmptyString",
+                "attributes": []
+              },
+              "series_id": {
+                "name": "series_id",
+                "visibility": "pub",
+                "type": "arkret_wire::BackupSeriesId",
+                "attributes": []
+              },
+              "series_sequence": {
+                "name": "series_sequence",
+                "visibility": "pub",
+                "type": "u64",
+                "attributes": []
+              },
+              "supersedes_id": {
+                "name": "supersedes_id",
+                "visibility": "pub",
+                "type": "Option<Option<arkret_wire::BackupId>>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]",
+                  "#[serde(deserialize_with = \"deserialize_present_nullable\")]"
+                ]
+              },
+              "supersedes_digest": {
+                "name": "supersedes_digest",
+                "visibility": "pub",
+                "type": "Option<arkret_wire::Hash>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
+                ]
+              },
+              "created_at": {
+                "name": "created_at",
+                "visibility": "pub",
+                "type": "chrono::DateTime<chrono::Utc>",
+                "attributes": [
+                  "#[serde(with = \"arkret_canonical::serde_helpers::canonical_timestamp\")]"
+                ]
+              },
+              "updated_at": {
+                "name": "updated_at",
+                "visibility": "pub",
+                "type": "Option<chrono::DateTime<chrono::Utc>>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\", deserialize_with = \"arkret_canonical::serde_helpers::deserialize_non_null_optional_timestamp\", serialize_with = \"arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp\")]"
+                ]
+              },
+              "ciphertext_digest": {
+                "name": "ciphertext_digest",
+                "visibility": "pub",
+                "type": "arkret_wire::Hash",
+                "attributes": []
+              },
+              "encryption": {
+                "name": "encryption",
+                "visibility": "pub",
+                "type": "RealmActorBackupMetadataEncryption",
+                "attributes": []
+              },
+              "auth_binding": {
+                "name": "auth_binding",
+                "visibility": "pub",
+                "type": "RealmActorBackupAuthBinding",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "RealmActorBackupSeriesHeadResponseBodyPurpose",
+          "schema": "keys-operations.schema.json#/$defs/realm_actor_backup_series_head_response_body/properties/purpose",
+          "openapi": true,
+          "variant_names": {
+            "series_predecessor": "Value"
+          }
+        },
+        {
+          "name": "RealmActorBackupSeriesHeadResponseBody",
+          "schema": "keys-operations.schema.json#/$defs/realm_actor_backup_series_head_response_body",
+          "rust": {
+            "signature": "pub struct RealmActorBackupSeriesHeadResponseBody",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "purpose": {
+                "name": "purpose",
+                "visibility": "pub",
+                "type": "RealmActorBackupSeriesHeadResponseBodyPurpose",
+                "attributes": []
+              },
+              "realm_actor_id": {
+                "name": "realm_actor_id",
+                "visibility": "pub",
+                "type": "arkret_wire::RealmActorId",
+                "attributes": []
+              },
+              "effective_scope": {
+                "name": "effective_scope",
+                "visibility": "pub",
+                "type": "arkret_wire::ScopeRef",
+                "attributes": []
+              },
+              "active_series": {
+                "name": "active_series",
+                "visibility": "pub",
+                "type": "RealmActorBackupActiveSeriesState",
+                "attributes": []
+              },
+              "items": {
+                "name": "items",
+                "visibility": "pub",
+                "type": "Vec<RealmActorBackupHeadEntry>",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "RealmActorBackupUnlockChallengeOperation",
+          "schema": "keys-operations.schema.json#/$defs/realm_actor_backup_unlock_challenge/properties/operation",
+          "openapi": true,
+          "variant_names": {
+            "ak.self.keys.backups.command.unlock.v1": "Value"
+          }
+        },
+        {
+          "name": "RealmActorBackupUnlockChallengeKind",
+          "schema": "keys-operations.schema.json#/$defs/realm_actor_backup_unlock_challenge/properties/kind",
+          "openapi": true,
+          "variant_names": {
+            "realm_actor_device": "RealmActorDevice",
+            "realm_actor_manager": "RealmActorManager"
+          }
+        },
+        {
+          "name": "RealmActorBackupUnlockChallengePurpose",
+          "schema": "keys-operations.schema.json#/$defs/realm_actor_backup_unlock_challenge/properties/purpose",
+          "openapi": true,
+          "variant_names": {
+            "series_predecessor": "SeriesPredecessor",
+            "archive_recovery": "ArchiveRecovery"
+          }
+        },
+        {
+          "name": "RealmActorBackupUnlockChallenge",
+          "schema": "keys-operations.schema.json#/$defs/realm_actor_backup_unlock_challenge",
+          "rust": {
+            "signature": "pub struct RealmActorBackupUnlockChallenge",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "challenge_id": {
+                "name": "challenge_id",
+                "visibility": "pub",
+                "type": "arkret_wire::Base64UrlString",
+                "attributes": []
+              },
+              "challenge": {
+                "name": "challenge",
+                "visibility": "pub",
+                "type": "arkret_wire::Base64UrlString",
+                "attributes": []
+              },
+              "nonce": {
+                "name": "nonce",
+                "visibility": "pub",
+                "type": "arkret_wire::Base64UrlString",
+                "attributes": []
+              },
+              "operation": {
+                "name": "operation",
+                "visibility": "pub",
+                "type": "RealmActorBackupUnlockChallengeOperation",
+                "attributes": []
+              },
+              "backup_id": {
+                "name": "backup_id",
+                "visibility": "pub",
+                "type": "arkret_wire::BackupId",
+                "attributes": []
+              },
+              "audience": {
+                "name": "audience",
+                "visibility": "pub",
+                "type": "arkret_wire::NonEmptyString",
+                "attributes": []
+              },
+              "service_id": {
+                "name": "service_id",
+                "visibility": "pub",
+                "type": "arkret_wire::DidCoreId",
+                "attributes": []
+              },
+              "request_id": {
+                "name": "request_id",
+                "visibility": "pub",
+                "type": "arkret_wire::NonEmptyString",
+                "attributes": []
+              },
+              "issued_at": {
+                "name": "issued_at",
+                "visibility": "pub",
+                "type": "chrono::DateTime<chrono::Utc>",
+                "attributes": [
+                  "#[serde(with = \"arkret_canonical::serde_helpers::canonical_timestamp\")]"
+                ]
+              },
+              "expires_at": {
+                "name": "expires_at",
+                "visibility": "pub",
+                "type": "chrono::DateTime<chrono::Utc>",
+                "attributes": [
+                  "#[serde(with = \"arkret_canonical::serde_helpers::canonical_timestamp\")]"
+                ]
+              },
+              "series_id": {
+                "name": "series_id",
+                "visibility": "pub",
+                "type": "arkret_wire::BackupSeriesId",
+                "attributes": []
+              },
+              "ciphertext_digest": {
+                "name": "ciphertext_digest",
+                "visibility": "pub",
+                "type": "arkret_wire::Hash",
+                "attributes": []
+              },
+              "kind": {
+                "name": "kind",
+                "visibility": "pub",
+                "type": "RealmActorBackupUnlockChallengeKind",
+                "attributes": []
+              },
+              "purpose": {
+                "name": "purpose",
+                "visibility": "pub",
+                "type": "RealmActorBackupUnlockChallengePurpose",
+                "attributes": []
+              },
+              "realm_actor_id": {
+                "name": "realm_actor_id",
+                "visibility": "pub",
+                "type": "arkret_wire::RealmActorId",
+                "attributes": []
+              },
+              "effective_scope": {
+                "name": "effective_scope",
+                "visibility": "pub",
+                "type": "arkret_wire::ScopeRef",
+                "attributes": []
+              },
+              "manager_ref": {
+                "name": "manager_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::CommittedEventRef",
+                "attributes": []
+              },
+              "recovery_ref": {
+                "name": "recovery_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::CommittedEventRef",
+                "attributes": []
+              },
+              "recipient_ref": {
+                "name": "recipient_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::CommittedEventRef",
+                "attributes": []
+              },
+              "requesting_device_id": {
+                "name": "requesting_device_id",
+                "visibility": "pub",
+                "type": "Option<arkret_wire::DeviceId>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
+                ]
+              },
+              "device_authorize_event_id": {
+                "name": "device_authorize_event_id",
+                "visibility": "pub",
+                "type": "Option<arkret_wire::EventId>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
+                ]
+              },
+              "device_generation": {
+                "name": "device_generation",
+                "visibility": "pub",
+                "type": "Option<u64>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
+                ]
+              },
+              "envelope_digest": {
+                "name": "envelope_digest",
+                "visibility": "pub",
+                "type": "arkret_wire::Hash",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "RealmActorBackupUnlockResponseBody",
+          "schema": "keys-operations.schema.json#/$defs/realm_actor_backup_unlock_response_body",
+          "rust": {
+            "signature": "pub struct RealmActorBackupUnlockResponseBody",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "backup": {
+                "name": "backup",
+                "visibility": "pub",
+                "type": "crate::KeyBackup",
+                "attributes": []
+              },
+              "admission": {
+                "name": "admission",
+                "visibility": "pub",
+                "type": "RealmActorContentBackupAdmission",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "RealmActorContentBackupAdmission",
+          "schema": "keys-operations.schema.json#/$defs/realm_actor_content_backup_admission",
+          "rust": {
+            "signature": "pub struct RealmActorContentBackupAdmission",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "backup_id": {
+                "name": "backup_id",
+                "visibility": "pub",
+                "type": "arkret_wire::BackupId",
+                "attributes": []
+              },
+              "envelope_digest": {
+                "name": "envelope_digest",
+                "visibility": "pub",
+                "type": "arkret_wire::Hash",
+                "attributes": []
+              },
+              "ciphertext_digest": {
+                "name": "ciphertext_digest",
+                "visibility": "pub",
+                "type": "arkret_wire::Hash",
+                "attributes": []
+              },
+              "realm_actor_id": {
+                "name": "realm_actor_id",
+                "visibility": "pub",
+                "type": "arkret_wire::RealmActorId",
+                "attributes": []
+              },
+              "effective_scope": {
+                "name": "effective_scope",
+                "visibility": "pub",
+                "type": "arkret_wire::ScopeRef",
+                "attributes": []
+              },
+              "device_id": {
+                "name": "device_id",
+                "visibility": "pub",
+                "type": "arkret_wire::DeviceId",
+                "attributes": []
+              },
+              "device_authorize_ref": {
+                "name": "device_authorize_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::CommittedEventRef",
+                "attributes": []
+              },
+              "device_generation": {
+                "name": "device_generation",
+                "visibility": "pub",
+                "type": "u64",
+                "attributes": []
+              },
+              "device_public_key_base64url": {
+                "name": "device_public_key_base64url",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              },
+              "manager_ref": {
+                "name": "manager_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::CommittedEventRef",
+                "attributes": []
+              },
+              "recovery_ref": {
+                "name": "recovery_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::CommittedEventRef",
+                "attributes": []
+              },
+              "recipient_ref": {
+                "name": "recipient_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::CommittedEventRef",
+                "attributes": []
+              },
+              "accepted_at": {
+                "name": "accepted_at",
+                "visibility": "pub",
+                "type": "chrono::DateTime<chrono::Utc>",
+                "attributes": [
+                  "#[serde(with = \"arkret_canonical::serde_helpers::canonical_timestamp\")]"
+                ]
+              },
+              "service_id": {
+                "name": "service_id",
+                "visibility": "pub",
+                "type": "arkret_wire::DidCoreId",
+                "attributes": []
+              },
+              "governance_generation": {
+                "name": "governance_generation",
+                "visibility": "pub",
+                "type": "u64",
+                "attributes": []
+              },
+              "authority_ref": {
+                "name": "authority_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::RealmCommitAuthorityRef",
+                "attributes": []
+              },
+              "signature": {
+                "name": "signature",
+                "visibility": "pub",
+                "type": "arkret_wire::DetachedObjectSignature",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "RealmActorContentBackupAdmissionSignatureInput",
+          "schema": "keys-operations.schema.json#/$defs/realm_actor_content_backup_admission_signature_input",
+          "rust": {
+            "signature": "pub struct RealmActorContentBackupAdmissionSignatureInput",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "backup_id": {
+                "name": "backup_id",
+                "visibility": "pub",
+                "type": "arkret_wire::BackupId",
+                "attributes": []
+              },
+              "envelope_digest": {
+                "name": "envelope_digest",
+                "visibility": "pub",
+                "type": "arkret_wire::Hash",
+                "attributes": []
+              },
+              "ciphertext_digest": {
+                "name": "ciphertext_digest",
+                "visibility": "pub",
+                "type": "arkret_wire::Hash",
+                "attributes": []
+              },
+              "realm_actor_id": {
+                "name": "realm_actor_id",
+                "visibility": "pub",
+                "type": "arkret_wire::RealmActorId",
+                "attributes": []
+              },
+              "effective_scope": {
+                "name": "effective_scope",
+                "visibility": "pub",
+                "type": "arkret_wire::ScopeRef",
+                "attributes": []
+              },
+              "device_id": {
+                "name": "device_id",
+                "visibility": "pub",
+                "type": "arkret_wire::DeviceId",
+                "attributes": []
+              },
+              "device_authorize_ref": {
+                "name": "device_authorize_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::CommittedEventRef",
+                "attributes": []
+              },
+              "device_generation": {
+                "name": "device_generation",
+                "visibility": "pub",
+                "type": "u64",
+                "attributes": []
+              },
+              "device_public_key_base64url": {
+                "name": "device_public_key_base64url",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              },
+              "manager_ref": {
+                "name": "manager_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::CommittedEventRef",
+                "attributes": []
+              },
+              "recovery_ref": {
+                "name": "recovery_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::CommittedEventRef",
+                "attributes": []
+              },
+              "recipient_ref": {
+                "name": "recipient_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::CommittedEventRef",
+                "attributes": []
+              },
+              "accepted_at": {
+                "name": "accepted_at",
+                "visibility": "pub",
+                "type": "chrono::DateTime<chrono::Utc>",
+                "attributes": [
+                  "#[serde(with = \"arkret_canonical::serde_helpers::canonical_timestamp\")]"
+                ]
+              },
+              "service_id": {
+                "name": "service_id",
+                "visibility": "pub",
+                "type": "arkret_wire::DidCoreId",
+                "attributes": []
+              },
+              "governance_generation": {
+                "name": "governance_generation",
+                "visibility": "pub",
+                "type": "u64",
+                "attributes": []
+              },
+              "authority_ref": {
+                "name": "authority_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::RealmCommitAuthorityRef",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "ContentBackupNextPrepareInput",
+          "schema": "realm-actor-material.schema.json#/$defs/content_backup_next_prepare_input",
+          "rust": {
+            "signature": "pub struct ContentBackupNextPrepareInput",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "auth_binding": {
+                "name": "auth_binding",
+                "visibility": "pub",
+                "type": "RealmActorBackupAuthBinding",
+                "attributes": []
+              },
+              "content_backup_recipient": {
+                "name": "content_backup_recipient",
+                "visibility": "pub",
+                "type": "RealmActorContentBackupRecipient",
+                "attributes": []
+              },
+              "active_series_id": {
+                "name": "active_series_id",
+                "visibility": "pub",
+                "type": "arkret_wire::BackupSeriesId",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "RealmActorBackupPutResponseBody",
+          "schema": "keys-operations.schema.json#/$defs/keys_backups_replace_response_body/oneOf/1",
+          "rust": {
+            "signature": "pub struct RealmActorBackupPutResponseBody",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "status": {
+                "name": "status",
+                "visibility": "pub",
+                "type": "crate::KeyBackupPutStatus",
+                "attributes": []
+              },
+              "backup_id": {
+                "name": "backup_id",
+                "visibility": "pub",
+                "type": "arkret_wire::BackupId",
+                "attributes": []
+              },
+              "ciphertext_digest": {
+                "name": "ciphertext_digest",
+                "visibility": "pub",
+                "type": "arkret_wire::Hash",
+                "attributes": []
+              },
+              "admission": {
+                "name": "admission",
+                "visibility": "pub",
+                "type": "RealmActorContentBackupAdmission",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "RealmActorBackupIssueUnlockChallengeRequestBody",
+          "schema": "keys-operations.schema.json#/$defs/keys_backups_issue_unlock_challenge_request_body/oneOf/1",
+          "rust": {
+            "signature": "pub struct RealmActorBackupIssueUnlockChallengeRequestBody",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]",
+              "#[serde(remote = \"Self\")]"
+            ],
+            "members": {
+              "request_id": {
+                "name": "request_id",
+                "visibility": "pub",
+                "type": "arkret_wire::Base64UrlString",
+                "attributes": []
+              },
+              "kind": {
+                "name": "kind",
+                "visibility": "pub",
+                "type": "RealmActorBackupUnlockChallengeKind",
+                "attributes": []
+              },
+              "purpose": {
+                "name": "purpose",
+                "visibility": "pub",
+                "type": "RealmActorBackupUnlockChallengePurpose",
+                "attributes": []
+              },
+              "realm_actor_id": {
+                "name": "realm_actor_id",
+                "visibility": "pub",
+                "type": "arkret_wire::RealmActorId",
+                "attributes": []
+              },
+              "effective_scope": {
+                "name": "effective_scope",
+                "visibility": "pub",
+                "type": "arkret_wire::ScopeRef",
+                "attributes": []
+              },
+              "envelope_digest": {
+                "name": "envelope_digest",
+                "visibility": "pub",
+                "type": "arkret_wire::Hash",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "RealmActorDeviceKeyBackupUnlockProof",
+          "schema": "key-backup-unlock-proof.schema.json",
+          "rust": {
+            "signature": "pub struct RealmActorDeviceKeyBackupUnlockProof",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]",
+              "#[serde(remote = \"Self\")]"
+            ],
+            "members": {
+              "schema": {
+                "name": "schema",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              },
+              "requesting_device_id": {
+                "name": "requesting_device_id",
+                "visibility": "pub",
+                "type": "arkret_wire::DeviceId",
+                "attributes": []
+              },
+              "backup_id": {
+                "name": "backup_id",
+                "visibility": "pub",
+                "type": "arkret_wire::BackupId",
+                "attributes": []
+              },
+              "backup_kind": {
+                "name": "backup_kind",
+                "visibility": "pub",
+                "type": "crate::BackupKind",
+                "attributes": []
+              },
+              "series_id": {
+                "name": "series_id",
+                "visibility": "pub",
+                "type": "arkret_wire::BackupSeriesId",
+                "attributes": []
+              },
+              "ciphertext_digest": {
+                "name": "ciphertext_digest",
+                "visibility": "pub",
+                "type": "arkret_wire::Hash",
+                "attributes": []
+              },
+              "challenge": {
+                "name": "challenge",
+                "visibility": "pub",
+                "type": "arkret_wire::Base64UrlString",
+                "attributes": []
+              },
+              "issued_at": {
+                "name": "issued_at",
+                "visibility": "pub",
+                "type": "chrono::DateTime<chrono::Utc>",
+                "attributes": [
+                  "#[serde(with = \"arkret_canonical::serde_helpers::canonical_timestamp\")]"
+                ]
+              },
+              "signature_proof": {
+                "name": "signature_proof",
+                "visibility": "pub",
+                "type": "crate::KeyBackupUnlockSignatureProof",
+                "attributes": []
+              },
+              "kind": {
+                "name": "kind",
+                "visibility": "pub",
+                "type": "RealmActorBackupUnlockChallengeKind",
+                "attributes": []
+              },
+              "expires_at": {
+                "name": "expires_at",
+                "visibility": "pub",
+                "type": "chrono::DateTime<chrono::Utc>",
+                "attributes": [
+                  "#[serde(with = \"arkret_canonical::serde_helpers::canonical_timestamp\")]"
+                ]
+              },
+              "audience": {
+                "name": "audience",
+                "visibility": "pub",
+                "type": "arkret_wire::NonEmptyString",
+                "attributes": []
+              },
+              "service_id": {
+                "name": "service_id",
+                "visibility": "pub",
+                "type": "arkret_wire::DidCoreId",
+                "attributes": []
+              },
+              "challenge_id": {
+                "name": "challenge_id",
+                "visibility": "pub",
+                "type": "arkret_wire::Base64UrlString",
+                "attributes": []
+              },
+              "nonce": {
+                "name": "nonce",
+                "visibility": "pub",
+                "type": "arkret_wire::Base64UrlString",
+                "attributes": []
+              },
+              "realm_actor_id": {
+                "name": "realm_actor_id",
+                "visibility": "pub",
+                "type": "arkret_wire::RealmActorId",
+                "attributes": []
+              },
+              "effective_scope": {
+                "name": "effective_scope",
+                "visibility": "pub",
+                "type": "arkret_wire::ScopeRef",
+                "attributes": []
+              },
+              "manager_ref": {
+                "name": "manager_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::CommittedEventRef",
+                "attributes": []
+              },
+              "recovery_ref": {
+                "name": "recovery_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::CommittedEventRef",
+                "attributes": []
+              },
+              "recipient_ref": {
+                "name": "recipient_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::CommittedEventRef",
+                "attributes": []
+              },
+              "device_authorize_event_id": {
+                "name": "device_authorize_event_id",
+                "visibility": "pub",
+                "type": "arkret_wire::EventId",
+                "attributes": []
+              },
+              "device_generation": {
+                "name": "device_generation",
+                "visibility": "pub",
+                "type": "u64",
+                "attributes": []
+              },
+              "purpose": {
+                "name": "purpose",
+                "visibility": "pub",
+                "type": "RealmActorBackupUnlockChallengePurpose",
+                "attributes": []
+              },
+              "envelope_digest": {
+                "name": "envelope_digest",
+                "visibility": "pub",
+                "type": "arkret_wire::Hash",
+                "attributes": []
+              }
+            }
+          },
+          "closed_branch": 2
+        },
+        {
+          "name": "RealmActorManagerKeyBackupUnlockProof",
+          "schema": "key-backup-unlock-proof.schema.json",
+          "rust": {
+            "signature": "pub struct RealmActorManagerKeyBackupUnlockProof",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]",
+              "#[serde(remote = \"Self\")]"
+            ],
+            "members": {
+              "schema": {
+                "name": "schema",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              },
+              "backup_id": {
+                "name": "backup_id",
+                "visibility": "pub",
+                "type": "arkret_wire::BackupId",
+                "attributes": []
+              },
+              "backup_kind": {
+                "name": "backup_kind",
+                "visibility": "pub",
+                "type": "crate::BackupKind",
+                "attributes": []
+              },
+              "series_id": {
+                "name": "series_id",
+                "visibility": "pub",
+                "type": "arkret_wire::BackupSeriesId",
+                "attributes": []
+              },
+              "ciphertext_digest": {
+                "name": "ciphertext_digest",
+                "visibility": "pub",
+                "type": "arkret_wire::Hash",
+                "attributes": []
+              },
+              "challenge": {
+                "name": "challenge",
+                "visibility": "pub",
+                "type": "arkret_wire::Base64UrlString",
+                "attributes": []
+              },
+              "issued_at": {
+                "name": "issued_at",
+                "visibility": "pub",
+                "type": "chrono::DateTime<chrono::Utc>",
+                "attributes": [
+                  "#[serde(with = \"arkret_canonical::serde_helpers::canonical_timestamp\")]"
+                ]
+              },
+              "signature_proof": {
+                "name": "signature_proof",
+                "visibility": "pub",
+                "type": "crate::KeyBackupUnlockSignatureProof",
+                "attributes": []
+              },
+              "kind": {
+                "name": "kind",
+                "visibility": "pub",
+                "type": "RealmActorBackupUnlockChallengeKind",
+                "attributes": []
+              },
+              "expires_at": {
+                "name": "expires_at",
+                "visibility": "pub",
+                "type": "chrono::DateTime<chrono::Utc>",
+                "attributes": [
+                  "#[serde(with = \"arkret_canonical::serde_helpers::canonical_timestamp\")]"
+                ]
+              },
+              "audience": {
+                "name": "audience",
+                "visibility": "pub",
+                "type": "arkret_wire::NonEmptyString",
+                "attributes": []
+              },
+              "service_id": {
+                "name": "service_id",
+                "visibility": "pub",
+                "type": "arkret_wire::DidCoreId",
+                "attributes": []
+              },
+              "challenge_id": {
+                "name": "challenge_id",
+                "visibility": "pub",
+                "type": "arkret_wire::Base64UrlString",
+                "attributes": []
+              },
+              "nonce": {
+                "name": "nonce",
+                "visibility": "pub",
+                "type": "arkret_wire::Base64UrlString",
+                "attributes": []
+              },
+              "realm_actor_id": {
+                "name": "realm_actor_id",
+                "visibility": "pub",
+                "type": "arkret_wire::RealmActorId",
+                "attributes": []
+              },
+              "effective_scope": {
+                "name": "effective_scope",
+                "visibility": "pub",
+                "type": "arkret_wire::ScopeRef",
+                "attributes": []
+              },
+              "manager_ref": {
+                "name": "manager_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::CommittedEventRef",
+                "attributes": []
+              },
+              "recovery_ref": {
+                "name": "recovery_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::CommittedEventRef",
+                "attributes": []
+              },
+              "recipient_ref": {
+                "name": "recipient_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::CommittedEventRef",
+                "attributes": []
+              },
+              "purpose": {
+                "name": "purpose",
+                "visibility": "pub",
+                "type": "RealmActorBackupUnlockChallengePurpose",
+                "attributes": []
+              },
+              "envelope_digest": {
+                "name": "envelope_digest",
+                "visibility": "pub",
+                "type": "arkret_wire::Hash",
+                "attributes": []
+              }
+            }
+          },
+          "closed_branch": 3
+        },
+        {
+          "name": "KeysBackupsReplaceOperationResponseBody",
+          "schema": "keys-operations.schema.json#/$defs/keys_backups_replace_response_body",
+          "reference_variants": {
+            "Account": "crate::KeysBackupsReplaceResponseBody",
+            "Native": "RealmActorBackupPutResponseBody"
+          },
+          "partial_eq": false,
+          "expect_large_enum_variant": true,
+          "openapi": true
+        },
+        {
+          "name": "KeysBackupsIssueUnlockChallengeBody",
+          "schema": "keys-operations.schema.json#/$defs/keys_backups_issue_unlock_challenge_request_body",
+          "reference_variants": {
+            "Account": "crate::KeysBackupsIssueUnlockChallengeRequestBody",
+            "Native": "RealmActorBackupIssueUnlockChallengeRequestBody"
+          },
+          "partial_eq": false,
+          "openapi": true
+        }
+      ]
+    },
+    {
+      "output": "crates/models-collaboration/src/generated/realm_actor_content_backup_contracts.rs",
+      "inline": true,
+      "types": [
+        {
+          "name": "CurrentRealmActorKeyBackupActiveSeries",
+          "schema": "current-state.schema.json#/$defs/current_realm_actor_key_backup_active_series",
+          "rust": {
+            "signature": "pub struct CurrentRealmActorKeyBackupActiveSeries",
+            "attributes": [
+              "#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "selector": {
+                "name": "selector",
+                "visibility": "pub",
+                "type": "RealmActorKeyBackupActiveSeriesSelector",
+                "attributes": []
+              },
+              "source_stream_ref": {
+                "name": "source_stream_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::CommitStreamRef",
+                "attributes": []
+              },
+              "revision": {
+                "name": "revision",
+                "visibility": "pub",
+                "type": "arkret_wire::CurrentRevision",
+                "attributes": []
+              },
+              "value": {
+                "name": "value",
+                "visibility": "pub",
+                "type": "RealmActorKeyBackupActiveSeriesValue",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "RealmActorKeyBackupActiveSeriesSelectorKind",
+          "schema": "current-state.schema.json#/$defs/realm_actor_key_backup_active_series_selector/properties/kind",
+          "openapi": false,
+          "variant_names": {
+            "realm_actor_key_backup_active_series": "Value"
+          }
+        },
+        {
+          "name": "RealmActorKeyBackupActiveSeriesSelectorBackupKind",
+          "schema": "current-state.schema.json#/$defs/realm_actor_key_backup_active_series_selector/properties/backup_kind",
+          "openapi": false,
+          "variant_names": {
+            "secret_storage": "Value"
+          }
+        },
+        {
+          "name": "RealmActorKeyBackupActiveSeriesSelector",
+          "schema": "current-state.schema.json#/$defs/realm_actor_key_backup_active_series_selector",
+          "rust": {
+            "signature": "pub struct RealmActorKeyBackupActiveSeriesSelector",
+            "attributes": [
+              "#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "kind": {
+                "name": "kind",
+                "visibility": "pub",
+                "type": "RealmActorKeyBackupActiveSeriesSelectorKind",
+                "attributes": []
+              },
+              "actor_id": {
+                "name": "actor_id",
+                "visibility": "pub",
+                "type": "arkret_wire::ActorId",
+                "attributes": []
+              },
+              "effective_scope": {
+                "name": "effective_scope",
+                "visibility": "pub",
+                "type": "arkret_wire::ScopeRef",
+                "attributes": []
+              },
+              "backup_kind": {
+                "name": "backup_kind",
+                "visibility": "pub",
+                "type": "RealmActorKeyBackupActiveSeriesSelectorBackupKind",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "RealmActorKeyBackupActiveSeriesValue",
+          "schema": "current-state.schema.json#/$defs/realm_actor_key_backup_active_series_value",
+          "rust": {
+            "signature": "pub struct RealmActorKeyBackupActiveSeriesValue",
+            "attributes": [
+              "#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "active_series_id": {
+                "name": "active_series_id",
+                "visibility": "pub",
+                "type": "arkret_wire::BackupSeriesId",
+                "attributes": []
+              },
+              "series_pointer_version": {
+                "name": "series_pointer_version",
+                "visibility": "pub",
+                "type": "u64",
+                "attributes": []
+              },
+              "manager_ref": {
+                "name": "manager_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::CommittedEventRef",
+                "attributes": []
+              },
+              "recovery_ref": {
+                "name": "recovery_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::CommittedEventRef",
+                "attributes": []
+              },
+              "recipient_ref": {
+                "name": "recipient_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::CommittedEventRef",
+                "attributes": []
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "output": "crates/models-integration/src/generated/realm_actor_content_backup_contracts.rs",
+      "inline": true,
+      "types": [
+        {
+          "name": "KeysBackupsListResponseBody",
+          "schema": "keys-operations.schema.json#/$defs/keys_backups_list_response_body",
+          "reference_variants": {
+            "Account": "arkret_models_crypto::KeysBackupsPage",
+            "Device": "arkret_models_crypto::RealmActorBackupSeriesHeadResponseBody",
+            "Manager": "RealmActorArchiveInventoryPage"
+          },
+          "partial_eq": false,
+          "openapi": false,
+          "expect_large_enum_variant": true
+        },
+        {
+          "name": "KeysBackupsUnlockResponseBody",
+          "schema": "keys-operations.schema.json#/$defs/keys_backups_unlock_response_body",
+          "reference_variants": {
+            "Account": "arkret_models_crypto::KeyBackup",
+            "Device": "arkret_models_crypto::RealmActorBackupUnlockResponseBody",
+            "Manager": "RealmActorArchiveUnlockResponseBody"
+          },
+          "partial_eq": false,
+          "openapi": false,
+          "expect_large_enum_variant": true,
+          "remote_self": true
+        },
+        {
+          "name": "RealmActorArchiveBackupEntryKind",
+          "schema": "keys-operations.schema.json#/$defs/realm_actor_archive_backup_entry/properties/kind",
+          "openapi": false,
+          "variant_names": {
+            "backup": "Value"
+          }
+        },
+        {
+          "name": "RealmActorArchiveBackupEntry",
+          "schema": "keys-operations.schema.json#/$defs/realm_actor_archive_backup_entry",
+          "rust": {
+            "signature": "pub struct RealmActorArchiveBackupEntry",
+            "attributes": [
+              "#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "kind": {
+                "name": "kind",
+                "visibility": "pub",
+                "type": "RealmActorArchiveBackupEntryKind",
+                "attributes": []
+              },
+              "backup": {
+                "name": "backup",
+                "visibility": "pub",
+                "type": "arkret_models_crypto::KeyBackup",
+                "attributes": []
+              },
+              "native_source": {
+                "name": "native_source",
+                "visibility": "pub",
+                "type": "RealmActorContentBackupSource",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "RealmActorArchiveInventoryEntry",
+          "schema": "keys-operations.schema.json#/$defs/realm_actor_archive_inventory_entry",
+          "reference_variants": {
+            "Backup": "RealmActorArchiveBackupEntry",
+            "Series": "RealmActorArchiveSeriesEntry",
+            "Recipient": "RealmActorArchiveRecipientEntry"
+          },
+          "partial_eq": false,
+          "openapi": false,
+          "expect_large_enum_variant": true
+        },
+        {
+          "name": "RealmActorArchiveInventoryManifest",
+          "schema": "keys-operations.schema.json#/$defs/realm_actor_archive_inventory_manifest",
+          "rust": {
+            "signature": "pub struct RealmActorArchiveInventoryManifest",
+            "attributes": [
+              "#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "realm_actor_id": {
+                "name": "realm_actor_id",
+                "visibility": "pub",
+                "type": "arkret_wire::RealmActorId",
+                "attributes": []
+              },
+              "manager_ref": {
+                "name": "manager_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::CommittedEventRef",
+                "attributes": []
+              },
+              "archive_revision": {
+                "name": "archive_revision",
+                "visibility": "pub",
+                "type": "u64",
+                "attributes": []
+              },
+              "entries": {
+                "name": "entries",
+                "visibility": "pub",
+                "type": "Vec<RealmActorArchiveInventoryEntry>",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "RealmActorArchiveInventoryPagePurpose",
+          "schema": "keys-operations.schema.json#/$defs/realm_actor_archive_inventory_page/properties/purpose",
+          "openapi": false,
+          "variant_names": {
+            "archive_inventory": "Value"
+          }
+        },
+        {
+          "name": "RealmActorArchiveInventoryPage",
+          "schema": "keys-operations.schema.json#/$defs/realm_actor_archive_inventory_page",
+          "rust": {
+            "signature": "pub struct RealmActorArchiveInventoryPage",
+            "attributes": [
+              "#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "purpose": {
+                "name": "purpose",
+                "visibility": "pub",
+                "type": "RealmActorArchiveInventoryPagePurpose",
+                "attributes": []
+              },
+              "realm_actor_id": {
+                "name": "realm_actor_id",
+                "visibility": "pub",
+                "type": "arkret_wire::RealmActorId",
+                "attributes": []
+              },
+              "manager_ref": {
+                "name": "manager_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::CommittedEventRef",
+                "attributes": []
+              },
+              "archive_revision": {
+                "name": "archive_revision",
+                "visibility": "pub",
+                "type": "u64",
+                "attributes": []
+              },
+              "inventory_digest": {
+                "name": "inventory_digest",
+                "visibility": "pub",
+                "type": "arkret_wire::Hash",
+                "attributes": []
+              },
+              "entries": {
+                "name": "entries",
+                "visibility": "pub",
+                "type": "Vec<RealmActorArchiveInventoryEntry>",
+                "attributes": []
+              },
+              "next_cursor": {
+                "name": "next_cursor",
+                "visibility": "pub",
+                "type": "Option<arkret_wire::Cursor>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
+                ]
+              },
+              "has_more": {
+                "name": "has_more",
+                "visibility": "pub",
+                "type": "bool",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "RealmActorArchiveRecipientEntryKind",
+          "schema": "keys-operations.schema.json#/$defs/realm_actor_archive_recipient_entry/properties/kind",
+          "openapi": false,
+          "variant_names": {
+            "recipient": "Value"
+          }
+        },
+        {
+          "name": "RealmActorArchiveRecipientEntry",
+          "schema": "keys-operations.schema.json#/$defs/realm_actor_archive_recipient_entry",
+          "rust": {
+            "signature": "pub struct RealmActorArchiveRecipientEntry",
+            "attributes": [
+              "#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "kind": {
+                "name": "kind",
+                "visibility": "pub",
+                "type": "RealmActorArchiveRecipientEntryKind",
+                "attributes": []
+              },
+              "recipient_ref": {
+                "name": "recipient_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::CommittedEventRef",
+                "attributes": []
+              },
+              "content_backup_recipient": {
+                "name": "content_backup_recipient",
+                "visibility": "pub",
+                "type": "arkret_models_crypto::RealmActorContentBackupRecipient",
+                "attributes": []
+              },
+              "declaration": {
+                "name": "declaration",
+                "visibility": "pub",
+                "type": "crate::RealmActorBackupEventMaterial",
+                "attributes": []
+              },
+              "recovery_begin": {
+                "name": "recovery_begin",
+                "visibility": "pub",
+                "type": "Option<crate::RealmActorBackupEventMaterial>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "name": "RealmActorArchiveSeriesEntryKind",
+          "schema": "keys-operations.schema.json#/$defs/realm_actor_archive_series_entry/properties/kind",
+          "openapi": false,
+          "variant_names": {
+            "series": "Value"
+          }
+        },
+        {
+          "name": "RealmActorArchiveSeriesEntry",
+          "schema": "keys-operations.schema.json#/$defs/realm_actor_archive_series_entry",
+          "rust": {
+            "signature": "pub struct RealmActorArchiveSeriesEntry",
+            "attributes": [
+              "#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "kind": {
+                "name": "kind",
+                "visibility": "pub",
+                "type": "RealmActorArchiveSeriesEntryKind",
+                "attributes": []
+              },
+              "effective_scope": {
+                "name": "effective_scope",
+                "visibility": "pub",
+                "type": "arkret_wire::ScopeRef",
+                "attributes": []
+              },
+              "record": {
+                "name": "record",
+                "visibility": "pub",
+                "type": "arkret_models_collaboration::events_payloads::KeyBackupActiveSeries",
+                "attributes": []
+              },
+              "source_ref": {
+                "name": "source_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::CommittedEventRef",
+                "attributes": []
+              },
+              "source": {
+                "name": "source",
+                "visibility": "pub",
+                "type": "crate::RealmActorBackupEventMaterial",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "RealmActorArchiveUnlockResponseBody",
+          "schema": "keys-operations.schema.json#/$defs/realm_actor_archive_unlock_response_body",
+          "rust": {
+            "signature": "pub struct RealmActorArchiveUnlockResponseBody",
+            "attributes": [
+              "#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "backup": {
+                "name": "backup",
+                "visibility": "pub",
+                "type": "arkret_models_crypto::KeyBackup",
+                "attributes": []
+              },
+              "native_source": {
+                "name": "native_source",
+                "visibility": "pub",
+                "type": "RealmActorContentBackupSource",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "RealmActorBackupGovernanceHistory",
+          "schema": "keys-operations.schema.json#/$defs/realm_actor_backup_governance_history",
+          "rust": {
+            "signature": "pub struct RealmActorBackupGovernanceHistory",
+            "attributes": [
+              "#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "genesis": {
+                "name": "genesis",
+                "visibility": "pub",
+                "type": "RealmActorBackupGovernanceOriginal",
+                "attributes": []
+              },
+              "genesis_resolution": {
+                "name": "genesis_resolution",
+                "visibility": "pub",
+                "type": "arkret_models_identity::AuthenticatedServiceResolution",
+                "attributes": []
+              },
+              "authority_transitions": {
+                "name": "authority_transitions",
+                "visibility": "pub",
+                "type": "Vec<RealmActorBackupGovernanceTransition>",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "RealmActorBackupGovernanceOriginal",
+          "schema": "keys-operations.schema.json#/$defs/realm_actor_backup_governance_original",
+          "rust": {
+            "signature": "pub struct RealmActorBackupGovernanceOriginal",
+            "attributes": [
+              "#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "event": {
+                "name": "event",
+                "visibility": "pub",
+                "type": "arkret_wire::Event",
+                "attributes": []
+              },
+              "commit": {
+                "name": "commit",
+                "visibility": "pub",
+                "type": "arkret_wire::RealmCommit",
+                "attributes": []
+              },
+              "producer_signer_fact": {
+                "name": "producer_signer_fact",
+                "visibility": "pub",
+                "type": "Option<arkret_models_collaboration::authority_commit::HistoricalProducerSignerFact>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "name": "RealmActorBackupGovernanceTransition",
+          "schema": "keys-operations.schema.json#/$defs/realm_actor_backup_governance_transition",
+          "rust": {
+            "signature": "pub struct RealmActorBackupGovernanceTransition",
+            "attributes": [
+              "#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "original": {
+                "name": "original",
+                "visibility": "pub",
+                "type": "RealmActorBackupGovernanceOriginal",
+                "attributes": []
+              },
+              "handoff": {
+                "name": "handoff",
+                "visibility": "pub",
+                "type": "arkret_wire::RealmAuthorityHandoff",
+                "attributes": []
+              },
+              "from_resolution": {
+                "name": "from_resolution",
+                "visibility": "pub",
+                "type": "arkret_models_identity::AuthenticatedServiceResolution",
+                "attributes": []
+              },
+              "to_resolution": {
+                "name": "to_resolution",
+                "visibility": "pub",
+                "type": "arkret_models_identity::AuthenticatedServiceResolution",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "RealmActorContentBackupHandoverConfirmation",
+          "schema": "keys-operations.schema.json#/$defs/realm_actor_content_backup_handover_confirmation",
+          "rust": {
+            "signature": "pub struct RealmActorContentBackupHandoverConfirmation",
+            "attributes": [
+              "#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "offer_digest": {
+                "name": "offer_digest",
+                "visibility": "pub",
+                "type": "arkret_wire::Hash",
+                "attributes": []
+              },
+              "inventory_digest": {
+                "name": "inventory_digest",
+                "visibility": "pub",
+                "type": "arkret_wire::Hash",
+                "attributes": []
+              },
+              "handover_digest": {
+                "name": "handover_digest",
+                "visibility": "pub",
+                "type": "arkret_wire::Hash",
+                "attributes": []
+              },
+              "challenge_response_base64url": {
+                "name": "challenge_response_base64url",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              },
+              "signature": {
+                "name": "signature",
+                "visibility": "pub",
+                "type": "arkret_wire::DetachedObjectSignature",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "RealmActorContentBackupHandoverConfirmationSignatureInput",
+          "schema": "keys-operations.schema.json#/$defs/realm_actor_content_backup_handover_confirmation_signature_input",
+          "rust": {
+            "signature": "pub struct RealmActorContentBackupHandoverConfirmationSignatureInput",
+            "attributes": [
+              "#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "offer_digest": {
+                "name": "offer_digest",
+                "visibility": "pub",
+                "type": "arkret_wire::Hash",
+                "attributes": []
+              },
+              "inventory_digest": {
+                "name": "inventory_digest",
+                "visibility": "pub",
+                "type": "arkret_wire::Hash",
+                "attributes": []
+              },
+              "handover_digest": {
+                "name": "handover_digest",
+                "visibility": "pub",
+                "type": "arkret_wire::Hash",
+                "attributes": []
+              },
+              "challenge_response_base64url": {
+                "name": "challenge_response_base64url",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "RealmActorContentBackupHandoverOffer",
+          "schema": "keys-operations.schema.json#/$defs/realm_actor_content_backup_handover_offer",
+          "rust": {
+            "signature": "pub struct RealmActorContentBackupHandoverOffer",
+            "attributes": [
+              "#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "realm_actor_id": {
+                "name": "realm_actor_id",
+                "visibility": "pub",
+                "type": "arkret_wire::RealmActorId",
+                "attributes": []
+              },
+              "manager_ref": {
+                "name": "manager_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::CommittedEventRef",
+                "attributes": []
+              },
+              "new_service_id": {
+                "name": "new_service_id",
+                "visibility": "pub",
+                "type": "arkret_wire::DidCoreId",
+                "attributes": []
+              },
+              "next_content_backup_recipient": {
+                "name": "next_content_backup_recipient",
+                "visibility": "pub",
+                "type": "arkret_models_crypto::RealmActorContentBackupRecipient",
+                "attributes": []
+              },
+              "inventory_digest": {
+                "name": "inventory_digest",
+                "visibility": "pub",
+                "type": "arkret_wire::Hash",
+                "attributes": []
+              },
+              "archive_revision": {
+                "name": "archive_revision",
+                "visibility": "pub",
+                "type": "u64",
+                "attributes": []
+              },
+              "expires_at": {
+                "name": "expires_at",
+                "visibility": "pub",
+                "type": "chrono::DateTime<chrono::Utc>",
+                "attributes": [
+                  "#[serde(with = \"arkret_canonical::serde_helpers::canonical_timestamp\")]"
+                ]
+              },
+              "nonce": {
+                "name": "nonce",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              },
+              "signature": {
+                "name": "signature",
+                "visibility": "pub",
+                "type": "arkret_wire::DetachedObjectSignature",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "RealmActorContentBackupHandoverOfferSignatureInput",
+          "schema": "keys-operations.schema.json#/$defs/realm_actor_content_backup_handover_offer_signature_input",
+          "rust": {
+            "signature": "pub struct RealmActorContentBackupHandoverOfferSignatureInput",
+            "attributes": [
+              "#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "realm_actor_id": {
+                "name": "realm_actor_id",
+                "visibility": "pub",
+                "type": "arkret_wire::RealmActorId",
+                "attributes": []
+              },
+              "manager_ref": {
+                "name": "manager_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::CommittedEventRef",
+                "attributes": []
+              },
+              "new_service_id": {
+                "name": "new_service_id",
+                "visibility": "pub",
+                "type": "arkret_wire::DidCoreId",
+                "attributes": []
+              },
+              "next_content_backup_recipient": {
+                "name": "next_content_backup_recipient",
+                "visibility": "pub",
+                "type": "arkret_models_crypto::RealmActorContentBackupRecipient",
+                "attributes": []
+              },
+              "inventory_digest": {
+                "name": "inventory_digest",
+                "visibility": "pub",
+                "type": "arkret_wire::Hash",
+                "attributes": []
+              },
+              "archive_revision": {
+                "name": "archive_revision",
+                "visibility": "pub",
+                "type": "u64",
+                "attributes": []
+              },
+              "expires_at": {
+                "name": "expires_at",
+                "visibility": "pub",
+                "type": "chrono::DateTime<chrono::Utc>",
+                "attributes": [
+                  "#[serde(with = \"arkret_canonical::serde_helpers::canonical_timestamp\")]"
+                ]
+              },
+              "nonce": {
+                "name": "nonce",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "RealmActorContentBackupHandoverPlaintext",
+          "schema": "keys-operations.schema.json#/$defs/realm_actor_content_backup_handover_plaintext",
+          "rust": {
+            "signature": "pub struct RealmActorContentBackupHandoverPlaintext",
+            "attributes": [
+              "#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "offer_digest": {
+                "name": "offer_digest",
+                "visibility": "pub",
+                "type": "arkret_wire::Hash",
+                "attributes": []
+              },
+              "inventory_manifest": {
+                "name": "inventory_manifest",
+                "visibility": "pub",
+                "type": "RealmActorArchiveInventoryManifest",
+                "attributes": []
+              },
+              "recipient_keys": {
+                "name": "recipient_keys",
+                "visibility": "pub",
+                "type": "Vec<RealmActorContentBackupPrivateRecipientKey>",
+                "attributes": []
+              },
+              "challenge_base64url": {
+                "name": "challenge_base64url",
+                "visibility": "pub",
+                "type": "arkret_models_crypto::SecretBytes",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "RealmActorContentBackupPrivateRecipientKey",
+          "schema": "keys-operations.schema.json#/$defs/realm_actor_content_backup_private_recipient_key",
+          "rust": {
+            "signature": "pub struct RealmActorContentBackupPrivateRecipientKey",
+            "attributes": [
+              "#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "recipient_ref": {
+                "name": "recipient_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::CommittedEventRef",
+                "attributes": []
+              },
+              "content_backup_recipient": {
+                "name": "content_backup_recipient",
+                "visibility": "pub",
+                "type": "arkret_models_crypto::RealmActorContentBackupRecipient",
+                "attributes": []
+              },
+              "private_key_base64url": {
+                "name": "private_key_base64url",
+                "visibility": "pub",
+                "type": "arkret_models_crypto::SecretBytes",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "RealmActorContentBackupSealedHandoverHpkeSuite",
+          "schema": "keys-operations.schema.json#/$defs/realm_actor_content_backup_sealed_handover/properties/hpke_suite",
+          "openapi": false,
+          "variant_names": {
+            "ak.hpke_x25519_aead_chacha20poly1305.v1": "Value"
+          }
+        },
+        {
+          "name": "RealmActorContentBackupSealedHandover",
+          "schema": "keys-operations.schema.json#/$defs/realm_actor_content_backup_sealed_handover",
+          "rust": {
+            "signature": "pub struct RealmActorContentBackupSealedHandover",
+            "attributes": [
+              "#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "offer": {
+                "name": "offer",
+                "visibility": "pub",
+                "type": "RealmActorContentBackupHandoverOffer",
+                "attributes": []
+              },
+              "hpke_suite": {
+                "name": "hpke_suite",
+                "visibility": "pub",
+                "type": "RealmActorContentBackupSealedHandoverHpkeSuite",
+                "attributes": []
+              },
+              "enc": {
+                "name": "enc",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              },
+              "ciphertext_base64url": {
+                "name": "ciphertext_base64url",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "RealmActorContentBackupSource",
+          "schema": "keys-operations.schema.json#/$defs/realm_actor_content_backup_source",
+          "rust": {
+            "signature": "pub struct RealmActorContentBackupSource",
+            "attributes": [
+              "#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "admission": {
+                "name": "admission",
+                "visibility": "pub",
+                "type": "arkret_models_crypto::RealmActorContentBackupAdmission",
+                "attributes": []
+              },
+              "device_authorization": {
+                "name": "device_authorization",
+                "visibility": "pub",
+                "type": "crate::RealmActorBackupEventMaterial",
+                "attributes": []
+              },
+              "origin_resolution": {
+                "name": "origin_resolution",
+                "visibility": "pub",
+                "type": "arkret_models_identity::AuthenticatedServiceResolution",
+                "attributes": []
+              },
+              "governance_history": {
+                "name": "governance_history",
+                "visibility": "pub",
+                "type": "RealmActorBackupGovernanceHistory",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "RealmActorBackupEventMaterial",
+          "schema": "realm-actor-material.schema.json#/$defs/event_material",
+          "rust": {
+            "signature": "pub struct RealmActorBackupEventMaterial",
+            "attributes": [
+              "#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "event": {
+                "name": "event",
+                "visibility": "pub",
+                "type": "arkret_wire::Event",
+                "attributes": []
+              },
+              "commit": {
+                "name": "commit",
+                "visibility": "pub",
+                "type": "arkret_wire::RealmCommit",
+                "attributes": []
+              },
+              "producer_signer_fact": {
+                "name": "producer_signer_fact",
+                "visibility": "pub",
+                "type": "arkret_models_collaboration::authority_commit::HistoricalProducerSignerFact",
                 "attributes": []
               }
             }
@@ -20269,7 +22791,7 @@
     },
     {
       "rust_type": "crates/models-crypto/src/key_backup_operations.rs::KeysBackupsIssueUnlockChallengeRequestBody",
-      "schema": "keys-operations.schema.json#/$defs/keys_backups_issue_unlock_challenge_request_body",
+      "schema": "keys-operations.schema.json#/$defs/keys_backups_issue_unlock_challenge_request_body/oneOf/0",
       "category": "domain_semantics",
       "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
     },
@@ -20287,7 +22809,7 @@
     },
     {
       "rust_type": "crates/models-crypto/src/key_backup_operations.rs::KeysBackupsReplaceResponseBody",
-      "schema": "keys-operations.schema.json#/$defs/keys_backups_replace_response_body",
+      "schema": "keys-operations.schema.json#/$defs/keys_backups_replace_response_body/oneOf/0",
       "category": "domain_semantics",
       "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
     },
@@ -21959,6 +24481,12 @@
       "schema": "realm-invite-link-token.schema.json",
       "category": "domain_semantics",
       "reason": "Private fragment credentials require a zeroizing secret scalar and redacted Debug; canonical fields and encodings remain checked by the shared contract gate."
+    },
+    {
+      "rust_type": "crates/models-crypto/src/realm_actor_content_backup.rs::KeysBackupsUnlockOperationRequestBody",
+      "schema": "keys-operations.schema.json#/$defs/keys_backups_unlock_request_body",
+      "category": "domain_semantics",
+      "reason": "The operation body owns all three independently validated closed authority proof branches; legacy Account APIs retain their genuine original shape and methods without aliases or raw JSON dispatch."
     }
   ],
   "retained_exemptions": [

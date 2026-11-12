@@ -5,7 +5,7 @@
 // sha256=b21766ffb5b612a5397c34b45369a766a7fdef8f60c316c11cf72db55e70b340
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=2db9dc0b757e082d561722a2301e943a7422e79691dd5632a5a2ec129045cc3f
+// sha256=bb8c3350621b1f35ac031f7e6919326951b3576cd3c52db20323ba3e6e740687
 
 /// Counterpart: `account-state-view.schema.json#/$defs/current`.
 /// The Account Station's view of one Realm's authority-committed current state.
@@ -18,7 +18,7 @@
 /// one number could not state where this result stands in all of them.
 ///
 /// Convergence is by stable domain selector plus `expected_revision` CAS, so a
-/// caller writes back against the `revision` of the exact entry it read â€” never
+/// caller writes back against the `revision` of the exact entry it read — never
 /// against a whole-Realm token.
 /// Field declaration order is byte-for-byte the `properties` order of
 /// `account-state-view.schema.json#/$defs/current`.
