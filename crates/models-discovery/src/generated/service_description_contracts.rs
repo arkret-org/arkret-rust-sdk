@@ -2,10 +2,10 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/service-describe.schema.json
-// sha256=14c5de3a662aa569c6beebb80532495b22ea7fe8b46dcfecc9b05630a3bfd622
+// sha256=5fea362d38889958f5f0e6e3e9ea52452b410367e467c479a4fc5138cfa0080d
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=8754dda4399255a8d93502ff99e0f2e245ea00988a5263e7f64cf21d1eada652
+// sha256=14d7f312a6557af02e4e1a8496c76be3e3c902a74c9d7d175190d30caaf07567
 
 /// Counterpart: `service-describe.schema.json#/properties/interop_surfaces/items`.
 /// Wire-level entry in

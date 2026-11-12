@@ -69,6 +69,7 @@ impl RealmJoinBootstrapAssembly {
     /// advertised for the same stream — an authority that answered that way has
     /// handed the joiner a target it has already passed.
     pub fn new(outcome: PeerRealmJoinBootstrapResponseBody) -> Result<Self> {
+        outcome.validate_genesis_producer_fact()?;
         outcome.snapshot.require_full_recovery()?;
         if outcome.visible_stream_heads.is_empty() {
             return Err(invalid("realm join bootstrap advertises no visible stream"));
@@ -396,9 +397,33 @@ mod tests {
         PeerRealmJoinBootstrapResponseBody {
             request_id: RequestId::new("ak:request:01964137-0000-7000-8000-000000000001").unwrap(),
             authority_bundle: bundle(realm),
+            producer_signer_fact: None,
             snapshot: snapshot(realm, floors),
             visible_stream_heads: heads,
         }
+    }
+
+    #[test]
+    fn bootstrap_rejects_missing_committed_fact_and_explicit_null() {
+        let realm = realm_id();
+        let stream = CommitStreamRef::Realm {
+            realm_id: realm.clone(),
+        };
+        let mut response = outcome(
+            &realm,
+            vec![head(stream.clone(), 0, 0x01)],
+            vec![head(stream, 1, 0x02)],
+        );
+        response
+            .authority_bundle
+            .genesis_commit
+            .producer_signer_fact_digest =
+            Some(arkret_wire::Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap());
+        assert!(response.validate_genesis_producer_fact().is_err());
+        assert!(RealmJoinBootstrapAssembly::new(response.clone()).is_err());
+        let mut value = serde_json::to_value(response).unwrap();
+        value["producer_signer_fact"] = serde_json::Value::Null;
+        assert!(serde_json::from_value::<PeerRealmJoinBootstrapResponseBody>(value).is_err());
     }
 
     #[test]

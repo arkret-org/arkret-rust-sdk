@@ -337,8 +337,84 @@ impl SelfRealmJoinPrepareResponseBody {
 pub struct PeerRealmJoinBootstrapResponseBody {
     pub request_id: RequestId,
     pub authority_bundle: RealmAuthorityBundle,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub producer_signer_fact: Option<crate::authority_commit::HistoricalProducerSignerFact>,
     pub snapshot: RealmStateSnapshot,
     pub visible_stream_heads: Vec<CommitStreamHead>,
+}
+
+impl PeerRealmJoinBootstrapResponseBody {
+    /// Check the original fact's byte-local binding. Authority and producer
+    /// signatures remain the consuming Station's independent responsibility.
+    pub fn validate_genesis_producer_fact(&self) -> Result<()> {
+        let original = arkret_wire::CommittedEventFullView {
+            event: self.authority_bundle.genesis_event.clone(),
+            commit: self.authority_bundle.genesis_commit.clone(),
+        };
+        match (
+            &original.commit.producer_signer_fact_digest,
+            self.producer_signer_fact.as_ref(),
+        ) {
+            (Some(_), Some(fact)) => fact.validate_commit_binding(
+                &original,
+                original.event.event_id.digest_suite_code().digest_suite(),
+            ),
+            (None, None) => Ok(()),
+            _ => Err(WireError::Protocol(
+                "bootstrap Genesis requires exactly its original committed producer fact".into(),
+            )),
+        }
+    }
+
+    pub fn genesis_original(&self) -> Result<arkret_wire::CommittedEventFullView> {
+        self.validate_genesis_producer_fact()?;
+        let original = arkret_wire::CommittedEventFullView {
+            event: self.authority_bundle.genesis_event.clone(),
+            commit: self.authority_bundle.genesis_commit.clone(),
+        };
+        validate_bootstrap_genesis_original(&original, self.producer_signer_fact.as_ref())?;
+        Ok(original)
+    }
+}
+
+/// The exact collaboration founding original retained beside a bootstrap
+/// anchor, without installing any pre-join ordinary replay prefix.
+pub fn validate_bootstrap_genesis_original(
+    original: &arkret_wire::CommittedEventFullView,
+    fact: Option<&crate::authority_commit::HistoricalProducerSignerFact>,
+) -> Result<()> {
+    original.validate_shape()?;
+    original.commit.verify_commit_id_matches_content()?;
+    let event = &original.event;
+    let suite = event.event_id.digest_suite_code().digest_suite();
+    event.verify_event_id_matches_content_with_digest_suite(suite)?;
+    event.verify_producer_proof_self_consistency(suite)?;
+    if event.event_id != event.realm_id.event_id()
+        || event.scope_ref != arkret_wire::ScopeRef::RealmGenesis
+        || original.commit.stream_position != 0
+        || original.commit.previous_commit_ref.is_some()
+        || original.commit.governance_generation != 0
+        || !matches!(
+            arkret_wire::GenesisGovernance::from_genesis(event)?,
+            arkret_wire::GenesisGovernance::Collaboration
+                | arkret_wire::GenesisGovernance::DirectConversation(_)
+        )
+    {
+        return Err(WireError::Protocol(
+            "bootstrap original is not the exact collaboration Realm Genesis".into(),
+        ));
+    }
+    match (&original.commit.producer_signer_fact_digest, fact) {
+        (Some(_), Some(fact)) => fact.validate_commit_binding(original, suite),
+        (None, None) => Ok(()),
+        _ => Err(WireError::Protocol(
+            "bootstrap Genesis differs from its original producer fact".into(),
+        )),
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

@@ -128,14 +128,14 @@ impl Default for RealmInviteLinkLimits {
     fn default() -> Self {
         Self {
             max_lifetime_seconds: 2_592_000,
-            max_uses_per_link: 1000,
+            max_use_count_per_link: 1000,
         }
     }
 }
 
 impl RealmInviteLinkLimits {
     pub fn validate(&self) -> Result<()> {
-        if self.max_lifetime_seconds < 60 || self.max_uses_per_link == 0 {
+        if self.max_lifetime_seconds < 60 || self.max_use_count_per_link == 0 {
             return Err(WireError::Protocol(
                 "invalid Realm invite link generation limits".into(),
             ));
@@ -149,7 +149,7 @@ impl RealmInviteLinkCreatePayload {
         let bytes = arkret_canonical::base64url_decode(&self.public_key)?;
         if bytes.len() != 32
             || arkret_canonical::base64url_encode(&bytes) != self.public_key
-            || self.max_uses == 0
+            || self.max_use_count == 0
         {
             return Err(WireError::Protocol(
                 "invalid Realm invite link definition".into(),
@@ -270,14 +270,14 @@ pub fn realm_invite_link_views(
     let mut views = Vec::new();
     for (id, definition) in definitions {
         let count = u32::try_from(uses.get(&id).map_or(0, BTreeSet::len)).map_err(|_| invalid())?;
-        if count > definition.max_uses {
+        if count > definition.max_use_count {
             return Err(invalid());
         }
         let status = if lifecycle[&id] == RealmInviteLinkLifecycle::Revoked {
             RealmInviteLinkStatus::Revoked
         } else if snapshot.created_at >= definition.expires_at {
             RealmInviteLinkStatus::Expired
-        } else if count == definition.max_uses {
+        } else if count == definition.max_use_count {
             RealmInviteLinkStatus::Exhausted
         } else {
             RealmInviteLinkStatus::Active
@@ -291,11 +291,11 @@ pub fn realm_invite_link_views(
                 .ok_or_else(invalid)?
                 .clone(),
             expires_at: definition.expires_at,
-            max_uses: definition.max_uses,
+            max_use_count: definition.max_use_count,
             use_count: count,
             status,
             create_event_id: definition.create_event_id,
-            as_of: snapshot.created_at,
+            evaluated_at: snapshot.created_at,
         });
     }
     Ok(views)

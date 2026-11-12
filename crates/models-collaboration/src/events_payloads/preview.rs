@@ -6,11 +6,11 @@ use crate::internal_prelude::*;
 #[serde(deny_unknown_fields)]
 pub struct PreviewPolicyPayloadValueToken {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub required: Option<bool>,
+    pub token_required: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ttl_seconds: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub bind_target_digest: Option<bool>,
+    pub target_digest_binding_required: Option<bool>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

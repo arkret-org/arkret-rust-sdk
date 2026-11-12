@@ -615,7 +615,7 @@ impl Client {
     /// This diagnostic snapshot never advances a subscription cursor or grants
     /// write authority over a service-owned register (account-data section 5.5).
     pub async fn account_data_list(&self) -> Result<AccountDataList> {
-        let list: AccountDataList = self.get("/_arkret/self/account_data").await?;
+        let list: AccountDataList = self.get("/_arkret/self/account-data").await?;
         list.validate()?;
         Ok(list)
     }
@@ -623,7 +623,7 @@ impl Client {
     /// Read one account-data entry.
     pub async fn account_data_get(&self, account_data_key: &str) -> Result<AccountDataEntry> {
         reject_path_segment(account_data_key)?;
-        self.get(&format!("/_arkret/self/account_data/{account_data_key}"))
+        self.get(&format!("/_arkret/self/account-data/{account_data_key}"))
             .await
     }
 
@@ -639,7 +639,7 @@ impl Client {
     ) -> Result<AccountDataEntry> {
         reject_path_segment(account_data_key)?;
         self.put(
-            &format!("/_arkret/self/account_data/{account_data_key}"),
+            &format!("/_arkret/self/account-data/{account_data_key}"),
             request,
         )
         .await
@@ -656,7 +656,7 @@ impl Client {
         request: &VerifiedSubmission<AccountDataDeleteRequestBody>,
     ) -> Result<AccountDataDeleteResponseBody> {
         reject_path_segment(account_data_key)?;
-        let path = format!("/_arkret/self/account_data/{account_data_key}");
+        let path = format!("/_arkret/self/account-data/{account_data_key}");
         let builder = self.canonical_json_body(self.request(Method::DELETE, &path)?, request)?;
         self.send_json(builder).await
     }
@@ -667,7 +667,7 @@ impl Client {
         request: &DeviceMessagesSendRequestBody,
     ) -> Result<DeviceMessagesSendResponseBody> {
         let options = ClientRequestOptions::new().idempotency_key(idempotency_key);
-        self.post_with_options("/_arkret/self/device_messages", request, &options)
+        self.post_with_options("/_arkret/self/device-messages", request, &options)
             .await
     }
 
@@ -676,7 +676,7 @@ impl Client {
         after: Option<&str>,
         limit: Option<u32>,
     ) -> Result<DeviceMessagesGetResponseBody> {
-        let mut builder = self.request(Method::GET, "/_arkret/self/device_messages")?;
+        let mut builder = self.request(Method::GET, "/_arkret/self/device-messages")?;
         if let Some(after) = after {
             builder = builder.query(&[("after", after)]);
         }
@@ -690,7 +690,7 @@ impl Client {
         &self,
         request: &DeviceMessagesAcknowledgementRequestBody,
     ) -> Result<DeviceMessagesAcknowledgementResponseBody> {
-        self.post("/_arkret/self/device_messages/ack", request)
+        self.post("/_arkret/self/device-messages/ack", request)
             .await
     }
 }

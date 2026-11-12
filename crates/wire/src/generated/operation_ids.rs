@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json;
-//! sha256=49be3985a23599eb4fea09aa3fb88cd689aff2df697285190bed9fac9f3d642b Entries: registered=221
+//! sha256=1fbba10f9317281b6fb5cdd39282e126fcac9c7236eb2cde0a06228b4f586c4e Entries: registered=221
 
 use serde::{Deserialize, Serialize};
 
@@ -2145,7 +2145,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
     ServiceOperationDescriptor {
         id: ServiceOperationId::EdgeAppletThirdPartyLocationsReadListV1,
         http_method: "GET",
-        http_path: "/_arkret/edge/applet/third_party/locations",
+        http_path: "/_arkret/edge/applet/third-party/locations",
         grpc: Some("EdgeApplet/ThirdPartyLocations"),
         mq: Some("edge.applet.third_party_locations.query.list"),
         body_class: Some("non_streaming_json"),
@@ -2163,7 +2163,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
     ServiceOperationDescriptor {
         id: ServiceOperationId::EdgeAppletThirdPartyUsersReadListV1,
         http_method: "GET",
-        http_path: "/_arkret/edge/applet/third_party/users",
+        http_path: "/_arkret/edge/applet/third-party/users",
         grpc: Some("EdgeApplet/ThirdPartyUsers"),
         mq: Some("edge.applet.third_party_users.query.list"),
         body_class: Some("non_streaming_json"),
@@ -4335,7 +4335,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAccountDataReadListV1,
         http_method: "GET",
-        http_path: "/_arkret/self/account_data",
+        http_path: "/_arkret/self/account-data",
         grpc: Some("SelfAccountData/List"),
         mq: Some("self.account_data.query.list"),
         body_class: Some("non_streaming_json"),
@@ -4353,7 +4353,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAccountDataResourceDeleteV1,
         http_method: "DELETE",
-        http_path: "/_arkret/self/account_data/{account_data_key}",
+        http_path: "/_arkret/self/account-data/{account_data_key}",
         grpc: Some("SelfAccountData/Delete"),
         mq: Some("self.account_data.resource.delete"),
         body_class: Some("non_streaming_json"),
@@ -4378,7 +4378,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAccountDataResourceGetV1,
         http_method: "GET",
-        http_path: "/_arkret/self/account_data/{account_data_key}",
+        http_path: "/_arkret/self/account-data/{account_data_key}",
         grpc: Some("SelfAccountData/Get"),
         mq: Some("self.account_data.resource.get"),
         body_class: Some("non_streaming_json"),
@@ -4396,7 +4396,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAccountDataResourceReplaceV1,
         http_method: "PUT",
-        http_path: "/_arkret/self/account_data/{account_data_key}",
+        http_path: "/_arkret/self/account-data/{account_data_key}",
         grpc: Some("SelfAccountData/Replace"),
         mq: Some("self.account_data.resource.replace"),
         body_class: Some("non_streaming_json"),
@@ -5627,7 +5627,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfDeviceMessagesCommandAckV1,
         http_method: "POST",
-        http_path: "/_arkret/self/device_messages/ack",
+        http_path: "/_arkret/self/device-messages/ack",
         grpc: Some("SelfDeviceMessages/Ack"),
         mq: Some("self.device_messages.command.ack"),
         body_class: Some("non_streaming_json"),
@@ -5652,7 +5652,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfDeviceMessagesCommandSendV1,
         http_method: "POST",
-        http_path: "/_arkret/self/device_messages",
+        http_path: "/_arkret/self/device-messages",
         grpc: Some("SelfDeviceMessages/Send"),
         mq: Some("self.device_messages.command.send"),
         body_class: Some("non_streaming_json"),
@@ -5677,7 +5677,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfDeviceMessagesReadListV1,
         http_method: "GET",
-        http_path: "/_arkret/self/device_messages",
+        http_path: "/_arkret/self/device-messages",
         grpc: Some("SelfDeviceMessages/Get"),
         mq: Some("self.device_messages.query.list"),
         body_class: Some("non_streaming_json"),
@@ -6266,7 +6266,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         id: ServiceOperationId::SelfManagementReviewCommandDecideV1,
         http_method: "POST",
         http_path: "/_arkret/self/management-reviews/decisions",
-        grpc: Some("SelfManagement/Management_ReviewCommandDecide"),
+        grpc: Some("SelfManagement/ManagementReviewCommandDecide"),
         mq: Some("self.management_review.command.decide"),
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: None,
@@ -6293,7 +6293,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         id: ServiceOperationId::SelfManagementReviewCommandRequestV1,
         http_method: "POST",
         http_path: "/_arkret/self/management-reviews/requests",
-        grpc: Some("SelfManagement/Management_ReviewCommandRequest"),
+        grpc: Some("SelfManagement/ManagementReviewCommandRequest"),
         mq: Some("self.management_review.command.request"),
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: None,
@@ -6320,7 +6320,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         id: ServiceOperationId::SelfManagementReviewReadStatusV1,
         http_method: "POST",
         http_path: "/_arkret/self/management-reviews/status",
-        grpc: Some("SelfManagement/Management_ReviewReadStatus"),
+        grpc: Some("SelfManagement/ManagementReviewReadStatus"),
         mq: Some("self.management_review.read.status"),
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: None,

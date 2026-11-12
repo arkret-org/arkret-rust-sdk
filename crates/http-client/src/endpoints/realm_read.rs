@@ -39,9 +39,11 @@ impl Client {
             kinds.sort_unstable();
             kinds.dedup();
             if kinds.is_empty() {
-                return Err(Error::Protocol("link_kind_allow must not be empty".into()));
+                return Err(Error::Protocol(
+                    "allowed_link_kinds must not be empty".into(),
+                ));
             }
-            query.append_pair("link_kind_allow", &kinds.join(","));
+            query.append_pair("allowed_link_kinds", &kinds.join(","));
         }
         let list: RealmLinkList = self
             .get(&format!(
