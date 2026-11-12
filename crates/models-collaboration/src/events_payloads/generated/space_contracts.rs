@@ -5,7 +5,7 @@
 // sha256=e57f2773764165f5a2e6047ae5491cdf152476deb73c83b2f6c14fff58925305
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=e1457ee62d38c96bf19ebec5a494f5b8b0ff175b3fda2ac3be4ca317967625e0
+// sha256=113d054c1defb3940cb07e0f04bb10848b9d375692c24056c947cb624743840a
 
 /// Counterpart: `event-payload.schema.json#/$defs/space_create_payload`.
 /// Counterpart for

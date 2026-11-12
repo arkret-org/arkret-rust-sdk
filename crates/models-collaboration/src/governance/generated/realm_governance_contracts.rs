@@ -11,7 +11,7 @@
 // sha256=31743f8703624fa7dba59d2bc40328e85c1bd6ba88cc60cdca6d61896922ac82
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=e1457ee62d38c96bf19ebec5a494f5b8b0ff175b3fda2ac3be4ca317967625e0
+// sha256=113d054c1defb3940cb07e0f04bb10848b9d375692c24056c947cb624743840a
 
 /// Counterpart: `realm-link-operations.schema.json#/$defs/realm_link_list`.
 /// `realm-link-operations.schema.json#/$defs/realm_link_list`.

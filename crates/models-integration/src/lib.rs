@@ -9,6 +9,9 @@
 //! the `arkret` umbrella. This crate holds data shapes and type-local
 //! invariants only.
 
+#[cfg(feature = "openapi")]
+mod canonical_openapi;
+
 pub mod applet;
 pub mod applet_audit_payload;
 pub mod applet_install_plan;

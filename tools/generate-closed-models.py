@@ -13,9 +13,13 @@ import argparse
 import hashlib
 import json
 import re
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
+# Keep direct CLI and importlib-based generator tests on the same tool source.
+sys.path.insert(0, str(ROOT))
+from canonical_openapi import generate_bundle
 TIMESTAMP = "time.schema.json#/$defs/timestamp"
 HELPERS = "arkret_canonical::serde_helpers"
 
@@ -564,6 +568,9 @@ class Generator:
             if family.get("inline"):
                 header = [line.replace("//!", "//", 1) for line in header]
             outputs[family["output"]] = "\n".join(header) + "\n\n" + contents
+        for bundle in self.bindings.get("openapi_bundles", []):
+            if selected_outputs is None or bundle["output"] in selected_outputs:
+                outputs[bundle["output"]] = generate_bundle(self.schemas, bundle)[0]
         self.names = qualified_names
         return outputs
 
@@ -571,6 +578,7 @@ class Generator:
 def validate_manifest_provides(bindings, manifest):
     by_output = {family['output']: [row['name'] for row in family['types']]
                  for family in bindings['families']}
+    by_output.update({row['output']: [] for row in bindings.get('openapi_bundles', [])})
     for entry in manifest['entries']:
         if entry['generator'] != 'closed-models':
             continue
@@ -593,6 +601,7 @@ def main():
     manifest = json.loads((ROOT / "spec-generation-manifest.json").read_text(encoding="utf-8"))
     declared = [path for entry in manifest["entries"] if entry["generator"] == "closed-models" for path in entry["outputs"]]
     selected = [family["output"] for family in bindings["families"]]
+    selected += [bundle["output"] for bundle in bindings.get("openapi_bundles", [])]
     if len(set(selected)) != len(selected) or sorted(selected) != sorted(declared):
         raise ValueError("closed model bindings and generation manifest output sets differ")
     validate_manifest_provides(bindings, manifest)

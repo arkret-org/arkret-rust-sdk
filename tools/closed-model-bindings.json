@@ -24510,5 +24510,14 @@
       "reason": "VerificationStubSubject shares one kind/subject_ref Rust carrier across six schema union branches. The subject discriminator owns the corresponding typed identifier validation; binding the carrier to only one const-kind schema would incorrectly narrow the union.",
       "category": "domain_semantics"
     }
+  ],
+  "openapi_bundles": [
+    {
+      "output": "crates/models-integration/src/generated/key_backup_openapi_contracts.rs",
+      "roots": {
+        "KeysBackupsListResponseBody": "keys-operations.schema.json#/$defs/keys_backups_list_response_body",
+        "KeysBackupsUnlockResponseBody": "keys-operations.schema.json#/$defs/keys_backups_unlock_response_body"
+      }
+    }
   ]
 }

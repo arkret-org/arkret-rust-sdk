@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parent
 spec = importlib.util.spec_from_file_location("closed_models", ROOT / "generate-closed-models.py")
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
+from canonical_openapi import CanonicalClosure, SCHEMA_BASE, children, generate_bundle
 
 
 class ClosedModelsTests(unittest.TestCase):
@@ -407,6 +408,96 @@ class ClosedModelsTests(unittest.TestCase):
         self.bindings["families"][0]["types"][0]["schema"] = "../example.schema.json"
         with self.assertRaises(ValueError):
             self.generate()
+
+
+class CanonicalOpenApiTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name)
+
+    def write(self, name, **schema):
+        (self.root / name).write_text(json.dumps({"$id": SCHEMA_BASE + name, **schema}), encoding="utf-8")
+
+    def test_cycles_boolean_anchors_ref_siblings_and_instance_data_are_preserved(self):
+        self.write("a.json", properties={"next": {"$ref": "b.json#node", "not": False}},
+                   examples=[{"$ref": "https://untrusted.invalid/data"}],
+                   default={"$ref": "instance"}, **{"x-data": {"$ref": "literal"}})
+        self.write("b.json", **{"$defs": {"node": {"$anchor": "node", "anyOf": [
+            {"$ref": "a.json"}, True, False]}}})
+        first = CanonicalClosure(self.root).build({"Root": "a.json"})
+        self.assertEqual(first, CanonicalClosure(self.root).build({"Root": "a.json"}))
+        self.assertEqual(len(first["components"]), 2)
+        root = first["components"][first["roots"]["Root"]]
+        self.assertEqual(root["examples"], [{"$ref": "https://untrusted.invalid/data"}])
+        self.assertIs(root["properties"]["next"]["not"], False)
+        self.assertEqual(root["default"], {"$ref": "instance"})
+        self.assertEqual(root["x-data"], {"$ref": "literal"})
+        self.assertTrue(root["properties"]["next"]["$ref"].startswith("#/components/schemas/"))
+
+    def test_unregistered_authority_escapes_queries_and_invalid_fragments_are_refused(self):
+        self.write("a.json", type="object")
+        for reference in ["https://attacker.invalid/v1/schemas/a.json", "../a.json",
+                          "a.json?query=1", "a.json?", SCHEMA_BASE + "a.json?", "a.json#missing", "a.json#/%GG",
+                          "a.json#/~2", "a.json#/type", "https://arkret.org/v1/schemas/%2e%2e/a.json"]:
+            with self.subTest(reference=reference), self.assertRaises((ValueError, KeyError)):
+                closure = CanonicalClosure(self.root)
+                closure.node(closure.target("a.json", reference))
+
+    def test_unsupported_reference_scopes_fail_closed(self):
+        for schema in [{"$dynamicRef": "#node"}, {"properties": {"x": {"$id": "nested"}}}]:
+            self.write("a.json", **schema)
+            with self.assertRaises(ValueError):
+                CanonicalClosure(self.root).build({"Root": "a.json"})
+
+    def test_strict_json_pointer_indices_and_raw_uri_control_are_rejected(self):
+        self.write("a.json", allOf=[True, False], **{"$defs": {"C": {"const": 1}, "a b": True}})
+        closure = CanonicalClosure(self.root)
+        self.assertIs(closure.node(closure.target("a.json", "#/allOf/0")), True)
+        self.assertIs(closure.node(closure.target("a.json", "#/$defs/a%20b")), True)
+        for ref in ["#/allOf/-1", "#/allOf/+1", "#/allOf/01", "#/allOf/2",
+                    "#/$defs/\nC", "#/$defs/\tC", "#/$defs/%FF", "#/$defs/ C"]:
+            with self.subTest(reference=ref), self.assertRaises(ValueError):
+                closure.node(closure.target("a.json", ref))
+
+    def test_pointer_activated_schema_anchors_resolve_without_annotation_discovery(self):
+        self.write("a.json", allOf=[{"$ref": "#activated"}, {"$ref": "#/x-schema"}],
+                   **{"x-schema": {"$anchor": "activated", "const": "PASS"},
+                      "examples": [{"$anchor": "activated", "const": "FAKE"}]})
+        result = CanonicalClosure(self.root).build({"Root": "a.json"})
+        root = result["components"][result["roots"]["Root"]]
+        self.assertEqual(root["allOf"][0]["$ref"], root["allOf"][1]["$ref"])
+
+    def test_exact_uri_owner_is_required(self):
+        (self.root / "a.json").write_text('{"$id":"https://attacker.invalid/a.json"}', encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "owning file"):
+            CanonicalClosure(self.root).build({"Root": "a.json"})
+
+    def test_formal_roots_have_complete_local_reference_closure(self):
+        tools = Path(__file__).resolve().parent
+        artifacts = tools.parent.parent / "arkret-spec/spec/v1/artifacts"
+        bindings = json.loads((tools / "closed-model-bindings.json").read_text(encoding="utf-8"))
+        manifest = json.loads((tools / "spec-generation-manifest.json").read_text(encoding="utf-8"))
+        for bundle in bindings["openapi_bundles"]:
+            text, inputs, result = generate_bundle(artifacts / "schemas", bundle)
+            entry = next(row for row in manifest["entries"] if bundle["output"] in row["outputs"])
+            self.assertEqual(entry["artifacts"], ["schemas/" + path for path in inputs])
+            self.assertNotIn("impl salvo_oapi::ToSchema for super::Event", text)
+            seen = set()
+
+            def walk(node):
+                if isinstance(node, dict) and "$ref" in node:
+                    prefix = "#/components/schemas/"
+                    self.assertTrue(node["$ref"].startswith(prefix))
+                    target = node["$ref"][len(prefix):]
+                    self.assertIn(target, result["components"])
+                    seen.add(target)
+                for _, child in children(node):
+                    walk(child)
+            for component in result["components"].values():
+                walk(component)
+            self.assertGreater(len(seen), 100)
+            self.assertTrue(any(source.endswith("event-envelope.schema.json#") for source in result["sources"].values()))
 
 
 if __name__ == "__main__":

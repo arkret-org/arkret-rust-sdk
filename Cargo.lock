@@ -586,7 +586,9 @@ dependencies = [
  "arkret-schema-conformance",
  "arkret-wire",
  "chrono",
+ "jsonschema",
  "salvo-oapi",
+ "salvo_core",
  "serde",
  "serde_json",
 ]

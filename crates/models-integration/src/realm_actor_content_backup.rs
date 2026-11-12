@@ -3,6 +3,10 @@
 
 include!("generated/realm_actor_content_backup_contracts.rs");
 
+#[cfg(feature = "openapi")]
+#[path = "generated/key_backup_openapi_contracts.rs"]
+mod openapi;
+
 impl serde::Serialize for KeysBackupsUnlockResponseBody {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         KeysBackupsUnlockResponseBody::serialize(self, serializer)
