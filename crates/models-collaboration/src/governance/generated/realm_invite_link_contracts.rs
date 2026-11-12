@@ -2,13 +2,13 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/realm-invite-link.schema.json
-// sha256=096c348e5ea0f673dffc01e14830d77d974073fc96702e7426206a27bf471311
+// sha256=6d144a134c62df7c2942ffd42694f387d312b6f026e652b017af28389156a816
 //
 // Input: schemas/time.schema.json
 // sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=8754dda4399255a8d93502ff99e0f2e245ea00988a5263e7f64cf21d1eada652
+// sha256=ba1e9867d9c38f8d402c9e6bcf11c24593e800ed0ccefe6ced03bcd0bf4272ba
 
 /// Counterpart: `realm-invite-link.schema.json#/$defs/proof/properties/signature_algorithm`.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -31,7 +31,7 @@ pub struct RealmInviteLinkProof {
 #[serde(deny_unknown_fields)]
 pub struct RealmInviteLinkLimits {
     pub max_lifetime_seconds: u32,
-    pub max_uses_per_link: u32,
+    pub max_use_count_per_link: u32,
 }
 
 /// Counterpart: `realm-invite-link.schema.json#/$defs/lifecycle_value`.
@@ -63,7 +63,7 @@ pub struct RealmInviteLinkCreatePayload {
     pub public_key: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: chrono::DateTime<chrono::Utc>,
-    pub max_uses: u32,
+    pub max_use_count: u32,
 }
 
 /// Counterpart: `realm-invite-link.schema.json#/$defs/revoke_payload`.
@@ -90,7 +90,7 @@ pub struct RealmInviteLinkDefinitionValue {
     pub public_key: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: chrono::DateTime<chrono::Utc>,
-    pub max_uses: u32,
+    pub max_use_count: u32,
     pub create_event_id: arkret_wire::EventId,
     pub creator_actor_id: arkret_wire::ActorId,
 }
@@ -113,10 +113,10 @@ pub struct RealmInviteLinkView {
     pub inviter_account_id: arkret_wire::AccountId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: chrono::DateTime<chrono::Utc>,
-    pub max_uses: u32,
+    pub max_use_count: u32,
     pub use_count: u32,
     pub status: RealmInviteLinkStatus,
     pub create_event_id: arkret_wire::EventId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub as_of: chrono::DateTime<chrono::Utc>,
+    pub evaluated_at: chrono::DateTime<chrono::Utc>,
 }

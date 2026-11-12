@@ -556,7 +556,7 @@ impl Client {
                 ("external_id", query.external_id.as_str()),
             ])
             .finish();
-        let path = format!("/_arkret/edge/applet/third_party/users?{encoded}");
+        let path = format!("/_arkret/edge/applet/third-party/users?{encoded}");
         let request = self
             .service_request(Method::GET, &path)?
             .header(crate::HEADER_SOURCE_SERVICE_ID, source.as_str())
@@ -835,7 +835,7 @@ mod native_retry_tests {
                 reqwest::Method::POST,
                 "/_arkret/self/keys/keypackages/upload",
             ),
-            (reqwest::Method::GET, "/_arkret/self/device_messages"),
+            (reqwest::Method::GET, "/_arkret/self/device-messages"),
         ] {
             assert!(
                 arkret_wire::ServiceOperationId::from_http_request(method.as_str(), path).is_some()

@@ -116,10 +116,10 @@
     "event-payload.schema.json#/$defs/timestamp": "chrono::DateTime<chrono::Utc>",
     "realm-invite-link.schema.json#/$defs/proof/properties/transcript_digest": "arkret_wire::Hash",
     "realm-invite-link.schema.json#/$defs/limits/properties/max_lifetime_seconds": "u32",
-    "realm-invite-link.schema.json#/$defs/limits/properties/max_uses_per_link": "u32",
-    "realm-invite-link.schema.json#/$defs/create_payload/properties/max_uses": "u32",
-    "realm-invite-link.schema.json#/$defs/definition_value/properties/max_uses": "u32",
-    "realm-invite-link.schema.json#/$defs/view/properties/max_uses": "u32",
+    "realm-invite-link.schema.json#/$defs/limits/properties/max_use_count_per_link": "u32",
+    "realm-invite-link.schema.json#/$defs/create_payload/properties/max_use_count": "u32",
+    "realm-invite-link.schema.json#/$defs/definition_value/properties/max_use_count": "u32",
+    "realm-invite-link.schema.json#/$defs/view/properties/max_use_count": "u32",
     "realm-invite-link.schema.json#/$defs/view/properties/use_count": "u32",
     "realm-invite-link.schema.json#/$defs/link_public_key": "String",
     "common-ids.schema.json#/$defs/account_id": "arkret_wire::AccountId",
@@ -6593,8 +6593,8 @@
               "#[serde(deny_unknown_fields)]"
             ],
             "members": {
-              "required": {
-                "name": "required",
+              "field_required": {
+                "name": "field_required",
                 "visibility": "pub",
                 "type": "Option<bool>",
                 "attributes": [
