@@ -2131,6 +2131,30 @@
       "spec_pointer": "event-payload.schema.json#/$defs/account_data_set_payload/properties/encrypted_payload"
     },
     {
+      "finding": "crates/models-collaboration/src/events_payloads/generated/agent_contracts.rs::AgentDraftAccountDataValue.content",
+      "classification": "open_json",
+      "lifecycle": "retained_boundary",
+      "decision": "open",
+      "authority": "agent-draft-private.schema.json#/$defs/agent_draft_account_data_value/properties/content",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Retain only at the exact schema-declared open JSON boundary.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The canonical content property explicitly permits arbitrary JSON. It represents candidate content bound by content_digest, not an unclassified protocol payload or a sibling-discriminated object.",
+      "spec_pointer": "agent-draft-private.schema.json#/$defs/agent_draft_account_data_value/properties/content"
+    },
+    {
+      "finding": "crates/models-collaboration/src/events_payloads/generated/agent_contracts.rs::AgentDraftContentHandoffPlaintext.content",
+      "classification": "open_json",
+      "lifecycle": "retained_boundary",
+      "decision": "open",
+      "authority": "agent-draft-private.schema.json#/$defs/agent_draft_content_handoff_plaintext/properties/content",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Retain only at the exact schema-declared open JSON boundary.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The canonical content property explicitly permits arbitrary JSON. It represents candidate content bound by content_digest, not an unclassified protocol payload or a sibling-discriminated object.",
+      "spec_pointer": "agent-draft-private.schema.json#/$defs/agent_draft_content_handoff_plaintext/properties/content"
+    },
+    {
       "finding": "crates/models-collaboration/src/events_payloads/generated/consent_contracts.rs::ConsentPermission.constraints",
       "classification": "open_json",
       "lifecycle": "retained_boundary",

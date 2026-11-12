@@ -51,6 +51,7 @@ pub struct CallParticipant {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub media: Option<CallParticipantMedia>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "arkret_wire::deserialize_optional_focus_identifier")]
     pub focus_id: Option<String>,
 }
 
@@ -78,7 +79,7 @@ struct CallParticipantWire {
     media: Option<CallParticipantMedia>,
     #[serde(
         default,
-        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+        deserialize_with = "arkret_wire::deserialize_optional_focus_identifier"
     )]
     focus_id: Option<String>,
 }
@@ -104,6 +105,9 @@ impl TryFrom<CallParticipantWire> for CallParticipant {
 
 impl CallParticipant {
     pub fn validate_binding_carrier(&self) -> std::result::Result<(), &'static str> {
+        if let Some(focus) = &self.focus_id {
+            validate_bounded_non_typed_identifier(focus, 64)?;
+        }
         if self.participant_binding.is_some() {
             self.signed_media()
                 .map_err(|_| "participant binding requires the complete issued media range")?;
@@ -419,6 +423,7 @@ pub enum CallRecordingDeletionStatus {
 pub struct CallRecordingEncryptionContext {
     pub realm_id: RealmId,
     pub call_id: CallId,
+    #[serde(deserialize_with = "arkret_wire::deserialize_bounded_non_typed_identifier")]
     pub focus_id: String,
     pub recording_id: CallRecordingId,
     pub media_service_id: DidCoreId,
@@ -503,7 +508,7 @@ impl CallRecordingArtifact {
                 "recording artifact encryption.context must bind realm_id/call_id/recording_id/recording_start_event_id",
             );
         }
-        if self.encryption.context.focus_id.trim().is_empty() {
+        if validate_bounded_non_typed_identifier(&self.encryption.context.focus_id, 256).is_err() {
             return recording_artifact_pipeline_bypassed(
                 "recording artifact encryption.context.focus_id is required",
             );

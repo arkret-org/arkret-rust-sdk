@@ -23,11 +23,11 @@ fn is_false(value: &bool) -> bool {
 fn is_default_registration_verification_policy(
     value: &AccountRegistrationVerificationPolicy,
 ) -> bool {
-    !value.required && value.code_digest.is_none()
+    !value.verification_required && value.code_digest.is_none()
 }
 
 fn is_default_registration_invitation_policy(value: &AccountRegistrationInvitationPolicy) -> bool {
-    !value.required && value.token_digests.is_empty()
+    !value.invitation_required && value.token_digests.is_empty()
 }
 
 fn registration_policy_enabled_default() -> bool {
@@ -39,7 +39,7 @@ fn registration_policy_enabled_default() -> bool {
 #[serde(deny_unknown_fields)]
 pub struct AccountRegistrationVerificationPolicy {
     #[serde(default, skip_serializing_if = "is_false")]
-    pub required: bool,
+    pub verification_required: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub code_digest: Option<Hash>,
 }
@@ -49,7 +49,7 @@ pub struct AccountRegistrationVerificationPolicy {
 #[serde(deny_unknown_fields)]
 pub struct AccountRegistrationInvitationPolicy {
     #[serde(default, skip_serializing_if = "is_false")]
-    pub required: bool,
+    pub invitation_required: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub token_digests: Vec<Hash>,
 }
@@ -74,7 +74,7 @@ pub struct AccountRegistrationPolicy {
     )]
     pub verification_code: AccountRegistrationVerificationPolicy,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub organization_allowlist: Vec<String>,
+    pub allowed_organization_labels: Vec<String>,
     #[serde(
         default,
         skip_serializing_if = "is_default_registration_invitation_policy"
@@ -89,7 +89,7 @@ impl Default for AccountRegistrationPolicy {
         Self {
             enabled: true,
             verification_code: AccountRegistrationVerificationPolicy::default(),
-            organization_allowlist: Vec::new(),
+            allowed_organization_labels: Vec::new(),
             invitation: AccountRegistrationInvitationPolicy::default(),
             rate_limit: None,
         }
@@ -103,7 +103,7 @@ pub struct AccountRegistrationPolicyEvidence {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub verification_code: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub organization: Option<String>,
+    pub organization_label: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub invitation_token: Option<String>,
 }

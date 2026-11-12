@@ -122,7 +122,7 @@ async fn native_http_rejects_late_aba_and_invalidates_earlier_bound_results() {
                 assert!(bytes.len() < 64 * 1024);
             }
             let request = String::from_utf8(bytes).unwrap().to_ascii_lowercase();
-            assert!(request.starts_with("get /_arkret/self/device_messages?"));
+            assert!(request.starts_with("get /_arkret/self/device-messages?"));
             assert!(!request.contains("authorization:"));
             assert!(request.contains("signature-input:"));
             assert!(request.contains("arkret-managed-device"));

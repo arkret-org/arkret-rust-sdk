@@ -600,7 +600,12 @@
         "AgentProvisionPayload",
         "AgentActionTarget",
         "AgentKeyApprovalEvidence",
-        "AgentKeyScopeResource"
+        "AgentKeyScopeResource",
+        "AgentDraftContentHandoffPlaintextSchema",
+        "AgentDraftContentHandoffPlaintext",
+        "AgentDraftAccountDataValueSchema",
+        "AgentDraftAccountDataValue",
+        "AgentDraftWorkflowState"
       ]
     },
     {

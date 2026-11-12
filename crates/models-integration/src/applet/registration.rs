@@ -1211,6 +1211,7 @@ pub struct AppletPackage {
     /// Always `ak.schema.applet_package.v1`.
     pub schema: String,
     /// Distribution identifier only — never a grant subject.
+    #[serde(deserialize_with = "arkret_wire::deserialize_bounded_non_typed_identifier")]
     pub package_id: String,
     /// Canonical `ak:applet:<uuidv7>` identifier.
     pub applet_id: AppletId,
@@ -1415,7 +1416,7 @@ impl AppletPackage {
                 "applet package schema mismatch".to_owned(),
             ));
         }
-        if self.package_id.is_empty()
+        if arkret_wire::validate_bounded_non_typed_identifier(&self.package_id, 256).is_err()
             || !self.base_url.starts_with("https://")
             || self.endpoint_policy.endpoints.is_empty()
         {

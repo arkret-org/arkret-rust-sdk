@@ -667,6 +667,7 @@ pub enum RealmMediaCallMode {
 // Field declaration order is byte-for-byte the `properties` order of
 // `event-payload.schema.json#/$defs/media_service_focus`.
 pub struct MediaServiceFocus {
+    #[serde(deserialize_with = "arkret_wire::deserialize_bounded_non_typed_identifier")]
     pub focus_id: NonEmptyString,
     pub focus_kind: MediaBackendKind,
     #[serde(
@@ -698,7 +699,7 @@ impl MediaServiceFocus {
     /// the `non_typed_identifier_floor` on `focus_id` and the URL scheme
     /// patterns on the three endpoint fields.
     pub fn validate(&self) -> Result<()> {
-        if self.focus_id.as_str().starts_with("ak:") {
+        if validate_bounded_non_typed_identifier(self.focus_id.as_str(), 256).is_err() {
             return media_schema_violation("media service focus_id must not use the ak: namespace");
         }
         if !is_url_with_scheme(&self.token_endpoint, "https://") {
@@ -938,10 +939,7 @@ mod media_service_tests {
     fn media_service_focus_validate_rejects_bad_profiles() {
         let mut json = focus_json();
         json["focus_id"] = serde_json::json!("ak:focus");
-        serde_json::from_value::<MediaServiceFocus>(json)
-            .unwrap()
-            .validate()
-            .unwrap_err();
+        assert!(serde_json::from_value::<MediaServiceFocus>(json).is_err());
 
         let mut json = focus_json();
         json["token_endpoint"] = serde_json::json!("http://media.example/token");

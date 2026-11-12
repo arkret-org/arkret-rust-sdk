@@ -303,6 +303,8 @@ impl AgentAuthorizedSigningKey {
                 .cloned()
                 .ok_or_else(|| invalid("authorize Event omits key material"))
         };
+        let agent_key_id: NonEmptyString = serde_json::from_value(field("key_id")?)?;
+        arkret_wire::validate_agent_key_identifier(agent_key_id.as_str())?;
         let verification_method: DidUrl = serde_json::from_value(field("verification_method")?)?;
         let key = field("public_key")?;
         if key.get("kid").and_then(Value::as_str) != Some(verification_method.as_str())
@@ -327,7 +329,7 @@ impl AgentAuthorizedSigningKey {
         }
         Ok(Self {
             agent_id: serde_json::from_value(field("agent_id")?)?,
-            agent_key_id: serde_json::from_value(field("key_id")?)?,
+            agent_key_id,
             verification_method,
             public_key,
             public_key_digest: Hash::new(arkret_canonical::canonical::sha256_digest(&raw))?,

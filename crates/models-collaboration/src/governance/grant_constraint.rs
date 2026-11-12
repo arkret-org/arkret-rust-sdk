@@ -357,6 +357,7 @@ fn grant_constraint_extension_key_is_valid(value: &str) -> bool {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct GrantConstraint {
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "arkret_wire::deserialize_optional_bounded_non_typed_identifier")]
     pub constraint_id: Option<String>,
     pub constraint_kind: GrantConstraintKind,
     pub effect: GrantConstraintEffect,
@@ -431,6 +432,7 @@ pub struct GrantConstraint {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub allowed_circle_ids: Vec<CircleId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(deserialize_with = "arkret_wire::deserialize_bounded_non_typed_identifiers")]
     pub allowed_session_ids: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub allowed_view_kinds: Vec<String>,

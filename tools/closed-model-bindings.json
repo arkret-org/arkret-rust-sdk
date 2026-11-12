@@ -116,10 +116,10 @@
     "event-payload.schema.json#/$defs/timestamp": "chrono::DateTime<chrono::Utc>",
     "realm-invite-link.schema.json#/$defs/proof/properties/transcript_digest": "arkret_wire::Hash",
     "realm-invite-link.schema.json#/$defs/limits/properties/max_lifetime_seconds": "u32",
-    "realm-invite-link.schema.json#/$defs/limits/properties/max_uses_per_link": "u32",
-    "realm-invite-link.schema.json#/$defs/create_payload/properties/max_uses": "u32",
-    "realm-invite-link.schema.json#/$defs/definition_value/properties/max_uses": "u32",
-    "realm-invite-link.schema.json#/$defs/view/properties/max_uses": "u32",
+    "realm-invite-link.schema.json#/$defs/limits/properties/max_use_count_per_link": "u32",
+    "realm-invite-link.schema.json#/$defs/create_payload/properties/max_use_count": "u32",
+    "realm-invite-link.schema.json#/$defs/definition_value/properties/max_use_count": "u32",
+    "realm-invite-link.schema.json#/$defs/view/properties/max_use_count": "u32",
     "realm-invite-link.schema.json#/$defs/view/properties/use_count": "u32",
     "realm-invite-link.schema.json#/$defs/link_public_key": "String",
     "common-ids.schema.json#/$defs/account_id": "arkret_wire::AccountId",
@@ -206,7 +206,25 @@
     "content-encryption.schema.json#/$defs/recovery_scope_cleanup_self_response_body/properties/delivery_signing_key": "crate::content_history::ContentScopeRetirementDeliverySigningKey",
     "content-encryption.schema.json#/$defs/recovery_scope_cleanup_self_response_body/properties/delivery_signing_key/properties/delivery_digest": "arkret_wire::Hash",
     "content-encryption.schema.json#/$defs/recovery_scope_cleanup_self_response_body/properties/delivery_signing_key/properties/public_key_base64url": "arkret_wire::Base64UrlString",
-    "content-encryption.schema.json#/$defs/recovery_scope_cleanup_self_response_body": "crate::content_history::ContentRecoveryScopeCleanupSelfResponseBody"
+    "content-encryption.schema.json#/$defs/recovery_scope_cleanup_self_response_body": "crate::content_history::ContentRecoveryScopeCleanupSelfResponseBody",
+    "string-profiles.schema.json#/$defs/bounded_non_typed_identifier": "String",
+    "string-profiles.schema.json#/$defs/realm_action_name": "String",
+    "string-profiles.schema.json#/$defs/membership_admission_handle": "String",
+    "string-profiles.schema.json#/$defs/agent_confirmation_handle": "String",
+    "string-profiles.schema.json#/$defs/agent_draft_handle": "String",
+    "string-profiles.schema.json#/$defs/media_focus_handle": "String",
+    "string-profiles.schema.json#/$defs/applet_install_handle": "String",
+    "string-profiles.schema.json#/$defs/agent_rejection_handle": "String",
+    "string-profiles.schema.json#/$defs/organization_statement_handle": "String",
+    "agent-draft-private.schema.json#/$defs/agent_draft_content_handoff_plaintext/properties/content": "serde_json::Value",
+    "agent-draft-private.schema.json#/$defs/agent_draft_content_handoff_plaintext/properties/schema": "AgentDraftContentHandoffPlaintextSchema",
+    "agent-draft-private.schema.json#/$defs/agent_draft_account_data_value/properties/content": "serde_json::Value",
+    "agent-draft-private.schema.json#/$defs/agent_draft_account_data_value/properties/schema": "AgentDraftAccountDataValueSchema",
+    "agent-draft-private.schema.json#/$defs/agent_draft_account_data_value/properties/workflow_state": "AgentDraftWorkflowState",
+    "event-payload.schema.json#/$defs/did_core_id": "arkret_wire::DidCoreId",
+    "event-payload.schema.json#/$defs/digest": "arkret_wire::Hash",
+    "event-payload.schema.json#/$defs/non_empty_string": "arkret_wire::NonEmptyString",
+    "event-payload.schema.json#/$defs/agent_action_target": "crate::events_payloads::agent::AgentActionTarget"
   },
   "families": [
     {
@@ -1864,9 +1882,10 @@
           "rust": {
             "signature": "pub struct AgentActionTarget",
             "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
               "/// Counterpart for",
               "/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/agent_action_target`.",
-              "#[derive(Clone, Debug, Serialize, Deserialize)]",
+              "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
             ],
             "members": {
@@ -2024,6 +2043,170 @@
               }
             }
           }
+        },
+        {
+          "name": "AgentDraftContentHandoffPlaintextSchema",
+          "schema": "agent-draft-private.schema.json#/$defs/agent_draft_content_handoff_plaintext/properties/schema",
+          "variant_names": {
+            "ak.schema.agent_draft_content_handoff_plaintext.v1": "V1"
+          }
+        },
+        {
+          "name": "AgentDraftContentHandoffPlaintext",
+          "schema": "agent-draft-private.schema.json#/$defs/agent_draft_content_handoff_plaintext",
+          "eq": false,
+          "rust": {
+            "signature": "pub struct AgentDraftContentHandoffPlaintext",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "schema": {
+                "name": "schema",
+                "visibility": "pub",
+                "type": "AgentDraftContentHandoffPlaintextSchema",
+                "attributes": []
+              },
+              "draft_id": {
+                "name": "draft_id",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              },
+              "agent_id": {
+                "name": "agent_id",
+                "visibility": "pub",
+                "type": "DidCoreId",
+                "attributes": []
+              },
+              "content": {
+                "name": "content",
+                "visibility": "pub",
+                "type": "Value",
+                "attributes": []
+              },
+              "content_digest": {
+                "name": "content_digest",
+                "visibility": "pub",
+                "type": "Hash",
+                "attributes": []
+              },
+              "expires_at": {
+                "name": "expires_at",
+                "visibility": "pub",
+                "type": "DateTime<Utc>",
+                "attributes": [
+                  "#[serde(with = \"arkret_canonical::serde_helpers::canonical_timestamp\")]"
+                ]
+              },
+              "created_at": {
+                "name": "created_at",
+                "visibility": "pub",
+                "type": "DateTime<Utc>",
+                "attributes": [
+                  "#[serde(with = \"arkret_canonical::serde_helpers::canonical_timestamp\")]"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "name": "AgentDraftAccountDataValueSchema",
+          "schema": "agent-draft-private.schema.json#/$defs/agent_draft_account_data_value/properties/schema",
+          "variant_names": {
+            "ak.schema.agent_draft.v1": "V1"
+          }
+        },
+        {
+          "name": "AgentDraftAccountDataValue",
+          "schema": "agent-draft-private.schema.json#/$defs/agent_draft_account_data_value",
+          "eq": false,
+          "rust": {
+            "signature": "pub struct AgentDraftAccountDataValue",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "schema": {
+                "name": "schema",
+                "visibility": "pub",
+                "type": "AgentDraftAccountDataValueSchema",
+                "attributes": []
+              },
+              "draft_id": {
+                "name": "draft_id",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              },
+              "agent_id": {
+                "name": "agent_id",
+                "visibility": "pub",
+                "type": "DidCoreId",
+                "attributes": []
+              },
+              "proposed_action": {
+                "name": "proposed_action",
+                "visibility": "pub",
+                "type": "NonEmptyString",
+                "attributes": []
+              },
+              "target": {
+                "name": "target",
+                "visibility": "pub",
+                "type": "AgentActionTarget",
+                "attributes": []
+              },
+              "content": {
+                "name": "content",
+                "visibility": "pub",
+                "type": "Value",
+                "attributes": []
+              },
+              "content_digest": {
+                "name": "content_digest",
+                "visibility": "pub",
+                "type": "Hash",
+                "attributes": []
+              },
+              "source_pending_event_id": {
+                "name": "source_pending_event_id",
+                "visibility": "pub",
+                "type": "EventId",
+                "attributes": []
+              },
+              "workflow_state": {
+                "name": "workflow_state",
+                "visibility": "pub",
+                "type": "AgentDraftWorkflowState",
+                "attributes": []
+              },
+              "expires_at": {
+                "name": "expires_at",
+                "visibility": "pub",
+                "type": "DateTime<Utc>",
+                "attributes": [
+                  "#[serde(with = \"arkret_canonical::serde_helpers::canonical_timestamp\")]"
+                ]
+              },
+              "created_at": {
+                "name": "created_at",
+                "visibility": "pub",
+                "type": "DateTime<Utc>",
+                "attributes": [
+                  "#[serde(with = \"arkret_canonical::serde_helpers::canonical_timestamp\")]"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "name": "AgentDraftWorkflowState",
+          "schema": "agent-draft-private.schema.json#/$defs/agent_draft_account_data_value/properties/workflow_state"
         }
       ]
     },
@@ -4447,7 +4630,7 @@
               "agent_id": {
                 "name": "agent_id",
                 "visibility": "pub",
-                "type": "String",
+                "type": "DidCoreId",
                 "attributes": []
               },
               "participation_entries": {
@@ -6593,14 +6776,6 @@
               "#[serde(deny_unknown_fields)]"
             ],
             "members": {
-              "required": {
-                "name": "required",
-                "visibility": "pub",
-                "type": "Option<bool>",
-                "attributes": [
-                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
-                ]
-              },
               "enum_values": {
                 "name": "enum_values",
                 "visibility": "pub",
@@ -6622,6 +6797,14 @@
                 "visibility": "pub",
                 "type": "String",
                 "attributes": []
+              },
+              "field_required": {
+                "name": "field_required",
+                "visibility": "pub",
+                "type": "Option<bool>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
+                ]
               }
             }
           }

@@ -21,7 +21,7 @@ pub const HANDLE_CLAIM_STATUS_MAX_FRESHNESS_SECONDS: i64 = 300;
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum HandleClaimVariant {
     HandleBinding,
-    OrganizationHandle { organization_id: String },
+    OrganizationHandle { organization_id: DidCoreId },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -102,10 +102,6 @@ impl HandleClaimCore {
         self.subject_account_id.validate()?;
         if self.schema != Self::SCHEMA {
             return Err(protocol("handle claim core schema mismatch"));
-        }
-        if matches!(self.claim, HandleClaimVariant::OrganizationHandle { ref organization_id } if organization_id.is_empty())
-        {
-            return Err(protocol("organization handle requires organization_id"));
         }
         if (self.visibility == HandleVisibility::Public) != self.audience.is_none()
             || self.audience.as_ref().is_some_and(String::is_empty)

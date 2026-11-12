@@ -23,17 +23,16 @@ pub struct AgentKeyId(String);
 impl AgentKeyId {
     pub fn new(value: impl Into<String>) -> Result<Self> {
         let value = value.into();
-        if is_agent_key_id(&value) {
-            Ok(Self(value))
-        } else {
-            Err(WireError::Protocol(
-                "agent key id must be a DID URL or a 1..=256 character closed key token".to_owned(),
-            ))
-        }
+        validate_agent_key_identifier(&value)?;
+        Ok(Self(value))
     }
 
     pub fn as_str(&self) -> &str {
         &self.0
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_agent_key_identifier(self.as_str())
     }
 }
 
@@ -68,28 +67,42 @@ impl<'de> Deserialize<'de> for AgentKeyId {
     }
 }
 
-fn is_agent_key_id(value: &str) -> bool {
-    if let Some((did, fragment)) = value.split_once('#') {
-        return !fragment.is_empty()
-            && !fragment.chars().any(char::is_whitespace)
-            && !did.chars().any(char::is_whitespace)
-            && did.starts_with("did:")
-            && did[4..]
-                .split_once(':')
-                .is_some_and(|(method, method_specific)| {
-                    !method.is_empty()
-                        && method
-                            .bytes()
-                            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit())
-                        && !method_specific.is_empty()
-                })
-            && !fragment.contains('#');
+/// Canonical Agent-key selector profile; verification methods keep their own bounds.
+pub fn validate_agent_key_identifier(value: &str) -> Result<()> {
+    crate::validate_bounded_non_typed_identifier(value, 256)
+        .map_err(|reason| WireError::Protocol(reason.to_owned()))?;
+    static VOCABULARY: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(r"\A(?:did:[a-z0-9]+:[^\s#]+#[^\s#]+|[a-zA-Z0-9._:-]{1,256})\z")
+            .expect("the canonical Agent-key vocabulary is a valid regular expression")
+    });
+    if !VOCABULARY.is_match(value) {
+        return Err(WireError::Protocol(
+            "Agent key selector violates its DID-URL/local-token vocabulary".into(),
+        ));
     }
-    !value.is_empty()
-        && value.len() <= 256
-        && value
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b':' | b'-'))
+    Ok(())
+}
+
+pub fn deserialize_agent_key_identifier<'de, D, T>(
+    deserializer: D,
+) -> std::result::Result<T, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de> + AsRef<str>,
+{
+    let value = T::deserialize(deserializer)?;
+    validate_agent_key_identifier(value.as_ref()).map_err(de::Error::custom)?;
+    Ok(value)
+}
+
+pub fn deserialize_optional_agent_key_identifier<'de, D, T>(
+    deserializer: D,
+) -> std::result::Result<Option<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de> + AsRef<str>,
+{
+    deserialize_agent_key_identifier(deserializer).map(Some)
 }
 
 fn derive<T: Serialize + ?Sized>(domain: &str, components: &T) -> Result<String> {
@@ -116,6 +129,7 @@ pub fn derive_agent_interaction_current_key(agent_account_id: &AccountId) -> Res
 
 /// Derive the opaque current-row locator for one `(agent_id, key_id)` pair.
 pub fn derive_agent_key_current_key(agent_id: &DidCoreId, key_id: &AgentKeyId) -> Result<String> {
+    key_id.validate()?;
     derive(AGENT_KEY_DOMAIN, &(agent_id, key_id))
 }
 
@@ -196,6 +210,45 @@ mod tests {
             derive("ak.current_key.wrong_family.v1", &components).unwrap(),
             "qCsEjY2f2RJ9gYyWeMkdl_NGuuJrDAtDE7oNCaGKV2Y"
         );
+    }
+
+    #[test]
+    fn agent_key_selector_has_shared_total_bounds_and_absolute_vocabulary() {
+        let unicode = format!("did:web:{}#k", "é".repeat(246));
+        assert_eq!(unicode.chars().count(), 256);
+        for value in ["runtime-key".to_owned(), "a".repeat(256), unicode] {
+            let id = AgentKeyId::new(value.clone()).unwrap();
+            assert_eq!(serde_json::to_value(&id).unwrap(), json!(value));
+            assert!(serde_json::from_value::<AgentKeyId>(json!(value)).is_ok());
+            assert!(
+                derive_agent_key_current_key(
+                    &DidCoreId::new("ak:did_core:web:agent.example").unwrap(),
+                    &id
+                )
+                .is_ok()
+            );
+        }
+        for value in [
+            String::new(),
+            "a".repeat(257),
+            "ak:key:example".to_owned(),
+            " ".to_owned(),
+            "runtime\n".to_owned(),
+            "did:web:example#key\n".to_owned(),
+            format!("did:web:{}#k", "é".repeat(247)),
+        ] {
+            assert!(AgentKeyId::new(value.clone()).is_err(), "{value:?}");
+            assert!(serde_json::from_value::<AgentKeyId>(json!(value)).is_err());
+            let invalid = AgentKeyId(value);
+            assert!(
+                derive_agent_key_current_key(
+                    &DidCoreId::new("ak:did_core:web:agent.example").unwrap(),
+                    &invalid
+                )
+                .is_err()
+            );
+        }
+        assert!(serde_json::from_value::<AgentKeyId>(serde_json::Value::Null).is_err());
     }
 
     #[test]

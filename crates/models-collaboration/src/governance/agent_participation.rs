@@ -11,7 +11,7 @@
 //! An action is allowed only when ordinary capability/lifecycle checks pass
 //! and the current selection/ceiling intersection enables its bit.
 
-use arkret_wire::{CircleId, RealmId, StrandId};
+use arkret_wire::{CircleId, DidCoreId, RealmId, StrandId};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -341,7 +341,7 @@ impl AgentParticipationObservation {
             .scope_details
             .as_ref()
             .ok_or("Agent session has no scope details")?;
-        let controller: arkret_wire::DidCoreId = serde_json::from_value(
+        let controller: DidCoreId = serde_json::from_value(
             details
                 .get("controller_principal_id")
                 .ok_or("Agent session has no controller binding")?

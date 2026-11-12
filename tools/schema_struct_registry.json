@@ -4232,6 +4232,14 @@
     {
       "rust_type": "crates/models-collaboration/src/generated/content_history_contracts.rs::ContentBackupSource",
       "schema": "content-encryption.schema.json#/$defs/backup_source"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/generated/agent_contracts.rs::AgentDraftContentHandoffPlaintext",
+      "schema": "agent-draft-private.schema.json#/$defs/agent_draft_content_handoff_plaintext"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/generated/agent_contracts.rs::AgentDraftAccountDataValue",
+      "schema": "agent-draft-private.schema.json#/$defs/agent_draft_account_data_value"
     }
   ],
   "exemptions": [

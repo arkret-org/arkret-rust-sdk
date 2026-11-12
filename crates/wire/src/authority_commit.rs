@@ -1760,6 +1760,7 @@ pub enum CurrentSelector {
         agent_account_id: AccountId,
     },
     AgentActionApproval {
+        #[serde(deserialize_with = "crate::deserialize_bounded_non_typed_identifier")]
         approval_id: String,
     },
     MimiRoomBinding {
@@ -2004,6 +2005,7 @@ enum FlatCurrentSelector {
         agent_account_id: AccountId,
     },
     AgentActionApproval {
+        #[serde(deserialize_with = "crate::deserialize_bounded_non_typed_identifier")]
         approval_id: String,
     },
     MimiRoomBinding {
@@ -2370,7 +2372,8 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                         Self::AgentInteraction { agent_account_id }
                     }
                     FlatCurrentSelector::AgentActionApproval { approval_id } => {
-                        if approval_id.is_empty() || approval_id.starts_with("ak:") {
+                        if crate::validate_bounded_non_typed_identifier(&approval_id, 256).is_err()
+                        {
                             return Err(serde::de::Error::custom(
                                 "Agent confirmation approval_id must be nonempty and outside the ak: namespace",
                             ));
@@ -2574,8 +2577,10 @@ pub struct RealmPolicyActionId(String);
 impl RealmPolicyActionId {
     pub fn new(value: impl Into<String>) -> std::result::Result<Self, &'static str> {
         let value = value.into();
-        if value.is_empty() || value.starts_with("ak:") {
-            return Err("realm action id must be non-empty and outside ak: namespace");
+        if crate::validate_bounded_non_typed_identifier(&value, 256).is_err() {
+            return Err(
+                "realm action id must be nonempty, at most 256 code points and outside ak: namespace",
+            );
         }
         Ok(Self(value))
     }

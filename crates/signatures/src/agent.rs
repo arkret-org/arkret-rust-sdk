@@ -650,25 +650,28 @@ mod tests {
             pairing_code: "01234567".to_owned(),
             pairing_expires_at: Utc::now() + chrono::Duration::minutes(5),
         };
-        let verification_method = DidUrl::new("did:web:agent.example#runtime-1").unwrap();
-
-        let request = RuntimeKeyRequestBuilder::new_with_verification_method(
-            &signing_key,
-            bootstrap,
-            &verification_method,
-        )
-        .build_approval_request()
-        .unwrap();
-
-        assert_eq!(request.body.verification_method, verification_method);
-        assert_eq!(
-            request.body.public_key.kid.as_str(),
-            verification_method.as_str()
-        );
-        assert_eq!(
-            request.body.proof_of_possession.verification_method,
-            verification_method
-        );
+        for literal in [
+            "did:web:agent.example#runtime-1".to_owned(),
+            format!("did:web:agent.example#{}", "runtime".repeat(50)),
+        ] {
+            let verification_method = DidUrl::new(literal).unwrap();
+            let request = RuntimeKeyRequestBuilder::new_with_verification_method(
+                &signing_key,
+                bootstrap.clone(),
+                &verification_method,
+            )
+            .build_approval_request()
+            .unwrap();
+            assert_eq!(request.body.verification_method, verification_method);
+            assert_eq!(
+                request.body.public_key.kid.as_str(),
+                verification_method.as_str()
+            );
+            assert_eq!(
+                request.body.proof_of_possession.verification_method,
+                verification_method
+            );
+        }
     }
 
     #[test]

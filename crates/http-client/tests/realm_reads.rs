@@ -132,7 +132,7 @@ async fn links_canonicalize_filters_and_bind_direction_endpoints_and_uniqueness(
     ] {
         let (client, handle) = server(
             format!(
-                "/_arkret/self/realms/{REALM}/links?direction=outbound&link_kind_allow=governed_by"
+                "/_arkret/self/realms/{REALM}/links?direction=outbound&allowed_link_kinds=governed_by"
             ),
             "ak.self.realm_link.read.list.v1",
             json!({"realm_id":REALM,"direction":direction,"links":links}),

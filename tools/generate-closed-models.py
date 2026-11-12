@@ -3,7 +3,8 @@
 
 Bindings select Rust names/traits and external SDK types, never object members.
 Schema defaults are annotations, not permission to insert signed wire members.
-Domain constraints remain with the existing validate methods and schema gate.
+Supported scoped identifier bounds are enforced by shared serde adapters.
+Other domain constraints remain with the existing validate methods and schema gate.
 Unsupported structural composition fails the whole generation transaction.
 """
 from __future__ import annotations
@@ -165,6 +166,40 @@ class Generator:
         # not reject null unless a type/enum/const/composition proves it.
         return True
 
+    def identifier_adapter(self, node: dict, owner: str, typ: str, optional: bool = False) -> str | None:
+        """Keep the exact canonical scoped string profile at serde ingress."""
+        if typ not in {"String", "NonEmptyString", "arkret_wire::NonEmptyString", "Option<String>", "Option<NonEmptyString>", "Option<arkret_wire::NonEmptyString>"}:
+            return None
+        referenced_profiles = set()
+        def constraints(shape, here, seen):
+            minimum = shape.get("minLength", 0)
+            maximum = shape.get("maxLength", float("inf"))
+            patterns = {shape["pattern"]} if "pattern" in shape else set()
+            branches = [(branch, here) for branch in shape.get("allOf", [])]
+            if "$ref" in shape:
+                target = normalize(shape["$ref"], here)
+                referenced_profiles.add(target)
+                if target in seen:
+                    raise ValueError(f"cyclic identifier profile: {target}")
+                branches.append((self.node(target), target))
+                seen = seen | {target}
+            for branch, branch_owner in branches:
+                lo, hi, pats = constraints(branch, branch_owner, seen)
+                minimum, maximum = max(minimum, lo), min(maximum, hi)
+                patterns |= pats
+            return minimum, maximum, patterns
+        minimum, maximum, patterns = constraints(node, owner, set())
+        if "event-payload.schema.json#/$defs/agent_key_id" in referenced_profiles:
+            return "arkret_wire::deserialize_" + ("optional_" if optional else "") + "agent_key_identifier"
+        if maximum == 256 and "^[A-Za-z0-9_.-]+$" in patterns:
+            if optional:
+                raise ValueError(f"optional secret profile needs an explicit adapter: {owner}")
+            return "arkret_wire::deserialize_secret_storage_identifier"
+        if minimum >= 1 and "^(?!ak:)" in patterns and maximum in {64, 256}:
+            name = "focus_identifier" if maximum == 64 else "bounded_non_typed_identifier"
+            return "arkret_wire::deserialize_" + ("optional_" if optional else "") + name
+        return None
+
     def representation(self, row: dict, node: dict) -> str:
         """Project schema-owned members using reviewed Rust representation hooks.
 
@@ -235,6 +270,12 @@ class Generator:
                 attributes.append(f'#[serde({default}deserialize_with = "{HELPERS}::deserialize_non_null_optional")]')
                 if not any("skip_serializing_if" in attr for attr in attributes):
                     attributes.append('#[serde(skip_serializing_if = "Option::is_none")]')
+            adapter = self.identifier_adapter(shape, pointer, typ, typ.startswith("Option<"))
+            if adapter:
+                if any("deserialize_with" in attr for attr in attributes):
+                    attributes = [re.sub(r'deserialize_with\s*=\s*"[^"]+"', f'deserialize_with = "{adapter}"', attr) for attr in attributes]
+                else:
+                    attributes.append(f'#[serde(deserialize_with = "{adapter}")]')
             lines.extend("    " + attr for attr in attributes)
             lines.append(f"    {binding['visibility']} {binding['name']}: {typ},")
         return "\n".join(lines + ["}", ""])
@@ -242,9 +283,23 @@ class Generator:
     def rust_type(self, node: dict, pointer: str) -> tuple[str, bool]:
         if "$ref" in node:
             target = normalize(node["$ref"], pointer)
-            if target == TIMESTAMP:
-                self.node(target)
-                return "chrono::DateTime<chrono::Utc>", True
+            if target != TIMESTAMP and target not in self.names:
+                decimal = self.decimal_kind(node, pointer)
+                if decimal:
+                    self.node(target)
+                    return "u64", False
+                raise ValueError(f"unbound schema reference: {target}")
+            time_target = target
+            time_seen = set()
+            while time_target not in time_seen:
+                time_seen.add(time_target)
+                if time_target == TIMESTAMP:
+                    self.node(time_target)
+                    return "chrono::DateTime<chrono::Utc>", True
+                time_node = self.node(time_target)
+                if "$ref" not in time_node:
+                    break
+                time_target = normalize(time_node["$ref"], time_target)
             decimal = self.decimal_kind(node, pointer)
             if decimal:
                 self.node(target)
@@ -386,7 +441,11 @@ class Generator:
             lines += [f"pub enum {name} {{"]
             variants = set()
             for value in values:
-                variant = rust_name(value)
+                variant = row.get("variant_names", {}).get(value)
+                if variant is None:
+                    variant = rust_name(value)
+                elif not re.fullmatch(r"[A-Z][A-Za-z0-9]*", variant):
+                    raise ValueError(f"invalid reviewed Rust variant: {variant}")
                 if variant in variants:
                     raise ValueError(f"duplicate Rust variant: {variant}")
                 variants.add(variant)
@@ -411,10 +470,11 @@ class Generator:
                 decimal = self.decimal_kind(shape, here)
                 if decimal and field not in required:
                     raise ValueError(f"optional decimal needs a reviewed representation: {here}")
+                adapter = self.identifier_adapter(shape, here, rust_type, field not in required)
                 if field not in required:
                     lines.append('    #[serde(default, skip_serializing_if = "Option::is_none",')
                     helper = "deserialize_non_null_optional_timestamp" if timestamp else "deserialize_non_null_optional"
-                    lines.append(f'        deserialize_with = "{HELPERS}::{helper}")]')
+                    lines.append(f'        deserialize_with = "{adapter or (HELPERS + "::" + helper)}")]')
                     if timestamp:
                         lines.append(f'    #[serde(serialize_with = "{HELPERS}::serialize_optional_canonical_timestamp")]')
                     rust_type = f"Option<{rust_type}>"
@@ -424,6 +484,8 @@ class Generator:
                     lines.append(f'    #[serde(with = "{HELPERS}::{decimal}")]')
                     if row.get("openapi", True):
                         lines.append('#[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]')
+                if adapter and field in required:
+                    lines.append(f'    #[serde(deserialize_with = "{adapter}")]')
                 lines.append(f"    pub {field}: {rust_type},")
         return "\n".join(lines + ["}", ""])
 

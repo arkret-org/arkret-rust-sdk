@@ -40,7 +40,7 @@ async fn list_uses_authenticated_registered_get_and_rejects_incomplete_or_ambigu
                 bytes.extend_from_slice(&buffer[..n]);
             }
             let head = String::from_utf8_lossy(&bytes).to_ascii_lowercase();
-            assert!(head.starts_with("get /_arkret/self/account_data http/1.1"));
+            assert!(head.starts_with("get /_arkret/self/account-data http/1.1"));
             assert!(head.contains("authorization: dpop session-token"));
             assert!(head.contains("dpop: request-proof"));
             let body = body.to_string();
@@ -52,7 +52,7 @@ async fn list_uses_authenticated_registered_get_and_rejects_incomplete_or_ambigu
                 "session-token",
                 |request| {
                     assert_eq!(request.method, "GET");
-                    assert!(request.htu.ends_with("/_arkret/self/account_data"));
+                    assert!(request.htu.ends_with("/_arkret/self/account-data"));
                     Ok("request-proof".into())
                 },
             )))

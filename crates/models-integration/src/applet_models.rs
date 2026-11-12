@@ -369,6 +369,7 @@ pub enum AppletInstallEffectiveStatus {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppletInstallResponseBody {
+    #[serde(deserialize_with = "arkret_wire::deserialize_bounded_non_typed_identifier")]
     pub install_id: String,
     pub applet_id: AppletId,
     pub service_id: DidCoreId,
@@ -1523,5 +1524,12 @@ impl AppletManagedDeviceMetadata {
             ));
         }
         Ok(metadata)
+    }
+}
+
+impl AppletInstallResponseBody {
+    pub fn validate(&self) -> Result<()> {
+        arkret_wire::validate_bounded_non_typed_identifier(&self.install_id, 256)
+            .map_err(|error| WireError::Protocol(error.into()))
     }
 }

@@ -506,3 +506,34 @@ fn fixed_agent_authority_carrier_has_no_legacy_handoff_slot() {
     legacy["authority_transitions"] = json!([]);
     assert!(serde_json::from_value::<AgentAcceptedAuthorityBundle>(legacy).is_err());
 }
+
+#[test]
+fn public_agent_key_extraction_and_authority_binding_enforce_the_shared_selector_profile() {
+    use arkret_models_identity::agent_signer_evidence::AgentAuthorizedSigningKey;
+    let (_, _, evidence) = fixture();
+    let state = evidence
+        .agent_authority_state_evidence
+        .state
+        .as_ref()
+        .unwrap();
+    let account = state
+        .key_authorization_event
+        .actor_id
+        .as_account_id()
+        .unwrap();
+    for invalid in [
+        "ak:key:example".to_owned(),
+        "a".repeat(257),
+        "runtime\n".to_owned(),
+    ] {
+        let mut event = state.key_authorization_event.clone();
+        event.payload.insert("key_id".to_owned(), json!(invalid));
+        assert!(AgentAuthorizedSigningKey::from_event(&event).is_err());
+        let mut body = serde_json::to_value(&state.authorization).unwrap();
+        body["agent_key_id"] = json!(invalid);
+        assert!(serde_json::from_value::<AgentKeyAuthorization>(body).is_err());
+        let mut constructed = state.clone();
+        constructed.authorization.agent_key_id = NonEmptyString::new(invalid).unwrap();
+        assert!(constructed.validate_binding(account).is_err());
+    }
+}

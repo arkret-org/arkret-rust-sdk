@@ -46,6 +46,49 @@ class ClosedModelsTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'settled processing role'):
             self.generate()
 
+    def test_scoped_identifier_adapter_follows_refs_and_stricter_siblings(self):
+        profile = {"$defs": {"bounded": {"type": "string", "minLength": 1, "maxLength": 256, "pattern": "^(?!ak:)"}}}
+        (self.root / "profiles.schema.json").write_text(json.dumps(profile), encoding="utf-8")
+        ref = "profiles.schema.json#/$defs/bounded"
+        self.bindings["references"][ref] = "String"
+        self.schema["properties"]["second"] = {"$ref": ref, "maxLength": 64}
+        self.schema["properties"]["first"] = {"$ref": ref}
+        output = self.generate()
+        self.assertIn("deserialize_focus_identifier", output)
+        self.assertIn("deserialize_optional_bounded_non_typed_identifier", output)
+        self.assertNotIn("deserialize_non_null_optional", output)
+
+    def test_reviewed_namespaced_const_variant_keeps_exact_wire_literal(self):
+        self.schema = {"const": "ak.schema.private_plaintext.v1"}
+        self.bindings["families"][0]["types"][0]["variant_names"] = {"ak.schema.private_plaintext.v1": "V1"}
+        output = self.generate()
+        self.assertIn('#[serde(rename = "ak.schema.private_plaintext.v1")]', output)
+        self.assertIn("    V1,", output)
+        self.bindings["families"][0]["types"][0]["variant_names"] = {"ak.schema.private_plaintext.v1": "bad::variant"}
+        with self.assertRaisesRegex(ValueError, "invalid reviewed Rust variant"):
+            self.generate()
+
+    def test_indirect_timestamp_reference_keeps_canonical_timestamp_adapter(self):
+        (self.root / "time.schema.json").write_text(json.dumps({"$defs": {"timestamp": {"type": "string"}}}), encoding="utf-8")
+        (self.root / "alias.schema.json").write_text(json.dumps({"$ref": "time.schema.json#/$defs/timestamp"}), encoding="utf-8")
+        self.bindings["references"]["alias.schema.json"] = "chrono::DateTime<chrono::Utc>"
+        self.schema["properties"]["second"] = {"$ref": "alias.schema.json"}
+        output = self.generate()
+        self.assertIn("::canonical_timestamp", output)
+
+    def test_agent_key_profile_reference_selects_the_full_vocabulary_adapter(self):
+        profile = {"$defs": {"agent_key_id": {"type": "string", "minLength": 1, "maxLength": 256,
+            "pattern": r"^(?!ak:)(?:did:[a-z0-9]+:[^\s#]+#[^\s#]+|[a-zA-Z0-9._:-]{1,256})(?![\s\S])"}}}
+        (self.root / "event-payload.schema.json").write_text(json.dumps(profile), encoding="utf-8")
+        ref = "event-payload.schema.json#/$defs/agent_key_id"
+        self.bindings["references"][ref] = "String"
+        self.schema["properties"]["second"] = {"$ref": ref}
+        self.schema["properties"]["first"] = {"$ref": ref}
+        output = self.generate()
+        self.assertIn("deserialize_agent_key_identifier", output)
+        self.assertIn("deserialize_optional_agent_key_identifier", output)
+        self.assertNotIn("deserialize_bounded_non_typed_identifier", output)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)

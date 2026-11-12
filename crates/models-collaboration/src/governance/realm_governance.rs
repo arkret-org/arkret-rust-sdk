@@ -521,6 +521,7 @@ pub enum RealmOrganizationLifecyclePhase {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct RealmOrganizationRelationshipView {
+    #[serde(deserialize_with = "arkret_wire::deserialize_bounded_non_typed_identifier")]
     pub statement_id: String,
     pub organization_id: DidCoreId,
     pub relationship: RealmOrganizationRelationship,
@@ -535,8 +536,10 @@ pub struct RealmOrganizationRelationshipView {
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "arkret_wire::deserialize_optional_bounded_non_typed_identifier")]
     pub supersedes_statement_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "arkret_wire::deserialize_optional_bounded_non_typed_identifier")]
     pub revokes_statement_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_commit_ref: Option<RealmCommitId>,
@@ -550,3 +553,93 @@ pub struct RealmOrganizationRelationshipView {
 }
 
 include!("generated/realm_governance_contracts.rs");
+
+/// Shared closed query for the canonical Realm link list operation.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmLinkListQuery {
+    #[serde(default)]
+    pub direction: RealmLinkDirection,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub allowed_link_kinds: Option<Vec<RealmLinkKind>>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+pub enum RealmLinkListQueryError {
+    #[error("unknown Realm link query parameter: {0}")]
+    UnknownParameter(String),
+    #[error("duplicate Realm link query parameter: {0}")]
+    DuplicateParameter(String),
+    #[error("invalid Realm link direction")]
+    InvalidDirection,
+    #[error("allowed_link_kinds must contain known nonempty comma-separated kinds")]
+    InvalidAllowedLinkKinds,
+}
+
+impl RealmLinkListQuery {
+    /// Parse every raw pair so unknown and duplicate names cannot be dropped.
+    pub fn from_query_pairs<I, K, V>(pairs: I) -> std::result::Result<Self, RealmLinkListQueryError>
+    where
+        I: IntoIterator<Item = (K, V)>,
+        K: AsRef<str>,
+        V: AsRef<str>,
+    {
+        let mut query = Self::default();
+        let mut seen = std::collections::BTreeSet::new();
+        for (key, value) in pairs {
+            let key = key.as_ref();
+            if !matches!(key, "direction" | "allowed_link_kinds") {
+                return Err(RealmLinkListQueryError::UnknownParameter(key.to_owned()));
+            }
+            if !seen.insert(key.to_owned()) {
+                return Err(RealmLinkListQueryError::DuplicateParameter(key.to_owned()));
+            }
+            match key {
+                "direction" => {
+                    query.direction = RealmLinkDirection::parse(value.as_ref())
+                        .ok_or(RealmLinkListQueryError::InvalidDirection)?
+                }
+                "allowed_link_kinds" => {
+                    let kinds = value
+                        .as_ref()
+                        .split(',')
+                        .map(|kind| {
+                            RealmLinkKind::parse(kind)
+                                .ok_or(RealmLinkListQueryError::InvalidAllowedLinkKinds)
+                        })
+                        .collect::<std::result::Result<Vec<_>, _>>()?;
+                    query.allowed_link_kinds = Some(kinds);
+                }
+                _ => unreachable!(),
+            }
+        }
+        query.validate()?;
+        Ok(query)
+    }
+
+    pub fn validate(&self) -> std::result::Result<(), RealmLinkListQueryError> {
+        if self.allowed_link_kinds.as_ref().is_some_and(Vec::is_empty) {
+            return Err(RealmLinkListQueryError::InvalidAllowedLinkKinds);
+        }
+        Ok(())
+    }
+
+    pub fn to_query_pairs(
+        &self,
+    ) -> std::result::Result<Vec<(&'static str, String)>, RealmLinkListQueryError> {
+        self.validate()?;
+        let direction = match self.direction {
+            RealmLinkDirection::Outbound => "outbound",
+            RealmLinkDirection::Inbound => "inbound",
+            RealmLinkDirection::Both => "both",
+        };
+        let mut pairs = vec![("direction", direction.to_owned())];
+        if let Some(kinds) = &self.allowed_link_kinds {
+            let mut names = kinds.iter().map(RealmLinkKind::as_str).collect::<Vec<_>>();
+            names.sort_unstable();
+            names.dedup();
+            pairs.push(("allowed_link_kinds", names.join(",")));
+        }
+        Ok(pairs)
+    }
+}

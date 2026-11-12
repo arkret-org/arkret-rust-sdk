@@ -54,7 +54,7 @@ fn agent_draft_digest_component(domain: &str, literal: &str) -> String {
 /// registered domains. There is no truncation, JSON wrapper, normalization,
 /// salt, fallback, or reversible component encoding.
 pub fn agent_draft_account_data_key(agent_id: &DidCoreId, draft_id: &str) -> Result<String> {
-    if draft_id.is_empty() || draft_id.starts_with("ak:") {
+    if validate_bounded_non_typed_identifier(draft_id, 256).is_err() {
         return Err(WireError::Protocol(
             "agent draft draft_id must be non-empty and must not use the ak: typed-id namespace"
                 .to_owned(),

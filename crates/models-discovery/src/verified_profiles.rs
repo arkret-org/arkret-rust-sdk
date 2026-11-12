@@ -111,7 +111,10 @@ pub fn parse_verified_profiles_artifact(
             });
             continue;
         }
-        let Some(verification_run_id) = non_empty(raw.verification_run_id) else {
+        let Some(verification_run_id) = raw
+            .verification_run_id
+            .filter(|value| arkret_wire::validate_bounded_non_typed_identifier(value, 256).is_ok())
+        else {
             dropped.push(DroppedVerifiedProfileEntry {
                 profile_id,
                 reason: "missing verification_run_id",

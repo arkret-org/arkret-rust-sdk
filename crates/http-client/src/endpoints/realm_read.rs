@@ -1,6 +1,7 @@
 //! Registered, caller-authorized Realm reads using the shared wire DTOs.
 use arkret_models_collaboration::governance::realm_governance::{
     RealmExport, RealmLifecycleView, RealmLinkDirection, RealmLinkKind, RealmLinkList,
+    RealmLinkListQuery,
 };
 use arkret_wire::RealmId;
 
@@ -27,21 +28,16 @@ impl Client {
         direction: RealmLinkDirection,
         allow: Option<&[RealmLinkKind]>,
     ) -> Result<RealmLinkList> {
-        let direction_name = match direction {
-            RealmLinkDirection::Outbound => "outbound",
-            RealmLinkDirection::Inbound => "inbound",
-            RealmLinkDirection::Both => "both",
+        let typed_query = RealmLinkListQuery {
+            direction,
+            allowed_link_kinds: allow.map(<[RealmLinkKind]>::to_vec),
         };
         let mut query = url::form_urlencoded::Serializer::new(String::new());
-        query.append_pair("direction", direction_name);
-        if let Some(allow) = allow {
-            let mut kinds = allow.iter().map(|kind| kind.as_str()).collect::<Vec<_>>();
-            kinds.sort_unstable();
-            kinds.dedup();
-            if kinds.is_empty() {
-                return Err(Error::Protocol("link_kind_allow must not be empty".into()));
-            }
-            query.append_pair("link_kind_allow", &kinds.join(","));
+        for (key, value) in typed_query
+            .to_query_pairs()
+            .map_err(|error| Error::Protocol(error.to_string()))?
+        {
+            query.append_pair(key, &value);
         }
         let list: RealmLinkList = self
             .get(&format!(

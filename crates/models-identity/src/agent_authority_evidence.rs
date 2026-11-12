@@ -29,6 +29,7 @@ pub struct AgentRuntimePublicKey {
 #[serde(deny_unknown_fields)]
 pub struct AgentKeyAuthorization {
     pub agent_id: DidCoreId,
+    #[serde(deserialize_with = "arkret_wire::deserialize_agent_key_identifier")]
     pub agent_key_id: NonEmptyString,
     pub verification_method: DidUrl,
     pub public_key: AgentRuntimePublicKey,
@@ -255,6 +256,7 @@ impl AgentAuthorityState {
     /// Byte-local complete bindings. Cryptographic validation is owned by
     /// arkret-identity, never by a service-specific duplicate DTO.
     pub fn validate_binding(&self, account: &AccountId) -> Result<()> {
+        arkret_wire::validate_agent_key_identifier(self.authorization.agent_key_id.as_str())?;
         let genesis = &self.pcr_genesis_event;
         let realm = &genesis.realm_id;
         let governance = arkret_wire::GenesisGovernance::from_genesis(genesis)?;

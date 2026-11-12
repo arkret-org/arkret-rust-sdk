@@ -291,6 +291,7 @@ pub enum AgentKeyRuntimeAttestationKind {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentKeySupersession {
+    #[serde(deserialize_with = "arkret_wire::deserialize_agent_key_identifier")]
     pub key_id: NonEmptyString,
     pub authorized_event_ref: EventId,
 }

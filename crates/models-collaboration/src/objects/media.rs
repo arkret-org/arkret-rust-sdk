@@ -220,6 +220,7 @@ pub struct CallMediaTokenExchangeRequestBody {
     pub call_id: CallId,
     pub actor_id: ActorId,
     pub device_id: DeviceId,
+    #[serde(deserialize_with = "arkret_wire::deserialize_focus_identifier")]
     pub focus_id: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub capability_refs: Vec<GrantId>,
@@ -269,6 +270,7 @@ pub struct ArkretNativeMediaPermissions {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ArkretNativeMediaTokenPayload {
     pub call_id: CallId,
+    #[serde(deserialize_with = "arkret_wire::deserialize_focus_identifier")]
     pub focus_id: String,
     pub participant_id: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -310,6 +312,7 @@ pub enum MediaBackendToken {
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct CallMediaTokenExchangeOutcomeWire {
+    #[serde(deserialize_with = "arkret_wire::deserialize_focus_identifier")]
     focus_id: String,
     connect_url: String,
     backend_token: MediaBackendToken,
@@ -329,6 +332,7 @@ struct CallMediaTokenExchangeOutcomeWire {
 #[serde(try_from = "CallMediaTokenExchangeOutcomeWire")]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct CallMediaTokenExchangeResponseBody {
+    #[serde(deserialize_with = "arkret_wire::deserialize_focus_identifier")]
     pub focus_id: String,
     pub connect_url: String,
     pub backend_token: MediaBackendToken,
@@ -448,6 +452,25 @@ impl CallMediaTokenExchangeRequestBody {
                 }
             }
             CallMediaJoinContext::Refresh(_) => {}
+        }
+        Ok(())
+    }
+}
+
+impl CallMediaTokenExchangeRequestBody {
+    pub fn validate(&self) -> arkret_wire::Result<()> {
+        arkret_wire::validate_bounded_non_typed_identifier(&self.focus_id, 64)
+            .map_err(|error| arkret_wire::WireError::Protocol(error.into()))
+    }
+}
+
+impl CallMediaTokenExchangeResponseBody {
+    pub fn validate(&self) -> arkret_wire::Result<()> {
+        arkret_wire::validate_bounded_non_typed_identifier(&self.focus_id, 64)
+            .map_err(|error| arkret_wire::WireError::Protocol(error.into()))?;
+        if let MediaBackendToken::ArkretNative(token) = &self.backend_token {
+            arkret_wire::validate_bounded_non_typed_identifier(&token.payload.focus_id, 64)
+                .map_err(|error| arkret_wire::WireError::Protocol(error.into()))?;
         }
         Ok(())
     }

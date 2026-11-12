@@ -2,19 +2,34 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/content-encryption.schema.json
-// sha256=b17a2174599d5171d5621f062d5775b20dc75f7e20e2b5827cb7def6cd326ff5
+// sha256=6b4bdb9e89c47735f1faa9b4b06d7b50dbdcecbcf14e50a0d6818ae5618a5d07
 //
-// Input: schemas/decimal-integers.schema.json
-// sha256=7ea09c46f777e010c72a1fd069b7fbefc7d66924e7b3ad5a5961ce9914858987
-//
-// Input: schemas/time.schema.json
-// sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
+// Input: schemas/event-payload.schema.json
+// sha256=e57f2773764165f5a2e6047ae5491cdf152476deb73c83b2f6c14fff58925305
 //
 // Input: schemas/common-ids.schema.json
 // sha256=0cc25a02fe0d9a94f6e41f2cf8f64e492ba36362f1e69a699cf1e684924837ee
 //
+// Input: schemas/decimal-integers.schema.json
+// sha256=7ea09c46f777e010c72a1fd069b7fbefc7d66924e7b3ad5a5961ce9914858987
+//
+// Input: schemas/mls-welcome-delivery.schema.json
+// sha256=734acbd160b1f7cf05a971cfc53a81a83990704c8e3d144c8fd7796767b57394
+//
+// Input: schemas/authority-commit-operations.schema.json
+// sha256=be7a4b17001814924e2888913c4889166a4971a20de5bdc1057dc22e9c8694b1
+//
+// Input: schemas/time.schema.json
+// sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
+//
+// Input: schemas/key-backup.schema.json
+// sha256=55f0ed177b975a998f2869f0834489f86b1ee265ce795df50d540ca6c4ab6ec0
+//
+// Input: schemas/keypackage-operations.schema.json
+// sha256=c6d3efc76c853e71ee4cbf6eda707cd0e89139e85441d3616fadfeda84f0ad41
+//
 // Bindings: tools/closed-model-bindings.json
-// sha256=8754dda4399255a8d93502ff99e0f2e245ea00988a5263e7f64cf21d1eada652
+// sha256=2db9dc0b757e082d561722a2301e943a7422e79691dd5632a5a2ec129045cc3f
 
 /// Counterpart: `content-encryption.schema.json#/$defs/root_context`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -88,6 +103,7 @@ pub enum ContentRootItemKind {
 #[serde(deny_unknown_fields)]
 pub struct ContentRootBackupEntry {
     pub item_kind: ContentRootItemKind,
+    #[serde(deserialize_with = "arkret_wire::deserialize_secret_storage_identifier")]
     pub secret_id: String,
     pub root_context: ContentRootContext,
     pub root_ref: arkret_wire::Hash,

@@ -1158,6 +1158,108 @@ impl<'de> Deserialize<'de> for DidKey {
     }
 }
 
+/// Validate a bounded scoped handle without changing its UTF-8 literal.
+pub fn validate_bounded_non_typed_identifier(
+    value: &str,
+    max_code_points: usize,
+) -> Result<(), &'static str> {
+    if value.is_empty() || value.starts_with("ak:") || value.chars().count() > max_code_points {
+        return Err(
+            "identifier must be nonempty, within its code-point bound and outside ak: namespace",
+        );
+    }
+    Ok(())
+}
+
+fn deserialize_non_typed_with_limit<'de, D, T>(
+    deserializer: D,
+    max_code_points: usize,
+) -> Result<T, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de> + AsRef<str>,
+{
+    let value = T::deserialize(deserializer)?;
+    validate_bounded_non_typed_identifier(value.as_ref(), max_code_points)
+        .map_err(de::Error::custom)?;
+    Ok(value)
+}
+
+/// Deserialize a scoped non-typed identifier of at most 256 Unicode code points.
+pub fn deserialize_bounded_non_typed_identifier<'de, D, T>(deserializer: D) -> Result<T, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de> + AsRef<str>,
+{
+    deserialize_non_typed_with_limit(deserializer, 256)
+}
+
+/// Optional scoped handles reject explicit null; absence is handled by serde default.
+pub fn deserialize_optional_bounded_non_typed_identifier<'de, D, T>(
+    deserializer: D,
+) -> Result<Option<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de> + AsRef<str>,
+{
+    deserialize_bounded_non_typed_identifier(deserializer).map(Some)
+}
+
+/// Deserialize the existing stricter 64-code-point focus profile.
+pub fn deserialize_focus_identifier<'de, D, T>(deserializer: D) -> Result<T, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de> + AsRef<str>,
+{
+    deserialize_non_typed_with_limit(deserializer, 64)
+}
+
+pub fn deserialize_optional_focus_identifier<'de, D, T>(
+    deserializer: D,
+) -> Result<Option<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de> + AsRef<str>,
+{
+    deserialize_focus_identifier(deserializer).map(Some)
+}
+
+pub fn deserialize_bounded_non_typed_identifiers<'de, D, T>(
+    deserializer: D,
+) -> Result<Vec<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de> + AsRef<str>,
+{
+    let values = Vec::<T>::deserialize(deserializer)?;
+    for value in &values {
+        validate_bounded_non_typed_identifier(value.as_ref(), 256).map_err(de::Error::custom)?;
+    }
+    Ok(values)
+}
+
+/// The secret-storage profile keeps its original ASCII vocabulary.
+pub fn validate_secret_storage_identifier(value: &str) -> Result<(), &'static str> {
+    validate_bounded_non_typed_identifier(value, 256)?;
+    if !value
+        .bytes()
+        .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'.' | b'-'))
+    {
+        return Err("secret identifier violates its ASCII vocabulary");
+    }
+    Ok(())
+}
+
+pub fn deserialize_secret_storage_identifier<'de, D, T>(deserializer: D) -> Result<T, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de> + AsRef<str>,
+{
+    let value = T::deserialize(deserializer)?;
+    validate_secret_storage_identifier(value.as_ref()).map_err(de::Error::custom)?;
+    Ok(value)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

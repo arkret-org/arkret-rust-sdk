@@ -803,6 +803,7 @@ pub enum SecretStorageItemKind {
 #[serde(deny_unknown_fields)]
 pub struct SecretStorageContentIndex {
     pub item_kind: SecretStorageItemKind,
+    #[serde(deserialize_with = "arkret_wire::deserialize_secret_storage_identifier")]
     pub secret_id: String,
     #[serde(
         default,
@@ -831,7 +832,7 @@ impl SecretStorageContentIndex {
             (_, None, None) => {}
             _ => return protocol("non-root index cannot carry root metadata"),
         }
-        if self.secret_id.is_empty()
+        if arkret_wire::validate_secret_storage_identifier(&self.secret_id).is_err()
             || !self
                 .secret_id
                 .bytes()

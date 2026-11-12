@@ -121,6 +121,7 @@ fn ordinary_secret_kind<'de, D: serde::Deserializer<'de>>(
 pub struct SecretStorageSecret {
     #[serde(deserialize_with = "ordinary_secret_kind")]
     pub item_kind: SecretStorageItemKind,
+    #[serde(deserialize_with = "arkret_wire::deserialize_secret_storage_identifier")]
     pub secret_id: String,
     pub secret_base64url: Base64UrlString,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -134,7 +135,7 @@ impl SecretStorageSecret {
         if self.item_kind == SecretStorageItemKind::ContentEpochRoot {
             return protocol("content root cannot use ordinary secret fields");
         }
-        if self.secret_id.is_empty()
+        if arkret_wire::validate_secret_storage_identifier(&self.secret_id).is_err()
             || !self
                 .secret_id
                 .bytes()
@@ -449,6 +450,11 @@ pub struct SignedPrekey {
     pub key: Base64UrlString,
     pub algorithm: NonEmptyString,
     pub signature: KeyOperationSignature,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_wire::deserialize_optional_bounded_non_typed_identifier"
+    )]
     pub key_id: Option<NonEmptyString>,
     pub key_digest: Option<Hash>,
     pub fallback: Option<bool>,

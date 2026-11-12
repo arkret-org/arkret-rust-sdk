@@ -2,16 +2,22 @@
 //! Generator: tools/generate-closed-models.py
 //!
 //! Input: schemas/call-invitation-operations.schema.json
-//! sha256=88f06d26b99092fdcafd2f95d0d755ecab82ec71089520093382afc8c5a3dffd
+//! sha256=6f64731fa6418ea2ccc5b7cd379f359c98e0f2f5a319a458d256fd7af06ed6ab
+//!
+//! Input: schemas/string-profiles.schema.json
+//! sha256=7c7522a769204b050b9711b53c1b911bc660645962ed6c0243f95fae72473f78
 //!
 //! Input: schemas/current-state.schema.json
-//! sha256=12c6338f4680c74863df4fb44a782ce08bf15a489ee12c019864141f0f6962f2
+//! sha256=106ec4b74fb996d95cfd8631d60e22c1c72cc1f7d16232bebf10f21a62ff1d47
 //!
 //! Input: schemas/consent-operations.schema.json
 //! sha256=a367b21ca191391ab7a62c8b1413a48f9866b7cdca5692c65e5bd58c5a330b09
 //!
+//! Input: schemas/common-ids.schema.json
+//! sha256=0cc25a02fe0d9a94f6e41f2cf8f64e492ba36362f1e69a699cf1e684924837ee
+//!
 //! Bindings: tools/closed-model-bindings.json
-//! sha256=8754dda4399255a8d93502ff99e0f2e245ea00988a5263e7f64cf21d1eada652
+//! sha256=2db9dc0b757e082d561722a2301e943a7422e79691dd5632a5a2ec129045cc3f
 
 /// Counterpart: `call-invitation-operations.schema.json#/$defs/media`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -144,7 +150,7 @@ pub struct CallInvitationAdmissionRequestBody {
     pub subject_device_id: arkret_wire::DeviceId,
     pub nonce: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
+    #[serde(deserialize_with = "arkret_wire::deserialize_optional_focus_identifier")]
     pub focus_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]

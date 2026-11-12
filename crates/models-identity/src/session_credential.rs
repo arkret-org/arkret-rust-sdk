@@ -630,9 +630,10 @@ fn validate_issuance_fields(
             "session grant scopes must be byte-wise sorted and deduplicated".to_owned(),
         ));
     }
-    if session_id.trim().is_empty() {
+    if arkret_wire::validate_bounded_non_typed_identifier(session_id, 256).is_err() {
         return Err(WireError::Protocol(
-            "session grant session_id must not be empty".to_owned(),
+            "session grant session_id must be nonempty, at most 256 code points and outside ak:"
+                .to_owned(),
         ));
     }
     if expires_at <= not_before {
@@ -863,11 +864,15 @@ mod tests {
 
         let mut self_referential = claims();
         self_referential.session_id = self_referential.grant_id.to_string();
-        self_referential.grant_id = self_referential.recomputed_grant_id().unwrap();
-        // Recompute once more so the forbidden equality is tested directly,
-        // independent of the normal digest-mismatch guard.
-        self_referential.session_id = self_referential.grant_id.to_string();
+        // The session profile excludes typed identifiers before a grant can be recomputed.
+        assert!(self_referential.recomputed_grant_id().is_err());
         assert!(self_referential.validate().is_err());
+        assert!(
+            serde_json::from_value::<SignedSessionGrantClaims>(
+                serde_json::to_value(self_referential).unwrap()
+            )
+            .is_err()
+        );
     }
 
     #[test]

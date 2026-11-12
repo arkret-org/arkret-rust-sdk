@@ -320,7 +320,7 @@ pub struct ServiceDescribe {
     /// (alternative to inlining [`Self::rate_limit_policy`]). Wire shape
     /// per `service-describe.schema.json#/properties/rate_limit_policy_id`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub rate_limit_policy_id: Option<String>,
+    pub rate_limit_policy_id: Option<PolicyId>,
     /// R3.4 — coarse outbound network policy for SSRF-sensitive service
     /// calls such as DID resolution, federation, media fetch, snapshots,
     /// webhooks, applets, agents, directory and push.
@@ -573,6 +573,10 @@ impl ServiceDescribe {
                 "ServiceDescribe: invite_addressing and ak.feature.invite_addressing.v1 must appear together ({})",
                 ErrorCode::SCHEMA_VIOLATION
             )));
+        }
+        for profile in &self.verified_profiles {
+            validate_bounded_non_typed_identifier(&profile.verification_run_id, 256)
+                .map_err(|error| WireError::Protocol(error.into()))?;
         }
         if self.development_mode && !self.verified_profiles.is_empty() {
             return Err(WireError::Protocol(format!(
@@ -1293,6 +1297,7 @@ pub struct EgressPrivateException {
 pub struct VerifiedProfileEntry {
     pub profile_id: String,
     pub claim_kind: ConformanceVerifiedKind,
+    #[serde(deserialize_with = "arkret_wire::deserialize_bounded_non_typed_identifier")]
     pub verification_run_id: String,
     pub artifact_digest: String,
     pub artifact_ref: String,

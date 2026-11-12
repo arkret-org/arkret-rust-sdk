@@ -695,6 +695,7 @@ const AGENT_DRAFT_PENDING_INTENT_MAX_UPSERT_BYTES: usize = 1024 * 1024;
 pub struct AgentDraftPendingIntentKey {
     pub controller_account_id: AccountId,
     pub agent_id: DidCoreId,
+    #[serde(deserialize_with = "arkret_wire::deserialize_bounded_non_typed_identifier")]
     pub draft_id: String,
 }
 
@@ -773,6 +774,7 @@ pub struct AgentDraftPendingIntentLive {
     pub schema: AgentDraftPendingIntentSchema,
     pub controller_account_id: AccountId,
     pub agent_id: DidCoreId,
+    #[serde(deserialize_with = "arkret_wire::deserialize_bounded_non_typed_identifier")]
     pub draft_id: String,
     pub proposed_action: String,
     pub target: AgentActionTarget,
@@ -794,6 +796,7 @@ pub struct AgentDraftPendingIntentConsumed {
     pub schema: AgentDraftPendingIntentSchema,
     pub controller_account_id: AccountId,
     pub agent_id: DidCoreId,
+    #[serde(deserialize_with = "arkret_wire::deserialize_bounded_non_typed_identifier")]
     pub draft_id: String,
     pub proposed_action: String,
     pub target: AgentActionTarget,
@@ -815,6 +818,7 @@ pub struct AgentDraftPendingIntentExpired {
     pub schema: AgentDraftPendingIntentSchema,
     pub controller_account_id: AccountId,
     pub agent_id: DidCoreId,
+    #[serde(deserialize_with = "arkret_wire::deserialize_bounded_non_typed_identifier")]
     pub draft_id: String,
     pub proposed_action: String,
     pub target: AgentActionTarget,
@@ -1021,7 +1025,7 @@ impl AgentDraftPendingIntentKey {
 }
 
 fn validate_agent_draft_identifier(draft_id: &str) -> Result<()> {
-    if draft_id.is_empty() || draft_id.starts_with("ak:") {
+    if arkret_wire::validate_bounded_non_typed_identifier(draft_id, 256).is_err() {
         return Err(protocol_error(
             "pending-intent draft_id violates its identifier profile",
         ));

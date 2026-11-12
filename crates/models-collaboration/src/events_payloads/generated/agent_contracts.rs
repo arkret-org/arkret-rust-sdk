@@ -2,13 +2,13 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/event-payload.schema.json
-// sha256=acfbdce31eae2f3c3f4ca550f3506c9ecd500e4de81b3517fe8167903934c7c4
-//
-// Input: schemas/account-operations.schema.json
-// sha256=09a9261669e5c9730cf71fb0ac935cd8bcb4d6d937273778151f9a58495bf5f6
+// sha256=e57f2773764165f5a2e6047ae5491cdf152476deb73c83b2f6c14fff58925305
 //
 // Input: schemas/string-profiles.schema.json
-// sha256=aa4422be011e02a256a0cfdc072c66b15534eb8de23b76e31329982702e06e26
+// sha256=7c7522a769204b050b9711b53c1b911bc660645962ed6c0243f95fae72473f78
+//
+// Input: schemas/account-operations.schema.json
+// sha256=0ae0fec5fd63dca4b9df9293eb71936cf73a3eeeae13b2268dc99699c1ed7607
 //
 // Input: schemas/common-ids.schema.json
 // sha256=0cc25a02fe0d9a94f6e41f2cf8f64e492ba36362f1e69a699cf1e684924837ee
@@ -17,13 +17,16 @@
 // sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
 //
 // Input: schemas/current-state.schema.json
-// sha256=12c6338f4680c74863df4fb44a782ce08bf15a489ee12c019864141f0f6962f2
+// sha256=106ec4b74fb996d95cfd8631d60e22c1c72cc1f7d16232bebf10f21a62ff1d47
 //
 // Input: schemas/agent-provision.schema.json
 // sha256=9fd05ffd6b0ea5ee7437f17c2883c0d1811fe7e77e1cfc46c3405c63b4788e27
 //
+// Input: schemas/agent-draft-private.schema.json
+// sha256=e6147e907122167a8508f61447213db99f752a00791fab1f44a851515fec88f1
+//
 // Bindings: tools/closed-model-bindings.json
-// sha256=8754dda4399255a8d93502ff99e0f2e245ea00988a5263e7f64cf21d1eada652
+// sha256=2db9dc0b757e082d561722a2301e943a7422e79691dd5632a5a2ec129045cc3f
 
 /// Counterpart: `event-payload.schema.json#/$defs/agent_action_approve_payload`.
 /// Counterpart for
@@ -31,12 +34,13 @@
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentActionApprovePayload {
+    #[serde(deserialize_with = "arkret_wire::deserialize_bounded_non_typed_identifier")]
     pub approval_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
+    #[serde(deserialize_with = "arkret_wire::deserialize_optional_bounded_non_typed_identifier")]
     pub request_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
+    #[serde(deserialize_with = "arkret_wire::deserialize_optional_bounded_non_typed_identifier")]
     pub draft_id: Option<String>,
     pub agent_id: DidCoreId,
     pub proposed_action: String,
@@ -58,7 +62,9 @@ pub struct AgentActionApprovePayload {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentActionRejectPayload {
+    #[serde(deserialize_with = "arkret_wire::deserialize_bounded_non_typed_identifier")]
     pub rejection_id: String,
+    #[serde(deserialize_with = "arkret_wire::deserialize_bounded_non_typed_identifier")]
     pub request_id: String,
     pub agent_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -74,9 +80,10 @@ pub struct AgentActionRejectPayload {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentActionRequestPayload {
+    #[serde(deserialize_with = "arkret_wire::deserialize_bounded_non_typed_identifier")]
     pub request_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
+    #[serde(deserialize_with = "arkret_wire::deserialize_optional_bounded_non_typed_identifier")]
     pub draft_id: Option<String>,
     pub agent_id: DidCoreId,
     pub controller_account_id: AccountId,
@@ -110,6 +117,7 @@ pub struct AgentDeactivatePayload {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentDraftProposePayload {
+    #[serde(deserialize_with = "arkret_wire::deserialize_bounded_non_typed_identifier")]
     pub draft_id: String,
     pub agent_id: DidCoreId,
     pub controller_account_id: AccountId,
@@ -176,6 +184,7 @@ pub struct AgentKeyAuthorizePayloadRuntimeAttestation {
 #[serde(deny_unknown_fields)]
 pub struct AgentKeyAuthorizePayload {
     pub agent_id: DidCoreId,
+    #[serde(deserialize_with = "arkret_wire::deserialize_agent_key_identifier")]
     pub key_id: NonEmptyString,
     pub verification_method: DidUrl,
     pub public_key: crate::governance::agent_artifacts::PublicKey,
@@ -208,6 +217,7 @@ pub struct AgentKeyAuthorizePayload {
 #[serde(deny_unknown_fields)]
 pub struct AgentKeyRevokePayload {
     pub agent_id: DidCoreId,
+    #[serde(deserialize_with = "arkret_wire::deserialize_agent_key_identifier")]
     pub key_id: NonEmptyString,
     pub revoked_by: DidCoreId,
     #[serde(with = "canonical_timestamp")]
@@ -296,9 +306,10 @@ pub struct AgentProvisionPayload {
 }
 
 /// Counterpart: `event-payload.schema.json#/$defs/agent_action_target`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/agent_action_target`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentActionTarget {
     pub kind: String,
@@ -359,4 +370,77 @@ pub struct AgentKeyScopeResource {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
     pub service_id: Option<DidCoreId>,
+}
+
+/// Counterpart:
+/// `agent-draft-private.schema.json#/$defs/agent_draft_content_handoff_plaintext/properties/
+/// schema`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AgentDraftContentHandoffPlaintextSchema {
+    #[serde(rename = "ak.schema.agent_draft_content_handoff_plaintext.v1")]
+    V1,
+}
+
+/// Counterpart: `agent-draft-private.schema.json#/$defs/agent_draft_content_handoff_plaintext`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentDraftContentHandoffPlaintext {
+    pub schema: AgentDraftContentHandoffPlaintextSchema,
+    #[serde(deserialize_with = "arkret_wire::deserialize_bounded_non_typed_identifier")]
+    pub draft_id: String,
+    pub agent_id: DidCoreId,
+    pub content: Value,
+    pub content_digest: Hash,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub expires_at: DateTime<Utc>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub created_at: DateTime<Utc>,
+}
+
+/// Counterpart:
+/// `agent-draft-private.schema.json#/$defs/agent_draft_account_data_value/properties/schema`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AgentDraftAccountDataValueSchema {
+    #[serde(rename = "ak.schema.agent_draft.v1")]
+    V1,
+}
+
+/// Counterpart: `agent-draft-private.schema.json#/$defs/agent_draft_account_data_value`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentDraftAccountDataValue {
+    pub schema: AgentDraftAccountDataValueSchema,
+    #[serde(deserialize_with = "arkret_wire::deserialize_bounded_non_typed_identifier")]
+    pub draft_id: String,
+    pub agent_id: DidCoreId,
+    pub proposed_action: NonEmptyString,
+    pub target: AgentActionTarget,
+    pub content: Value,
+    pub content_digest: Hash,
+    pub source_pending_event_id: EventId,
+    pub workflow_state: AgentDraftWorkflowState,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub expires_at: DateTime<Utc>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub created_at: DateTime<Utc>,
+}
+
+/// Counterpart:
+/// `agent-draft-private.schema.json#/$defs/agent_draft_account_data_value/properties/
+/// workflow_state`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AgentDraftWorkflowState {
+    #[serde(rename = "proposed")]
+    Proposed,
+    #[serde(rename = "approved")]
+    Approved,
+    #[serde(rename = "published")]
+    Published,
+    #[serde(rename = "rejected")]
+    Rejected,
 }
