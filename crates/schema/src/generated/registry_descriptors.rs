@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json;
-//! sha256=0f51c363c92dd4480daa303ff8de04783f7d523afd4c528e190716fab78cf024 Input: registry/
+//! sha256=e7c40cea03814781c80b15559ebd9fdf86328bae623389714032f5bbc8f6db56 Input: registry/
 //! account-data-key-registry.json;
 //! sha256=0989a67abbe00359bf0974896a84210791dd75c26b7d77d8eb1bee7fcd70370e Entries: id_kinds=47,
-//! special_forms=15, actions=158, approval_carriers=2, schemas=238, account_data_patterns=24
+//! special_forms=15, actions=162, approval_carriers=2, schemas=238, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -2923,6 +2923,74 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
+        event_mapping_kind: "non_event_surface",
+        approval_requirement_eligibility:
+            ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
+        approval_evidence_carrier_id: None,
+        approver_capability_action: None,
+    },
+    CapabilityActionDescriptor {
+        action: CapabilityActionId::SelfKeysBackupsCommandIssueUnlockChallengeV1,
+        category: "service",
+        risk_tier: CapabilityRiskTier::Low,
+        required_constraints: &[],
+        required_evaluator_checks: &[],
+        target_event_kinds: &[],
+        grant_authority_actions: &[],
+        profile: None,
+        root_control_only: false,
+        subject_only: true,
+        event_mapping_kind: "non_event_surface",
+        approval_requirement_eligibility:
+            ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
+        approval_evidence_carrier_id: None,
+        approver_capability_action: None,
+    },
+    CapabilityActionDescriptor {
+        action: CapabilityActionId::SelfKeysBackupsCommandUnlockV1,
+        category: "service",
+        risk_tier: CapabilityRiskTier::Medium,
+        required_constraints: &[],
+        required_evaluator_checks: &[],
+        target_event_kinds: &[],
+        grant_authority_actions: &[],
+        profile: None,
+        root_control_only: false,
+        subject_only: true,
+        event_mapping_kind: "non_event_surface",
+        approval_requirement_eligibility:
+            ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
+        approval_evidence_carrier_id: None,
+        approver_capability_action: None,
+    },
+    CapabilityActionDescriptor {
+        action: CapabilityActionId::SelfKeysBackupsReadListV1,
+        category: "service",
+        risk_tier: CapabilityRiskTier::Low,
+        required_constraints: &[],
+        required_evaluator_checks: &[],
+        target_event_kinds: &[],
+        grant_authority_actions: &[],
+        profile: None,
+        root_control_only: false,
+        subject_only: true,
+        event_mapping_kind: "non_event_surface",
+        approval_requirement_eligibility:
+            ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,
+        approval_evidence_carrier_id: None,
+        approver_capability_action: None,
+    },
+    CapabilityActionDescriptor {
+        action: CapabilityActionId::SelfKeysBackupsResourceReplaceV1,
+        category: "service",
+        risk_tier: CapabilityRiskTier::Medium,
+        required_constraints: &[],
+        required_evaluator_checks: &[],
+        target_event_kinds: &[],
+        grant_authority_actions: &[],
+        profile: None,
+        root_control_only: false,
+        subject_only: true,
         event_mapping_kind: "non_event_surface",
         approval_requirement_eligibility:
             ApprovalRequirementEligibility::IneligibleNoRegisteredCarrier,

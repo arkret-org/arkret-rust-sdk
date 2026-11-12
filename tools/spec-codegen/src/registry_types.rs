@@ -3017,6 +3017,7 @@ struct ManagedDeviceRule {
     mode: String,
     actions: Vec<String>,
     control_rule: Option<String>,
+    binding: Option<String>,
 }
 
 fn managed_device_rules(auth: &Value) -> Result<Vec<ManagedDeviceRule>> {
@@ -3066,7 +3067,7 @@ fn generate_applet_managed_device_rules(artifacts_dir: &Path) -> Result<Generate
         &[&artifact.source, &contracts.source],
         &format!("managed_device_operations={}", rules.len()),
     );
-    output.push_str("use super::{CapabilityActionId, ServiceOperationId};\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub enum ManagedDeviceControl {\n    OwnExactPreviouslyDeliveredItemsAck,\n    OwnExactKeypackageRevoke,\n    OwnScopeBoundKeypackageUpload,\n    OwnExactDurableWelcomeReceiptConsume,\n    OwnExactDeviceAuthorizationMaterialRead,\n}\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub enum ManagedDeviceScopeRule {\n    AllActions(&'static [CapabilityActionId]),\n    SubmittedBusinessActions,\n    DeviceControl(ManagedDeviceControl),\n}\n\n/// Transport inventory only; every business gate remains mandatory.\npub const fn applet_managed_device_scope_rule(operation: ServiceOperationId) -> Option<ManagedDeviceScopeRule> {\n    Some(match operation {\n");
+    output.push_str("use super::{CapabilityActionId, ServiceOperationId};\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub enum ManagedDeviceControl {\n    OwnExactPreviouslyDeliveredItemsAck,\n    OwnExactKeypackageRevoke,\n    OwnScopeBoundKeypackageUpload,\n    OwnExactDurableWelcomeReceiptConsume,\n    OwnExactDeviceAuthorizationOrNativeBackupCurrentMaterialRead,\n}\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub enum ManagedDeviceScopeRule {\n    AllActions(&'static [CapabilityActionId]),\n    NativeContentBackupAction(CapabilityActionId),\n    SubmittedBusinessActions,\n    DeviceControl(ManagedDeviceControl),\n}\n\n/// Transport inventory only; every business gate remains mandatory.\npub const fn applet_managed_device_scope_rule(operation: ServiceOperationId) -> Option<ManagedDeviceScopeRule> {\n    Some(match operation {\n");
     for rule in rules {
         if !registered_operations.contains(rule.operation_id.as_str())
             || rule
@@ -3086,6 +3087,13 @@ fn generate_applet_managed_device_rules(artifacts_dir: &Path) -> Result<Generate
                     .join(", ");
                 format!("ManagedDeviceScopeRule::AllActions(&[{actions}])")
             }
+            "all_actions"
+                if rule.actions == [rule.operation_id.clone()]
+                    && rule.control_rule.as_deref() == Some("exact_self_native_root_scope_and_current_epoch_for_PUT_same_scope_predecessor_ciphertext_for_reads_no_archive_private_key_or_manager_role")
+                    && rule.binding.as_ref().is_some_and(|binding| !binding.is_empty()) =>
+            {
+                format!("ManagedDeviceScopeRule::NativeContentBackupAction(CapabilityActionId::{})", variant(&rule.actions[0], &["ak."]))
+            }
             "submitted_business_actions"
                 if rule.actions.is_empty() && rule.control_rule.is_none() =>
             {
@@ -3099,7 +3107,7 @@ fn generate_applet_managed_device_rules(artifacts_dir: &Path) -> Result<Generate
                         | "own_exact_keypackage_revoke"
                         | "own_scope_bound_keypackage_upload"
                         | "own_exact_durable_welcome_receipt_consume"
-                        | "own_exact_device_authorization_material_read"
+                        | "own_exact_device_authorization_or_native_backup_current_material_read"
                 ) {
                     bail!("unknown managed Device control exception");
                 }

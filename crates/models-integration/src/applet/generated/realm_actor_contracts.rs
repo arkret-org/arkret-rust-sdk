@@ -2,13 +2,13 @@
 //! Generator: tools/generate-closed-models.py
 //!
 //! Input: schemas/realm-actor.schema.json
-//! sha256=3e94b6c387b6fa1d895c5c5d5d56d86d7dbeeda40e4e513afb23c904e25f1592
+//! sha256=87c35a6c300e76490630f6c0fad0dd6bb7c7c601042572f84b1f24ca28be4dc7
 //!
 //! Input: schemas/current-state.schema.json
-//! sha256=106ec4b74fb996d95cfd8631d60e22c1c72cc1f7d16232bebf10f21a62ff1d47
+//! sha256=8cab7974d8b7e149d6140a0f5b999ae7b95908d5b46f034cb36ce6580ba737cf
 //!
 //! Bindings: tools/closed-model-bindings.json
-//! sha256=14d7f312a6557af02e4e1a8496c76be3e3c902a74c9d7d175190d30caaf07567
+//! sha256=db527b364017054646ca12898f9051885245c63852c0c52b9960a568cc897f0f
 
 /// Counterpart: `realm-actor.schema.json#/$defs/control_scope/properties/kind`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -48,6 +48,7 @@ pub enum RealmActorCreatePayloadRecoveryKind {
 pub struct RealmActorCreatePayloadRecovery {
     pub kind: RealmActorCreatePayloadRecoveryKind,
     pub enabled: bool,
+    pub content_backup_recipient: arkret_models_crypto::RealmActorContentBackupRecipient,
 }
 
 /// Counterpart: `realm-actor.schema.json#/$defs/create_payload`.
@@ -101,6 +102,7 @@ pub enum RealmActorCreationTranscriptRecoveryKind {
 pub struct RealmActorCreationTranscriptRecovery {
     pub kind: RealmActorCreationTranscriptRecoveryKind,
     pub enabled: bool,
+    pub content_backup_recipient: arkret_models_crypto::RealmActorContentBackupRecipient,
 }
 
 /// Counterpart: `realm-actor.schema.json#/$defs/creation_transcript`.
@@ -206,6 +208,9 @@ pub struct RealmActorManagerChangePayload {
     pub new_service_signature: arkret_wire::DetachedObjectSignature,
     pub next_resolution: arkret_models_identity::ResolutionCommitment,
     pub method_history_evidence: crate::AppletManagedActorMethodHistoryEvidence,
+    pub next_content_backup_recipient: arkret_models_crypto::RealmActorContentBackupRecipient,
+    pub content_backup_inventory_digest: arkret_wire::Hash,
+    pub content_backup_handover_digest: arkret_wire::Hash,
 }
 
 /// Counterpart: `realm-actor.schema.json#/$defs/manager_acceptance_transcript`.
@@ -224,6 +229,9 @@ pub struct RealmActorManagerAcceptanceTranscript {
     pub management_authorization_ref: arkret_wire::GrantId,
     pub next_resolution: arkret_models_identity::ResolutionCommitment,
     pub method_history_evidence: crate::AppletManagedActorMethodHistoryEvidence,
+    pub next_content_backup_recipient: arkret_models_crypto::RealmActorContentBackupRecipient,
+    pub content_backup_inventory_digest: arkret_wire::Hash,
+    pub content_backup_handover_digest: arkret_wire::Hash,
 }
 
 /// Counterpart: `realm-actor.schema.json#/$defs/control_http_metadata`.
@@ -269,6 +277,13 @@ pub struct RealmActorRecoveryBeginPayload {
     pub next_resolution: arkret_models_identity::ResolutionCommitment,
     pub method_history_evidence: RealmActorWebvhRecoveryPlan,
     pub next_control_method_kid: arkret_wire::DidUrl,
+    #[serde(
+        default,
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_content_backup_recipient:
+        Option<arkret_models_crypto::RealmActorContentBackupRecipient>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: chrono::DateTime<chrono::Utc>,
     pub control_signature: arkret_wire::DetachedObjectSignature,
@@ -295,6 +310,13 @@ pub struct RealmActorRecoveryAcceptanceTranscriptPayloadWithoutControlSignature 
     pub next_resolution: arkret_models_identity::ResolutionCommitment,
     pub method_history_evidence: RealmActorWebvhRecoveryPlan,
     pub next_control_method_kid: arkret_wire::DidUrl,
+    #[serde(
+        default,
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_content_backup_recipient:
+        Option<arkret_models_crypto::RealmActorContentBackupRecipient>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: chrono::DateTime<chrono::Utc>,
 }
@@ -376,6 +398,8 @@ pub struct RealmActorRecoveryValue {
     pub enabled: bool,
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_required_nullable")]
     pub pending: Option<RealmActorRecoveryIntent>,
+    pub content_backup_recipient: arkret_models_crypto::RealmActorContentBackupRecipient,
+    pub content_backup_recipient_ref: arkret_wire::CommittedEventRef,
 }
 
 /// Counterpart: `current-state.schema.json#/$defs/realm_actor_device_authorization_value`.

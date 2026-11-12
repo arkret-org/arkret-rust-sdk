@@ -798,6 +798,7 @@ pub struct RealmActorInceptionInput<'a> {
     pub root_seed: &'a [u8; SECRET_KEY_LENGTH],
     pub next_root_public_key_multibase: &'a str,
     pub controller_public_key: &'a [u8; 32],
+    pub content_backup_public_key: &'a [u8; 32],
 }
 
 /// Inputs for the first Agent DID update, published only after the
@@ -924,6 +925,10 @@ pub fn prepare_realm_actor_inception(
     input: &RealmActorInceptionInput<'_>,
 ) -> Result<PreparedPrincipalInception, WebvhInceptionError> {
     let controller_key = encode_ed25519_pubkey_multibase(input.controller_public_key);
+    let mut recipient_multicodec = vec![0xec, 0x01];
+    recipient_multicodec.extend_from_slice(input.content_backup_public_key);
+    let recipient_key = arkret_canonical::encode_multibase_base58btc(recipient_multicodec);
+
     prepare_identity_inception(
         input.principal_endpoint,
         input.principal_endpoint,
@@ -936,11 +941,15 @@ pub fn prepare_realm_actor_inception(
         true,
         |did, _endpoint| {
             let method = format!("{did}#managed-controller");
+            let recipient_method = format!("{did}#content-backup");
             Ok(json!({
                 "@context": ["https://www.w3.org/ns/did/v1"],
                 "id": did,
                 "verificationMethod": [{"id": method, "type": "Multikey", "controller": did,
-                    "publicKeyMultibase": controller_key}],
+                    "publicKeyMultibase": controller_key},
+                    {"id": recipient_method, "type": "Multikey", "controller": did,
+                    "publicKeyMultibase": recipient_key}],
+                "keyAgreement": [recipient_method],
                 "authentication": [method],
                 "assertionMethod": [method],
                 "alsoKnownAs": [],

@@ -13,6 +13,7 @@ version.workspace = true
 
 [dependencies]
 arkret-canonical = { workspace = true }
+arkret-crypto = { workspace = true, features = ["hpke"] }
 arkret-egress-policy = { workspace = true }
 arkret-event-draft = { workspace = true }
 # Batch 4c (core retirement): the service identity bundle backends (file +

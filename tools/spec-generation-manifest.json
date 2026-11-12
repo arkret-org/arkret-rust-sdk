@@ -2183,6 +2183,8 @@
         "schemas/content-encryption.schema.json"
       ],
       "provides": [
+        "RealmActorContentBackupRecipientHpkeSuite",
+        "RealmActorContentBackupRecipient",
         "ContentRootContext",
         "ContentEndpoint",
         "ContentPurpose",

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json;
-//! sha256=0f51c363c92dd4480daa303ff8de04783f7d523afd4c528e190716fab78cf024
+//! sha256=e7c40cea03814781c80b15559ebd9fdf86328bae623389714032f5bbc8f6db56
 //! Entries: http_signature_scenarios=9, freshness_profile=ak.http_signature.freshness.v1
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -169,6 +169,9 @@ pub const HTTP_SIGNATURE_SCENARIOS: &[HttpSignatureScenarioDescriptor] = &[
             "ak.self.realm_actor.read.material.v1",
             "ak.peer.realm_actor.read.material.v1",
             "ak.peer.applet.configuration.command.submit.v1",
+            "ak.self.keys.backups.read.list.v1",
+            "ak.self.keys.backups.command.issue_unlock_challenge.v1",
+            "ak.self.keys.backups.command.unlock.v1",
         ],
     },
     HttpSignatureScenarioDescriptor {
@@ -295,6 +298,10 @@ pub const HTTP_SIGNATURE_SCENARIOS: &[HttpSignatureScenarioDescriptor] = &[
             "ak.self.realm_state_snapshot.read.manifest_head.v1",
             "ak.self.events.command.submit.v1",
             "ak.self.realm_actor.read.material.v1",
+            "ak.self.keys.backups.resource.replace.v1",
+            "ak.self.keys.backups.read.list.v1",
+            "ak.self.keys.backups.command.issue_unlock_challenge.v1",
+            "ak.self.keys.backups.command.unlock.v1",
         ],
     },
     HttpSignatureScenarioDescriptor {

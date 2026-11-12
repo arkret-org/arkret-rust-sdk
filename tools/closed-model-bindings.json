@@ -206,7 +206,8 @@
     "content-encryption.schema.json#/$defs/recovery_scope_cleanup_self_response_body/properties/delivery_signing_key": "crate::content_history::ContentScopeRetirementDeliverySigningKey",
     "content-encryption.schema.json#/$defs/recovery_scope_cleanup_self_response_body/properties/delivery_signing_key/properties/delivery_digest": "arkret_wire::Hash",
     "content-encryption.schema.json#/$defs/recovery_scope_cleanup_self_response_body/properties/delivery_signing_key/properties/public_key_base64url": "arkret_wire::Base64UrlString",
-    "content-encryption.schema.json#/$defs/recovery_scope_cleanup_self_response_body": "crate::content_history::ContentRecoveryScopeCleanupSelfResponseBody"
+    "content-encryption.schema.json#/$defs/recovery_scope_cleanup_self_response_body": "crate::content_history::ContentRecoveryScopeCleanupSelfResponseBody",
+    "realm-actor.schema.json#/$defs/content_backup_recipient": "arkret_models_crypto::RealmActorContentBackupRecipient"
   },
   "families": [
     {
@@ -16016,6 +16017,12 @@
                 "visibility": "pub",
                 "type": "bool",
                 "attributes": []
+              },
+              "content_backup_recipient": {
+                "name": "content_backup_recipient",
+                "visibility": "pub",
+                "type": "arkret_models_crypto::RealmActorContentBackupRecipient",
+                "attributes": []
               }
             }
           }
@@ -16165,6 +16172,12 @@
                 "name": "enabled",
                 "visibility": "pub",
                 "type": "bool",
+                "attributes": []
+              },
+              "content_backup_recipient": {
+                "name": "content_backup_recipient",
+                "visibility": "pub",
+                "type": "arkret_models_crypto::RealmActorContentBackupRecipient",
                 "attributes": []
               }
             }
@@ -16518,6 +16531,24 @@
                 "visibility": "pub",
                 "type": "crate::AppletManagedActorMethodHistoryEvidence",
                 "attributes": []
+              },
+              "next_content_backup_recipient": {
+                "name": "next_content_backup_recipient",
+                "visibility": "pub",
+                "type": "arkret_models_crypto::RealmActorContentBackupRecipient",
+                "attributes": []
+              },
+              "content_backup_inventory_digest": {
+                "name": "content_backup_inventory_digest",
+                "visibility": "pub",
+                "type": "arkret_wire::Hash",
+                "attributes": []
+              },
+              "content_backup_handover_digest": {
+                "name": "content_backup_handover_digest",
+                "visibility": "pub",
+                "type": "arkret_wire::Hash",
+                "attributes": []
               }
             }
           }
@@ -16602,6 +16633,24 @@
                 "name": "method_history_evidence",
                 "visibility": "pub",
                 "type": "crate::AppletManagedActorMethodHistoryEvidence",
+                "attributes": []
+              },
+              "next_content_backup_recipient": {
+                "name": "next_content_backup_recipient",
+                "visibility": "pub",
+                "type": "arkret_models_crypto::RealmActorContentBackupRecipient",
+                "attributes": []
+              },
+              "content_backup_inventory_digest": {
+                "name": "content_backup_inventory_digest",
+                "visibility": "pub",
+                "type": "arkret_wire::Hash",
+                "attributes": []
+              },
+              "content_backup_handover_digest": {
+                "name": "content_backup_handover_digest",
+                "visibility": "pub",
+                "type": "arkret_wire::Hash",
                 "attributes": []
               }
             }
@@ -16776,6 +16825,12 @@
                 "visibility": "pub",
                 "type": "arkret_wire::DetachedObjectSignature",
                 "attributes": []
+              },
+              "next_content_backup_recipient": {
+                "name": "next_content_backup_recipient",
+                "visibility": "pub",
+                "type": "Option<arkret_models_crypto::RealmActorContentBackupRecipient>",
+                "attributes": []
               }
             }
           }
@@ -16881,6 +16936,12 @@
                 "attributes": [
                   "#[serde(with = \"arkret_canonical::serde_helpers::canonical_timestamp\")]"
                 ]
+              },
+              "next_content_backup_recipient": {
+                "name": "next_content_backup_recipient",
+                "visibility": "pub",
+                "type": "Option<arkret_models_crypto::RealmActorContentBackupRecipient>",
+                "attributes": []
               }
             }
           }
@@ -17159,6 +17220,18 @@
                 "visibility": "pub",
                 "type": "Option<RealmActorRecoveryIntent>",
                 "attributes": []
+              },
+              "content_backup_recipient": {
+                "name": "content_backup_recipient",
+                "visibility": "pub",
+                "type": "arkret_models_crypto::RealmActorContentBackupRecipient",
+                "attributes": []
+              },
+              "content_backup_recipient_ref": {
+                "name": "content_backup_recipient_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::CommittedEventRef",
+                "attributes": []
               }
             }
           }
@@ -17420,6 +17493,15 @@
       "output": "crates/models-crypto/src/generated/content_history_contracts.rs",
       "inline": true,
       "types": [
+        {
+          "name": "RealmActorContentBackupRecipientHpkeSuite",
+          "schema": "realm-actor.schema.json#/$defs/content_backup_recipient/properties/hpke_suite",
+          "copy": true
+        },
+        {
+          "name": "RealmActorContentBackupRecipient",
+          "schema": "realm-actor.schema.json#/$defs/content_backup_recipient"
+        },
         {
           "name": "ContentRootContext",
           "schema": "content-encryption.schema.json#/$defs/root_context"

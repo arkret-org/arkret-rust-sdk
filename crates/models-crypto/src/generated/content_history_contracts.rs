@@ -1,6 +1,9 @@
 // @generated; do not edit by hand.
 // Generator: tools/generate-closed-models.py
 //
+// Input: schemas/realm-actor.schema.json
+// sha256=87c35a6c300e76490630f6c0fad0dd6bb7c7c601042572f84b1f24ca28be4dc7
+//
 // Input: schemas/content-encryption.schema.json
 // sha256=6b4bdb9e89c47735f1faa9b4b06d7b50dbdcecbcf14e50a0d6818ae5618a5d07
 //
@@ -14,7 +17,25 @@
 // sha256=0cc25a02fe0d9a94f6e41f2cf8f64e492ba36362f1e69a699cf1e684924837ee
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=14d7f312a6557af02e4e1a8496c76be3e3c902a74c9d7d175190d30caaf07567
+// sha256=db527b364017054646ca12898f9051885245c63852c0c52b9960a568cc897f0f
+
+/// Counterpart: `realm-actor.schema.json#/$defs/content_backup_recipient/properties/hpke_suite`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum RealmActorContentBackupRecipientHpkeSuite {
+    #[serde(rename = "ak.hpke_x25519_aead_chacha20poly1305.v1")]
+    AkHpkeX25519AeadChacha20poly1305V1,
+}
+
+/// Counterpart: `realm-actor.schema.json#/$defs/content_backup_recipient`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmActorContentBackupRecipient {
+    pub key_agreement_ref: arkret_wire::DidUrl,
+    pub hpke_suite: RealmActorContentBackupRecipientHpkeSuite,
+    pub public_key_base64url: String,
+}
 
 /// Counterpart: `content-encryption.schema.json#/$defs/root_context`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

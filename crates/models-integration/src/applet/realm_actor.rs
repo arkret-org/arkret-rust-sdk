@@ -25,6 +25,9 @@ impl RealmActorManagerChangePayload {
             management_authorization_ref: self.management_authorization_ref.clone(),
             next_resolution: self.next_resolution.clone(),
             method_history_evidence: self.method_history_evidence.clone(),
+            next_content_backup_recipient: self.next_content_backup_recipient.clone(),
+            content_backup_inventory_digest: self.content_backup_inventory_digest.clone(),
+            content_backup_handover_digest: self.content_backup_handover_digest.clone(),
         }
     }
 }
@@ -158,6 +161,7 @@ impl RealmActorCreatePayload {
             recovery: RealmActorCreationTranscriptRecovery {
                 kind: RealmActorCreationTranscriptRecoveryKind::ManagerNative,
                 enabled: self.recovery.enabled,
+                content_backup_recipient: self.recovery.content_backup_recipient.clone(),
             },
         }
     }
@@ -254,7 +258,7 @@ pub fn realm_actor_creation_current_rows(
             CurrentSelector::RealmActorRecovery {
                 actor_id: actor.clone(),
             },
-            serde_json::json!({"kind":"manager_native","enabled":true,"pending":null}),
+            serde_json::json!({"kind":"manager_native","enabled":true,"content_backup_recipient":candidate.recovery.content_backup_recipient,"content_backup_recipient_ref":accepted,"pending":null}),
         ),
     ];
     Ok(rows

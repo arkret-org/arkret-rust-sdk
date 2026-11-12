@@ -157,6 +157,32 @@ pub fn verify_realm_actor_initial_resolution(
     let control_bytes = key
         .ed25519_bytes()
         .map_err(|error| rejected(ErrorCode::SignatureInvalid, &error.to_string()))?;
+    let recipient = &payload.recovery.content_backup_recipient;
+    crate::validate_verification_method_relationship(
+        &document,
+        &recipient.key_agreement_ref,
+        &document.id,
+        DidVerificationRelationship::KeyAgreement,
+    )
+    .map_err(|error| rejected(ErrorCode::SignatureInvalid, &error.to_string()))?;
+    let recipient_bytes = arkret_canonical::base64url_decode(&recipient.public_key_base64url)
+        .map_err(|error| rejected(ErrorCode::SignatureInvalid, &error.to_string()))?;
+    arkret_crypto::hpke::validate_x25519_recipient_key(&recipient_bytes)
+        .map_err(|error| rejected(ErrorCode::SignatureInvalid, &error.to_string()))?;
+    let mut recipient_multicodec = vec![0xec, 0x01];
+    recipient_multicodec.extend_from_slice(&recipient_bytes);
+    let expected = arkret_canonical::encode_multibase_base58btc(recipient_multicodec);
+    if recipient.public_key_base64url != arkret_canonical::base64url_encode(&recipient_bytes)
+        || document
+            .verification_methods
+            .get(recipient.key_agreement_ref.as_str())
+            != Some(&expected)
+    {
+        return Err(rejected(
+            ErrorCode::SignatureInvalid,
+            "content backup recipient differs from original DID keyAgreement",
+        ));
+    }
     let control_multibase = arkret_canonical::ed25519_pubkey_to_did_key_multibase(&control_bytes);
     let commitment = arkret_signatures::webvh::webvh_next_key_hash_value(&control_multibase);
     if roots.iter().any(|root| *root == control_multibase)

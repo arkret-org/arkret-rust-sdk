@@ -65,6 +65,7 @@ fn candidate() -> (RealmActorCreatePayload, Ed25519PayloadSigner) {
     let control = SigningKey::from_bytes(&[33; 32]);
     let next_key =
         arkret_canonical::ed25519_pubkey_to_did_key_multibase(next.verifying_key().as_bytes());
+    let archive_key = arkret::crypto::hpke::generate_x25519_keypair().unwrap();
     let inception = prepare_realm_actor_inception(&RealmActorInceptionInput {
         principal_endpoint: &endpoint,
         local_id: "ghost-1",
@@ -72,6 +73,7 @@ fn candidate() -> (RealmActorCreatePayload, Ed25519PayloadSigner) {
         root_seed: &root,
         next_root_public_key_multibase: &next_key,
         controller_public_key: control.verifying_key().as_bytes(),
+        content_backup_public_key: archive_key.public_key(),
     })
     .unwrap();
     let document: DidDocument =
@@ -122,7 +124,11 @@ fn candidate() -> (RealmActorCreatePayload, Ed25519PayloadSigner) {
         "method_history_evidence":evidence,"control_method_kid":method,
         "expires_at":"2026-10-20T00:05:00.000Z",
         "external_ref":{"protocol":"matrix","instance_id":"chat.example","external_id":"external-user"},
-        "recovery":{"kind":"manager_native","enabled":true}
+        "recovery":{"kind":"manager_native","enabled":true,"content_backup_recipient":{
+            "key_agreement_ref":format!("{}#content-backup",document.id),
+            "hpke_suite":"ak.hpke_x25519_aead_chacha20poly1305.v1",
+            "public_key_base64url":arkret_canonical::base64url_encode(archive_key.public_key())
+        }}
     });
     let transcript: RealmActorCreationTranscript = serde_json::from_value(value.clone()).unwrap();
     value["control_signature"] = serde_json::to_value(
@@ -201,7 +207,10 @@ fn manager_handover_requires_two_native_rotations_new_control_and_service_accept
     let current = control(entries.last().unwrap(), method.clone());
     append(&mut entries, &state, 46, 47, 2);
     let transition = entries.clone();
-    state["verificationMethod"] = json!([next_method]);
+    state["verificationMethod"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|method| method["id"].as_str() != Some(creation.control_method_kid.as_str()));
     state["assertionMethod"] = json!([method]);
     state["authentication"] = json!([method]);
     append(&mut entries, &state, 47, 48, 3);
@@ -253,6 +262,9 @@ fn manager_handover_requires_two_native_rotations_new_control_and_service_accept
             "management_authorization_ref":creation.creation_authorization_ref,
             "next_resolution":{"did":did,"version_id":terminal["versionId"],"method_history_head":head},
             "method_history_evidence":evidence,
+            "next_content_backup_recipient":creation.recovery.content_backup_recipient,
+            "content_backup_inventory_digest":format!("sha256:{}", "a".repeat(64)),
+            "content_backup_handover_digest":format!("sha256:{}", "b".repeat(64)),
         });
         let mut transcript = unsigned.clone();
         transcript["actor_id"] = json!(creation.actor_id);
@@ -316,6 +328,56 @@ fn manager_handover_requires_two_native_rotations_new_control_and_service_accept
         verify(&payload_for(&entries)).is_err(),
         "old key aliases must also be removed"
     );
+}
+
+#[test]
+fn creation_recipient_requires_original_key_agreement_even_with_valid_control_signature() {
+    let (candidate, _) = candidate();
+    let at = candidate.control_signature.created_at;
+    arkret_identity::verify_realm_actor_initial_resolution(&candidate, at).unwrap();
+    for change in 0..3 {
+        let mut changed = candidate.clone();
+        match change {
+            0 => {
+                changed
+                    .recovery
+                    .content_backup_recipient
+                    .public_key_base64url = arkret_canonical::base64url_encode([0; 32])
+            }
+            1 => {
+                changed
+                    .recovery
+                    .content_backup_recipient
+                    .public_key_base64url = arkret_canonical::base64url_encode(
+                    arkret::crypto::hpke::generate_x25519_keypair()
+                        .unwrap()
+                        .public_key(),
+                )
+            }
+            _ => {
+                changed.recovery.content_backup_recipient.key_agreement_ref =
+                    changed.control_method_kid.clone()
+            }
+        }
+        changed.control_signature = sign_detached_object(
+            &changed.creation_transcript(),
+            DetachedSignatureContext::RealmActorCreation,
+            changed.control_method_kid.clone(),
+            at,
+            &SigningKey::from_bytes(&[33; 32]),
+        )
+        .unwrap();
+        assert!(arkret_identity::verify_realm_actor_initial_resolution(&changed, at).is_err());
+    }
+    let mut missing = serde_json::to_value(&candidate).unwrap();
+    missing["recovery"]
+        .as_object_mut()
+        .unwrap()
+        .remove("content_backup_recipient");
+    assert!(serde_json::from_value::<RealmActorCreatePayload>(missing).is_err());
+    let mut null = serde_json::to_value(&candidate).unwrap();
+    null["recovery"]["content_backup_recipient"] = serde_json::Value::Null;
+    assert!(serde_json::from_value::<RealmActorCreatePayload>(null).is_err());
 }
 
 #[test]

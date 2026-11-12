@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json;
-//! sha256=0f51c363c92dd4480daa303ff8de04783f7d523afd4c528e190716fab78cf024 Entries: registered=221
+//! sha256=e7c40cea03814781c80b15559ebd9fdf86328bae623389714032f5bbc8f6db56 Entries: registered=221
 
 use serde::{Deserialize, Serialize};
 
@@ -5965,7 +5965,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/keys-operations.schema.json#/$defs/keys_backups_issue_unlock_challenge_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/keys-operations.schema.json#/$defs/keys_backups_unlock_challenge",
+            "schemas/keys-operations.schema.json#/$defs/keys_backups_issue_unlock_challenge_response_body",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -5983,13 +5983,15 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         mq: Some("self.keys.backups.command.unlock"),
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: None,
-        success_shape_kind: "schema_resource",
+        success_shape_kind: "typed_response",
         idempotency_mechanism: Some("canonical_hash"),
         retry_safe: Some(true),
         request_schema_ref: Some(
             "schemas/keys-operations.schema.json#/$defs/keys_backups_unlock_request_body",
         ),
-        response_schema_ref: Some("schemas/key-backup.schema.json"),
+        response_schema_ref: Some(
+            "schemas/keys-operations.schema.json#/$defs/keys_backups_unlock_response_body",
+        ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
@@ -6010,7 +6012,9 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: None,
-        response_schema_ref: Some("schemas/keys-operations.schema.json#/$defs/keys_backups_page"),
+        response_schema_ref: Some(
+            "schemas/keys-operations.schema.json#/$defs/keys_backups_list_response_body",
+        ),
         uncertain_outcome: None,
         durable_effect: None,
     },

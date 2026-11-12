@@ -181,12 +181,14 @@ pub enum BindingVerifyError {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DidVerificationRelationship {
     AssertionMethod,
+    KeyAgreement,
 }
 
 impl DidVerificationRelationship {
     fn property_name(self) -> &'static str {
         match self {
             Self::AssertionMethod => "assertionMethod",
+            Self::KeyAgreement => "keyAgreement",
         }
     }
 }
@@ -330,6 +332,7 @@ pub fn validate_verification_method_relationship(
     let wire_property = if normalized {
         match relationship {
             DidVerificationRelationship::AssertionMethod => "assertion_methods",
+            DidVerificationRelationship::KeyAgreement => "key_agreements",
         }
     } else {
         property

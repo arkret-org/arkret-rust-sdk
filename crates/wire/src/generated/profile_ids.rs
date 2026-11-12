@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: profiles/conformance-profiles.json;
-//! sha256=a8377099f8566102c5c6fcf0d090267a93003de4b9ddd8dd96b1438d54dae5ae Entries: profile_ids=77
+//! sha256=844ccdd481064b1a450cdc842f3b06277d6b9d78f3a4a92f02563ccb02e30ed7 Entries: profile_ids=77
 
 use serde::{Deserialize, Serialize};
 

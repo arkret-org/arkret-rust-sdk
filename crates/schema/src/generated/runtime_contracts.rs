@@ -2,7 +2,7 @@
 //! Generator: tools/spec-codegen
 //! Input: registry/agent-runtime-scope-registry.json;
 //! sha256=c19999dee0337692d6415cb6631373e0fec3b60cf47e6aa892afab259ab3d995 Input: registry/
-//! contract-registry.json; sha256=0f51c363c92dd4480daa303ff8de04783f7d523afd4c528e190716fab78cf024
+//! contract-registry.json; sha256=e7c40cea03814781c80b15559ebd9fdf86328bae623389714032f5bbc8f6db56
 //! Input: deployment-probes.json;
 //! sha256=d460713a703e79c05fe21df3844650be21b201c32e5673df81460ea132d48c89
 //! Entries: capability_sets=2, layers=3, feature_additions=1, bootstrap_profiles=2,
