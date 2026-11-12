@@ -110,6 +110,12 @@ pub fn verify_realm_organization_statement<R>(
 where
     R: RealmOrganizationDelegationResolver,
 {
+    payload.validate().map_err(|error| {
+        RealmOrganizationVerificationError::Protocol(format!(
+            "ak.realm.organization invalid scoped statement identifier: {error} ({})",
+            ErrorCode::SCHEMA_VIOLATION
+        ))
+    })?;
     // 1. realm binding.
     if &payload.realm_id != expected_realm_id {
         return Err(RealmOrganizationVerificationError::Protocol(format!(
@@ -479,5 +485,54 @@ mod realm_organization_verifier_tests {
         );
         p.revokes_statement_id = Some("org-stmt-0".to_owned());
         verify_realm_organization_statement(&p, &realm_id(), now(), &NoDelegationResolver).unwrap();
+    }
+    #[test]
+    fn directly_constructed_statement_handles_are_checked_by_the_policy_verifier() {
+        for field in [
+            "statement_id",
+            "supersedes_statement_id",
+            "revokes_statement_id",
+        ] {
+            for literal in [
+                " ".to_owned(),
+                "é".to_owned(),
+                "🦀".repeat(256),
+                String::new(),
+                "ak:statement:invalid".into(),
+                "🦀".repeat(257),
+            ] {
+                let mut payload = active_payload();
+                match field {
+                    "statement_id" => payload.statement_id = literal.clone(),
+                    "supersedes_statement_id" => {
+                        payload.supersedes_statement_id = Some(literal.clone())
+                    }
+                    _ => {
+                        payload.status = RealmOrganizationStatus::Revoked;
+                        payload.revokes_statement_id = Some(literal.clone());
+                    }
+                }
+                let result = verify_realm_organization_statement(
+                    &payload,
+                    &realm_id(),
+                    now(),
+                    &NoDelegationResolver,
+                );
+                let valid =
+                    arkret_wire::validate_bounded_non_typed_identifier(&literal, 256).is_ok();
+                assert_eq!(result.is_ok(), valid, "{field} {literal:?}");
+                if !valid {
+                    assert!(
+                        result
+                            .unwrap_err()
+                            .to_string()
+                            .contains(ErrorCode::SCHEMA_VIOLATION)
+                    );
+                }
+                if valid {
+                    assert_eq!(serde_json::to_value(payload).unwrap()[field], literal);
+                }
+            }
+        }
     }
 }

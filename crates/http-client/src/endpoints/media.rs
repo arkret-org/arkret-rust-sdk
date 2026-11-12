@@ -52,6 +52,7 @@ impl Client {
         &self,
         request: &CallMediaTokenExchangeRequestBody,
     ) -> Result<CallMediaTokenExchangeResponseBody> {
+        request.validate()?;
         self.post("/_arkret/self/rtc/token", request).await
     }
 }

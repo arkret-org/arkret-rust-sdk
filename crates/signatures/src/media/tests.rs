@@ -408,3 +408,75 @@ fn token_ttl_ceiling_does_not_round_down_fractional_seconds() {
     assert!(validate_token_ttl(now, now + chrono::Duration::milliseconds(600001)).is_err());
     assert!(validate_token_ttl(now, now + chrono::Duration::milliseconds(1)).is_ok());
 }
+
+#[test]
+fn direct_media_focus_carriers_are_checked_before_signing_and_verification() {
+    let key = issuer_key();
+    let anchors = anchors_with_issuer_key(&key);
+    let now = arkret_canonical::normalize_timestamp_canonical(Utc::now());
+    for literal in [
+        " ".to_owned(),
+        "é".to_owned(),
+        "🦀".repeat(64),
+        String::new(),
+        "ak:focus:invalid".into(),
+        "🦀".repeat(65),
+    ] {
+        let mut request = token_request();
+        let arkret_models_collaboration::call_invitation::CallMediaJoinContext::Voluntary(intent) =
+            &mut request.join_context
+        else {
+            panic!("voluntary fixture")
+        };
+        intent.created_at = now;
+        intent.expires_at = now + chrono::Duration::seconds(30);
+        request.focus_id = literal.clone();
+        let mut outcome = token_outcome(&request, now + chrono::Duration::seconds(30));
+        let fields = ParticipantBindingContext::from_outcome(&outcome);
+        let input = participant_binding_signing_input(&fields);
+        let profile_valid =
+            arkret_wire::validate_bounded_non_typed_identifier(&literal, 64).is_ok();
+        let valid = profile_valid && arkret_canonical::canonical::is_nfc(&literal);
+        assert_eq!(input.is_ok(), valid);
+        assert_eq!(request.voluntary_join_signing_bytes().is_ok(), valid);
+        assert_eq!(request.validate_join_context_at(now).is_ok(), profile_valid);
+        if profile_valid && !arkret_canonical::canonical::is_nfc(&literal) {
+            assert_eq!(request.focus_id, literal);
+            assert!(input.unwrap_err().to_string().contains("Unicode NFC"));
+            assert!(verify_call_media_token_outcome(&request, &outcome, &anchors, now).is_err());
+            continue;
+        }
+        if valid {
+            let input = input.unwrap();
+            let value: serde_json::Value =
+                serde_json::from_slice(&input[ParticipantBinding::SCHEMA.len() + 1..]).unwrap();
+            assert_eq!(value["focus_id"], literal);
+        }
+        // Sign directly to prove the verifier rejects malformed profiles even
+        // when the signature and all request/outcome coordinates match.
+        let mut raw = ParticipantBinding::SCHEMA.as_bytes().to_vec();
+        raw.push(0);
+        raw.extend(canonical_json_bytes(&fields).unwrap());
+        outcome.participant_binding.signature =
+            arkret_canonical::base64url_encode(key.sign(&raw).to_bytes());
+        assert_eq!(
+            verify_call_media_token_outcome(&request, &outcome, &anchors, now).is_ok(),
+            valid
+        );
+        let mut raw_request = serde_json::to_value(&request).unwrap();
+        assert_eq!(
+            arkret_models_collaboration::call_invitation::voluntary_join_signing_input_from_value(
+                &raw_request
+            )
+            .is_ok(),
+            valid
+        );
+        raw_request["focus_id"] = serde_json::Value::Null;
+        assert!(
+            arkret_models_collaboration::call_invitation::voluntary_join_signing_input_from_value(
+                &raw_request
+            )
+            .is_err()
+        );
+    }
+}

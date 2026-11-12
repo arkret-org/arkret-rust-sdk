@@ -183,7 +183,10 @@ pub fn evaluate_constraint_ceiling(
     operation: &AuthorizationOperation<'_>,
     constraints: &[GrantConstraint],
 ) -> GrantEvaluation<'static> {
-    if operation.actions.is_empty()
+    if constraints
+        .iter()
+        .any(|constraint| constraint.validate_identifiers().is_err())
+        || operation.actions.is_empty()
         || operation.target.kind == ResourceSelectorKind::All
         || operation.target.validate().is_err()
         || operation.actions.iter().any(|action| {
@@ -455,6 +458,14 @@ fn evaluate_with_matching<'g>(
     }
     if named.is_empty() {
         return GrantEvaluation::Unnamed;
+    }
+    if named.iter().any(|(grant, _)| {
+        grant
+            .constraints
+            .iter()
+            .any(|constraint| constraint.validate_identifiers().is_err())
+    }) {
+        return GrantEvaluation::Unsatisfied;
     }
     for effect in [
         GrantConstraintEffect::Deny,
@@ -1495,6 +1506,7 @@ fn denied_lists_touched(
 /// The canonical key of one constraint inside its grant: its
 /// `constraint_id`, or the SHA-256 of its canonical JSON.
 pub fn constraint_key(constraint: &GrantConstraint) -> Option<String> {
+    constraint.validate_identifiers().ok()?;
     if let Some(id) = constraint.constraint_id.as_ref() {
         return Some(format!("id:{id}"));
     }

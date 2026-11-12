@@ -2234,3 +2234,71 @@ fn member_read_source_requires_explicit_managed_role_and_exact_applet_binding() 
         "ak.event.read"
     ));
 }
+
+#[test]
+fn scoped_constraint_identifiers_fail_closed_before_effect_filters_or_quota_keys() {
+    for literal in [
+        " ".to_owned(),
+        "é".to_owned(),
+        "🦀".repeat(256),
+        String::new(),
+        "ak:constraint:invalid".into(),
+        "🦀".repeat(257),
+    ] {
+        let valid = arkret_wire::validate_bounded_non_typed_identifier(&literal, 256).is_ok();
+        let mut source = constraint(GrantConstraintKind::Temporal, GrantConstraintEffect::Allow);
+        source.constraint_id = Some(literal.clone());
+        assert_eq!(
+            constraint_key(&source),
+            valid.then(|| format!("id:{literal}"))
+        );
+        // A malformed identifier must not be skipped even on a constraint that
+        // does not apply to this action or cannot match a deny condition.
+        for session_carrier in [false, true] {
+            let mut source = source.clone();
+            if session_carrier {
+                source.constraint_id = None;
+                source.allowed_session_ids = vec![literal.clone()];
+                let expected = arkret_canonical::canonical_json_bytes(&source)
+                    .ok()
+                    .filter(|_| valid)
+                    .map(|bytes| format!("sha256:{}", arkret_canonical::sha256_digest(bytes)));
+                assert_eq!(constraint_key(&source), expected);
+                assert_eq!(source.allowed_session_ids[0], literal);
+            }
+            source.applies_to_actions = vec!["ak.message.revise".into()];
+            let grants = [grant(
+                251,
+                &["ak.message.create"],
+                realm_wide(),
+                vec![source.clone()],
+            )];
+            let result = evaluate(
+                &grants,
+                "ak.message.create",
+                &realm(),
+                &OperationFacts::default(),
+                at("2026-10-01T00:00:00.000Z"),
+            );
+            if !valid {
+                assert!(matches!(result, GrantEvaluation::Unsatisfied));
+            }
+            let actor = actor();
+            let target = realm();
+            let facts = OperationFacts::default();
+            let operation = AuthorizationOperation {
+                actor: &actor,
+                actions: &["ak.message.create"],
+                target: &target,
+                at: at("2026-10-01T00:00:00.000Z"),
+                facts: &facts,
+            };
+            if !valid {
+                assert!(matches!(
+                    evaluate_constraint_ceiling(&operation, &[source]),
+                    GrantEvaluation::Unsatisfied
+                ));
+            }
+        }
+    }
+}

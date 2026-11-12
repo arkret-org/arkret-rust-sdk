@@ -233,6 +233,8 @@ impl<'a> ParticipantBindingContext<'a> {
 pub fn participant_binding_signing_input(
     fields: &ParticipantBindingContext<'_>,
 ) -> Result<Vec<u8>> {
+    arkret_wire::validate_bounded_non_typed_identifier(fields.focus_id, 64)
+        .map_err(|reason| Error::Protocol(format!("participant_binding_invalid: {reason}")))?;
     let mut input = Vec::new();
     input.extend_from_slice(ParticipantBinding::SCHEMA.as_bytes());
     input.push(0x00);
@@ -494,6 +496,8 @@ pub fn verify_call_media_token_outcome(
     anchors: &MediaServiceAnchors,
     now: DateTime<Utc>,
 ) -> Result<CallMediaTokenVerification> {
+    request.validate()?;
+    outcome.validate()?;
     let binding = &outcome.participant_binding;
 
     if outcome.connect_url.trim().is_empty()

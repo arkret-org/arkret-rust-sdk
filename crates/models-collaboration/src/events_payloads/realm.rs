@@ -591,6 +591,19 @@ struct OrganizationStatementTranscript<'a> {
     executed_by: Option<&'a ActorId>,
 }
 
+impl RealmOrganizationPayload {
+    pub fn validate(&self) -> Result<()> {
+        for statement_id in std::iter::once(self.statement_id.as_str())
+            .chain(self.supersedes_statement_id.as_deref())
+            .chain(self.revokes_statement_id.as_deref())
+        {
+            validate_bounded_non_typed_identifier(statement_id, 256)
+                .map_err(|reason| WireError::Protocol(reason.into()))?;
+        }
+        Ok(())
+    }
+}
+
 /// Canonical bytes the organization-side `authorization.proof` signs over.
 ///
 /// Both the issuing side (coauth) and the verifying side (coland) MUST derive
@@ -603,6 +616,7 @@ struct OrganizationStatementTranscript<'a> {
 pub fn realm_organization_statement_signing_bytes(
     payload: &RealmOrganizationPayload,
 ) -> Result<Vec<u8>> {
+    payload.validate()?;
     let authorization = &payload.authorization;
     let transcript = OrganizationStatementTranscript {
         kind: ORGANIZATION_STATEMENT_TRANSCRIPT_KIND,

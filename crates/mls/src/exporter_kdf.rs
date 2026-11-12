@@ -209,13 +209,12 @@ pub struct RtcTranscriptKeyContext {
 }
 
 fn ensure_focus_bound(focus_id: &str) -> Result<()> {
-    if focus_id.trim().is_empty() {
-        return Err(Error::Protocol(format!(
-            "{}: RTC artifact exporter context requires a focus_id",
+    arkret_wire::validate_bounded_non_typed_identifier(focus_id, 256).map_err(|reason| {
+        Error::Protocol(format!(
+            "{}: invalid RTC artifact exporter focus_id: {reason}",
             ReasonCode::E2EE_KEY_SOURCE_UNAUTHORISED
-        )));
-    }
-    Ok(())
+        ))
+    })
 }
 
 /// Derive the 32-byte encryption key for one call recording artifact.
@@ -582,11 +581,97 @@ mod tests {
         let context = RtcTranscriptKeyContext {
             realm_id: realm(),
             call_id: call(),
-            focus_id: "  ".to_owned(),
+            focus_id: String::new(),
             recording_id: recording(),
             media_service_id: media_service(),
             transcript_start_event_id: EventId::from_digest(DigestSuite::Sha256, [4; 32]),
         };
         assert!(ensure_focus_bound(&context.focus_id).is_err());
+    }
+    #[test]
+    fn rtc_public_derivations_apply_the_focus_profile_to_real_mls_contexts() {
+        let identity = crate::ArkretMlsIdentity::new_test_human_device(
+            arkret_wire::ActorId::account(arkret_wire::AccountId::new(
+                DidCoreId::new("ak:did_core:web:exporter.example").unwrap(),
+                DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+            )),
+            arkret_wire::DeviceId::new("ak:device:01904100-0000-7000-8000-000000000008").unwrap(),
+        )
+        .unwrap();
+        let group = identity.create_group(&scope()).unwrap();
+        for literal in [
+            " ".to_owned(),
+            "é".to_owned(),
+            "🦀".repeat(256),
+            String::new(),
+            "ak:focus:invalid".into(),
+            "🦀".repeat(257),
+        ] {
+            let recording = RtcRecordingKeyContext {
+                realm_id: realm(),
+                call_id: call(),
+                focus_id: literal.clone(),
+                recording_id: recording(),
+                media_service_id: media_service(),
+                recording_start_event_id: EventId::from_digest(DigestSuite::Sha256, [4; 32]),
+            };
+            let transcript = RtcTranscriptKeyContext {
+                realm_id: recording.realm_id.clone(),
+                call_id: recording.call_id.clone(),
+                focus_id: literal.clone(),
+                recording_id: recording.recording_id.clone(),
+                media_service_id: recording.media_service_id.clone(),
+                transcript_start_event_id: recording.recording_start_event_id.clone(),
+            };
+            let recording_key = derive_rtc_recording_key(&group, &recording);
+            let transcript_key = derive_rtc_transcript_key(&group, &transcript);
+            if arkret_wire::validate_bounded_non_typed_identifier(&literal, 256).is_err() {
+                assert!(recording_key.unwrap_err().to_string().contains("focus_id"));
+                assert!(transcript_key.unwrap_err().to_string().contains("focus_id"));
+                continue;
+            }
+            if !arkret_canonical::canonical::is_nfc(&literal) {
+                assert_eq!(recording.focus_id, literal);
+                assert_eq!(transcript.focus_id, literal);
+                assert!(
+                    recording_key
+                        .unwrap_err()
+                        .to_string()
+                        .contains("Unicode NFC")
+                );
+                assert!(
+                    transcript_key
+                        .unwrap_err()
+                        .to_string()
+                        .contains("Unicode NFC")
+                );
+                continue;
+            }
+            let bytes = canonical_json_bytes(&recording).unwrap();
+            assert_eq!(
+                serde_json::from_slice::<serde_json::Value>(&bytes).unwrap()["focus_id"],
+                literal
+            );
+            assert_eq!(
+                recording_key.unwrap(),
+                group
+                    .export_secret(
+                        ExporterLabelId::RtcRecordingKeyV1.as_str(),
+                        &bytes,
+                        RTC_ARTIFACT_KEY_LEN
+                    )
+                    .unwrap()
+            );
+            assert_eq!(
+                transcript_key.unwrap(),
+                group
+                    .export_secret(
+                        ExporterLabelId::RtcTranscriptKeyV1.as_str(),
+                        &canonical_json_bytes(&transcript).unwrap(),
+                        RTC_ARTIFACT_KEY_LEN
+                    )
+                    .unwrap()
+            );
+        }
     }
 }

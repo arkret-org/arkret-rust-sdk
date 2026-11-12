@@ -470,6 +470,16 @@ pub struct SignedPrekey {
     pub created_at: Option<DateTime<Utc>>,
 }
 
+impl SignedPrekey {
+    pub fn validate_key_id(&self) -> Result<()> {
+        if let Some(key_id) = &self.key_id {
+            arkret_wire::validate_bounded_non_typed_identifier(key_id.as_str(), 256)
+                .map_err(|reason| WireError::Protocol(reason.into()))?;
+        }
+        Ok(())
+    }
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

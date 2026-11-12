@@ -64,12 +64,20 @@ impl FrameKeyContext {
     /// and `focus_id` MUST be non-empty — an empty Context or an epoch-only
     /// binding fails closed per §8.1.
     fn ensure_sender_bound(&self) -> Result<()> {
-        if self.participant_id.trim().is_empty() || self.focus_id.trim().is_empty() {
+        if self.participant_id.trim().is_empty() {
             return Err(Error::Protocol(format!(
                 "{}: frame key context missing sender binding (focus_id / participant_id)",
                 ReasonCode::E2EE_KEY_SOURCE_UNAUTHORISED
             )));
         }
+        arkret_wire::validate_bounded_non_typed_identifier(&self.focus_id, 256).map_err(
+            |reason| {
+                Error::Protocol(format!(
+                    "{}: invalid frame key focus_id: {reason}",
+                    ReasonCode::E2EE_KEY_SOURCE_UNAUTHORISED
+                ))
+            },
+        )?;
         Ok(())
     }
 }
@@ -211,5 +219,55 @@ mod tests {
              \"participant_id\":\"ak:rtc_participant:0198c2f4-0000-7000-8000-000000000000\",\
              \"realm_id\":\"ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs\"}"
         );
+    }
+    #[test]
+    fn focus_profile_is_checked_before_export_and_keeps_exact_canonical_literals() {
+        #[derive(Default)]
+        struct CapturingExporter(std::cell::RefCell<Vec<Vec<u8>>>);
+        impl MlsExporterSource for CapturingExporter {
+            fn export_secret(
+                &self,
+                _: &str,
+                context: &[u8],
+                _: usize,
+            ) -> Result<Zeroizing<Vec<u8>>> {
+                self.0.borrow_mut().push(context.to_vec());
+                Ok(Zeroizing::new(vec![7; MEDIA_KEY_LEN]))
+            }
+        }
+        let exporter = CapturingExporter::default();
+        for literal in [" ".to_owned(), "é".to_owned(), "🦀".repeat(256)] {
+            let mut context = frame_context();
+            context.focus_id = literal.clone();
+            context.ensure_sender_bound().unwrap();
+            if !arkret_canonical::canonical::is_nfc(&literal) {
+                let before = exporter.0.borrow().len();
+                assert!(
+                    derive_frame_key(&exporter, &context)
+                        .unwrap_err()
+                        .to_string()
+                        .contains("Unicode NFC")
+                );
+                assert_eq!(context.focus_id, literal);
+                assert_eq!(exporter.0.borrow().len(), before);
+                continue;
+            }
+            derive_frame_key(&exporter, &context).unwrap();
+            let captured = exporter.0.borrow();
+            assert_eq!(
+                captured.last().unwrap(),
+                &canonical_json_bytes(&context).unwrap()
+            );
+            let value: serde_json::Value =
+                serde_json::from_slice(captured.last().unwrap()).unwrap();
+            assert_eq!(value["focus_id"], literal);
+        }
+        let before = exporter.0.borrow().len();
+        for literal in [String::new(), "ak:focus:invalid".into(), "🦀".repeat(257)] {
+            let mut context = frame_context();
+            context.focus_id = literal;
+            assert!(derive_frame_key(&exporter, &context).is_err());
+            assert_eq!(exporter.0.borrow().len(), before);
+        }
     }
 }

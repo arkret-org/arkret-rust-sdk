@@ -39,7 +39,21 @@ pub struct KeysUploadFields {
     pub fallback_keys: AlgorithmPrekeys,
 }
 
+fn validate_prekey_identifiers(
+    one_time: &AlgorithmPrekeys,
+    fallback: &AlgorithmPrekeys,
+) -> arkret_wire::Result<()> {
+    for prekey in one_time.values().chain(fallback.values()) {
+        prekey.validate_key_id()?;
+    }
+    Ok(())
+}
+
 impl KeysUploadRequestBody {
+    pub fn validate_key_ids(&self) -> arkret_wire::Result<()> {
+        validate_prekey_identifiers(&self.one_time_keys, &self.fallback_keys)
+    }
+
     #[must_use]
     pub fn unsigned(&self) -> KeysUploadFields {
         KeysUploadFields {
@@ -51,6 +65,10 @@ impl KeysUploadRequestBody {
 }
 
 impl KeysUploadFields {
+    pub fn validate_key_ids(&self) -> arkret_wire::Result<()> {
+        validate_prekey_identifiers(&self.one_time_keys, &self.fallback_keys)
+    }
+
     #[must_use]
     pub fn into_signed(self, device_signature: KeyOperationSignature) -> KeysUploadRequestBody {
         KeysUploadRequestBody {
@@ -66,6 +84,9 @@ pub const KEYS_UPLOAD_SIGNATURE_DOMAIN: &str = "ak.keys-upload-v1\n";
 
 /// Build the one SDK-owned `keys/upload` signing transcript.
 pub fn keys_upload_signing_input(unsigned: &KeysUploadFields) -> arkret_canonical::Result<Vec<u8>> {
+    unsigned
+        .validate_key_ids()
+        .map_err(|error| arkret_canonical::CanonicalError::Protocol(error.to_string()))?;
     let canonical = arkret_canonical::canonical_json_bytes(unsigned)?;
     let mut input = Vec::with_capacity(KEYS_UPLOAD_SIGNATURE_DOMAIN.len() + canonical.len());
     input.extend_from_slice(KEYS_UPLOAD_SIGNATURE_DOMAIN.as_bytes());
@@ -796,6 +817,93 @@ mod device_generation_tests {
                 .as_str(),
             "Ed25519"
         );
+    }
+
+    #[test]
+    fn upload_prekey_handles_are_checked_in_both_maps_before_transcript_output() {
+        for fallback in [false, true] {
+            for literal in [
+                " ".to_owned(),
+                "é".to_owned(),
+                "🦀".repeat(256),
+                String::new(),
+                "ak:key:invalid".into(),
+                "🦀".repeat(257),
+            ] {
+                let mut prekey: crate::artifacts_keys::SignedPrekey = serde_json::from_value(json!({
+                    "key":"YWJj", "algorithm":"Ed25519", "signature":{"kid":"did:web:alice.example#device","signature":"c2ln"}, "key_id":"valid"
+                })).unwrap();
+                // Assignment intentionally bypasses the serde adapter.
+                prekey.key_id = Some(
+                    NonEmptyString::new(if literal.is_empty() {
+                        "valid"
+                    } else {
+                        &literal
+                    })
+                    .unwrap(),
+                );
+                if literal.is_empty() {
+                    assert!(serde_json::from_value::<crate::artifacts_keys::SignedPrekey>(json!({"key":"YWJj","algorithm":"Ed25519","signature":{"kid":"k","signature":"c2ln"},"key_id":""})).is_err());
+                    continue;
+                }
+                let mut unsigned = KeysUploadFields {
+                    device_id: DeviceId::new(DEVICE_ID).unwrap(),
+                    one_time_keys: BTreeMap::new(),
+                    fallback_keys: BTreeMap::new(),
+                };
+                let map = if fallback {
+                    &mut unsigned.fallback_keys
+                } else {
+                    &mut unsigned.one_time_keys
+                };
+                map.insert(NonEmptyString::new("test").unwrap(), prekey);
+                let valid =
+                    arkret_wire::validate_bounded_non_typed_identifier(&literal, 256).is_ok();
+                let input = keys_upload_signing_input(&unsigned);
+                let canonical_valid = valid && arkret_canonical::canonical::is_nfc(&literal);
+                assert_eq!(input.is_ok(), canonical_valid);
+                if valid && !canonical_valid {
+                    assert!(
+                        input
+                            .as_ref()
+                            .unwrap_err()
+                            .to_string()
+                            .contains("Unicode NFC")
+                    );
+                    assert_eq!(
+                        serde_json::to_value(&unsigned).unwrap()[if fallback {
+                            "fallback_keys"
+                        } else {
+                            "one_time_keys"
+                        }]["test"]["key_id"],
+                        literal
+                    );
+                }
+                if canonical_valid {
+                    let mut expected = KEYS_UPLOAD_SIGNATURE_DOMAIN.as_bytes().to_vec();
+                    expected.extend(arkret_canonical::canonical_json_bytes(&unsigned).unwrap());
+                    assert_eq!(input.unwrap(), expected);
+                    let value = serde_json::to_value(&unsigned).unwrap();
+                    assert_eq!(
+                        value[if fallback {
+                            "fallback_keys"
+                        } else {
+                            "one_time_keys"
+                        }]["test"]["key_id"],
+                        literal
+                    );
+                }
+                let signature = KeyOperationSignature {
+                    kid: NonEmptyString::new("did:web:alice.example#device").unwrap(),
+                    signature_algorithm: None,
+                    signature: Base64UrlString::new("c2ln").unwrap(),
+                };
+                assert_eq!(
+                    unsigned.into_signed(signature).validate_key_ids().is_ok(),
+                    valid
+                );
+            }
+        }
     }
 
     const DEVICE_SIGNING_KEY: &str = "did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuVkhY7g94pVQyG98x";

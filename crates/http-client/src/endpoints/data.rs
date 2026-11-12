@@ -545,6 +545,7 @@ impl Client {
         &self,
         request: &KeysUploadRequestBody,
     ) -> Result<KeysUploadResponseBody> {
+        request.validate_key_ids()?;
         self.post("/_arkret/self/keys/upload", request).await
     }
 

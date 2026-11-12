@@ -989,3 +989,45 @@ fn validate_fragment(file: &str, fragment: &str, value: &Value) {
         .validate_value(&schema_id, value)
         .unwrap_or_else(|error| panic!("{file}{fragment} rejected the document: {error}"));
 }
+
+#[test]
+fn package_identity_is_checked_before_digest_or_signature_without_requiring_existing_proof() {
+    let signer = StubSigner {
+        did: did("slackbridge"),
+        verification_method: DidUrl::new(format!("{}#key-1", did("slackbridge"))).unwrap(),
+    };
+    for literal in [
+        " ".to_owned(),
+        "é".to_owned(),
+        "🦀".repeat(256),
+        String::new(),
+        "ak:package:invalid".into(),
+        "🦀".repeat(257),
+    ] {
+        let mut package = package_with_required_fields();
+        package.package_id = literal.clone();
+        package.package_digest = None;
+        package.proof = None;
+        let profile_valid =
+            arkret_wire::validate_bounded_non_typed_identifier(&literal, 256).is_ok();
+        let valid = profile_valid && arkret_canonical::canonical::is_nfc(&literal);
+        assert_eq!(package.package_id, literal);
+        assert_eq!(package.compute_package_digest().is_ok(), valid);
+        assert_eq!(package.stamp_package_digest().is_ok(), valid);
+        assert_eq!(
+            package.sign(&signer, &signer.verification_method).is_ok(),
+            valid
+        );
+        if valid {
+            assert_eq!(package.package_id, literal);
+            assert_eq!(
+                package.package_digest.as_ref().unwrap(),
+                &package.compute_package_digest().unwrap()
+            );
+            assert!(package.proof.is_some());
+        } else {
+            assert!(package.package_digest.is_none());
+            assert!(package.proof.is_none());
+        }
+    }
+}

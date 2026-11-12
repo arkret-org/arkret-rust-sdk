@@ -195,7 +195,62 @@ impl TryFrom<&Event> for AgentProvisionPayload {
     }
 }
 
+fn validate_scoped_agent_handles<'a>(handles: impl IntoIterator<Item = &'a str>) -> Result<()> {
+    for handle in handles {
+        validate_bounded_non_typed_identifier(handle, 256)
+            .map_err(|reason| WireError::Protocol(reason.into()))?;
+    }
+    Ok(())
+}
+
+impl AgentKeyAuthorizePayload {
+    pub fn validate(&self) -> Result<()> {
+        validate_agent_key_identifier(self.key_id.as_str())?;
+        for constraint in &self.agent_key_scope.constraints {
+            constraint.validate_identifiers()?;
+        }
+        for previous in &self.supersedes {
+            validate_agent_key_identifier(previous.key_id.as_str())?;
+        }
+        Ok(())
+    }
+}
+
+impl AgentKeyRevokePayload {
+    pub fn validate(&self) -> Result<()> {
+        validate_agent_key_identifier(self.key_id.as_str())
+    }
+}
+
+impl AgentDraftProposePayload {
+    pub fn validate(&self) -> Result<()> {
+        validate_scoped_agent_handles([self.draft_id.as_str()])
+    }
+}
+
+impl AgentActionRequestPayload {
+    pub fn validate(&self) -> Result<()> {
+        validate_scoped_agent_handles(
+            std::iter::once(self.request_id.as_str()).chain(self.draft_id.as_deref()),
+        )
+    }
+}
+
+impl AgentActionRejectPayload {
+    pub fn validate(&self) -> Result<()> {
+        validate_scoped_agent_handles([self.rejection_id.as_str(), self.request_id.as_str()])
+    }
+}
+
 impl AgentActionApprovePayload {
+    pub fn validate(&self) -> Result<()> {
+        validate_scoped_agent_handles(
+            std::iter::once(self.approval_id.as_str())
+                .chain(self.request_id.as_deref())
+                .chain(self.draft_id.as_deref()),
+        )
+    }
+
     /// Whether an Event covered by a RealmCommit with `committed_at` falls
     /// inside this approval window.
     ///

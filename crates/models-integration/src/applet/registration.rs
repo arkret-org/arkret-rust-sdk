@@ -1364,6 +1364,7 @@ impl AppletPackage {
     /// `proof` cleared, so the digest never depends on itself or the
     /// signature.
     pub fn compute_package_digest(&self) -> Result<Hash> {
+        self.validate_package_id()?;
         let mut bare = self.clone();
         bare.package_digest = None;
         bare.proof = None;
@@ -1385,6 +1386,7 @@ impl AppletPackage {
         signer: &S,
         verification_method: &DidUrl,
     ) -> Result<()> {
+        self.validate_package_id()?;
         let mut unsigned = self.clone();
         unsigned.proof = None;
         let canonical_bytes = canonical::canonical_json_bytes(&unsigned)?;
@@ -1410,16 +1412,19 @@ impl AppletPackage {
         self.validate_wire()
     }
 
+    fn validate_package_id(&self) -> Result<()> {
+        arkret_wire::validate_bounded_non_typed_identifier(&self.package_id, 256)
+            .map_err(|reason| WireError::Protocol(reason.into()))
+    }
+
     pub fn validate_wire(&self) -> Result<()> {
+        self.validate_package_id()?;
         if self.schema != SchemaId::APPLET_PACKAGE_V1 {
             return Err(WireError::Protocol(
                 "applet package schema mismatch".to_owned(),
             ));
         }
-        if arkret_wire::validate_bounded_non_typed_identifier(&self.package_id, 256).is_err()
-            || !self.base_url.starts_with("https://")
-            || self.endpoint_policy.endpoints.is_empty()
-        {
+        if !self.base_url.starts_with("https://") || self.endpoint_policy.endpoints.is_empty() {
             return Err(WireError::Protocol(
                 "applet package missing required fields".to_owned(),
             ));

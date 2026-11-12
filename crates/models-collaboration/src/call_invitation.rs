@@ -83,6 +83,9 @@ impl CallInvitationEnvelope {
 impl CallInvitationAdmissionRequestBody {
     pub fn validate(&self) -> arkret_wire::Result<()> {
         self.invitation.validate_for_envelope(&self.envelope)?;
+        if let Some(focus_id) = &self.focus_id {
+            arkret_wire::validate_bounded_non_typed_identifier(focus_id, 64).map_err(invalid)?;
+        }
         if self.subject_actor_id.as_account_id() != Some(&self.invitation.holder_account_id)
             || !valid_nonce(&self.nonce)
         {
@@ -113,6 +116,11 @@ pub fn valid_nonce(nonce: &str) -> bool {
 pub fn voluntary_join_signing_input_from_value(
     value: &serde_json::Value,
 ) -> arkret_wire::Result<Vec<u8>> {
+    let focus_id = value
+        .get("focus_id")
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| invalid("voluntary join focus_id is absent or not a string"))?;
+    arkret_wire::validate_bounded_non_typed_identifier(focus_id, 64).map_err(invalid)?;
     let mut unsigned = value.clone();
     unsigned
         .get_mut("join_context")

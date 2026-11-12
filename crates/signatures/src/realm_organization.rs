@@ -163,4 +163,58 @@ mod tests {
             original.authorization.verification_method
         );
     }
+    #[test]
+    fn direct_statement_handles_are_validated_before_signing_without_literal_changes() {
+        let signing_key = SigningKey::from_bytes(&[23; 32]);
+        for field in [
+            "statement_id",
+            "supersedes_statement_id",
+            "revokes_statement_id",
+        ] {
+            for literal in [
+                " ".to_owned(),
+                "é".to_owned(),
+                "🦀".repeat(256),
+                String::new(),
+                "ak:statement:invalid".into(),
+                "🦀".repeat(257),
+            ] {
+                let mut input = payload();
+                match field {
+                    "statement_id" => input.statement_id = literal.clone(),
+                    "supersedes_statement_id" => {
+                        input.supersedes_statement_id = Some(literal.clone())
+                    }
+                    _ => input.revokes_statement_id = Some(literal.clone()),
+                }
+                let signed = realm_organization_statement_sign(&input, &signing_key);
+                if arkret_wire::validate_bounded_non_typed_identifier(&literal, 256).is_err() {
+                    assert!(signed.is_err());
+                    assert!(realm_organization_statement_signing_bytes(&input).is_err());
+                    continue;
+                }
+                if !arkret_canonical::canonical::is_nfc(&literal) {
+                    input.validate().unwrap();
+                    assert_eq!(serde_json::to_value(&input).unwrap()[field], literal);
+                    assert!(signed.unwrap_err().to_string().contains("Unicode NFC"));
+                    continue;
+                }
+                let signed = signed.unwrap();
+                let bytes = realm_organization_statement_signing_bytes(&signed).unwrap();
+                let transcript: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+                assert_eq!(transcript[field], literal);
+                let SignatureMaterial::NonEmptyString(proof) = &signed.authorization.proof else {
+                    panic!("detached signature")
+                };
+                let signature = ed25519_dalek::Signature::from_slice(
+                    &base64url_decode(proof.as_str()).unwrap(),
+                )
+                .unwrap();
+                signing_key
+                    .verifying_key()
+                    .verify_strict(&bytes, &signature)
+                    .unwrap();
+            }
+        }
+    }
 }

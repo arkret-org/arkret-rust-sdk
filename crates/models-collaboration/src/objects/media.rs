@@ -237,7 +237,7 @@ pub use crate::events_payloads::call::ParticipantBinding as CallMediaParticipant
 
 /// Closed media backend registry used by both focus selection and token exchange.
 ///
-/// Mirrors the wire enum `ak.realm.media_service.foci[].type`. The registry is
+/// Mirrors the wire enum `ak.realm.media_service.foci[].focus_kind`. The registry is
 /// closed, so successful deserialization *is* the known-backend check: an
 /// unrecognized label fails to deserialize rather than surviving as a
 /// catch-all variant, and receivers MUST fail closed with
@@ -384,6 +384,7 @@ impl TryFrom<CallMediaTokenExchangeOutcomeWire> for CallMediaTokenExchangeRespon
 
 impl CallMediaTokenExchangeRequestBody {
     pub fn voluntary_join_signing_bytes(&self) -> arkret_wire::Result<Vec<u8>> {
+        self.validate()?;
         crate::call_invitation::voluntary_join_signing_input_from_value(&serde_json::to_value(
             self,
         )?)
@@ -410,6 +411,7 @@ impl CallMediaTokenExchangeRequestBody {
 
     pub fn validate_join_context_at(&self, now: DateTime<Utc>) -> arkret_wire::Result<()> {
         use crate::call_invitation::CallMediaJoinContext;
+        self.validate()?;
         match &self.join_context {
             CallMediaJoinContext::Invitation(context) => {
                 context

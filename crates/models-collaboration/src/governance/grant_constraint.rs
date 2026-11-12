@@ -549,6 +549,20 @@ pub struct GrantConstraint {
 }
 
 impl GrantConstraint {
+    /// Validate the scoped identifiers before using a directly constructed constraint.
+    pub fn validate_identifiers(&self) -> Result<()> {
+        for identifier in self
+            .constraint_id
+            .as_deref()
+            .into_iter()
+            .chain(self.allowed_session_ids.iter().map(String::as_str))
+        {
+            arkret_wire::validate_bounded_non_typed_identifier(identifier, 256)
+                .map_err(|reason| WireError::Protocol(reason.into()))?;
+        }
+        Ok(())
+    }
+
     pub const SCHEMA: &'static str = SchemaId::GRANT_CONSTRAINT_V1;
     pub fn new(constraint_kind: GrantConstraintKind, effect: GrantConstraintEffect) -> Self {
         Self {

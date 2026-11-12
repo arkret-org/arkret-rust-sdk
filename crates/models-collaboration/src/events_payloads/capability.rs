@@ -4,6 +4,15 @@ use arkret_wire::{ActorId, CurrentRevision};
 
 use crate::internal_prelude::*;
 
+impl CapabilityGrantPayload {
+    pub fn validate_identifiers(&self) -> Result<()> {
+        for constraint in &self.grant.constraints {
+            constraint.validate_identifiers()?;
+        }
+        Ok(())
+    }
+}
+
 impl CapabilityGrantCreateBody {
     /// Structural checks only. Ownership, current rights and management gates
     /// must still be decided by the accepting Station in its transaction.
