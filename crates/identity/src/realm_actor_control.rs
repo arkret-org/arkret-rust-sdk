@@ -157,32 +157,10 @@ pub fn verify_realm_actor_initial_resolution(
     let control_bytes = key
         .ed25519_bytes()
         .map_err(|error| rejected(ErrorCode::SignatureInvalid, &error.to_string()))?;
-    let recipient = &payload.recovery.content_backup_recipient;
-    crate::validate_verification_method_relationship(
+    validate_realm_actor_content_backup_recipient(
         &document,
-        &recipient.key_agreement_ref,
-        &document.id,
-        DidVerificationRelationship::KeyAgreement,
-    )
-    .map_err(|error| rejected(ErrorCode::SignatureInvalid, &error.to_string()))?;
-    let recipient_bytes = arkret_canonical::base64url_decode(&recipient.public_key_base64url)
-        .map_err(|error| rejected(ErrorCode::SignatureInvalid, &error.to_string()))?;
-    arkret_crypto::hpke::validate_x25519_recipient_key(&recipient_bytes)
-        .map_err(|error| rejected(ErrorCode::SignatureInvalid, &error.to_string()))?;
-    let mut recipient_multicodec = vec![0xec, 0x01];
-    recipient_multicodec.extend_from_slice(&recipient_bytes);
-    let expected = arkret_canonical::encode_multibase_base58btc(recipient_multicodec);
-    if recipient.public_key_base64url != arkret_canonical::base64url_encode(&recipient_bytes)
-        || document
-            .verification_methods
-            .get(recipient.key_agreement_ref.as_str())
-            != Some(&expected)
-    {
-        return Err(rejected(
-            ErrorCode::SignatureInvalid,
-            "content backup recipient differs from original DID keyAgreement",
-        ));
-    }
+        &payload.recovery.content_backup_recipient,
+    )?;
     let control_multibase = arkret_canonical::ed25519_pubkey_to_did_key_multibase(&control_bytes);
     let commitment = arkret_signatures::webvh::webvh_next_key_hash_value(&control_multibase);
     if roots.iter().any(|root| *root == control_multibase)
@@ -455,4 +433,69 @@ pub fn verify_realm_actor_manager_successor(
     )
     .map_err(|error| invalid(&error.to_string()))?;
     Ok(document)
+}
+
+/// Bind a public archive recipient to an independently authenticated original DID document.
+/// This checks no current manager, authorization, inventory or private-key custody.
+pub fn validate_realm_actor_content_backup_recipient(
+    document: &crate::DidDocument,
+    recipient: &arkret_models_crypto::RealmActorContentBackupRecipient,
+) -> Result<()> {
+    crate::validate_verification_method_relationship(
+        document,
+        &recipient.key_agreement_ref,
+        &document.id,
+        DidVerificationRelationship::KeyAgreement,
+    )
+    .map_err(|error| rejected(ErrorCode::SignatureInvalid, &error.to_string()))?;
+    let recipient_bytes = arkret_canonical::base64url_decode(&recipient.public_key_base64url)
+        .map_err(|error| rejected(ErrorCode::SignatureInvalid, &error.to_string()))?;
+    arkret_crypto::hpke::validate_x25519_recipient_key(&recipient_bytes)
+        .map_err(|error| rejected(ErrorCode::SignatureInvalid, &error.to_string()))?;
+    let mut recipient_multicodec = vec![0xec, 0x01];
+    recipient_multicodec.extend_from_slice(&recipient_bytes);
+    let expected = arkret_canonical::encode_multibase_base58btc(recipient_multicodec);
+    if recipient.public_key_base64url != arkret_canonical::base64url_encode(&recipient_bytes)
+        || document
+            .verification_methods
+            .get(recipient.key_agreement_ref.as_str())
+            != Some(&expected)
+    {
+        return Err(rejected(
+            ErrorCode::SignatureInvalid,
+            "content backup recipient differs from original DID keyAgreement",
+        ));
+    }
+    Ok(())
+}
+
+/// Read only the named X25519 agreement from an independently authenticated original.
+pub fn realm_actor_content_backup_recipient_from_document(
+    document: &crate::DidDocument,
+    key_agreement_ref: &arkret_wire::DidUrl,
+) -> Result<arkret_models_crypto::RealmActorContentBackupRecipient> {
+    let encoded = document
+        .verification_methods
+        .get(key_agreement_ref.as_str())
+        .ok_or_else(|| {
+            rejected(
+                ErrorCode::SignatureInvalid,
+                "archive agreement method is absent",
+            )
+        })?;
+    let bytes = arkret_canonical::decode_multibase_base58btc(encoded)
+        .map_err(|error| rejected(ErrorCode::SignatureInvalid, &error.to_string()))?;
+    if bytes.len() != 34 || bytes[..2] != [0xec, 0x01] {
+        return Err(rejected(
+            ErrorCode::SignatureInvalid,
+            "archive agreement must be canonical X25519 Multikey",
+        ));
+    }
+    let recipient = arkret_models_crypto::RealmActorContentBackupRecipient {
+        key_agreement_ref: key_agreement_ref.clone(),
+        hpke_suite: arkret_models_crypto::RealmActorContentBackupRecipientHpkeSuite::AkHpkeX25519AeadChacha20poly1305V1,
+        public_key_base64url: arkret_canonical::base64url_encode(&bytes[2..]),
+    };
+    validate_realm_actor_content_backup_recipient(document, &recipient)?;
+    Ok(recipient)
 }

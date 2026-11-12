@@ -14,7 +14,7 @@
 // sha256=8a166319961d452f87d8becf5db9e089008f477e28de749aedc0696a44f9ec7e
 //
 // Input: schemas/current-state.schema.json
-// sha256=8cab7974d8b7e149d6140a0f5b999ae7b95908d5b46f034cb36ce6580ba737cf
+// sha256=b9b2fcecf87470a1def1e55bf536bdb637b04f0e6f42083d5ed9962a80b14c61
 //
 // Input: schemas/realm-authority-handoff.schema.json
 // sha256=3c13fbab2eb3ef175f4074d773997452693c0897b0fe4f7f84cd1702937df062

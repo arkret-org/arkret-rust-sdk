@@ -8,10 +8,10 @@
 // sha256=e57f2773764165f5a2e6047ae5491cdf152476deb73c83b2f6c14fff58925305
 //
 // Input: schemas/current-state.schema.json
-// sha256=8cab7974d8b7e149d6140a0f5b999ae7b95908d5b46f034cb36ce6580ba737cf
+// sha256=b9b2fcecf87470a1def1e55bf536bdb637b04f0e6f42083d5ed9962a80b14c61
 //
 // Input: schemas/../registry/contract-registry.json
-// sha256=e7c40cea03814781c80b15559ebd9fdf86328bae623389714032f5bbc8f6db56
+// sha256=88adae49fd9b661987aab650635e40eb0c59f9ae395c8ba14d0aa21a87ed9948
 //
 // Bindings: tools/closed-model-bindings.json
 // sha256=db527b364017054646ca12898f9051885245c63852c0c52b9960a568cc897f0f

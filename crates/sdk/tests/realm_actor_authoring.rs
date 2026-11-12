@@ -335,6 +335,28 @@ fn creation_recipient_requires_original_key_agreement_even_with_valid_control_si
     let (candidate, _) = candidate();
     let at = candidate.control_signature.created_at;
     arkret_identity::verify_realm_actor_initial_resolution(&candidate, at).unwrap();
+    let document: DidDocument = serde_json::from_value(
+        candidate.method_history_evidence.webvh_material().1[0]["state"].clone(),
+    )
+    .unwrap();
+    assert_eq!(
+        arkret_identity::realm_actor_content_backup_recipient_from_document(
+            &document,
+            &candidate
+                .recovery
+                .content_backup_recipient
+                .key_agreement_ref
+        )
+        .unwrap(),
+        candidate.recovery.content_backup_recipient
+    );
+    assert!(
+        arkret_identity::realm_actor_content_backup_recipient_from_document(
+            &document,
+            &candidate.control_method_kid
+        )
+        .is_err()
+    );
     for change in 0..3 {
         let mut changed = candidate.clone();
         match change {
