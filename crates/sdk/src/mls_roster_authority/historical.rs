@@ -57,6 +57,34 @@ impl VerifiedMlsHistoricalContentRoster {
         &self.root_context
     }
 
+    /// Public leaf selection only. The caller independently qualifies current
+    /// native Device authority and resource readability at the live source.
+    pub fn content_endpoint_for_device(
+        &self,
+        actor: &arkret_wire::ActorId,
+        device: &arkret_wire::DeviceId,
+    ) -> Result<ContentEndpoint, String> {
+        let mut matching = self.bindings.iter().filter(|binding| binding.actor_id == *actor
+            && matches!(&binding.endpoint, arkret_models_crypto::MlsEndpointIdentity::HumanDevice { device_id, .. } if device_id == device));
+        let binding = matching.next().ok_or("Device has no accepted leaf")?;
+        if matching.next().is_some() {
+            return Err("Device has ambiguous accepted leaves".into());
+        }
+        let endpoint = ContentEndpoint {
+            actor_id: actor.clone(),
+            endpoint: arkret_wire::MlsWelcomeRecipientEndpoint::Device {
+                device_id: device.clone(),
+            },
+            authorization_event_ref: binding
+                .device_authorize_event_id
+                .clone()
+                .ok_or("Device leaf omits native authorization")?,
+            signature_key_base64url: binding.signature_key.as_str().to_owned(),
+        };
+        endpoint.validate().map_err(|error| error.to_string())?;
+        Ok(endpoint)
+    }
+
     pub fn content_endpoint(&self, original: &Event) -> Result<ContentEndpoint, String> {
         arkret_mls::content_endpoint_from_verified_roster(
             &self.root_context.effective_scope,
