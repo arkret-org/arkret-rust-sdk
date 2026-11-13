@@ -15,6 +15,7 @@ mod agent;
 mod applet;
 mod calendar;
 mod content_envelopes;
+mod content_history;
 mod event_admission;
 mod event_intent;
 mod event_payload;
@@ -39,6 +40,10 @@ pub use calendar::{RsvpAuthoring, RsvpResponseBranch};
 pub use content_envelopes::{
     EventContentEnvelope, EventContentEnvelopesExt, content_block_plaintext,
     validate_cross_station_content_backup_sources,
+};
+pub use content_history::{
+    HistoryContentSelection, event_plain_content_blocks, history_attachment_slots,
+    history_content_key_width, select_history_content,
 };
 pub use event_admission::{decode_event_for_submit, validate_event_for_submit};
 pub use event_intent::{EventContentDraft, EventIntent};

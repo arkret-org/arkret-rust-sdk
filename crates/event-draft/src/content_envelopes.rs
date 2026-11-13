@@ -102,17 +102,27 @@ pub fn content_block_plaintext(
 ) -> Result<Option<arkret_models_collaboration::events_payloads::ContentBlock>> {
     let whole = match kind {
         EventKind::MessageCreate | EventKind::MessageRevise => {
-            content_path == "/payload/encrypted_content"
+            matches!(
+                content_path,
+                "/payload/encrypted_content" | "/payload/content"
+            )
         }
         EventKind::MorphCreate | EventKind::StrandCreate => {
-            content_path == "/payload/object/encrypted_content"
+            matches!(
+                content_path,
+                "/payload/object/encrypted_content" | "/payload/object/content"
+            )
         }
         _ => false,
     };
     let track = *kind == EventKind::StrandCreate
         && content_path
             .strip_prefix("/payload/object/tracks/")
-            .and_then(|value| value.strip_suffix("/encrypted_content"))
+            .and_then(|value| {
+                value
+                    .strip_suffix("/encrypted_content")
+                    .or_else(|| value.strip_suffix("/content"))
+            })
             .is_some_and(|name| !name.is_empty() && unescape_segment(name).is_some());
     let patch = if matches!(
         kind,
@@ -122,9 +132,10 @@ pub fn content_block_plaintext(
             let raw = raw.strip_suffix("/value").unwrap_or(raw);
             if let Some(decoded) = unescape_segment(raw) {
                 let fields = parse_object_path(&decoded)?;
-                fields == ["encrypted_content"]
+                (fields == ["encrypted_content"] || fields == ["content"])
                     || (*kind == EventKind::StrandUpdate
-                        && fields == ["tracks", "synthesis", "encrypted_content"])
+                        && (fields == ["tracks", "synthesis", "encrypted_content"]
+                            || fields == ["tracks", "synthesis", "content"]))
             } else {
                 false
             }
