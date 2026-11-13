@@ -154,9 +154,7 @@ impl<Q, T> BoundOwnStationResponse<Q, T> {
     }
     pub fn value(&self) -> Result<&T> {
         if self.source.snapshot()? != self.session {
-            return Err(protocol(
-                "late own Station response belongs to an inactive session",
-            ));
+            return Err(Error::OwnStationSessionChanged);
         }
         if self
             .valid_until
@@ -210,7 +208,7 @@ impl Client {
             context.source.clone(),
         )?;
         if result.session != context.session {
-            return Err(protocol("carried own Station session changed"));
+            return Err(Error::OwnStationSessionChanged);
         }
         Ok(Some(result))
     }
@@ -269,7 +267,7 @@ impl OwnStationStateClient {
     }
     pub fn check_session(&self) -> Result<()> {
         if self.source.snapshot()? != self.session {
-            return Err(protocol("own Station client session changed"));
+            return Err(Error::OwnStationSessionChanged);
         }
         Ok(())
     }
@@ -586,12 +584,21 @@ mod tests {
         assert_eq!(response.request(), &request);
         assert!(response.value().unwrap().committed_events.is_empty());
         assert!(
-            client.scan_commit_stream(&request).await.is_err(),
+            matches!(
+                client.scan_commit_stream(&request).await,
+                Err(Error::OwnStationSessionChanged)
+            ),
             "session replaced while HTTP response was in flight"
         );
         server.await.unwrap();
-        assert!(response.value().is_err());
-        assert!(client.check_session().is_err());
+        assert!(matches!(
+            response.value(),
+            Err(Error::OwnStationSessionChanged)
+        ));
+        assert!(matches!(
+            client.check_session(),
+            Err(Error::OwnStationSessionChanged)
+        ));
         assert!(
             OwnStationStateClient::new(
                 raw.with_base_url(url::Url::parse("http://localhost:1/").unwrap())

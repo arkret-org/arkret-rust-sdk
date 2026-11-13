@@ -47,6 +47,12 @@ pub enum Error {
     #[error("protocol error: {0}")]
     Protocol(String),
 
+    /// A local authenticated context retired while a request was in flight.
+    /// No response may be consumed; a durable write retains an unknown outcome
+    /// until a fresh context reconciles the same frozen request.
+    #[error("own Station session context changed")]
+    OwnStationSessionChanged,
+
     #[error("invalid service URL: {0}")]
     Url(#[from] url::ParseError),
 
