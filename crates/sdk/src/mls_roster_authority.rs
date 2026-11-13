@@ -911,7 +911,6 @@ pub fn mls_self_roster_authority_page_encoded_size(
 }
 
 #[cfg(test)]
-#[path = "mls_roster_authority/tests.rs"]
 mod tests;
 
 #[cfg(feature = "mls")]

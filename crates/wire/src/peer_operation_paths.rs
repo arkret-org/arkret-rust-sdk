@@ -10,5 +10,4 @@ pub const PATH_SELF_MLS_ROSTER_AUTHORITY: &str = "/_arkret/self/mls/roster-autho
 pub const PATH_SELF_MLS_RECOVERY_SCOPE_CLEANUP: &str = "/_arkret/self/mls/recovery-scope-cleanup";
 
 #[cfg(test)]
-#[path = "peer_operation_paths_tests.rs"]
 mod tests;

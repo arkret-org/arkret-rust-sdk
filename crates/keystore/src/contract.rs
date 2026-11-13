@@ -198,5 +198,4 @@ pub fn service_name(application_id: &str) -> String {
 }
 
 #[cfg(test)]
-#[path = "contract_tests.rs"]
 mod tests;

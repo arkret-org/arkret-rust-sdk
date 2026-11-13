@@ -138,5 +138,4 @@ pub fn validate_agent_policy_support(
 }
 
 #[cfg(test)]
-#[path = "agent_policy_support_tests.rs"]
 mod tests;

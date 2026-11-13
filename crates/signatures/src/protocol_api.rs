@@ -3,27 +3,22 @@
 // Unified Event Envelope proof builder/verifier pipeline. Available without
 // the `signer` feature (canonical bytes + traits + dev-proof gating); the
 // `signer` feature also exposes the Ed25519 detached-JWS backend.
-#[path = "proof.rs"]
 pub mod proof;
 
 // S-1 (savfox SDK gap): one-shot `sign_event` helper that owns the
 // canonical-JSON + detached-JWS pipeline external Applets used to roll
 // themselves.
-#[path = "event_signer.rs"]
 pub mod event_signer;
 pub use event_signer::{SignEventOptions, sign_event};
 
-#[path = "dpop.rs"]
 pub mod dpop;
 pub use dpop::{
     DPOP_PROOF_ALG, DPOP_PROOF_TYP, DpopProof, DpopProofRequest, build_dpop_proof,
     dpop_access_token_hash, dpop_jwk_thumbprint,
 };
 
-#[path = "jwt.rs"]
 pub mod jwt;
 
-#[path = "jwk.rs"]
 pub mod jwk;
 
 // Shared `did:webvh` inception builder. Pure build + cryptography (keygen, SCID
@@ -35,28 +30,23 @@ pub mod jwk;
 // no model dependency and is consumed by components that do not enable
 // `webvh`; only the `inception` half, which builds typed operation bodies, is
 // feature gated.
-#[path = "webvh/mod.rs"]
 pub mod webvh;
 
 #[cfg(feature = "service-identity")]
-#[path = "service_identity.rs"]
 pub mod service_identity;
 
 // Organization-side statement signing (A3). Byte-symmetric counterpart to
 // coland's `verify_realm_organization_proof_signature`.
 #[cfg(feature = "collaboration")]
-#[path = "realm_organization.rs"]
 pub mod realm_organization;
 
 // RFC 7515 detached Ed25519 JWS signer (resolver-free sign half). The verify /
 // DID-resolve / replay-window half lives in `arkret-identity`.
-#[path = "jws.rs"]
 pub mod jws;
 
 // `challenge_dpop_session_v1` for the WebSocket binding extension. Kept next to
 // (never merged into) the HTTP DPoP module: the two validator contexts must
 // stay separate, see `websocket_auth`'s module documentation.
-#[path = "websocket_auth.rs"]
 pub mod websocket_auth;
 pub use websocket_auth::{
     VerifiedWebSocketAuth, WebSocketAuthError, WebSocketAuthProof, WebSocketAuthProofRequest,
@@ -64,7 +54,6 @@ pub use websocket_auth::{
     websocket_holder_thumbprint, websocket_session_grant_hash,
 };
 
-#[path = "error.rs"]
 pub mod error;
 
 /// Production-grade proof algorithms this SDK can actually produce and verify.

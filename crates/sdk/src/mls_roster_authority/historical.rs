@@ -23,7 +23,6 @@ use super::roster_bindings::{match_occupied_leaf_authorities, verified_roster_au
 use super::verify_mls_member_roster_authority_pages;
 
 #[cfg(all(test, feature = "mls-test-utils"))]
-#[path = "historical_tests.rs"]
 mod tests;
 
 /// The host obtains the complete transcript and originals through its live,

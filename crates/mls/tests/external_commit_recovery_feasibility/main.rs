@@ -30,10 +30,8 @@ const PROBE_NONCE: [u8; 12] = [0x37; 12];
 const BEFORE: &[u8] = b"positive control: external join alone does not evict old devices";
 const AFTER: &[u8] = b"recovered PCR message after every old endpoint was removed";
 
-#[path = "support/archive_recovery.rs"]
 mod archive_recovery;
 
-#[path = "support/epoch_content_recovery.rs"]
 mod epoch_content_recovery;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

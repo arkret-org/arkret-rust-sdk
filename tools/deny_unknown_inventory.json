@@ -215,7 +215,7 @@
       "rust_type": "crates/identity/src/realm_actor_backup_handover.rs::PrivateHandoverCheckpoint",
       "crate": "identity",
       "file": "crates/identity/src/realm_actor_backup_handover.rs",
-      "line": 228,
+      "line": 254,
       "kind": "struct",
       "value_kind": "PrivateHandoverCheckpoint",
       "spec_pointer": null,
@@ -407,48 +407,9 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/mls/tests/external_commit_recovery_feasibility.rs::Binding",
+      "rust_type": "crates/mls/tests/external_commit_recovery_feasibility/archive_recovery.rs::Origin",
       "crate": "mls",
-      "file": "crates/mls/tests/external_commit_recovery_feasibility.rs",
-      "line": 40,
-      "kind": "struct",
-      "value_kind": "Binding",
-      "spec_pointer": null,
-      "schema_openness": "unresolved",
-      "classification": "needs_review",
-      "cfg_gated": false,
-      "flatten_extra": false
-    },
-    {
-      "rust_type": "crates/mls/tests/external_commit_recovery_feasibility.rs::PublicCapsule",
-      "crate": "mls",
-      "file": "crates/mls/tests/external_commit_recovery_feasibility.rs",
-      "line": 85,
-      "kind": "struct",
-      "value_kind": "PublicCapsule",
-      "spec_pointer": null,
-      "schema_openness": "unresolved",
-      "classification": "needs_review",
-      "cfg_gated": false,
-      "flatten_extra": false
-    },
-    {
-      "rust_type": "crates/mls/tests/external_commit_recovery_feasibility.rs::PublicResult",
-      "crate": "mls",
-      "file": "crates/mls/tests/external_commit_recovery_feasibility.rs",
-      "line": 96,
-      "kind": "struct",
-      "value_kind": "PublicResult",
-      "spec_pointer": null,
-      "schema_openness": "unresolved",
-      "classification": "needs_review",
-      "cfg_gated": false,
-      "flatten_extra": false
-    },
-    {
-      "rust_type": "crates/mls/tests/support/archive_recovery.rs::Origin",
-      "crate": "mls",
-      "file": "crates/mls/tests/support/archive_recovery.rs",
+      "file": "crates/mls/tests/external_commit_recovery_feasibility/archive_recovery.rs",
       "line": 25,
       "kind": "struct",
       "value_kind": "Origin",
@@ -459,9 +420,9 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/mls/tests/support/archive_recovery.rs::Record",
+      "rust_type": "crates/mls/tests/external_commit_recovery_feasibility/archive_recovery.rs::Record",
       "crate": "mls",
-      "file": "crates/mls/tests/support/archive_recovery.rs",
+      "file": "crates/mls/tests/external_commit_recovery_feasibility/archive_recovery.rs",
       "line": 34,
       "kind": "struct",
       "value_kind": "Record",
@@ -472,9 +433,9 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/mls/tests/support/archive_recovery.rs::Header",
+      "rust_type": "crates/mls/tests/external_commit_recovery_feasibility/archive_recovery.rs::Header",
       "crate": "mls",
-      "file": "crates/mls/tests/support/archive_recovery.rs",
+      "file": "crates/mls/tests/external_commit_recovery_feasibility/archive_recovery.rs",
       "line": 42,
       "kind": "struct",
       "value_kind": "Header",
@@ -485,9 +446,9 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/mls/tests/support/archive_recovery.rs::Archive",
+      "rust_type": "crates/mls/tests/external_commit_recovery_feasibility/archive_recovery.rs::Archive",
       "crate": "mls",
-      "file": "crates/mls/tests/support/archive_recovery.rs",
+      "file": "crates/mls/tests/external_commit_recovery_feasibility/archive_recovery.rs",
       "line": 54,
       "kind": "struct",
       "value_kind": "Archive",
@@ -498,9 +459,9 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/mls/tests/support/archive_recovery.rs::RecoveryInput",
+      "rust_type": "crates/mls/tests/external_commit_recovery_feasibility/archive_recovery.rs::RecoveryInput",
       "crate": "mls",
-      "file": "crates/mls/tests/support/archive_recovery.rs",
+      "file": "crates/mls/tests/external_commit_recovery_feasibility/archive_recovery.rs",
       "line": 64,
       "kind": "struct",
       "value_kind": "RecoveryInput",
@@ -511,9 +472,9 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/mls/tests/support/archive_recovery.rs::RecoveryOutput",
+      "rust_type": "crates/mls/tests/external_commit_recovery_feasibility/archive_recovery.rs::RecoveryOutput",
       "crate": "mls",
-      "file": "crates/mls/tests/support/archive_recovery.rs",
+      "file": "crates/mls/tests/external_commit_recovery_feasibility/archive_recovery.rs",
       "line": 73,
       "kind": "struct",
       "value_kind": "RecoveryOutput",
@@ -524,9 +485,9 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/mls/tests/support/epoch_content_recovery.rs::Coordinate",
+      "rust_type": "crates/mls/tests/external_commit_recovery_feasibility/epoch_content_recovery.rs::Coordinate",
       "crate": "mls",
-      "file": "crates/mls/tests/support/epoch_content_recovery.rs",
+      "file": "crates/mls/tests/external_commit_recovery_feasibility/epoch_content_recovery.rs",
       "line": 35,
       "kind": "struct",
       "value_kind": "Coordinate",
@@ -537,9 +498,9 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/mls/tests/support/epoch_content_recovery.rs::EpochFact",
+      "rust_type": "crates/mls/tests/external_commit_recovery_feasibility/epoch_content_recovery.rs::EpochFact",
       "crate": "mls",
-      "file": "crates/mls/tests/support/epoch_content_recovery.rs",
+      "file": "crates/mls/tests/external_commit_recovery_feasibility/epoch_content_recovery.rs",
       "line": 47,
       "kind": "struct",
       "value_kind": "EpochFact",
@@ -550,9 +511,9 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/mls/tests/support/epoch_content_recovery.rs::ContentContext",
+      "rust_type": "crates/mls/tests/external_commit_recovery_feasibility/epoch_content_recovery.rs::ContentContext",
       "crate": "mls",
-      "file": "crates/mls/tests/support/epoch_content_recovery.rs",
+      "file": "crates/mls/tests/external_commit_recovery_feasibility/epoch_content_recovery.rs",
       "line": 54,
       "kind": "struct",
       "value_kind": "ContentContext",
@@ -563,9 +524,9 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/mls/tests/support/epoch_content_recovery.rs::ContentHeader",
+      "rust_type": "crates/mls/tests/external_commit_recovery_feasibility/epoch_content_recovery.rs::ContentHeader",
       "crate": "mls",
-      "file": "crates/mls/tests/support/epoch_content_recovery.rs",
+      "file": "crates/mls/tests/external_commit_recovery_feasibility/epoch_content_recovery.rs",
       "line": 66,
       "kind": "struct",
       "value_kind": "ContentHeader",
@@ -576,9 +537,9 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/mls/tests/support/epoch_content_recovery.rs::OriginalContent",
+      "rust_type": "crates/mls/tests/external_commit_recovery_feasibility/epoch_content_recovery.rs::OriginalContent",
       "crate": "mls",
-      "file": "crates/mls/tests/support/epoch_content_recovery.rs",
+      "file": "crates/mls/tests/external_commit_recovery_feasibility/epoch_content_recovery.rs",
       "line": 73,
       "kind": "struct",
       "value_kind": "OriginalContent",
@@ -589,9 +550,9 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/mls/tests/support/epoch_content_recovery.rs::RootHeader",
+      "rust_type": "crates/mls/tests/external_commit_recovery_feasibility/epoch_content_recovery.rs::RootHeader",
       "crate": "mls",
-      "file": "crates/mls/tests/support/epoch_content_recovery.rs",
+      "file": "crates/mls/tests/external_commit_recovery_feasibility/epoch_content_recovery.rs",
       "line": 81,
       "kind": "struct",
       "value_kind": "RootHeader",
@@ -602,9 +563,9 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/mls/tests/support/epoch_content_recovery.rs::RootPacket",
+      "rust_type": "crates/mls/tests/external_commit_recovery_feasibility/epoch_content_recovery.rs::RootPacket",
       "crate": "mls",
-      "file": "crates/mls/tests/support/epoch_content_recovery.rs",
+      "file": "crates/mls/tests/external_commit_recovery_feasibility/epoch_content_recovery.rs",
       "line": 94,
       "kind": "struct",
       "value_kind": "RootPacket",
@@ -615,9 +576,9 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/mls/tests/support/epoch_content_recovery.rs::Input",
+      "rust_type": "crates/mls/tests/external_commit_recovery_feasibility/epoch_content_recovery.rs::Input",
       "crate": "mls",
-      "file": "crates/mls/tests/support/epoch_content_recovery.rs",
+      "file": "crates/mls/tests/external_commit_recovery_feasibility/epoch_content_recovery.rs",
       "line": 102,
       "kind": "struct",
       "value_kind": "Input",
@@ -628,9 +589,9 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/mls/tests/support/epoch_content_recovery.rs::Coverage",
+      "rust_type": "crates/mls/tests/external_commit_recovery_feasibility/epoch_content_recovery.rs::Coverage",
       "crate": "mls",
-      "file": "crates/mls/tests/support/epoch_content_recovery.rs",
+      "file": "crates/mls/tests/external_commit_recovery_feasibility/epoch_content_recovery.rs",
       "line": 115,
       "kind": "struct",
       "value_kind": "Coverage",
@@ -641,9 +602,9 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/mls/tests/support/epoch_content_recovery.rs::Output",
+      "rust_type": "crates/mls/tests/external_commit_recovery_feasibility/epoch_content_recovery.rs::Output",
       "crate": "mls",
-      "file": "crates/mls/tests/support/epoch_content_recovery.rs",
+      "file": "crates/mls/tests/external_commit_recovery_feasibility/epoch_content_recovery.rs",
       "line": 155,
       "kind": "struct",
       "value_kind": "Output",
@@ -654,9 +615,9 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/mls/tests/support/epoch_content_recovery.rs::Hello",
+      "rust_type": "crates/mls/tests/external_commit_recovery_feasibility/epoch_content_recovery.rs::Hello",
       "crate": "mls",
-      "file": "crates/mls/tests/support/epoch_content_recovery.rs",
+      "file": "crates/mls/tests/external_commit_recovery_feasibility/epoch_content_recovery.rs",
       "line": 550,
       "kind": "struct",
       "value_kind": "Hello",
@@ -667,9 +628,9 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/mls/tests/support/epoch_content_recovery.rs::GrantEntry",
+      "rust_type": "crates/mls/tests/external_commit_recovery_feasibility/epoch_content_recovery.rs::GrantEntry",
       "crate": "mls",
-      "file": "crates/mls/tests/support/epoch_content_recovery.rs",
+      "file": "crates/mls/tests/external_commit_recovery_feasibility/epoch_content_recovery.rs",
       "line": 571,
       "kind": "struct",
       "value_kind": "GrantEntry",
@@ -680,12 +641,51 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/mls/tests/support/epoch_content_recovery.rs::RuntimeGrant",
+      "rust_type": "crates/mls/tests/external_commit_recovery_feasibility/epoch_content_recovery.rs::RuntimeGrant",
       "crate": "mls",
-      "file": "crates/mls/tests/support/epoch_content_recovery.rs",
+      "file": "crates/mls/tests/external_commit_recovery_feasibility/epoch_content_recovery.rs",
       "line": 579,
       "kind": "struct",
       "value_kind": "RuntimeGrant",
+      "spec_pointer": null,
+      "schema_openness": "unresolved",
+      "classification": "needs_review",
+      "cfg_gated": false,
+      "flatten_extra": false
+    },
+    {
+      "rust_type": "crates/mls/tests/external_commit_recovery_feasibility/main.rs::Binding",
+      "crate": "mls",
+      "file": "crates/mls/tests/external_commit_recovery_feasibility/main.rs",
+      "line": 38,
+      "kind": "struct",
+      "value_kind": "Binding",
+      "spec_pointer": null,
+      "schema_openness": "unresolved",
+      "classification": "needs_review",
+      "cfg_gated": false,
+      "flatten_extra": false
+    },
+    {
+      "rust_type": "crates/mls/tests/external_commit_recovery_feasibility/main.rs::PublicCapsule",
+      "crate": "mls",
+      "file": "crates/mls/tests/external_commit_recovery_feasibility/main.rs",
+      "line": 83,
+      "kind": "struct",
+      "value_kind": "PublicCapsule",
+      "spec_pointer": null,
+      "schema_openness": "unresolved",
+      "classification": "needs_review",
+      "cfg_gated": false,
+      "flatten_extra": false
+    },
+    {
+      "rust_type": "crates/mls/tests/external_commit_recovery_feasibility/main.rs::PublicResult",
+      "crate": "mls",
+      "file": "crates/mls/tests/external_commit_recovery_feasibility/main.rs",
+      "line": 94,
+      "kind": "struct",
+      "value_kind": "PublicResult",
       "spec_pointer": null,
       "schema_openness": "unresolved",
       "classification": "needs_review",
@@ -14593,7 +14593,7 @@
       "rust_type": "crates/models-crypto/src/realm_actor_content_backup.rs::KeysBackupsUnlockOperationRequestBody",
       "crate": "models-crypto",
       "file": "crates/models-crypto/src/realm_actor_content_backup.rs",
-      "line": 51,
+      "line": 54,
       "kind": "struct",
       "value_kind": "KeysBackupsUnlockOperationRequestBody",
       "spec_pointer": null,
@@ -19478,9 +19478,9 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/signatures/src/jwk.rs::JsonWebKey",
+      "rust_type": "crates/signatures/src/protocol_api/jwk.rs::JsonWebKey",
       "crate": "signatures",
-      "file": "crates/signatures/src/jwk.rs",
+      "file": "crates/signatures/src/protocol_api/jwk.rs",
       "line": 39,
       "kind": "enum",
       "value_kind": "JsonWebKey",
@@ -19491,9 +19491,9 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/signatures/src/jwk.rs::JsonWebKeySet",
+      "rust_type": "crates/signatures/src/protocol_api/jwk.rs::JsonWebKeySet",
       "crate": "signatures",
-      "file": "crates/signatures/src/jwk.rs",
+      "file": "crates/signatures/src/protocol_api/jwk.rs",
       "line": 169,
       "kind": "struct",
       "value_kind": "JsonWebKeySet",
@@ -19504,9 +19504,9 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/signatures/src/jwk.rs::JsonWebKeySetWire",
+      "rust_type": "crates/signatures/src/protocol_api/jwk.rs::JsonWebKeySetWire",
       "crate": "signatures",
-      "file": "crates/signatures/src/jwk.rs",
+      "file": "crates/signatures/src/protocol_api/jwk.rs",
       "line": 175,
       "kind": "struct",
       "value_kind": "JsonWebKeySetWire",
@@ -19517,9 +19517,9 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/signatures/src/jwt.rs::JsonWebTokenHeader",
+      "rust_type": "crates/signatures/src/protocol_api/jwt.rs::JsonWebTokenHeader",
       "crate": "signatures",
-      "file": "crates/signatures/src/jwt.rs",
+      "file": "crates/signatures/src/protocol_api/jwt.rs",
       "line": 92,
       "kind": "struct",
       "value_kind": "JsonWebTokenHeader",
@@ -19530,9 +19530,9 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/signatures/src/proof.rs::DetachedJwsProtectedHeader",
+      "rust_type": "crates/signatures/src/protocol_api/proof.rs::DetachedJwsProtectedHeader",
       "crate": "signatures",
-      "file": "crates/signatures/src/proof.rs",
+      "file": "crates/signatures/src/protocol_api/proof.rs",
       "line": 120,
       "kind": "struct",
       "value_kind": "DetachedJwsProtectedHeader",
@@ -19543,9 +19543,9 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/signatures/src/webvh/inception.rs::PreparedPrincipalInception",
+      "rust_type": "crates/signatures/src/protocol_api/webvh/inception.rs::PreparedPrincipalInception",
       "crate": "signatures",
-      "file": "crates/signatures/src/webvh/inception.rs",
+      "file": "crates/signatures/src/protocol_api/webvh/inception.rs",
       "line": 165,
       "kind": "struct",
       "value_kind": "PreparedPrincipalInception",

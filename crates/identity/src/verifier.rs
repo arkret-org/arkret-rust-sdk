@@ -1027,7 +1027,6 @@ fn freshness_satisfies(observed: &BindingFreshness, required: &FreshnessRequirem
 }
 
 #[cfg(test)]
-#[path = "verifier/tests.rs"]
 mod tests;
 
 use crate::binding_digest::DidBindingEvidenceReceiptExt;

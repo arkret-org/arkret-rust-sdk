@@ -17,7 +17,6 @@ use zeroize::Zeroizing;
 use crate::{Error, Result};
 
 #[cfg(feature = "backup")]
-#[path = "content_history_backup.rs"]
 mod backup_draft;
 #[cfg(feature = "backup")]
 pub use backup_draft::{

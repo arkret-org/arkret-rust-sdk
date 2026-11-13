@@ -325,7 +325,7 @@ mod native_tests {
     use super::*;
 
     fn fixture() -> Value {
-        serde_json::from_str(include_str!("../../../../arkret-spec/spec/v1/artifacts/fixtures/realm-actor-content-backup-fixture.json")).unwrap()
+        serde_json::from_str(include_str!("../../../../../arkret-spec/spec/v1/artifacts/fixtures/realm-actor-content-backup-fixture.json")).unwrap()
     }
 
     #[test]
@@ -430,7 +430,7 @@ mod native_tests {
     #[test]
     fn legacy_account_and_agent_expiry_null_and_value_keep_signed_bytes_and_open() {
         let f: Value = serde_json::from_str(include_str!(
-            "../../../../arkret-spec/spec/v1/artifacts/fixtures/content-history-fixture.json"
+            "../../../../../arkret-spec/spec/v1/artifacts/fixtures/content-history-fixture.json"
         ))
         .unwrap();
         let original: KeyBackup =

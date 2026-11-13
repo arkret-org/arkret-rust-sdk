@@ -2789,5 +2789,4 @@ impl arkret_crypto::sframe::MlsExporterSource for ArkretMlsGroup {
 }
 
 #[cfg(test)]
-#[path = "group/tests.rs"]
 mod tests;

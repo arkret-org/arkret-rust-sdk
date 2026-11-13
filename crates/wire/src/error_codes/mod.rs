@@ -7,5 +7,4 @@ pub use reason_code::*;
 pub use status::*;
 
 #[cfg(test)]
-#[path = "tests.rs"]
 mod tests;

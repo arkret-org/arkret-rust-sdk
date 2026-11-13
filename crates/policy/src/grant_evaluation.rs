@@ -1711,11 +1711,9 @@ fn all_resources_narrowed(
 }
 
 #[cfg(test)]
-#[path = "grant_evaluation_tests.rs"]
 mod tests;
 
 #[cfg(test)]
-#[path = "grant_constraint_ceiling_tests.rs"]
 mod constraint_ceiling_tests;
 
 pub fn capability_grant_expires_at(grant: &CapabilityGrant) -> Option<DateTime<Utc>> {

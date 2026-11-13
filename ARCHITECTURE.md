@@ -22,7 +22,7 @@ arkret (umbrella SDK)
     |   the `ak.peer.*` federation frames (`crates/models-collaboration/src/federation/`),
     |   `ak.typing` composition indicators (`src/signal_plaintext.rs`) and
     |   `ak.call.*` signalling (`src/call_signal.rs`); WebRTC media/ICE config
-    |   verification lives in `crates/signatures/src/media_ice.rs`
+    |   verification lives in `crates/signatures/src/media/ice.rs`
     |-- arkret-push-policy: push payload redaction policy
     |-- arkret-mls: OpenMLS-backed group encryption and epoch handling
     `-- arkret-bootstrap: PCR genesis and Agent provisioning intent builders

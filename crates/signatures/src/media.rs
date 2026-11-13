@@ -16,7 +16,6 @@ use serde::Serialize;
 
 use crate::{Error, Result};
 
-#[path = "media_ice.rs"]
 mod ice;
 pub use ice::{IceConfig, verify_ice_config_outcome};
 
@@ -564,5 +563,4 @@ pub fn verify_call_media_token_outcome(
 }
 
 #[cfg(test)]
-#[path = "media/tests.rs"]
 mod tests;

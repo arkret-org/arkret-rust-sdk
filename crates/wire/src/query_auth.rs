@@ -40,5 +40,4 @@ pub fn contains_query_auth_material(query: &str) -> bool {
 }
 
 #[cfg(test)]
-#[path = "query_auth_tests.rs"]
 mod tests;

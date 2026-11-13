@@ -28,5 +28,4 @@ pub fn federation_trust_domain_transcript_fragment(
 }
 
 #[cfg(test)]
-#[path = "federation_tests.rs"]
 mod tests;

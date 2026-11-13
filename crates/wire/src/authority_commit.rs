@@ -3431,7 +3431,6 @@ fn deserialize_optional_original_digest<'de, D: Deserializer<'de>>(
 }
 
 #[cfg(test)]
-#[path = "authority_commit/tests.rs"]
 mod tests;
 
 include!("generated/authority_commit_contracts.rs");

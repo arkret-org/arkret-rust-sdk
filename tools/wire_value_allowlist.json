@@ -3349,7 +3349,7 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "crates/signatures/src/webvh/inception.rs::AgentBindingUpdateInput.previous_entries",
+      "finding": "crates/signatures/src/protocol_api/webvh/inception.rs::AgentBindingUpdateInput.previous_entries",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -3360,7 +3360,7 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "crates/signatures/src/webvh/inception.rs::PreparedInception.log_entry",
+      "finding": "crates/signatures/src/protocol_api/webvh/inception.rs::PreparedInception.log_entry",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -3371,7 +3371,7 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "crates/signatures/src/webvh/inception.rs::PreparedPrincipalInception.log_entry",
+      "finding": "crates/signatures/src/protocol_api/webvh/inception.rs::PreparedPrincipalInception.log_entry",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -3382,7 +3382,7 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "crates/signatures/src/webvh/inception.rs::PreparedPrincipalRotation.log_entry",
+      "finding": "crates/signatures/src/protocol_api/webvh/inception.rs::PreparedPrincipalRotation.log_entry",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -3393,7 +3393,7 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "crates/signatures/src/webvh/inception.rs::PreparedServiceRotation.log_entry",
+      "finding": "crates/signatures/src/protocol_api/webvh/inception.rs::PreparedServiceRotation.log_entry",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -3404,7 +3404,7 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "crates/signatures/src/webvh/inception.rs::PreparedWebvhRelocation.log_entry",
+      "finding": "crates/signatures/src/protocol_api/webvh/inception.rs::PreparedWebvhRelocation.log_entry",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -3415,7 +3415,7 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "crates/signatures/src/webvh/inception.rs::PrincipalRotationInput.previous_entries",
+      "finding": "crates/signatures/src/protocol_api/webvh/inception.rs::PrincipalRotationInput.previous_entries",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -3426,7 +3426,7 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "crates/signatures/src/webvh/inception.rs::PrincipalRotationInput.state",
+      "finding": "crates/signatures/src/protocol_api/webvh/inception.rs::PrincipalRotationInput.state",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -3437,7 +3437,7 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "crates/signatures/src/webvh/inception.rs::ServiceRotationInput.previous_entries",
+      "finding": "crates/signatures/src/protocol_api/webvh/inception.rs::ServiceRotationInput.previous_entries",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -3448,7 +3448,7 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "crates/signatures/src/webvh/inception.rs::ServiceRotationInput.state",
+      "finding": "crates/signatures/src/protocol_api/webvh/inception.rs::ServiceRotationInput.state",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -3459,7 +3459,7 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "crates/signatures/src/webvh/inception.rs::SubmittedInception.did_document",
+      "finding": "crates/signatures/src/protocol_api/webvh/inception.rs::SubmittedInception.did_document",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -3470,7 +3470,7 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "crates/signatures/src/webvh/inception.rs::SubmittedInception.did_log",
+      "finding": "crates/signatures/src/protocol_api/webvh/inception.rs::SubmittedInception.did_log",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -3481,7 +3481,7 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "crates/signatures/src/webvh/inception.rs::SuppliedPrincipalInceptionInput.proof",
+      "finding": "crates/signatures/src/protocol_api/webvh/inception.rs::SuppliedPrincipalInceptionInput.proof",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -3492,7 +3492,7 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "crates/signatures/src/webvh/inception.rs::ValidatedWebvhHistoryPoint.document",
+      "finding": "crates/signatures/src/protocol_api/webvh/inception.rs::ValidatedWebvhHistoryPoint.document",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -3504,7 +3504,7 @@
       "adjudication": "manual"
     },
     {
-      "finding": "crates/signatures/src/webvh/inception.rs::WebvhRelocationInput.previous_entries",
+      "finding": "crates/signatures/src/protocol_api/webvh/inception.rs::WebvhRelocationInput.previous_entries",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -3515,7 +3515,7 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "crates/signatures/src/webvh/inception.rs::WebvhRelocationInput.state",
+      "finding": "crates/signatures/src/protocol_api/webvh/inception.rs::WebvhRelocationInput.state",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -3526,7 +3526,7 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "crates/signatures/src/webvh/skeleton.rs::WebvhInceptionSkeletonInput.state",
+      "finding": "crates/signatures/src/protocol_api/webvh/skeleton.rs::WebvhInceptionSkeletonInput.state",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -3537,7 +3537,7 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "crates/signatures/src/webvh/skeleton.rs::WebvhInceptionSkeletonInput.witness",
+      "finding": "crates/signatures/src/protocol_api/webvh/skeleton.rs::WebvhInceptionSkeletonInput.witness",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -4255,6 +4255,17 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
+      "finding": "json_authoring:coland/crates/storage-postgres/src/agent_management_review/applet.rs::event_pins:ae4500cfc1317336",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "arkret-spec closed union selected by kind",
+      "owner_repository": "coland",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
+    },
+    {
       "finding": "json_authoring:coland/crates/storage-postgres/src/agent_session_authority.rs::read_at_cut:844e09119b2b8947",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
@@ -4277,17 +4288,6 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
-      "finding": "json_authoring:coland/crates/storage-postgres/src/applet_blob_delivery.rs::commit_upload:648cc237bcb2b5b2",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec protocol schema owning actor_id,device_id",
-      "owner_repository": "coland",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
-    },
-    {
       "finding": "json_authoring:coland/crates/storage-postgres/src/applet_configuration.rs::source:769abc12cabb7154",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
@@ -4299,11 +4299,11 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
-      "finding": "json_authoring:coland/crates/storage-postgres/src/applet_management_review.rs::event_pins:ae4500cfc1317336",
+      "finding": "json_authoring:coland/crates/storage-postgres/src/applet_content_delivery/blobs.rs::commit_upload:648cc237bcb2b5b2",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
-      "authority": "arkret-spec closed union selected by kind",
+      "authority": "arkret-spec protocol schema owning actor_id,device_id",
       "owner_repository": "coland",
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
@@ -4960,7 +4960,7 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
-      "finding": "json_authoring:crates/crypto/src/content_history_backup.rs::seal:ee54fccbe4656e7d",
+      "finding": "json_authoring:crates/crypto/src/content_history/backup_draft.rs::seal:ee54fccbe4656e7d",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -5028,7 +5028,7 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
-      "finding": "json_authoring:crates/signatures/src/webvh/inception.rs::agent_document_value:73855666627aef2a",
+      "finding": "json_authoring:crates/signatures/src/protocol_api/webvh/inception.rs::agent_document_value:73855666627aef2a",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -5050,7 +5050,7 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
-      "finding": "json_authoring:garth/src/mls/native_root_publication.rs::current_publication_intent:4df4653736738256",
+      "finding": "json_authoring:garth/src/mls/content_roots/native_root_publication.rs::current_publication_intent:4df4653736738256",
       "classification": "internal_or_fixture",
       "lifecycle": "retained_boundary",
       "decision": "raw",

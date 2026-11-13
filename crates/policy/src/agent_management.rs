@@ -239,5 +239,4 @@ pub fn evaluate_agent_management(
 }
 
 #[cfg(test)]
-#[path = "agent_management_tests.rs"]
 mod tests;

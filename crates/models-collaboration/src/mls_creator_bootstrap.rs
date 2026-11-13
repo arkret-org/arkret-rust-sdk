@@ -2918,5 +2918,4 @@ fn scope_create_event(request: &SelfAuthoritySubmitRequestBody) -> Result<&Event
 }
 
 #[cfg(test)]
-#[path = "mls_creator_bootstrap/tests.rs"]
 mod tests;

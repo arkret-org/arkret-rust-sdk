@@ -2,7 +2,6 @@ use arkret_wire::{DeviceId, RealmId};
 
 use super::*;
 
-#[path = "tests/signal_endpoint.rs"]
 mod signal_endpoint;
 
 fn identity() -> ArkretMlsIdentity {
