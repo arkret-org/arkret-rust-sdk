@@ -12,7 +12,7 @@ use serde_json::Value;
 
 use crate::error::{Result, WireError};
 use crate::{
-    AccountId, CommitStreamRef, CommittedEventRef, DeviceId, DidUrl, EventId, Hash, ReceiptId,
+    AccountId, CommitStreamRef, CommittedEventRef, DeviceId, DidUrl, Hash, ReceiptId,
     RecoverySessionId, TransactionId,
 };
 
@@ -83,8 +83,6 @@ pub struct RecoveryCompletionAttestationSignatureProof {
 pub struct RecoveryCompletionAttestation {
     pub schema: String,
     pub transaction_id: TransactionId,
-    pub transaction_request_digest: Hash,
-    pub prepared_plan_digest: Hash,
     /// The exact recovered account. Its `station_id` is the coordinator; no
     /// separate coordinator field exists on wire or in the signed projection.
     pub account_id: AccountId,
@@ -136,8 +134,6 @@ impl RecoveryCompletionAttestation {
     pub fn signing_bytes(&self) -> Result<Vec<u8>> {
         recovery_completion_attestation_signing_bytes(&UnsignedRecoveryCompletionAttestationBody {
             transaction_id: self.transaction_id.clone(),
-            transaction_request_digest: self.transaction_request_digest.clone(),
-            prepared_plan_digest: self.prepared_plan_digest.clone(),
             account_id: self.account_id.clone(),
             recovery_session_id: self.recovery_session_id.clone(),
             terminal_receipt_id: self.terminal_receipt_id.clone(),
@@ -155,8 +151,6 @@ impl RecoveryCompletionAttestation {
 #[derive(Clone, Debug)]
 pub struct UnsignedRecoveryCompletionAttestationBody {
     pub transaction_id: TransactionId,
-    pub transaction_request_digest: Hash,
-    pub prepared_plan_digest: Hash,
     pub account_id: AccountId,
     pub recovery_session_id: RecoverySessionId,
     pub terminal_receipt_id: ReceiptId,
@@ -199,8 +193,6 @@ impl UnsignedRecoveryCompletionAttestation {
         let attestation = RecoveryCompletionAttestation {
             schema: crate::SchemaId::RECOVERY_COMPLETION_ATTESTATION_V1.to_owned(),
             transaction_id: body.transaction_id,
-            transaction_request_digest: body.transaction_request_digest,
-            prepared_plan_digest: body.prepared_plan_digest,
             account_id: body.account_id,
             recovery_session_id: body.recovery_session_id,
             terminal_receipt_id: body.terminal_receipt_id,
@@ -244,7 +236,7 @@ fn validate_recovery_completion_attestation_body(
 /// (`realm-commit.schema.json`), so the pair names two distinct commits and
 /// two distinct Events at consecutive stream positions; a shared `commit_id`
 /// or a shared `event_id` is therefore a structural violation, not a match.
-fn validate_recovery_commit_pair(
+pub fn validate_recovery_commit_pair(
     reanchor_event_ref: &CommittedEventRef,
     device_authorization_event_ref: &CommittedEventRef,
 ) -> Result<()> {
@@ -276,8 +268,6 @@ fn recovery_completion_attestation_signing_bytes(
     let value = serde_json::json!({
         "schema": crate::SchemaId::RECOVERY_COMPLETION_ATTESTATION_V1,
         "transaction_id": &body.transaction_id,
-        "transaction_request_digest": &body.transaction_request_digest,
-        "prepared_plan_digest": &body.prepared_plan_digest,
         "account_id": &body.account_id,
         "recovery_session_id": &body.recovery_session_id,
         "terminal_receipt_id": &body.terminal_receipt_id,
@@ -289,90 +279,6 @@ fn recovery_completion_attestation_signing_bytes(
         "completed_at": crate::canonical::format_timestamp_canonical(body.completed_at),
     });
     Ok(arkret_canonical::canonical::canonical_json_bytes(&value)?)
-}
-
-fn request_digest_without_digest<T: Serialize>(request: &T) -> Result<Hash> {
-    let mut value = serde_json::to_value(request)?;
-    let object = value.as_object_mut().ok_or_else(|| {
-        WireError::Protocol(
-            "recovery completion grant request must serialize as an object".to_owned(),
-        )
-    })?;
-    object.remove("canonical_request_digest");
-    let bytes = arkret_canonical::canonical::canonical_json_bytes(&value)?;
-    Ok(Hash::new(arkret_canonical::canonical::sha256_digest(
-        &bytes,
-    ))?)
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-// Field declaration order is byte-for-byte the properties order of
-// recovery-authority.schema.json#/$defs/recovery_completion_grant_request_body.
-pub struct RecoveryCompletionGrantRequestBody {
-    pub transaction_id: TransactionId,
-    pub transaction_request_digest: Hash,
-    pub terminal_receipt: Value,
-    pub completion_attestation: RecoveryCompletionAttestation,
-    pub device_authorization_event_id: EventId,
-    pub new_model_generation_ref: u64,
-    pub initial_session: Value,
-    pub canonical_request_digest: Hash,
-}
-
-impl RecoveryCompletionGrantRequestBody {
-    pub fn expected_canonical_request_digest(&self) -> Result<Hash> {
-        request_digest_without_digest(self)
-    }
-
-    pub fn validate_structural(&self) -> Result<()> {
-        self.completion_attestation.validate_structural()?;
-        if self.transaction_id != self.completion_attestation.transaction_id
-            || self.transaction_request_digest
-                != self.completion_attestation.transaction_request_digest
-            || self.device_authorization_event_id
-                != self
-                    .completion_attestation
-                    .device_authorization_event_ref
-                    .event_id
-            || self.new_model_generation_ref != self.completion_attestation.new_model_generation_ref
-        {
-            return Err(WireError::Protocol(
-                "recovery completion grant request and attestation binding disagree".to_owned(),
-            ));
-        }
-        // The client-signed recovery receipt and Station completion
-        // attestation must name the exact same committed re-anchor. The client
-        // never signs or embeds the RealmCommit itself.
-        if self.terminal_receipt.get("reanchor_event_id")
-            != Some(&serde_json::to_value(
-                &self.completion_attestation.reanchor_event_ref.event_id,
-            )?)
-        {
-            return Err(WireError::Protocol(
-                "terminal receipt and completion attestation name different reanchor commits"
-                    .to_owned(),
-            ));
-        }
-        if self.expected_canonical_request_digest()? != self.canonical_request_digest {
-            return Err(WireError::Protocol(
-                "canonical_request_digest does not equal the canonical request projection"
-                    .to_owned(),
-            ));
-        }
-        Ok(())
-    }
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct IssueRecoveryCompletionGrantResponseBody {
-    pub transaction_id: TransactionId,
-    pub issued_session: Value,
-    #[serde(with = "crate::serde_helpers::canonical_timestamp")]
-    pub issued_at: DateTime<Utc>,
 }
 
 #[cfg(test)]

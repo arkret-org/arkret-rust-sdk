@@ -1,8 +1,8 @@
 //! Moderation event payloads.
 
 use arkret_wire::{
-    ActorId, CurrentRevision, DeviceId, DidCoreId, EventId, Hash, NonEmptyString, ObjectRef,
-    PolicyId, RealmId, Result, TrustDomainId, WireError,
+    ActorId, DeviceId, DidCoreId, EventId, Hash, NonEmptyString, ObjectRef, PolicyId,
+    RealmCommitId, RealmId, Result, TrustDomainId, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -162,7 +162,7 @@ pub struct ModerationDecisionLiftPayload {
     pub decision_ref: EventId,
     /// Typed revision of the moderation-target value the producer read. The
     /// compare is field-for-field.
-    pub expected_revision: CurrentRevision,
+    pub expected_commit_id: RealmCommitId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason_code: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

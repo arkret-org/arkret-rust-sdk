@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     AccountId, Base64UrlString, DeviceId, DidCoreId, DidUrl, Hash, ProofContextId, RequestId,
-    Result, SessionGrantId, WireError, canonical,
+    Result, SessionGrantRef, WireError, canonical,
 };
 
 pub const ACCEPTED_DEVICE_POSSESSION_PROOF_CONTEXT: &str =
@@ -25,6 +25,8 @@ pub enum AcceptedDevicePossessionProofContext {
 pub enum AcceptedDeviceIssuePossessionPurpose {
     #[serde(rename = "session_grant_issue")]
     SessionGrantIssue,
+    #[serde(rename = "recovery_completion_grant_issue")]
+    RecoveryCompletionGrantIssue,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -57,6 +59,16 @@ pub struct AcceptedDeviceIssuePossessionProof {
 }
 
 impl AcceptedDeviceIssuePossessionProof {
+    pub fn validate_purpose(&self, expected: AcceptedDeviceIssuePossessionPurpose) -> Result<()> {
+        self.validate()?;
+        if self.purpose != expected {
+            return Err(WireError::Protocol(
+                "accepted-device issue proof has another operation purpose".into(),
+            ));
+        }
+        Ok(())
+    }
+
     pub fn validate(&self) -> Result<()> {
         AcceptedDevicePossessionProof::Issue(self.clone()).validate()
     }
@@ -122,7 +134,7 @@ impl UnsignedAcceptedDeviceIssuePossessionProof {
 pub struct AcceptedDeviceRefreshPossessionProof {
     pub context: AcceptedDevicePossessionProofContext,
     pub purpose: AcceptedDeviceRefreshPossessionPurpose,
-    pub predecessor_session_grant_id: SessionGrantId,
+    pub predecessor_session_grant_ref: SessionGrantRef,
     pub account_id: AccountId,
     pub device_id: DeviceId,
     pub audience_id: DidCoreId,
@@ -150,7 +162,7 @@ impl AcceptedDeviceRefreshPossessionProof {
 pub struct UnsignedAcceptedDeviceRefreshPossessionProof {
     pub context: AcceptedDevicePossessionProofContext,
     pub purpose: AcceptedDeviceRefreshPossessionPurpose,
-    pub predecessor_session_grant_id: SessionGrantId,
+    pub predecessor_session_grant_ref: SessionGrantRef,
     pub account_id: AccountId,
     pub device_id: DeviceId,
     pub audience_id: DidCoreId,
@@ -176,7 +188,7 @@ impl UnsignedAcceptedDeviceRefreshPossessionProof {
         let proof = AcceptedDeviceRefreshPossessionProof {
             context: self.context,
             purpose: self.purpose,
-            predecessor_session_grant_id: self.predecessor_session_grant_id,
+            predecessor_session_grant_ref: self.predecessor_session_grant_ref,
             account_id: self.account_id,
             device_id: self.device_id,
             audience_id: self.audience_id,
@@ -247,6 +259,7 @@ impl AcceptedDevicePossessionProof {
     }
 
     pub fn canonical_signing_bytes(&self) -> Result<Vec<u8>> {
+        self.validate()?;
         let value = canonical::unsigned_value(self, &["signature"])?;
         accepted_device_possession_signing_bytes(&value)
     }
@@ -300,9 +313,17 @@ fn validate_unsigned_common(
             "accepted-device proof holder_jkt must be a base64url SHA-256 thumbprint".to_owned(),
         ));
     }
+    let thumbprint = crate::base64url::base64url_decode(holder_jkt).map_err(|_| {
+        WireError::Protocol("accepted-device proof holder_jkt must be canonical Base64URL".into())
+    })?;
+    if thumbprint.len() != 32 || crate::base64url::base64url_encode(&thumbprint) != holder_jkt {
+        return Err(WireError::Protocol(
+            "accepted-device proof holder_jkt has noncanonical encoding bits".into(),
+        ));
+    }
     if expires_at <= issued_at
-        || (expires_at - issued_at).num_seconds()
-            > MAX_ACCEPTED_DEVICE_POSSESSION_PROOF_LIFETIME_SECONDS
+        || expires_at - issued_at
+            > chrono::Duration::seconds(MAX_ACCEPTED_DEVICE_POSSESSION_PROOF_LIFETIME_SECONDS)
     {
         return Err(WireError::Protocol(
             "accepted-device proof validity window must be positive and at most 300 seconds"
@@ -374,15 +395,43 @@ mod tests {
     }
 
     #[test]
+    fn recovery_completion_has_a_distinct_signed_purpose() {
+        let ordinary = unsigned_issue().attach_signature(signature()).unwrap();
+        let mut completion = unsigned_issue();
+        completion.purpose = AcceptedDeviceIssuePossessionPurpose::RecoveryCompletionGrantIssue;
+        let completion = completion.attach_signature(signature()).unwrap();
+        completion
+            .validate_purpose(AcceptedDeviceIssuePossessionPurpose::RecoveryCompletionGrantIssue)
+            .unwrap();
+        assert!(
+            completion
+                .validate_purpose(AcceptedDeviceIssuePossessionPurpose::SessionGrantIssue)
+                .is_err()
+        );
+        assert_ne!(
+            ordinary.canonical_signing_bytes().unwrap(),
+            completion.canonical_signing_bytes().unwrap()
+        );
+    }
+
+    #[test]
+    fn proof_window_rejects_the_first_extra_millisecond() {
+        let mut proof = unsigned_issue();
+        proof.expires_at += chrono::Duration::milliseconds(1);
+        assert!(proof.canonical_signing_bytes().is_err());
+    }
+
+    #[test]
     fn unsigned_refresh_authoring_matches_the_final_proof_transcript() {
         let issue = unsigned_issue();
         let unsigned = UnsignedAcceptedDeviceRefreshPossessionProof {
             context: AcceptedDevicePossessionProofContext::V1,
             purpose: AcceptedDeviceRefreshPossessionPurpose::SessionGrantRefresh,
-            predecessor_session_grant_id: SessionGrantId::new(
-                "ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW",
-            )
-            .unwrap(),
+            predecessor_session_grant_ref: SessionGrantRef::new(
+                DidCoreId::new("ak:did_core:web:authority.example").unwrap(),
+                crate::SessionGrantId::new("ak:session_grant:0190c6aa-1234-7000-8000-000000000001")
+                    .unwrap(),
+            ),
             account_id: issue.account_id,
             device_id: issue.device_id,
             audience_id: issue.audience_id,

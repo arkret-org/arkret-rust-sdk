@@ -542,8 +542,6 @@ pub struct GrantConstraint {
     pub key_backup_required: Option<bool>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub approved_key_issuer_ids: Vec<DidCoreId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub depends_on_moderation_state: Option<bool>,
     #[serde(default, flatten, skip_serializing_if = "XExtensionMap::is_empty")]
     pub extensions: XExtensionMap,
 }
@@ -658,7 +656,6 @@ impl GrantConstraint {
             max_key_age: None,
             key_backup_required: None,
             approved_key_issuer_ids: Vec::new(),
-            depends_on_moderation_state: None,
             extensions: XExtensionMap::default(),
         }
     }
@@ -797,10 +794,10 @@ pub struct CapabilityGrant {
     /// Absolute distance from a committed authority source. An owned Agent
     /// execution source has depth one and grants no Realm root control.
     pub authority_depth: u64,
-    /// Canonically sorted, deduplicated authority sources reached through
-    /// `issuer_authority_refs`. This is reducer-derived and never authored in
-    /// the create body.
-    pub authority_root_refs: Vec<AuthorityRootRef>,
+    /// The single authority source shared by every accepted parent. An owned
+    /// Agent source remains distinct from Realm root control and is terminal.
+    /// This member is reducer-derived and absent from the create body.
+    pub authority_root_ref: AuthorityRootRef,
     #[serde(with = "canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     /// Station-derived lifecycle state. Producers cannot author this member;
@@ -825,9 +822,85 @@ pub struct CapabilityGrant {
 }
 
 impl CapabilityGrant {
+    /// Validate reducer-owned authority metadata without reconstructing old
+    /// Events or treating the original accepted source as current permission.
+    pub fn validate_authority_shape(&self) -> Result<()> {
+        if !(1..=4).contains(&self.authority_depth) || self.issuer_authority_refs.is_empty() {
+            return Err(WireError::Protocol(
+                "invalid capability authority depth or empty source".into(),
+            ));
+        }
+        let root_realm = match &self.authority_root_ref {
+            AuthorityRootRef::RealmRoot { realm_id, .. }
+            | AuthorityRootRef::OwnedAgent { realm_id, .. } => realm_id,
+        };
+        if self.realm_id.as_ref() != Some(root_realm) {
+            return Err(WireError::Protocol(
+                "capability authority root belongs to another Realm".into(),
+            ));
+        }
+        for reference in &self.issuer_authority_refs {
+            match (reference, &self.authority_root_ref) {
+                (IssuerAuthorityRef::Grant { .. }, AuthorityRootRef::RealmRoot { .. }) => {}
+                (
+                    IssuerAuthorityRef::RealmRoot {
+                        realm_id,
+                        authority_event_ref,
+                        authority_generation,
+                    },
+                    AuthorityRootRef::RealmRoot {
+                        realm_id: root_realm,
+                        authority_event_ref: root_event,
+                        authority_generation: root_generation,
+                    },
+                ) if realm_id == root_realm
+                    && authority_event_ref == root_event
+                    && authority_generation == root_generation => {}
+                (
+                    IssuerAuthorityRef::OwnedAgent {
+                        realm_id,
+                        controller_account_id,
+                        controller_join_event_id,
+                        agent_join_event_id,
+                    },
+                    AuthorityRootRef::OwnedAgent {
+                        realm_id: root_realm,
+                        controller_account_id: root_controller,
+                        controller_join_event_id: root_controller_join,
+                        agent_join_event_id: root_agent_join,
+                    },
+                ) if realm_id == root_realm
+                    && controller_account_id == root_controller
+                    && controller_join_event_id == root_controller_join
+                    && agent_join_event_id == root_agent_join
+                    && self.issuer_authority_refs.len() == 1
+                    && self.authority_depth == 1 => {}
+                _ => {
+                    return Err(WireError::Protocol(
+                        "capability source disagrees with its unique root".into(),
+                    ));
+                }
+            }
+        }
+        if matches!(self.authority_root_ref, AuthorityRootRef::OwnedAgent { .. })
+            && !self.constraints.iter().any(|constraint| {
+                constraint.constraint_kind == GrantConstraintKind::AuthorityControl
+                    && constraint.constraint_subkind.is_none()
+                    && constraint.max_authority_depth == Some(0)
+                    && constraint.authority_regrant_allowed == Some(false)
+            })
+        {
+            return Err(WireError::Protocol(
+                "owned Agent authority must remain terminal".into(),
+            ));
+        }
+        Ok(())
+    }
+
     /// Original signer of this dedicated source, independent of current
     /// membership, lifecycle effectiveness or the controller's action rights.
     pub fn owned_agent_issuer(&self) -> Option<&AccountId> {
+        self.validate_authority_shape().ok()?;
         let [
             IssuerAuthorityRef::OwnedAgent {
                 realm_id,
@@ -887,6 +960,17 @@ mod tests {
         let mut retired = wire;
         retired["proposal_morph_kind"] = Value::String("old_proposal".to_owned());
         assert!(serde_json::from_value::<GrantConstraint>(retired).is_err());
+    }
+
+    #[test]
+    fn producer_moderation_cache_hints_are_not_extension_fields() {
+        let mut wire = serde_json::to_value(GrantConstraint::new(
+            GrantConstraintKind::AuthorityControl,
+            GrantConstraintEffect::Allow,
+        ))
+        .unwrap();
+        wire["depends_on_moderation_state"] = Value::Bool(false);
+        assert!(serde_json::from_value::<GrantConstraint>(wire).is_err());
     }
 }
 

@@ -2,7 +2,8 @@
 
 use arkret_models_crypto::{
     KeyBackup, KeyBackupsListQuery, KeysBackupsDeleteChallenge, KeysBackupsDeleteRequestBody,
-    KeysBackupsIssueDeleteChallengeRequestBody, KeysBackupsPage, KeysBackupsReplaceResponseBody,
+    KeysBackupsIssueDeleteChallengeRequestBody, KeysBackupsIssueUnlockChallengeRequestBody,
+    KeysBackupsPage, KeysBackupsReplaceResponseBody, KeysBackupsUnlockChallenge,
     KeysBackupsUnlockRequestBody,
 };
 use arkret_wire::BackupId;
@@ -42,6 +43,16 @@ impl KeyBackupClient {
         let record = self.client.unlock_key_backup(backup_id, request).await?;
         record.validate()?;
         Ok(record)
+    }
+
+    pub async fn issue_unlock_challenge(
+        &self,
+        backup_id: &BackupId,
+        request: &KeysBackupsIssueUnlockChallengeRequestBody,
+    ) -> Result<KeysBackupsUnlockChallenge> {
+        self.client
+            .issue_key_backup_unlock_challenge(backup_id, request)
+            .await
     }
 
     pub async fn list_key_backups(&self, query: &KeyBackupsListQuery) -> Result<KeysBackupsPage> {

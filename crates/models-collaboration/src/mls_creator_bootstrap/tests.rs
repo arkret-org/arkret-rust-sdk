@@ -961,12 +961,36 @@ fn own_creator_cut(
         snapshot.clone(),
         payload.object,
         intent.owner_actor_id().as_account_id().unwrap().clone(),
-        arkret_wire::SessionGrantId::from_issuance_digest([7; 32]),
+        arkret_wire::SessionGrantRef::new(
+            intent
+                .owner_actor_id()
+                .as_account_id()
+                .unwrap()
+                .station_id
+                .clone(),
+            arkret_wire::SessionGrantId::new(
+                "ak:session_grant:0190c6aa-1234-7000-8000-000000000007",
+            )
+            .unwrap(),
+        ),
         3,
         sequence,
     )
     .unwrap();
     (cut, snapshot)
+}
+
+#[test]
+fn own_station_creator_read_identity_includes_the_grant_issuer() {
+    let (intent, native) = accepted_create(false);
+    let (original, _) = own_creator_cut(&intent, &native, 1);
+    let mut changed = original.clone();
+    let MlsCreatorBootstrapAuthority::OwnStation(cut) = &mut changed else {
+        unreachable!()
+    };
+    cut.session_grant_ref.issuer_id = "ak:did_core:web:another-issuer.example".parse().unwrap();
+    assert_ne!(original, changed);
+    assert!(!original.same_read(&changed));
 }
 
 #[test]
@@ -1022,7 +1046,7 @@ fn own_station_creator_original_pin_queue_acceptance_roundtrip_without_native_bu
         accepted_snapshot,
         original.realm_genesis.clone(),
         original.account_id.clone(),
-        original.session_grant_id.clone(),
+        original.session_grant_ref.clone(),
         original.session_epoch,
         2,
     )

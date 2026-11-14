@@ -28,7 +28,7 @@ keystore-encrypted-file = [
 # Platform KeyStore native backends. Each pulls its target-specific dep
 # only on the matching target_os via `[target.*]` blocks below, so
 # enabling all three on a non-matching host is a no-op for that backend.
-keystore-macos = ["dep:security-framework"]
+keystore-macos = ["dep:security-framework", "dep:libc", "dep:sha2"]
 keystore-linux = ["dep:secret-service", "dep:zbus", "dep:sha2", "dep:futures-util"]
 keystore-windows = ["dep:windows", "keystore-encrypted-file"]
 
@@ -47,6 +47,7 @@ secret-service = { workspace = true, optional = true }
 zbus = { workspace = true, optional = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
+libc = { version = "0.2", optional = true }
 security-framework = { workspace = true, optional = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]

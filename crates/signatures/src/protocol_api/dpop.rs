@@ -347,6 +347,59 @@ mod tests {
     }
 
     #[test]
+    fn opaque_fixture_verifies_real_signature_and_hashes_exact_ascii_credential() {
+        let fixture = arkret_schema_conformance::spec_json_artifact(
+            "fixtures/session-grant-issuance-fixture.json",
+        )
+        .unwrap();
+        let row = &fixture["dpop_kat"];
+        let secret =
+            arkret_identifiers::SessionGrantSecret::new(row["session_grant"].as_str().unwrap())
+                .unwrap();
+        assert_eq!(
+            dpop_access_token_hash(secret.as_str()),
+            row["expected_ath"].as_str().unwrap()
+        );
+        let decoded = arkret_canonical::base64url_decode(secret.as_str()).unwrap();
+        assert_ne!(
+            dpop_access_token_hash(secret.as_str()),
+            arkret_canonical::canonical::sha256_base64url(decoded)
+        );
+        let request = DpopVerificationRequest {
+            proof_jwt: row["proof_jwt"].as_str().unwrap(),
+            method: row["method"].as_str().unwrap(),
+            htu: row["uri"].as_str().unwrap(),
+            access_token: Some(secret.as_str()),
+            expected_nonce: row["nonce"].as_str(),
+            now: Utc.timestamp_opt(row["iat"].as_i64().unwrap(), 0).unwrap(),
+            max_age: chrono::Duration::seconds(30),
+            max_future_skew: chrono::Duration::seconds(30),
+        };
+        let verified = verify_dpop_proof(&request).unwrap();
+        assert_eq!(
+            verified.jkt,
+            fixture["accepted_vectors"][0]["metadata"]["cnf_jkt"]
+                .as_str()
+                .unwrap()
+        );
+        let other = arkret_identifiers::SessionGrantSecret::from_bytes([9; 32]);
+        assert_eq!(
+            verify_dpop_proof(&DpopVerificationRequest {
+                access_token: Some(other.as_str()),
+                ..request.clone()
+            }),
+            Err(DpopVerificationError::AccessTokenHashMismatch)
+        );
+        assert_eq!(
+            verify_dpop_proof(&DpopVerificationRequest {
+                htu: "https://other-issuer.example/_arkret/self/account",
+                ..request
+            }),
+            Err(DpopVerificationError::TargetUriMismatch)
+        );
+    }
+
+    #[test]
     fn dpop_proof_binds_method_htu_key_and_access_token() {
         let key = signing_key();
         let request = DpopProofRequest::new("post", "https://arkret.example/_arkret/self/events")
@@ -376,6 +429,70 @@ mod tests {
         assert_eq!(payload["htu"], "https://arkret.example/_arkret/self/events");
         assert_eq!(payload["ath"], dpop_access_token_hash("grant-token"));
         assert_eq!(payload["nonce"], "server-nonce");
+    }
+
+    #[test]
+    fn verifier_rejects_signed_algorithm_aliases_without_skipping_signature_verification() {
+        let key = signing_key();
+        let now = Utc.timestamp_opt(1_780_000_000, 0).unwrap();
+        let proof = build_dpop_proof(
+            &DpopProofRequest::new("GET", "https://account.example/_arkret/self/account")
+                .issued_at(now)
+                .jti("algorithm-proof"),
+            &key,
+        )
+        .unwrap();
+        let request = DpopVerificationRequest {
+            proof_jwt: &proof.proof_jwt,
+            method: "GET",
+            htu: "https://account.example/_arkret/self/account",
+            access_token: None,
+            expected_nonce: None,
+            now,
+            max_age: chrono::Duration::seconds(30),
+            max_future_skew: chrono::Duration::seconds(30),
+        };
+        verify_dpop_proof(&request).unwrap();
+        let parts = proof.proof_jwt.split('.').collect::<Vec<_>>();
+        let original: Value =
+            serde_json::from_slice(&arkret_canonical::base64url_decode(parts[0]).unwrap()).unwrap();
+        assert_eq!(original["alg"], "Ed25519");
+        for algorithm in ["EdDSA", "ES256", "none", "ML-DSA-65"] {
+            let mut header = original.clone();
+            header["alg"] = json!(algorithm);
+            let header = arkret_canonical::base64url_encode(
+                arkret_canonical::canonical_json_bytes(&header).unwrap(),
+            );
+            let signing_input = format!("{header}.{}", parts[1]);
+            let signature = key.sign(signing_input.as_bytes());
+            let jwt = format!(
+                "{signing_input}.{}",
+                arkret_canonical::base64url_encode(signature.to_bytes())
+            );
+            assert_eq!(
+                verify_dpop_proof(&DpopVerificationRequest {
+                    proof_jwt: &jwt,
+                    ..request.clone()
+                }),
+                Err(DpopVerificationError::InvalidAlgorithm),
+                "{algorithm}"
+            );
+        }
+        let mut signature = arkret_canonical::base64url_decode(parts[2]).unwrap();
+        signature[0] ^= 1;
+        let jwt = format!(
+            "{}.{}.{}",
+            parts[0],
+            parts[1],
+            arkret_canonical::base64url_encode(signature)
+        );
+        assert_eq!(
+            verify_dpop_proof(&DpopVerificationRequest {
+                proof_jwt: &jwt,
+                ..request
+            }),
+            Err(DpopVerificationError::SignatureInvalid)
+        );
     }
 
     #[test]

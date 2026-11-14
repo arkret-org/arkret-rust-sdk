@@ -123,10 +123,9 @@ pub use realm_authority_signer::{
 };
 pub use receive_policy::*;
 pub use recovery_authority::{
-    CanonicalEncoding, CanonicalPublicMaterial, IssueRecoveryCompletionGrantResponseBody,
-    RecoveryCompletionAttestation, RecoveryCompletionAttestationSignatureProof,
-    RecoveryCompletionGrantRequestBody, UnsignedRecoveryCompletionAttestation,
-    UnsignedRecoveryCompletionAttestationBody,
+    CanonicalEncoding, CanonicalPublicMaterial, RecoveryCompletionAttestation,
+    RecoveryCompletionAttestationSignatureProof, UnsignedRecoveryCompletionAttestation,
+    UnsignedRecoveryCompletionAttestationBody, validate_recovery_commit_pair,
 };
 pub use request_digest::{framed_request_digest, management_creation_request_digest};
 pub use resource_selector::{

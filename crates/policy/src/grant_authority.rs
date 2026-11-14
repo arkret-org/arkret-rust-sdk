@@ -8,7 +8,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_models_collaboration::events_payloads::CapabilityGrantCreateBody;
 use arkret_models_collaboration::governance::grant_constraint::{
-    CapabilityGrant, CapabilityGrantStatus, CapabilitySubject, GrantConstraint,
+    AuthorityRootRef, CapabilityGrant, CapabilityGrantStatus, CapabilitySubject, GrantConstraint,
     GrantConstraintEffect, GrantConstraintKind, GrantConstraintSubkind, IssuerAuthorityRef,
     ManagedActorRole,
 };
@@ -16,6 +16,12 @@ use arkret_wire::{ActorId, EvaluationClass, GrantId, WireResourceSelector};
 use chrono::{DateTime, Utc};
 
 use crate::grant_evaluation::resource_selector_covers;
+
+mod admission;
+pub use admission::{
+    DerivedGrantAuthority, GrantAdmissionContext, GrantAdmissionSource, GrantPairLifetimeLimit,
+    GrantWindow, validate_grant_admission, window_union_covers,
+};
 
 /// Whether this source contributes authority to an actual action and selector.
 pub fn contributes(
@@ -60,6 +66,32 @@ fn active(grant: &CapabilityGrant, at: DateTime<Utc>, action: &str) -> bool {
         && until.is_none_or(|v| at < v)
 }
 
+fn candidate_active(grant: &CapabilityGrant, at: DateTime<Utc>) -> bool {
+    let from = grant
+        .constraints
+        .iter()
+        .filter(|constraint| {
+            constraint.constraint_kind == GrantConstraintKind::Temporal
+                && constraint.effect == GrantConstraintEffect::Allow
+                && constraint.applies_to_actions.is_empty()
+                && constraint.recurrence.is_none()
+        })
+        .filter_map(|constraint| constraint.not_before)
+        .max();
+    grant.status == CapabilityGrantStatus::Active
+        && from.is_none_or(|from| from <= at)
+        && crate::grant_evaluation::capability_grant_expires_at(grant)
+            .is_none_or(|until| at < until)
+}
+
+#[derive(Clone, Copy)]
+enum SourceWindow {
+    /// Only the terminal candidate's own local allows remain unevaluated.
+    TerminalCandidate,
+    /// Positive authority for an actual action at the current cut.
+    Action,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum AuthorityError {
     #[error("grant_exceeds_issuer_authority")]
@@ -68,8 +100,6 @@ pub enum AuthorityError {
     Regrant,
     #[error("authority_expiry_widening")]
     Window,
-    #[error("authority_cycle")]
-    Cycle,
     #[error("authority_depth_exceeded")]
     Depth,
     #[error("grant_revoked_upstream")]
@@ -173,30 +203,19 @@ pub fn validate_managed_service_sources(
         }
     }
     for action in &child.actions {
-        let (child_from, child_until) = constraint_window(&child.constraints, action);
+        let child_window = GrantWindow::from(constraint_window(&child.constraints, action));
         for resource in &child.resources {
-            if !parents.iter().any(|p| contributes(p, action, resource)) {
+            let covering: Vec<_> = parents
+                .iter()
+                .filter(|parent| contributes(parent, action, resource))
+                .map(|parent| GrantWindow::from(window(parent, action)))
+                .collect();
+            if covering.is_empty() {
                 return Err(AuthorityError::Coverage);
             }
-        }
-        let covering: Vec<_> = parents
-            .iter()
-            .filter(|p| child.resources.iter().any(|r| contributes(p, action, r)))
-            .collect();
-        let from = if covering.iter().any(|p| window(p, action).0.is_none()) {
-            None
-        } else {
-            covering.iter().filter_map(|p| window(p, action).0).min()
-        };
-        let until = if covering.iter().any(|p| window(p, action).1.is_none()) {
-            None
-        } else {
-            covering.iter().filter_map(|p| window(p, action).1).max()
-        };
-        if from.is_some_and(|v| child_from.is_none_or(|c| c < v))
-            || until.is_some_and(|v| child_until.is_none_or(|c| c > v))
-        {
-            return Err(AuthorityError::Window);
+            if !window_union_covers(child_window, &covering) {
+                return Err(AuthorityError::Window);
+            }
         }
     }
     Ok(())
@@ -270,8 +289,59 @@ pub fn current_sources<'g>(
     at: DateTime<Utc>,
     root_current: impl Fn(&IssuerAuthorityRef) -> bool,
 ) -> Result<Vec<&'g CapabilityGrant>, AuthorityError> {
+    sources_with_window(
+        grant,
+        action,
+        target,
+        grants,
+        at,
+        root_current,
+        SourceWindow::Action,
+    )
+}
+
+/// Current candidates for the complete global refusal set of one operation.
+///
+/// This terminal grant's local allow failure only removes its positive path.
+/// It cannot delete its still-current deny/quarantine/review. Every actual
+/// contributing ancestor retains the original full action-window gate: an
+/// expired source cannot continue to impose a delegated child's refusals.
+/// All root, source-subject, resource, depth and revocation checks remain
+/// mandatory. This function grants no positive
+/// permission: after merging all candidate refusals, an allowed path must
+/// still pass `current_sources` and its complete source constraints.
+pub fn current_candidate_sources<'g>(
+    grant: &'g CapabilityGrant,
+    action: &str,
+    target: &WireResourceSelector,
+    grants: &'g BTreeMap<GrantId, CapabilityGrant>,
+    at: DateTime<Utc>,
+    root_current: impl Fn(&IssuerAuthorityRef) -> bool,
+) -> Result<Vec<&'g CapabilityGrant>, AuthorityError> {
+    sources_with_window(
+        grant,
+        action,
+        target,
+        grants,
+        at,
+        root_current,
+        SourceWindow::TerminalCandidate,
+    )
+}
+
+fn sources_with_window<'g>(
+    grant: &'g CapabilityGrant,
+    action: &str,
+    target: &WireResourceSelector,
+    grants: &'g BTreeMap<GrantId, CapabilityGrant>,
+    at: DateTime<Utc>,
+    root_current: impl Fn(&IssuerAuthorityRef) -> bool,
+    window: SourceWindow,
+) -> Result<Vec<&'g CapabilityGrant>, AuthorityError> {
+    if !contributes(grant, action, target) {
+        return Err(AuthorityError::Coverage);
+    }
     let mut output = BTreeMap::new();
-    let mut visiting = BTreeSet::new();
     walk(
         grant,
         action,
@@ -279,9 +349,8 @@ pub fn current_sources<'g>(
         grants,
         at,
         &root_current,
-        &mut visiting,
+        window,
         &mut output,
-        0,
     )?;
     output.remove(&grant.id);
     Ok(output.into_values().collect())
@@ -297,43 +366,67 @@ fn walk<'g>(
     grants: &'g BTreeMap<GrantId, CapabilityGrant>,
     at: DateTime<Utc>,
     root_current: &impl Fn(&IssuerAuthorityRef) -> bool,
-    visiting: &mut BTreeSet<GrantId>,
+    window: SourceWindow,
     output: &mut BTreeMap<GrantId, &'g CapabilityGrant>,
-    depth: usize,
 ) -> Result<(), AuthorityError> {
-    if depth >= 4 {
+    if !(1..=4).contains(&grant.authority_depth) {
         return Err(AuthorityError::Depth);
     }
-    if !visiting.insert(grant.id.clone()) {
-        return Err(AuthorityError::Cycle);
+    grant
+        .validate_authority_shape()
+        .map_err(|_| AuthorityError::Unproved)?;
+    if output.contains_key(&grant.id) {
+        return Ok(());
     }
-    if !active(grant, at, action) {
+    let is_active = match window {
+        SourceWindow::TerminalCandidate => candidate_active(grant, at),
+        SourceWindow::Action => active(grant, at, action),
+    };
+    if !is_active {
         return Err(AuthorityError::Closed);
     }
     if grant.issuer_authority_refs.is_empty() {
         return Err(AuthorityError::Unproved);
+    }
+    let mut deepest = 0;
+    for source in &grant.issuer_authority_refs {
+        if let IssuerAuthorityRef::Grant { grant_id } = source {
+            let parent = grants.get(grant_id).ok_or(AuthorityError::Unproved)?;
+            deepest = deepest.max(parent.authority_depth);
+        }
+    }
+    if deepest.checked_add(1) != Some(grant.authority_depth) {
+        return Err(AuthorityError::Depth);
     }
     let mut contributed = false;
     for source in &grant.issuer_authority_refs {
         match source {
             IssuerAuthorityRef::OwnedAgent { .. } => return Err(AuthorityError::Regrant),
             IssuerAuthorityRef::RealmRoot { .. } => {
+                if root_from_source(source).as_ref() != Some(&grant.authority_root_ref) {
+                    return Err(AuthorityError::Unproved);
+                }
                 if !root_current(source) {
                     return Err(AuthorityError::Closed);
                 }
-                if crate::owner_may_grant(action).unwrap_or(false) {
-                    contributed = true;
-                }
+                // This immutable source was qualified at creation, including
+                // any registered profile issuer-action mapping and evidence.
+                // Current root continuity does not re-issue that grant.
+                contributed = true;
             }
             IssuerAuthorityRef::Grant { grant_id } => {
                 let parent = grants.get(grant_id).ok_or(AuthorityError::Unproved)?;
                 if !matches!(&parent.subject,CapabilitySubject::Actor(actor) if actor==&grant.issuer_id)
                     || parent.realm_id != grant.realm_id
+                    || parent.authority_root_ref != grant.authority_root_ref
                 {
                     return Err(AuthorityError::Coverage);
                 }
                 if !contributes(parent, action, target) {
                     continue;
+                }
+                if parent.authority_depth >= grant.authority_depth {
+                    return Err(AuthorityError::Depth);
                 }
                 if !parent.constraints.iter().any(|c| {
                     c.constraint_kind == GrantConstraintKind::AuthorityControl
@@ -341,6 +434,9 @@ fn walk<'g>(
                 }) {
                     return Err(AuthorityError::Regrant);
                 }
+                // A child's refusal is effective only while its issuer's
+                // actual action authority is current. Only the initial
+                // terminal grant may defer its own local allow predicates.
                 walk(
                     parent,
                     action,
@@ -348,15 +444,13 @@ fn walk<'g>(
                     grants,
                     at,
                     root_current,
-                    visiting,
+                    SourceWindow::Action,
                     output,
-                    depth + 1,
                 )?;
                 contributed = true;
             }
         }
     }
-    visiting.remove(&grant.id);
     if !contributed {
         return Err(AuthorityError::Coverage);
     }
@@ -364,9 +458,59 @@ fn walk<'g>(
     Ok(())
 }
 
-/// Effective grants held by this complete Actor for one actual operation.
-/// Known inactive lineages do not contribute. Unproved or invalid lineages
-/// fail the entire decision, including its global refusal set.
+fn root_from_source(source: &IssuerAuthorityRef) -> Option<AuthorityRootRef> {
+    match source {
+        IssuerAuthorityRef::RealmRoot {
+            realm_id,
+            authority_event_ref,
+            authority_generation,
+        } => Some(AuthorityRootRef::RealmRoot {
+            realm_id: realm_id.clone(),
+            authority_event_ref: authority_event_ref.clone(),
+            authority_generation: *authority_generation,
+        }),
+        IssuerAuthorityRef::OwnedAgent {
+            realm_id,
+            controller_account_id,
+            controller_join_event_id,
+            agent_join_event_id,
+        } => Some(AuthorityRootRef::OwnedAgent {
+            realm_id: realm_id.clone(),
+            controller_account_id: controller_account_id.clone(),
+            controller_join_event_id: controller_join_event_id.clone(),
+            agent_join_event_id: agent_join_event_id.clone(),
+        }),
+        IssuerAuthorityRef::Grant { .. } => None,
+    }
+}
+
+/// Derive cache invalidation only from validated semantic dependencies.
+/// The dependency lists are receiver-owned outputs of registered selectors
+/// and constraint evaluators, never producer cache hints. Unknown critical
+/// semantics cannot establish a reusable allow cache.
+pub fn moderation_dependency(
+    actions: &[String],
+    subject_dependencies: &[&str],
+    constraint_dependencies: &[&str],
+    semantics_known: bool,
+) -> Result<bool, AuthorityError> {
+    if !semantics_known {
+        return Err(AuthorityError::Unproved);
+    }
+    Ok(actions.iter().any(|action| {
+        matches!(
+            action.as_str(),
+            "ak.moderation.decision" | "ak.moderation.decision.lift"
+        )
+    }) || subject_dependencies.contains(&"moderation_state")
+        || constraint_dependencies.contains(&"moderation_state"))
+}
+
+/// Current refusal candidates held by this complete Actor for one operation.
+/// Known globally inactive lineages do not contribute. Unproved or invalid
+/// lineages fail the entire decision, including its global refusal set.
+/// This list is not a set of positive paths: use `current_sources` after
+/// global refusal evaluation before counting an allowed dependency.
 pub fn current_subject_grants<'g>(
     actor: &ActorId,
     action: &str,
@@ -380,7 +524,7 @@ pub fn current_subject_grants<'g>(
         matches!(&grant.subject,CapabilitySubject::Actor(subject) if subject==actor)
             && contributes(grant, action, target)
     }) {
-        match current_sources(grant, action, target, grants, at, &root_current) {
+        match current_candidate_sources(grant, action, target, grants, at, &root_current) {
             Ok(_) => current.push(grant),
             Err(AuthorityError::Closed) => {}
             Err(error) => return Err(error),
@@ -431,3 +575,6 @@ pub fn managed_service_source(
             .iter()
             .all(|c| c.allowed_managed_actor_roles.contains(&role))
 }
+
+#[cfg(test)]
+mod current_tests;

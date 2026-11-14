@@ -5,10 +5,10 @@
 // sha256=e72c1581070cdccaaf655cfe2e2f77c3cb9018ecdea930f8cbf15e2c31958172
 //
 // Input: schemas/common-ids.schema.json
-// sha256=0cc25a02fe0d9a94f6e41f2cf8f64e492ba36362f1e69a699cf1e684924837ee
+// sha256=81b18acd21f4382860d5cab2384d9bb78ee5dbc23629752a6cc74ce384186149
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=113d054c1defb3940cb07e0f04bb10848b9d375692c24056c947cb624743840a
+// sha256=dc73c01cf2bfb7cc6d4969c8f2f7faa6e44275c4a585ad81f3c94ac408daab8c
 
 /// Counterpart: `account-subscribe-frame.schema.json#/$defs/member_roster`.
 /// Counterpart for

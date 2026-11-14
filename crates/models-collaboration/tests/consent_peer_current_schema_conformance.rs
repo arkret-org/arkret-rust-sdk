@@ -98,6 +98,9 @@ fn consent_state_branches_reject_extra_members_and_explicit_nulls() {
     use arkret_models_collaboration::call_invitation::ConsentCurrentReadState;
     use arkret_models_collaboration::events_payloads::consent::ConsentExpectedCurrent;
     for value in [
+        serde_json::json!({"state":"never_written","commit_id":arkret_wire::RealmCommitId::from_digest([7;32])}),
+        serde_json::json!({"state":"never_written","commit_id":null}),
+        serde_json::json!({"state":"present","commit_id":null}),
         serde_json::json!({"state":"never_written","revision":{"commit_id":arkret_wire::RealmCommitId::from_digest([7;32]),"stream_position":1}}),
         serde_json::json!({"state":"never_written","revision":null}),
         serde_json::json!({"state":"never_written","extra":true}),

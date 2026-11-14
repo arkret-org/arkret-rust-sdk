@@ -1272,6 +1272,7 @@
       "mode": "closed-schema-model",
       "artifacts": [
         "schemas/account-operations.schema.json",
+        "schemas/common-ids.schema.json",
         "schemas/recovery-authority.schema.json",
         "schemas/recovery-policy.schema.json",
         "schemas/recovery-session.schema.json"
@@ -1379,10 +1380,19 @@
       "owner": "arkret-models-identity",
       "mode": "closed-schema-model",
       "artifacts": [
-        "schemas/service-operation-dtos.schema.json"
+        "schemas/service-operation-dtos.schema.json",
+        "schemas/common-ids.schema.json",
+        "schemas/principal-operations.schema.json",
+        "schemas/agent-operations.schema.json",
+        "schemas/grant-constraint.schema.json",
+        "schemas/time.schema.json"
       ],
       "provides": [
-        "SessionGrantDeviceBinding"
+        "SessionGrantDeviceBinding",
+        "SessionGrantScopeResources",
+        "SessionGrantScopeConstraints",
+        "SessionGrantScope",
+        "SessionGrantResponseBody"
       ]
     },
     {
@@ -1770,12 +1780,14 @@
       "owner": "arkret-models-collaboration",
       "mode": "closed-schema-model",
       "artifacts": [
+        "schemas/authority-commit-operations.schema.json",
+        "schemas/common-ids.schema.json",
+        "schemas/current-state.schema.json",
         "schemas/encrypted-envelope.schema.json",
-        "schemas/event-payload.schema.json",
-        "schemas/current-state.schema.json"
+        "schemas/event-payload.schema.json"
       ],
       "provides": [
-        "ReactionAssertionEntry",
+        "ReactionCurrentEntry",
         "MessageReactionsCurrentValue",
         "ReactionPayload"
       ]
@@ -1835,7 +1847,10 @@
         "CallRosterCurrentValue",
         "CallModerationSource",
         "CallModerationEntry",
-        "CallModerationCurrentValue"
+        "CallModerationCurrentValue",
+        "CallCaptureResultStatus",
+        "CallRecordingArtifactCurrentValue",
+        "CallTranscriptArtifactCurrentValue"
       ]
     },
     {
@@ -2447,6 +2462,64 @@
         "schemas/view.schema.json"
       ],
       "provides": []
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-crypto/src/generated/security_transaction_contracts.rs"
+      ],
+      "owner": "arkret-models-crypto",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/common-ids.schema.json",
+        "schemas/recovery-authority.schema.json",
+        "schemas/recovery-receipt.schema.json",
+        "schemas/security-transaction.schema.json",
+        "schemas/service-operation-dtos.schema.json",
+        "schemas/time.schema.json"
+      ],
+      "provides": [
+        "RecoveryUnit",
+        "RecoveryTransactionCreateRequestBody",
+        "RecoveryTransactionCompletion",
+        "SecurityTransaction",
+        "SecurityTransactionCreateRequestBody"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-identity/src/generated/recovery_completion_contracts.rs"
+      ],
+      "owner": "arkret-models-identity",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/common-ids.schema.json",
+        "schemas/recovery-authority.schema.json",
+        "schemas/recovery-receipt.schema.json",
+        "schemas/service-operation-dtos.schema.json",
+        "schemas/time.schema.json"
+      ],
+      "provides": [
+        "RecoveryCompletionGrantRequestBody",
+        "IssueRecoveryCompletionGrantResponseBody"
+      ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-identity/src/generated/agent_participation_contracts.rs"
+      ],
+      "owner": "arkret-models-identity",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/principal-operations.schema.json",
+        "schemas/common-ids.schema.json"
+      ],
+      "provides": [
+        "ParticipationBits",
+        "ParticipationScope"
+      ]
     }
   ]
 }

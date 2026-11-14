@@ -387,7 +387,7 @@ mod tests {
     #[test]
     fn session_revoke_request_body_targets_are_mutually_exclusive() {
         let both = json!({
-            "target_session_grant_id": SessionGrantId::from_issuance_digest([5; 32]),
+            "target_session_grant_id": SessionGrantId::new("ak:session_grant:0190c6aa-1234-7000-8000-000000000005").unwrap(),
             "all_sessions": true
         });
         let parsed: SessionRevokeRequestBody =

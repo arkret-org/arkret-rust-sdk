@@ -6,8 +6,8 @@ use std::collections::BTreeMap;
 
 use arkret_models_crypto::recovery_policy::RecoveryPolicy;
 use arkret_wire::{
-    AccountId, ActorId, CurrentRevision, GrantId, Hash, InviteId, InviteState, PolicyEffect,
-    PolicyId, PolicyKind, RealmId, Result, SchemaId, WireError, XExtensionMap,
+    AccountId, ActorId, GrantId, Hash, InviteId, InviteState, PolicyEffect, PolicyId, PolicyKind,
+    RealmCommitId, RealmId, Result, SchemaId, WireError, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -548,7 +548,7 @@ impl<'de> Deserialize<'de> for PolicySetValue {
 // repeated `ak.policy.set` Events under the same `policy_id` converge on one
 // document rather than accumulating versions. There is no cell head, basis or
 // version member on the wire. Agent and Applet governance policies carry a required
-// nullable `expected_revision` precondition; other policy families omit it.
+// nullable `expected_commit_id` precondition; other policy families omit it.
 // Field declaration order is byte-for-byte the properties order of
 // event-payload.schema.json#/$defs/policy_set_state_payload.
 
@@ -566,9 +566,9 @@ impl PolicySetStatePayload {
             &self.value,
             PolicySetValue::Governance(policy) if matches!(policy.policy_kind,PolicyKind::Agent|PolicyKind::Applet)
         );
-        if self.expected_revision.is_some() != agent_policy {
+        if self.expected_commit_id.is_some() != agent_policy {
             return Err(WireError::Protocol(
-                "expected_revision is required only for Agent and Applet governance policies"
+                "expected_commit_id is required only for Agent and Applet governance policies"
                     .into(),
             ));
         }
@@ -715,12 +715,12 @@ mod policy_set_state_tests {
         assert!(missing.validate().is_err());
         for revision in [
             Value::Null,
-            json!({"commit_id": "ak:realm_commit:ARNRmzDi2r78zveOLmoHOb6AephFMwVuGE1fwXmCoeo4", "stream_position": 7}),
+            json!("ak:realm_commit:ARNRmzDi2r78zveOLmoHOb6AephFMwVuGE1fwXmCoeo4"),
         ] {
-            value["expected_revision"] = revision;
+            value["expected_commit_id"] = revision;
             let payload: PolicySetStatePayload = serde_json::from_value(value.clone()).unwrap();
             payload.validate().unwrap();
-            assert!(payload.expected_revision.is_some());
+            assert!(payload.expected_commit_id.is_some());
             assert_eq!(serde_json::to_value(payload).unwrap(), value);
         }
     }
@@ -728,7 +728,7 @@ mod policy_set_state_tests {
     #[test]
     fn non_agent_policy_families_reject_cas() {
         for mut value in [governance_value(), recovery_value()] {
-            value["expected_revision"] = Value::Null;
+            value["expected_commit_id"] = Value::Null;
             let payload: PolicySetStatePayload = serde_json::from_value(value).unwrap();
             assert!(payload.validate().is_err());
         }
@@ -790,7 +790,7 @@ mod policy_set_state_tests {
                 "{member} must be required"
             );
         }
-        for absent in ["expected_revision", "version", "basis"] {
+        for absent in ["expected_commit_id", "version", "basis"] {
             let mut extended = governance_value();
             extended
                 .as_object_mut()

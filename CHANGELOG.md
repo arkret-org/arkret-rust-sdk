@@ -9,6 +9,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Wire-breaking, no compatibility shim
 
+- Session grants use opaque 32-byte credentials and issuer-allocated UUIDv7
+  records; portable references and local session snapshots bind the issuer.
+  Recovery submits one signed receipt containing the complete native PCR pair,
+  and completion uses its actual consecutive Commits. Rotation retains its
+  independent prepared workflow. Write CAS uses a single source Commit ID;
+  read revisions retain positions. Grants use strict predecessor order and
+  real source-window unions, Reaction current contains active entries, ready
+  recordings contain one artifact, and backup operations use one challenge.
 - Ordinary messages use local canonical authoring and unchanged signed Event
   submission. Retired the optional message prepare operation and its dedicated DTOs.
 - Direct Conversation binding is one immutable original confirmation and reference;

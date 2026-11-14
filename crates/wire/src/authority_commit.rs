@@ -4,9 +4,10 @@
 //! is deliberately no Realm-global position or ordering across those streams.
 
 use arkret_identifiers::{
-    ActorProfileId, AppletId, CallId, CircleId, Did, DidCoreId, EventId, GrantId, Hash, InviteId,
-    KeypackageClaimId, MessageId, MlsWelcomeDeliveryId, PolicyId, RealmAuthorityHandoffId,
-    RealmCommitId, RealmId, RealmSnapshotId, RelationId, SidecarId, SpaceId, StrandId,
+    ActorProfileId, AppletId, CallId, CallRecordingId, CircleId, Did, DidCoreId, EventId, GrantId,
+    Hash, InviteId, KeypackageClaimId, MessageId, MlsWelcomeDeliveryId, PolicyId,
+    RealmAuthorityHandoffId, RealmCommitId, RealmId, RealmSnapshotId, RelationId, SidecarId,
+    SpaceId, StrandId,
 };
 use chrono::{DateTime, TimeDelta, Utc};
 use serde::ser::SerializeMap;
@@ -1867,6 +1868,22 @@ pub enum CurrentSelector {
     CallModeration {
         call_id: CallId,
     },
+    CallRecordingState {
+        call_id: CallId,
+        recording_id: CallRecordingId,
+    },
+    CallRecordingArtifact {
+        call_id: CallId,
+        recording_id: CallRecordingId,
+    },
+    CallTranscriptState {
+        call_id: CallId,
+        recording_id: CallRecordingId,
+    },
+    CallTranscriptArtifact {
+        call_id: CallId,
+        recording_id: CallRecordingId,
+    },
     RealmMediaService,
     /// The moderated target of `ak.moderation.decision` and its lift
     /// (`current-state.schema.json#/$defs/current_moderation_state`).
@@ -2107,6 +2124,22 @@ enum FlatCurrentSelector {
     },
     CallModeration {
         call_id: CallId,
+    },
+    CallRecordingState {
+        call_id: CallId,
+        recording_id: CallRecordingId,
+    },
+    CallRecordingArtifact {
+        call_id: CallId,
+        recording_id: CallRecordingId,
+    },
+    CallTranscriptState {
+        call_id: CallId,
+        recording_id: CallRecordingId,
+    },
+    CallTranscriptArtifact {
+        call_id: CallId,
+        recording_id: CallRecordingId,
     },
     RealmMediaService,
     /// The moderated target of `ak.moderation.decision` and its lift
@@ -2506,6 +2539,34 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                     FlatCurrentSelector::CallModeration { call_id } => {
                         Self::CallModeration { call_id }
                     }
+                    FlatCurrentSelector::CallRecordingState {
+                        call_id,
+                        recording_id,
+                    } => Self::CallRecordingState {
+                        call_id,
+                        recording_id,
+                    },
+                    FlatCurrentSelector::CallRecordingArtifact {
+                        call_id,
+                        recording_id,
+                    } => Self::CallRecordingArtifact {
+                        call_id,
+                        recording_id,
+                    },
+                    FlatCurrentSelector::CallTranscriptState {
+                        call_id,
+                        recording_id,
+                    } => Self::CallTranscriptState {
+                        call_id,
+                        recording_id,
+                    },
+                    FlatCurrentSelector::CallTranscriptArtifact {
+                        call_id,
+                        recording_id,
+                    } => Self::CallTranscriptArtifact {
+                        call_id,
+                        recording_id,
+                    },
                     FlatCurrentSelector::RealmMediaService => Self::RealmMediaService,
                     FlatCurrentSelector::ModerationState { target_ref } => {
                         Self::ModerationState { target_ref }

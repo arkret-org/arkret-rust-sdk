@@ -55,12 +55,12 @@ impl CallRosterCurrentValue {
             CallRosterDelta::Leave {
                 actor_id,
                 device_id,
-                expected_revision,
+                expected_commit_id,
             } => {
                 arkret_wire::DeviceId::new(device_id.clone())
                     .map_err(|error| invalid(&error.to_string()))?;
                 if previous
-                    .is_none_or(|p| revision(&p.last_source.source_commit) != *expected_revision)
+                    .is_none_or(|p| p.last_source.source_commit.commit_id != *expected_commit_id)
                     || key.is_some()
                 {
                     return Err(invalid(
@@ -144,12 +144,11 @@ impl CallRosterCurrentValue {
             CallRosterDelta::Leave {
                 actor_id,
                 device_id,
-                expected_revision,
+                expected_commit_id,
             } => {
                 arkret_wire::DeviceId::new(device_id.clone())
                     .map_err(|error| invalid(&error.to_string()))?;
-                if expected_revision.stream_position
-                    >= self.last_source.source_commit.stream_position
+                if expected_commit_id == &self.last_source.source_commit.commit_id
                     || self.entries.iter().any(|e| {
                         e.source_commit.stream_position
                             >= self.last_source.source_commit.stream_position
@@ -222,11 +221,11 @@ impl CallModerationCurrentValue {
             }
             CallModerationDelta::RestoreParticipant {
                 actor_id,
-                expected_revision,
+                expected_commit_id,
                 ..
             } => {
                 if previous
-                    .is_none_or(|p| revision(&p.last_source.source_commit) != *expected_revision)
+                    .is_none_or(|p| p.last_source.source_commit.commit_id != *expected_commit_id)
                 {
                     return Err(invalid(
                         "Call restore does not match its preceding axis revision",
@@ -287,11 +286,10 @@ impl CallModerationCurrentValue {
             }
             CallModerationDelta::RestoreParticipant {
                 actor_id,
-                expected_revision,
+                expected_commit_id,
                 ..
             } => {
-                if expected_revision.stream_position
-                    >= self.last_source.source_commit.stream_position
+                if expected_commit_id == &self.last_source.source_commit.commit_id
                     || self.entries.iter().any(|e| {
                         e.source_commit.stream_position
                             >= self.last_source.source_commit.stream_position

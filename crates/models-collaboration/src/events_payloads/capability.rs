@@ -1,6 +1,6 @@
 //! Capability event payloads.
 
-use arkret_wire::{ActorId, CurrentRevision};
+use arkret_wire::ActorId;
 
 use crate::internal_prelude::*;
 

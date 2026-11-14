@@ -26,7 +26,7 @@ impl ConsentPeer {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum ConsentExpectedCurrent {
     NeverWritten,
-    Present { revision: CurrentRevision },
+    Present { commit_id: RealmCommitId },
 }
 
 impl<'de> Deserialize<'de> for ConsentExpectedCurrent {
@@ -41,12 +41,12 @@ impl<'de> Deserialize<'de> for ConsentExpectedCurrent {
                 default,
                 deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
             )]
-            revision: Option<CurrentRevision>,
+            commit_id: Option<RealmCommitId>,
         }
         let wire = Wire::deserialize(deserializer)?;
-        match (wire.state.as_str(), wire.revision) {
+        match (wire.state.as_str(), wire.commit_id) {
             ("never_written", None) => Ok(Self::NeverWritten),
-            ("present", Some(revision)) => Ok(Self::Present { revision }),
+            ("present", Some(commit_id)) => Ok(Self::Present { commit_id }),
             _ => Err(serde::de::Error::custom(
                 "Consent expected_current requires an exact closed state branch",
             )),

@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json;
-//! sha256=f5fe4a08f94cc0d538dceb909c034d566c936f1863a5fac347252e03a6f66075 Entries: schema_ids=238,
-//! active=238
+//! sha256=20c973fcbc386b8d1148783837c9977134d1dab586d4fff11b57a69091a820e3 Entries: schema_ids=237,
+//! active=237
 
 use serde::{Deserialize, Serialize};
 
@@ -202,7 +202,6 @@ pub enum SchemaId {
     RecoveryScopeCleanupSelfResponseBodyV1,
     RecoveryScopeCleanupSourceV1,
     RecoverySessionV1,
-    RecoveryTerminalCommitV1,
     RegistrationDidEvidenceV1,
     RelationV1,
     ResourceSelectorV1,
@@ -444,7 +443,6 @@ impl SchemaId {
         Self::RecoveryScopeCleanupSelfResponseBodyV1,
         Self::RecoveryScopeCleanupSourceV1,
         Self::RecoverySessionV1,
-        Self::RecoveryTerminalCommitV1,
         Self::RegistrationDidEvidenceV1,
         Self::RelationV1,
         Self::ResourceSelectorV1,
@@ -686,7 +684,6 @@ impl SchemaId {
         Self::RecoveryScopeCleanupSelfResponseBodyV1,
         Self::RecoveryScopeCleanupSourceV1,
         Self::RecoverySessionV1,
-        Self::RecoveryTerminalCommitV1,
         Self::RegistrationDidEvidenceV1,
         Self::RelationV1,
         Self::ResourceSelectorV1,
@@ -1316,12 +1313,6 @@ impl SchemaId {
     /// exclusively by the bound RecoveryTransaction terminal commit. See
     /// identity/security-transactions.md §2 and crypto-media/device-lifecycle.md §14.
     pub const RECOVERY_SESSION_V1: &'static str = "ak.schema.recovery_session.v1";
-    /// Closed terminal artifact of a RecoveryTransaction containing only the
-    /// replacement-device-signed recovery receipt. It contains no RealmCommit, authority signature
-    /// or precomputed commit id; the governance Station validates the receipt and both prepared
-    /// producer Events, then issues their two consecutive PCR-stream RealmCommits inside the atomic
-    /// commit_recovery_unit admission.
-    pub const RECOVERY_TERMINAL_COMMIT_V1: &'static str = "ak.schema.recovery_terminal_commit.v1";
     /// Account-local registration DID evidence retained for onboarding and recovery audit.
     pub const REGISTRATION_DID_EVIDENCE_V1: &'static str = "ak.schema.registration_did_evidence.v1";
     pub const RELATION_V1: &'static str = "ak.schema.relation.v1";
@@ -1341,7 +1332,7 @@ impl SchemaId {
     /// Typed local-device commit artifact for the terminal SecurityRotationTransaction step.
     pub const SECURITY_ROTATION_LOCAL_COMMIT_V1: &'static str =
         "ak.schema.security_rotation_local_commit.v1";
-    /// Closed RecoveryTransaction and SecurityRotationTransaction resource.
+    /// Single-submit Recovery success or durable multi-step SecurityRotation resource.
     pub const SECURITY_TRANSACTION_V1: &'static str = "ak.schema.security_transaction.v1";
     /// Canonical ServiceDescribe response for ak.server.read.describe.v1 and per-surface describe
     /// operations: base service metadata plus exact supported_operation_bundles and claim-level
@@ -1663,7 +1654,6 @@ impl SchemaId {
             }
             Self::RecoveryScopeCleanupSourceV1 => Self::RECOVERY_SCOPE_CLEANUP_SOURCE_V1,
             Self::RecoverySessionV1 => Self::RECOVERY_SESSION_V1,
-            Self::RecoveryTerminalCommitV1 => Self::RECOVERY_TERMINAL_COMMIT_V1,
             Self::RegistrationDidEvidenceV1 => Self::REGISTRATION_DID_EVIDENCE_V1,
             Self::RelationV1 => Self::RELATION_V1,
             Self::ResourceSelectorV1 => Self::RESOURCE_SELECTOR_V1,
@@ -1964,7 +1954,6 @@ impl SchemaId {
             }
             Self::RecoveryScopeCleanupSourceV1 => "schemas/content-encryption.schema.json",
             Self::RecoverySessionV1 => "schemas/recovery-session.schema.json",
-            Self::RecoveryTerminalCommitV1 => "schemas/security-transaction.schema.json",
             Self::RegistrationDidEvidenceV1 => "schemas/registration-did-evidence.schema.json",
             Self::RelationV1 => "schemas/relation.schema.json",
             Self::ResourceSelectorV1 => "schemas/resource-selector.schema.json",
@@ -2255,7 +2244,6 @@ impl SchemaId {
             }
             Self::RECOVERY_SCOPE_CLEANUP_SOURCE_V1 => Some(Self::RecoveryScopeCleanupSourceV1),
             Self::RECOVERY_SESSION_V1 => Some(Self::RecoverySessionV1),
-            Self::RECOVERY_TERMINAL_COMMIT_V1 => Some(Self::RecoveryTerminalCommitV1),
             Self::REGISTRATION_DID_EVIDENCE_V1 => Some(Self::RegistrationDidEvidenceV1),
             Self::RELATION_V1 => Some(Self::RelationV1),
             Self::RESOURCE_SELECTOR_V1 => Some(Self::ResourceSelectorV1),

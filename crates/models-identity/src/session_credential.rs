@@ -8,8 +8,6 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{Map, Value};
 
-pub const SESSION_GRANT_CREDENTIAL_KIND: &str = "ak.session.grant";
-pub const SESSION_GRANT_ISSUANCE_SCHEMA: &str = "ak.session_grant.issuance.v1";
 /// Proof kind presented with an `ak.session.grant` request.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -94,67 +92,9 @@ impl SessionGrantDeviceBinding {
         }
     }
 
-    /// Exact origin-derived authorization Event retained in the signed grant.
+    /// Exact origin-derived authorization Event retained in issuer-record metadata.
     pub const fn committed_authorization(&self) -> &EventId {
         &self.authorization_event_id
-    }
-}
-
-/// Canonical unpadded Base64URL encoding of the issuer_id-generated 256-bit nonce.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
-#[serde(transparent)]
-pub struct SessionGrantIssuanceNonce(String);
-
-impl SessionGrantIssuanceNonce {
-    pub fn from_bytes(bytes: [u8; 32]) -> Self {
-        Self(arkret_canonical::base64url_encode(bytes))
-    }
-
-    pub fn new(value: impl Into<String>) -> Result<Self> {
-        let value = value.into();
-        let decoded = arkret_canonical::base64url_decode(&value).map_err(|_| {
-            WireError::Protocol(
-                "session grant issuance_nonce must be canonical Base64URL".to_owned(),
-            )
-        })?;
-        let bytes: [u8; 32] = decoded.try_into().map_err(|_| {
-            WireError::Protocol(
-                "session grant issuance_nonce must encode exactly 32 bytes".to_owned(),
-            )
-        })?;
-        if arkret_canonical::base64url_encode(bytes) != value {
-            return Err(WireError::Protocol(
-                "session grant issuance_nonce must be canonical unpadded Base64URL".to_owned(),
-            ));
-        }
-        Ok(Self(value))
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-
-    pub fn bytes(&self) -> [u8; 32] {
-        arkret_canonical::base64url_decode(&self.0)
-            .expect("validated issuance nonce is Base64URL")
-            .try_into()
-            .expect("validated issuance nonce is 32 bytes")
-    }
-}
-
-impl fmt::Display for SessionGrantIssuanceNonce {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(&self.0)
-    }
-}
-
-impl<'de> Deserialize<'de> for SessionGrantIssuanceNonce {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        Self::new(String::deserialize(deserializer)?).map_err(serde::de::Error::custom)
     }
 }
 
@@ -349,32 +289,29 @@ fn required_non_empty_string<'a>(object: &'a Map<String, Value>, member: &str) -
 
 fn required_base64url_member(object: &Map<String, Value>, member: &str) -> Result<Vec<u8>> {
     let value = required_non_empty_string(object, member)?;
-    if value.contains('=')
-        || !value
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
-        || value.len() % 4 == 1
-    {
-        return Err(WireError::Protocol(format!(
+    let bytes = arkret_canonical::base64url_decode(value).map_err(|_| {
+        WireError::Protocol(format!(
             "session public JWK {member} must be canonical unpadded Base64URL"
+        ))
+    })?;
+    if arkret_canonical::base64url_encode(&bytes) != value {
+        return Err(WireError::Protocol(format!(
+            "session public JWK {member} has noncanonical encoding bits"
         )));
     }
-    // JWK fixtures can carry public-key placeholders whose unused trailing
-    // bits are not cryptographically decoded until the signature verifier.
-    // The model boundary still enforces the exact coordinate byte length from
-    // the unpadded Base64URL character count.
-    Ok(vec![0; value.len() * 6 / 8])
+    Ok(bytes)
 }
 
-/// Closed immutable issuer_id-record preimage used to derive SessionGrantId.
+/// Immutable non-secret issuer-record projection. Parsing does not authenticate its source.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SessionGrantIssuancePreimage {
-    pub schema: String,
+#[serde(deny_unknown_fields, try_from = "RawSessionGrantMetadata")]
+pub struct SessionGrantMetadata {
+    pub id: SessionGrantId,
     pub issuer_id: DidCoreId,
-    pub issuance_nonce: SessionGrantIssuanceNonce,
     pub account_id: AccountId,
-    pub session_public_key: CanonicalSessionPublicJwk,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_id: Option<DeviceId>,
     pub audience_id: DidCoreId,
     pub scopes: Vec<String>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -382,114 +319,29 @@ pub struct SessionGrantIssuancePreimage {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub session_id: String,
-    pub credential_class: SessionGrantCredentialClass,
-    pub holder_binding: SessionGrantHolderBinding,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    pub device_binding: Option<SessionGrantDeviceBinding>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    pub proof_kind: Option<SessionGrantProofKind>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    pub scope_details: Option<Map<String, Value>>,
-}
-
-impl SessionGrantIssuancePreimage {
-    pub fn canonical_bytes(&self) -> Result<Vec<u8>> {
-        self.validate()?;
-        arkret_canonical::canonical_json_bytes(self).map_err(|error| {
-            WireError::Protocol(format!("invalid session grant preimage: {error}"))
-        })
-    }
-
-    pub fn issuance_digest(&self) -> Result<[u8; 32]> {
-        Ok(arkret_canonical::sha256_bytes(self.canonical_bytes()?))
-    }
-
-    pub fn grant_id(&self) -> Result<SessionGrantId> {
-        Ok(SessionGrantId::from_issuance_digest(
-            self.issuance_digest()?,
-        ))
-    }
-
-    pub fn validate(&self) -> Result<()> {
-        validate_issuance_fields(
-            &self.schema,
-            &self.audience_id,
-            &self.scopes,
-            self.not_before,
-            self.expires_at,
-            &self.session_id,
-            self.credential_class,
-            &self.holder_binding,
-            self.device_binding.as_ref(),
-            self.scope_details.as_ref(),
-        )
-    }
-}
-
-/// Signed credential claims carried by an `ak.session.grant` JWT.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, try_from = "RawSignedSessionGrantClaims")]
-pub struct SignedSessionGrantClaims {
-    pub kind: String,
-    #[serde(rename = "jti")]
-    pub grant_id: SessionGrantId,
-    pub issuer_id: DidCoreId,
-    pub issuance_nonce: SessionGrantIssuanceNonce,
-    pub account_id: AccountId,
     pub session_public_key: CanonicalSessionPublicJwk,
-    pub audience_id: DidCoreId,
-    pub scopes: Vec<String>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub not_before: DateTime<Utc>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
-    pub session_id: String,
+    pub cnf_jkt: String,
     pub credential_class: SessionGrantCredentialClass,
     pub holder_binding: SessionGrantHolderBinding,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_binding: Option<SessionGrantDeviceBinding>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proof_kind: Option<SessionGrantProofKind>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    pub scope_details: Option<Map<String, Value>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scope_details: Option<SessionGrantScope>,
 }
 
-/// Deserialization-only shape. `TryFrom` eliminates conditionally invalid
-/// human/Agent combinations before they can enter the public strong type.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct RawSignedSessionGrantClaims {
-    kind: String,
-    #[serde(rename = "jti")]
-    grant_id: SessionGrantId,
+struct RawSessionGrantMetadata {
+    id: SessionGrantId,
     issuer_id: DidCoreId,
-    issuance_nonce: SessionGrantIssuanceNonce,
     account_id: AccountId,
-    session_public_key: CanonicalSessionPublicJwk,
+    #[serde(
+        default,
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    device_id: Option<DeviceId>,
     audience_id: DidCoreId,
     scopes: Vec<String>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -497,6 +349,8 @@ struct RawSignedSessionGrantClaims {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     expires_at: DateTime<Utc>,
     session_id: String,
+    session_public_key: CanonicalSessionPublicJwk,
+    cnf_jkt: String,
     credential_class: SessionGrantCredentialClass,
     holder_binding: SessionGrantHolderBinding,
     #[serde(
@@ -513,500 +367,551 @@ struct RawSignedSessionGrantClaims {
         default,
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
-    scope_details: Option<Map<String, Value>>,
+    scope_details: Option<SessionGrantScope>,
 }
 
-impl TryFrom<RawSignedSessionGrantClaims> for SignedSessionGrantClaims {
+impl TryFrom<RawSessionGrantMetadata> for SessionGrantMetadata {
     type Error = WireError;
 
-    fn try_from(raw: RawSignedSessionGrantClaims) -> Result<Self> {
-        validate_issuance_fields(
-            SESSION_GRANT_ISSUANCE_SCHEMA,
-            &raw.audience_id,
-            &raw.scopes,
-            raw.not_before,
-            raw.expires_at,
-            &raw.session_id,
-            raw.credential_class,
-            &raw.holder_binding,
-            raw.device_binding.as_ref(),
-            raw.scope_details.as_ref(),
-        )?;
-        Ok(Self {
-            kind: raw.kind,
-            grant_id: raw.grant_id,
+    fn try_from(raw: RawSessionGrantMetadata) -> Result<Self> {
+        let value = Self {
+            id: raw.id,
             issuer_id: raw.issuer_id,
-            issuance_nonce: raw.issuance_nonce,
             account_id: raw.account_id,
-            session_public_key: raw.session_public_key,
+            device_id: raw.device_id,
             audience_id: raw.audience_id,
             scopes: raw.scopes,
             not_before: raw.not_before,
             expires_at: raw.expires_at,
             session_id: raw.session_id,
+            session_public_key: raw.session_public_key,
+            cnf_jkt: raw.cnf_jkt,
             credential_class: raw.credential_class,
             holder_binding: raw.holder_binding,
             device_binding: raw.device_binding,
             proof_kind: raw.proof_kind,
             scope_details: raw.scope_details,
-        })
+        };
+        value.validate()?;
+        Ok(value)
     }
 }
 
-impl SignedSessionGrantClaims {
-    pub fn issuance_preimage(&self) -> SessionGrantIssuancePreimage {
-        SessionGrantIssuancePreimage {
-            schema: SESSION_GRANT_ISSUANCE_SCHEMA.to_owned(),
-            issuer_id: self.issuer_id.clone(),
-            issuance_nonce: self.issuance_nonce.clone(),
-            account_id: self.account_id.clone(),
-            session_public_key: self.session_public_key.clone(),
-            audience_id: self.audience_id.clone(),
-            scopes: self.scopes.clone(),
-            not_before: self.not_before,
-            expires_at: self.expires_at,
-            session_id: self.session_id.clone(),
-            credential_class: self.credential_class,
-            holder_binding: self.holder_binding.clone(),
-            device_binding: self.device_binding.clone(),
-            proof_kind: self.proof_kind,
-            scope_details: self.scope_details.clone(),
-        }
+impl SessionGrantMetadata {
+    pub fn grant_ref(&self) -> arkret_wire::SessionGrantRef {
+        arkret_wire::SessionGrantRef::new(self.issuer_id.clone(), self.id.clone())
     }
 
-    pub fn recomputed_grant_id(&self) -> Result<SessionGrantId> {
-        self.issuance_preimage().grant_id()
-    }
-
-    /// Validate claim shape and require `jti` to equal the ID recomputed from
-    /// every signed issuance claim. Signature and accepted-at issuer_id-key
-    /// verification remains the host verifier's preceding responsibility.
+    /// Check local invariants only. The exact credential's authenticated issuer result is required.
     pub fn validate(&self) -> Result<()> {
-        if self.kind != SESSION_GRANT_CREDENTIAL_KIND {
-            return Err(WireError::Protocol(format!(
-                "session grant kind must be {SESSION_GRANT_CREDENTIAL_KIND}"
-            )));
+        let invalid = |message: &str| WireError::Protocol(message.to_owned());
+        if self.scopes.is_empty()
+            || self.scopes.iter().any(|scope| scope.trim().is_empty())
+            || self.scopes.windows(2).any(|pair| pair[0] >= pair[1])
+        {
+            return Err(invalid(
+                "session grant scopes must be nonempty, sorted and unique",
+            ));
         }
-        let expected = self.recomputed_grant_id()?;
-        if self.grant_id != expected {
-            return Err(WireError::Protocol(format!(
-                "session grant jti does not match signed issuance claims: expected {expected}"
-            )));
+        arkret_wire::validate_bounded_non_typed_identifier(&self.session_id, 256).map_err(
+            |_| {
+                invalid(
+                    "session grant session_id must be a bounded independent non-typed coordinate",
+                )
+            },
+        )?;
+        if self.expires_at <= self.not_before {
+            return Err(invalid("session grant expires_at must be after not_before"));
         }
-        if self.session_id == self.grant_id.as_str() {
+        if self.session_public_key.thumbprint_sha256()? != self.cnf_jkt {
+            return Err(invalid(
+                "session grant cnf_jkt must match the exact session public key",
+            ));
+        }
+        match (self.credential_class, &self.holder_binding) {
+            (
+                SessionGrantCredentialClass::Standard,
+                SessionGrantHolderBinding::HumanDevice { device_binding },
+            ) => {
+                let accepted = self.device_binding.as_ref().ok_or_else(|| {
+                    invalid("standard human grant requires accepted device_binding")
+                })?;
+                if self.device_id.as_ref() != Some(&accepted.device_id)
+                    || accepted.device_id.as_str() != device_binding
+                    || accepted.model_generation_ref == 0
+                    || self.scope_details.is_some()
+                    || self
+                        .proof_kind
+                        .is_some_and(|kind| kind != SessionGrantProofKind::AccountHandoff)
+                {
+                    return Err(invalid(
+                        "human grant device, holder and accepted authorization bindings differ",
+                    ));
+                }
+            }
+            (
+                SessionGrantCredentialClass::Standard,
+                SessionGrantHolderBinding::AgentRuntime {
+                    agent_id,
+                    agent_key_authorization_ref,
+                    ..
+                },
+            ) => {
+                if self.device_id.is_some()
+                    || self.device_binding.is_some()
+                    || agent_id != &self.account_id.principal_id
+                    || self
+                        .proof_kind
+                        .is_some_and(|kind| kind != SessionGrantProofKind::AgentKeyProof)
+                {
+                    return Err(invalid(
+                        "Agent grant must bind its exact account and omit human device metadata",
+                    ));
+                }
+                let scope = self
+                    .scope_details
+                    .as_ref()
+                    .ok_or_else(|| invalid("Agent grant requires its immutable scope"))?;
+                scope.validate()?;
+                if &scope.agent_key_authorization_ref != agent_key_authorization_ref {
+                    return Err(invalid("Agent scope and holder key authorization differ"));
+                }
+            }
+            (
+                SessionGrantCredentialClass::RecoverySession,
+                SessionGrantHolderBinding::RecoveryCandidateDevice { device_id },
+            ) => {
+                if self.device_id.as_ref() != Some(device_id)
+                    || self.device_binding.is_some()
+                    || self.scope_details.is_some()
+                    || self.expires_at - self.not_before > chrono::Duration::minutes(15)
+                    || self
+                        .proof_kind
+                        .is_some_and(|kind| kind != SessionGrantProofKind::AccountHandoff)
+                {
+                    return Err(invalid(
+                        "recovery grant requires a matching candidate, no accepted binding, and at most 15 minutes",
+                    ));
+                }
+            }
+            _ => {
+                return Err(invalid(
+                    "session grant credential_class and holder_binding are incompatible",
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// Match a previously authenticated issuer projection to this exact request context.
+    /// This method does not authenticate a transport, prove an exact secret, or refresh a cache.
+    pub fn validate_request_binding(
+        &self,
+        grant_ref: &arkret_wire::SessionGrantRef,
+        account_id: &AccountId,
+        audience_id: &DidCoreId,
+        now: DateTime<Utc>,
+    ) -> Result<()> {
+        self.validate()?;
+        if &self.grant_ref() != grant_ref
+            || &self.account_id != account_id
+            || &self.audience_id != audience_id
+            || now < self.not_before
+            || now >= self.expires_at
+        {
             return Err(WireError::Protocol(
-                "session grant session_id must be independent from grant jti".to_owned(),
+                "session grant issuer, account, audience or validity binding mismatch".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn human_device_authorization_selector(&self) -> Result<&SessionGrantDeviceBinding> {
+        self.validate()?;
+        match (&self.holder_binding, &self.device_binding) {
+            (SessionGrantHolderBinding::HumanDevice { .. }, Some(binding)) => Ok(binding),
+            _ => Err(WireError::Protocol(
+                "accepted human device authorization is unavailable for this grant class".into(),
+            )),
+        }
+    }
+}
+
+impl SessionGrantScope {
+    pub fn validate(&self) -> Result<()> {
+        let invalid = |message: &str| WireError::Protocol(message.to_owned());
+        if self.resources.realm_ids != self.realm_ids
+            || self.resources.strand_ids != self.strand_ids
+            || !unique(&self.realm_ids)
+            || !unique(&self.strand_ids)
+            || !unique(&self.constraints.allowed_tracks)
+            || !unique(&self.constraints.allowed_data_labels)
+            || !unique(&self.constraints.allowed_endpoints)
+        {
+            return Err(invalid(
+                "Agent scope contains duplicate or conflicting resource ceilings",
+            ));
+        }
+        let label = |value: &str| {
+            (1..=64).contains(&value.len())
+                && value.as_bytes()[0].is_ascii_lowercase()
+                && value
+                    .bytes()
+                    .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
+        };
+        if self
+            .constraints
+            .allowed_tracks
+            .iter()
+            .chain(&self.constraints.allowed_data_labels)
+            .any(|value| !label(value))
+        {
+            return Err(invalid(
+                "Agent scope track or data label violates its canonical grammar",
+            ));
+        }
+        if let Some(strands) = &self.constraints.allowed_strand_ids {
+            if strands != &self.strand_ids || !unique(strands) {
+                return Err(invalid(
+                    "Agent strand constraint differs from the resource ceiling",
+                ));
+            }
+        }
+        if let Some(entries) = &self.participations {
+            let mut scopes = std::collections::BTreeSet::new();
+            for entry in entries {
+                entry.validate().map_err(WireError::Protocol)?;
+                if !scopes.insert(entry.target_scope.scope_key()) {
+                    return Err(invalid("Agent scope has duplicate participation targets"));
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+fn unique<T: Ord>(values: &[T]) -> bool {
+    values
+        .iter()
+        .collect::<std::collections::BTreeSet<_>>()
+        .len()
+        == values.len()
+}
+
+impl SessionGrantResponseBody {
+    pub fn grant_ref(&self) -> arkret_wire::SessionGrantRef {
+        arkret_wire::SessionGrantRef::new(self.issuer_id.clone(), self.session_grant_id.clone())
+    }
+
+    /// Issuance response binding; caller must have authenticated its Account Authority channel.
+    pub fn validate_binding(
+        &self,
+        issuer: &DidCoreId,
+        account: &AccountId,
+        audience: &DidCoreId,
+        holder: &CanonicalSessionPublicJwk,
+        now: DateTime<Utc>,
+    ) -> Result<()> {
+        if &self.issuer_id != issuer
+            || &self.account_id != account
+            || &self.audience_id != audience
+            || &self.session_public_key != holder
+            || self.expires_at <= now
+            || self.granted_scope.is_empty()
+            || self
+                .granted_scope
+                .iter()
+                .any(|scope| scope.trim().is_empty())
+            || self.granted_scope.windows(2).any(|pair| pair[0] >= pair[1])
+        {
+            return Err(WireError::Protocol(
+                "issued SessionGrant response binding mismatch".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Validate an authenticated refresh outcome against the client's original issuance result.
+    /// The predecessor may now be expired or superseded during an exact replay; it is not reissued.
+    pub fn validate_refresh_binding(&self, predecessor: &Self, now: DateTime<Utc>) -> Result<()> {
+        self.validate_binding(
+            &predecessor.issuer_id,
+            &predecessor.account_id,
+            &predecessor.audience_id,
+            &predecessor.session_public_key,
+            now,
+        )?;
+        if self.previous_session_grant_id.as_ref() != Some(&predecessor.session_grant_id)
+            || self.session_grant_id == predecessor.session_grant_id
+            || self.session_grant == predecessor.session_grant
+            || self.device_id != predecessor.device_id
+            || self.granted_scope != predecessor.granted_scope
+        {
+            return Err(WireError::Protocol(
+                "refresh outcome changed its issuer chain, holder or scope ceiling".into(),
             ));
         }
         Ok(())
     }
 }
 
-#[allow(clippy::too_many_arguments)]
-fn validate_issuance_fields(
-    schema: &str,
-    audience_id: &DidCoreId,
-    scopes: &[String],
-    not_before: DateTime<Utc>,
-    expires_at: DateTime<Utc>,
-    session_id: &str,
-    credential_class: SessionGrantCredentialClass,
-    holder_binding: &SessionGrantHolderBinding,
-    device_binding: Option<&SessionGrantDeviceBinding>,
-    scope_details: Option<&Map<String, Value>>,
-) -> Result<()> {
-    if schema != SESSION_GRANT_ISSUANCE_SCHEMA {
-        return Err(WireError::Protocol(format!(
-            "session grant issuance schema must be {SESSION_GRANT_ISSUANCE_SCHEMA}"
-        )));
-    }
-    if scopes.is_empty() || scopes.iter().any(|scope| scope.trim().is_empty()) {
-        return Err(WireError::Protocol(
-            "session grant scopes must contain only non-empty values".to_owned(),
-        ));
-    }
-    if scopes.windows(2).any(|pair| pair[0] >= pair[1]) {
-        return Err(WireError::Protocol(
-            "session grant scopes must be byte-wise sorted and deduplicated".to_owned(),
-        ));
-    }
-    if arkret_wire::validate_bounded_non_typed_identifier(session_id, 256).is_err() {
-        return Err(WireError::Protocol(
-            "session grant session_id must be nonempty, at most 256 code points and outside ak:"
-                .to_owned(),
-        ));
-    }
-    if expires_at <= not_before {
-        return Err(WireError::Protocol(
-            "session grant expires_at must be after not_before".to_owned(),
-        ));
-    }
-    if device_binding.is_some_and(|binding| binding.model_generation_ref == 0) {
-        return Err(WireError::Protocol(
-            "session grant device generation must be positive".to_owned(),
-        ));
-    }
-    match (credential_class, holder_binding) {
-        (
-            SessionGrantCredentialClass::Standard,
-            SessionGrantHolderBinding::HumanDevice {
-                device_binding: holder_device_id,
-            },
-        ) => {
-            let binding = device_binding.ok_or_else(|| {
-                WireError::Protocol(
-                    "standard human session grant requires a signed device_binding".to_owned(),
-                )
-            })?;
-            if binding.device_id.as_str() != holder_device_id {
-                return Err(WireError::Protocol(
-                    "human holder_binding and signed device_binding identify different devices"
-                        .to_owned(),
-                ));
-            }
-            if scope_details.is_some() {
-                return Err(WireError::Protocol(
-                    "human session grant must omit Agent scope_details".to_owned(),
-                ));
-            }
-        }
-        (SessionGrantCredentialClass::Standard, SessionGrantHolderBinding::AgentRuntime { .. }) => {
-            if device_binding.is_some() {
-                return Err(WireError::Protocol(
-                    "Agent runtime session grant must omit human device_binding".to_owned(),
-                ));
-            }
-        }
-        (
-            SessionGrantCredentialClass::RecoverySession,
-            SessionGrantHolderBinding::RecoveryCandidateDevice { .. },
-        ) => {
-            if device_binding.is_some() {
-                return Err(WireError::Protocol(
-                    "recovery-session grant must omit accepted device_binding".to_owned(),
-                ));
-            }
-            if scope_details.is_some() {
-                return Err(WireError::Protocol(
-                    "recovery-session grant must omit Agent scope_details".to_owned(),
-                ));
-            }
-        }
-        _ => {
-            return Err(WireError::Protocol(
-                "session grant credential_class and holder_binding are incompatible".to_owned(),
-            ));
-        }
-    }
-    let _ = (audience_id, holder_binding, device_binding, scope_details);
-    Ok(())
-}
+include!("generated/session_credential_contracts.rs");
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeSet;
-
     use super::*;
 
-    fn device_authorization_event_id() -> EventId {
-        EventId::new("ak:event:Ae6YFfDokA1FLUx_l-MhAbSvTvoys2ZpRPmqFwrWjd9g").unwrap()
-    }
-
-    fn materialized_fixture_vector(fixture: &Value, name: &str) -> Value {
-        let vectors = fixture["accepted_vectors"].as_array().unwrap();
-        let vector = vectors
-            .iter()
-            .find(|vector| vector["name"] == name)
-            .unwrap_or_else(|| panic!("missing accepted fixture vector {name}"));
-        let mut materialized = vectors[0]["issuance_preimage"].clone();
-        let object = materialized.as_object_mut().unwrap();
-        if let Some(overrides) = vector.get("override").and_then(Value::as_object) {
-            for (key, value) in overrides {
-                object.insert(key.clone(), value.clone());
-            }
-        }
-        if let Some(omitted) = vector.get("omit").and_then(Value::as_array) {
-            for key in omitted.iter().map(|value| value.as_str().unwrap()) {
-                object.remove(key);
-            }
-        }
-        materialized
-    }
-
-    fn signed_claims_value(preimage_value: Value) -> Value {
-        let preimage: SessionGrantIssuancePreimage =
-            serde_json::from_value(preimage_value.clone()).unwrap();
-        let grant_id = preimage.grant_id().unwrap();
-        let mut claims_value = preimage_value;
-        let object = claims_value.as_object_mut().unwrap();
-        object.remove("schema");
-        object.insert(
-            "kind".to_owned(),
-            Value::String(SESSION_GRANT_CREDENTIAL_KIND.to_owned()),
-        );
-        object.insert("jti".to_owned(), Value::String(grant_id.to_string()));
-        claims_value
-    }
-
-    fn claims() -> SignedSessionGrantClaims {
-        let mut claims = SignedSessionGrantClaims {
-            kind: SESSION_GRANT_CREDENTIAL_KIND.to_owned(),
-            grant_id: SessionGrantId::from_issuance_digest([0; 32]),
-            issuer_id: DidCoreId::new("ak:did_core:web:issuer_id.example").unwrap(),
-            issuance_nonce: SessionGrantIssuanceNonce::from_bytes([0x11; 32]),
-            account_id: AccountId::new(
-                DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
-                DidCoreId::new("ak:did_core:web:service.example").unwrap(),
-            ),
-            session_public_key: CanonicalSessionPublicJwk::new(
-                r#"{ "x":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "kty":"OKP", "crv":"Ed25519" }"#,
-            )
-            .unwrap(),
-            audience_id: DidCoreId::new("ak:did_core:web:service.example").unwrap(),
-            scopes: vec!["ak.self.events.command.submit.v1".to_owned()],
-            not_before: "2026-07-18T00:00:00.000Z".parse().unwrap(),
-            expires_at: "2026-07-18T00:15:00.000Z".parse().unwrap(),
-            session_id: "session-1".to_owned(),
-            credential_class: SessionGrantCredentialClass::Standard,
-            holder_binding: SessionGrantHolderBinding::HumanDevice {
-                device_binding: "ak:device:019a0000-0000-7000-8000-000000000001".to_owned(),
-            },
-            device_binding: Some(SessionGrantDeviceBinding {
-                device_id: DeviceId::new(
-                    "ak:device:019a0000-0000-7000-8000-000000000001",
-                )
-                .unwrap(),
-                authorization_event_id: device_authorization_event_id(),
-                model_generation_ref: 1,
-            }),
-            proof_kind: Some(SessionGrantProofKind::AccountHandoff),
-            scope_details: None,
-        };
-        claims.grant_id = claims.recomputed_grant_id().unwrap();
-        claims
-    }
-
-    #[test]
-    fn retired_pairwise_session_grant_members_are_rejected() {
-        assert!(
-            serde_json::from_str::<SessionGrantProofKind>("\"pairwise_endpoint_proof\"").is_err()
-        );
-        assert!(
-            serde_json::from_value::<SessionGrantHolderBinding>(serde_json::json!({
-                "kind": "minimal_metadata_pairwise",
-                "realm_id": "ak:realm:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-            }))
-            .is_err()
-        );
-    }
-
-    #[test]
-    fn validates_normative_shape_and_recomputes_jti() {
-        let claims = claims();
-        claims.validate().unwrap();
-        let value = serde_json::to_value(&claims).unwrap();
-        assert_eq!(value["jti"], claims.grant_id.as_str());
-        assert!(value.get("grant_id").is_none());
-        assert_eq!(
-            value["session_public_key"],
-            r#"{"crv":"Ed25519","kty":"OKP","x":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}"#
-        );
-    }
-
-    #[test]
-    fn recovery_claims_require_candidate_holder_without_accepted_binding() {
-        let mut recovery = claims();
-        recovery.credential_class = SessionGrantCredentialClass::RecoverySession;
-        recovery.holder_binding = SessionGrantHolderBinding::RecoveryCandidateDevice {
-            device_id: DeviceId::new("ak:device:019a0000-0000-7000-8000-000000000009").unwrap(),
-        };
-        recovery.device_binding = None;
-        recovery.grant_id = recovery.recomputed_grant_id().unwrap();
-        recovery.validate().unwrap();
-
-        let mut accepted_binding = recovery.clone();
-        accepted_binding.device_binding = claims().device_binding;
-        assert!(accepted_binding.recomputed_grant_id().is_err());
-        assert!(accepted_binding.validate().is_err());
-
-        let mut wrong_class = recovery;
-        wrong_class.credential_class = SessionGrantCredentialClass::Standard;
-        assert!(wrong_class.recomputed_grant_id().is_err());
-        assert!(wrong_class.validate().is_err());
-    }
-
-    #[test]
-    fn canonical_jwk_normalizes_equivalent_input() {
-        let first = CanonicalSessionPublicJwk::new(
-            r#"{"kty":"OKP","crv":"Ed25519","x":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}"#,
-        )
-        .unwrap();
-        let second = CanonicalSessionPublicJwk::new(
-            r#"{ "x": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "crv": "Ed25519", "kty": "OKP" }"#,
-        )
-        .unwrap();
-        assert_eq!(first, second);
-        assert!(CanonicalSessionPublicJwk::new(
-            r#"{"kty":"OKP","crv":"Ed25519","x":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","d":"secret"}"#
-        )
-        .is_err());
-    }
-
-    #[test]
-    fn rejects_tampered_claim_and_explicit_null_optional() {
-        let mut tampered = claims();
-        tampered.audience_id = DidCoreId::new("ak:did_core:web:other.example").unwrap();
-        assert!(tampered.validate().is_err());
-
-        let mut value = serde_json::to_value(claims()).unwrap();
-        value["unexpected_binding"] = Value::Object(Default::default());
-        assert!(serde_json::from_value::<SignedSessionGrantClaims>(value).is_err());
-
-        let mut self_referential = claims();
-        self_referential.session_id = self_referential.grant_id.to_string();
-        // The session profile excludes typed identifiers before a grant can be recomputed.
-        assert!(self_referential.recomputed_grant_id().is_err());
-        assert!(self_referential.validate().is_err());
-        assert!(
-            serde_json::from_value::<SignedSessionGrantClaims>(
-                serde_json::to_value(self_referential).unwrap()
-            )
-            .is_err()
-        );
-    }
-
-    #[test]
-    fn signed_claim_rejects_noncanonical_jwk_string() {
-        let mut value = serde_json::to_value(claims()).unwrap();
-        value["session_public_key"] = Value::String(
-            r#"{ "x":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "kty":"OKP", "crv":"Ed25519" }"#
-                .to_owned(),
-        );
-        assert!(serde_json::from_value::<SignedSessionGrantClaims>(value).is_err());
-    }
-
-    #[test]
-    fn migrated_fixture_vectors_have_stable_canonical_grant_ids() {
-        let fixture = arkret_schema_conformance::spec_json_artifact(
+    fn fixture() -> Value {
+        arkret_schema_conformance::spec_json_artifact(
             "fixtures/session-grant-issuance-fixture.json",
         )
-        .unwrap();
-        let vectors = fixture["accepted_vectors"].as_array().unwrap();
-        for vector in vectors {
-            let materialized =
-                materialized_fixture_vector(&fixture, vector["name"].as_str().unwrap());
-            let preimage: SessionGrantIssuancePreimage =
-                serde_json::from_value(materialized).unwrap();
-            let bytes = preimage.canonical_bytes().unwrap();
-            let decoded: SessionGrantIssuancePreimage = serde_json::from_slice(&bytes).unwrap();
-            assert_eq!(decoded.grant_id().unwrap(), preimage.grant_id().unwrap());
-            let canonical = String::from_utf8(bytes).unwrap();
+        .unwrap()
+    }
+
+    fn vector(name: &str) -> Value {
+        fixture()["accepted_vectors"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|row| row["name"] == name)
+            .unwrap()["metadata"]
+            .clone()
+    }
+
+    fn metadata(name: &str) -> SessionGrantMetadata {
+        serde_json::from_value(vector(name)).unwrap()
+    }
+
+    #[test]
+    fn opaque_fixture_metadata_and_canonical_bytes_are_consumed_directly() {
+        for row in fixture()["accepted_vectors"].as_array().unwrap() {
+            let value: SessionGrantMetadata =
+                serde_json::from_value(row["metadata"].clone()).unwrap();
+            value.validate().unwrap();
+            let canonical =
+                String::from_utf8(arkret_canonical::canonical_json_bytes(&value).unwrap()).unwrap();
+            assert_eq!(canonical, row["canonical_metadata_utf8"].as_str().unwrap());
             assert_eq!(
-                canonical.contains("authorization_event_id"),
-                preimage.device_binding.is_some(),
-                "{} must carry the origin-derived authorization Event exactly when it has a device binding",
-                vector["name"]
+                serde_json::from_str::<SessionGrantMetadata>(&canonical).unwrap(),
+                value
             );
         }
     }
 
     #[test]
-    fn fixture_tamper_cases_fail_closed() {
-        let fixture = arkret_schema_conformance::spec_json_artifact(
-            "fixtures/session-grant-issuance-fixture.json",
-        )
-        .unwrap();
-        let mut covered = BTreeSet::new();
-        for case in fixture["tamper_cases"].as_array().unwrap() {
-            let name = case["name"].as_str().unwrap();
-            covered.insert(name);
-            let base_vector = case
-                .get("base_vector")
-                .and_then(Value::as_str)
-                .unwrap_or("issuer_a_closed_preimage");
-            let mut value = signed_claims_value(materialized_fixture_vector(&fixture, base_vector));
-            match case["mutate"].as_str().unwrap() {
-                "issuance_nonce" => {
-                    value["issuance_nonce"] = Value::String(
-                        SessionGrantIssuanceNonce::from_bytes([0x22; 32]).to_string(),
-                    );
-                }
-                "audience_id" => {
-                    value["audience_id"] =
-                        Value::String("ak:did_core:webvh:z6mkfixtureotherservice".to_owned());
-                }
-                "holder_binding.device_binding" => {
-                    value["holder_binding"]["device_binding"] =
-                        Value::String("ak:device:019a0000-0000-7000-8000-000000000099".to_owned());
-                }
-                "session_public_key_member_order_or_whitespace" => {
-                    value["session_public_key"] = Value::String(
-                        r#"{ "x":"11qYAYdk9Jc1iP4Z9Qv7XKpM6Jw8LmN0RsTuVwXyZaB", "kty":"OKP", "crv":"Ed25519" }"#
-                            .to_owned(),
-                    );
-                    assert!(
-                        serde_json::from_value::<SignedSessionGrantClaims>(value).is_err(),
-                        "{name} must reject noncanonical signed JWK text"
-                    );
-                    continue;
-                }
-                "session_id"
-                    if case.get("value_from")
-                        == Some(&Value::String("session_grant_id".to_owned())) =>
-                {
-                    value["session_id"] = value["jti"].clone();
-                }
-                mutation => panic!("unhandled session-grant tamper fixture mutation {mutation}"),
-            }
-            if let Ok(tampered) = serde_json::from_value::<SignedSessionGrantClaims>(value) {
-                assert!(tampered.validate().is_err(), "{name} must fail validation");
-            }
-        }
-        let required = "holder_binding_changed_without_jti_change";
-        assert!(
-            covered.contains(required),
-            "missing fixture coverage for {required}"
-        );
-    }
-
-    #[test]
-    fn fixture_credential_binding_negative_cases_fail_closed() {
-        let fixture = arkret_schema_conformance::spec_json_artifact(
-            "fixtures/session-grant-issuance-fixture.json",
-        )
-        .unwrap();
-        let mut covered = BTreeSet::new();
-        for case in fixture["credential_binding_negative_cases"]
+    fn all_published_holder_class_and_null_negatives_remain_rejected() {
+        for row in fixture()["credential_binding_negative_cases"]
             .as_array()
             .unwrap()
         {
-            let name = case["name"].as_str().unwrap();
-            covered.insert(name);
-            let base_vector = case["base_vector"].as_str().unwrap();
-            let mut value = signed_claims_value(materialized_fixture_vector(&fixture, base_vector));
-            let object = value.as_object_mut().unwrap();
-            if let Some(omitted) = case.get("omit").and_then(Value::as_array) {
-                for field in omitted.iter().map(|value| value.as_str().unwrap()) {
-                    object.remove(field);
-                }
+            let mut value = vector(row["base_vector"].as_str().unwrap());
+            for field in row
+                .get("omit")
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+            {
+                value
+                    .as_object_mut()
+                    .unwrap()
+                    .remove(field.as_str().unwrap());
             }
-            if let Some(addition) = case.get("add_from_vector") {
-                let field = addition["field"].as_str().unwrap();
-                let source =
-                    materialized_fixture_vector(&fixture, addition["vector"].as_str().unwrap());
-                object.insert(field.to_owned(), source[field].clone());
+            for (field, replacement) in row
+                .get("set")
+                .and_then(Value::as_object)
+                .into_iter()
+                .flatten()
+            {
+                value[field] = replacement.clone();
             }
             assert!(
-                serde_json::from_value::<SignedSessionGrantClaims>(value).is_err(),
-                "{name} must fail decoding"
+                serde_json::from_value::<SessionGrantMetadata>(value).is_err(),
+                "{}",
+                row["name"]
             );
         }
-        let required = "standard_missing_holder_binding";
+    }
+
+    #[test]
+    fn record_identity_is_issuer_scoped_and_not_a_metadata_hash() {
+        let first = metadata("issuer_a_standard");
+        let second = metadata("issuer_b_same_record_id");
+        assert_eq!(first.id, second.id);
+        assert_ne!(first.grant_ref(), second.grant_ref());
         assert!(
-            covered.contains(required),
-            "missing fixture coverage for {required}"
+            first
+                .validate_request_binding(
+                    &second.grant_ref(),
+                    &first.account_id,
+                    &first.audience_id,
+                    first.not_before
+                )
+                .is_err()
+        );
+        let mut changed = first.clone();
+        changed.session_id = "another-independently-issued-chain".into();
+        changed.validate().unwrap();
+        assert_eq!(changed.id, first.id);
+    }
+
+    #[test]
+    fn exact_request_binding_keeps_account_audience_and_expiry_boundaries() {
+        let value = metadata("issuer_a_standard");
+        value
+            .validate_request_binding(
+                &value.grant_ref(),
+                &value.account_id,
+                &value.audience_id,
+                value.not_before,
+            )
+            .unwrap();
+        for now in [
+            value.not_before - chrono::Duration::milliseconds(1),
+            value.expires_at,
+        ] {
+            assert!(
+                value
+                    .validate_request_binding(
+                        &value.grant_ref(),
+                        &value.account_id,
+                        &value.audience_id,
+                        now
+                    )
+                    .is_err()
+            );
+        }
+        let mut account = value.account_id.clone();
+        account.station_id = "ak:did_core:web:another.example".parse().unwrap();
+        assert!(
+            value
+                .validate_request_binding(
+                    &value.grant_ref(),
+                    &account,
+                    &value.audience_id,
+                    value.not_before
+                )
+                .is_err()
+        );
+        assert!(
+            value
+                .validate_request_binding(
+                    &value.grant_ref(),
+                    &value.account_id,
+                    &"ak:did_core:web:another.example".parse().unwrap(),
+                    value.not_before
+                )
+                .is_err()
         );
     }
-}
 
-include!("generated/session_credential_contracts.rs");
+    #[test]
+    fn metadata_rejects_retired_claim_fields_and_optional_nulls() {
+        for field in ["jti", "issuance_nonce", "kind", "grant_jwt"] {
+            let mut value = vector("issuer_a_standard");
+            value[field] = Value::String("retired".into());
+            assert!(serde_json::from_value::<SessionGrantMetadata>(value).is_err());
+        }
+        for field in ["device_id", "device_binding", "scope_details", "proof_kind"] {
+            let mut value = vector("issuer_a_standard");
+            value[field] = Value::Null;
+            assert!(serde_json::from_value::<SessionGrantMetadata>(value).is_err());
+        }
+    }
+
+    #[test]
+    fn jwk_canonical_bits_and_thumbprint_are_real_not_placeholder_lengths() {
+        let mut value = vector("issuer_a_standard");
+        value["cnf_jkt"] = Value::String("A".repeat(43));
+        assert!(serde_json::from_value::<SessionGrantMetadata>(value).is_err());
+        let invalid = format!(
+            r#"{{"crv":"Ed25519","kty":"OKP","x":"{}"}}"#,
+            "B".repeat(43)
+        );
+        assert!(CanonicalSessionPublicJwk::new(invalid).is_err());
+        assert!(CanonicalSessionPublicJwk::new(r#"{"crv":"Ed25519","kty":"OKP","x":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","d":"secret"}"#).is_err());
+        let wire = format!(
+            " {}",
+            metadata("issuer_a_standard").session_public_key.as_str()
+        );
+        assert!(serde_json::from_value::<CanonicalSessionPublicJwk>(Value::String(wire)).is_err());
+    }
+
+    #[test]
+    fn recovery_lifetime_cannot_round_down_one_extra_millisecond() {
+        let mut value = metadata("recovery_candidate");
+        value.expires_at = value.not_before + chrono::Duration::minutes(15);
+        value.validate().unwrap();
+        value.expires_at += chrono::Duration::milliseconds(1);
+        assert!(value.validate().is_err());
+    }
+
+    fn response(name: &str) -> SessionGrantResponseBody {
+        let row = fixture()["accepted_vectors"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|row| row["name"] == name)
+            .unwrap()
+            .clone();
+        let metadata: SessionGrantMetadata =
+            serde_json::from_value(row["metadata"].clone()).unwrap();
+        SessionGrantResponseBody {
+            account_id: metadata.account_id,
+            issuer_id: metadata.issuer_id,
+            device_id: metadata.device_id,
+            audience_id: metadata.audience_id,
+            session_grant: serde_json::from_value(row["session_grant"].clone()).unwrap(),
+            session_grant_id: metadata.id,
+            session_public_key: metadata.session_public_key,
+            granted_scope: metadata.scopes,
+            expires_at: metadata.expires_at,
+            previous_session_grant_id: None,
+        }
+    }
+
+    #[test]
+    fn refresh_response_preserves_chain_and_cannot_expand_or_reuse_a_credential() {
+        let mut previous = response("issuer_a_standard");
+        let mut next = response("refresh_successor");
+        next.previous_session_grant_id = Some(previous.session_grant_id.clone());
+        let now = metadata("issuer_a_standard").not_before;
+        previous.expires_at = now - chrono::Duration::seconds(1);
+        next.validate_refresh_binding(&previous, now).unwrap();
+        let mut reused = next.clone();
+        reused.session_grant = previous.session_grant.clone();
+        assert!(reused.validate_refresh_binding(&previous, now).is_err());
+        let mut foreign = next.clone();
+        foreign.issuer_id = "ak:did_core:web:another.example".parse().unwrap();
+        assert!(foreign.validate_refresh_binding(&previous, now).is_err());
+        let mut expanded = next;
+        expanded
+            .granted_scope
+            .push("ak.self.future.read.expanded.v1".into());
+        expanded.granted_scope.sort();
+        assert!(expanded.validate_refresh_binding(&previous, now).is_err());
+    }
+
+    #[test]
+    fn scope_is_typed_closed_unique_and_exactly_resource_bound() {
+        let mut value = metadata("agent_runtime");
+        let scope = value.scope_details.as_mut().unwrap();
+        scope
+            .resources
+            .realm_ids
+            .push(arkret_wire::RealmId::from_event_id(
+                &scope.agent_key_authorization_ref,
+            ));
+        assert!(value.validate().is_err());
+        let mut value = vector("agent_runtime");
+        value["scope_details"]["unexpected"] = Value::Bool(true);
+        assert!(serde_json::from_value::<SessionGrantMetadata>(value).is_err());
+        let mut value = metadata("agent_runtime");
+        value
+            .scope_details
+            .as_mut()
+            .unwrap()
+            .constraints
+            .allowed_tracks = vec!["invalid-label".into()];
+        assert!(value.validate().is_err());
+    }
+}

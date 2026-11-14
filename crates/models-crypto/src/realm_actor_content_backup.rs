@@ -405,6 +405,12 @@ impl RealmActorBackupUnlockChallenge {
 
     pub fn validate_at(&self, now: chrono::DateTime<chrono::Utc>) -> Result<()> {
         validate_realm_actor_backup_scope(&self.realm_actor_id, &self.effective_scope)?;
+        validate_native_unlock_window(
+            &self.challenge,
+            &self.challenge_id,
+            self.issued_at,
+            self.expires_at,
+        )?;
         let device = self.kind == RealmActorBackupUnlockChallengeKind::RealmActorDevice;
         if device != (self.purpose == RealmActorBackupUnlockChallengePurpose::SeriesPredecessor)
             || device != self.requesting_device_id.is_some()
@@ -414,8 +420,8 @@ impl RealmActorBackupUnlockChallenge {
             || now < self.issued_at
             || now >= self.expires_at
             || self.expires_at <= self.issued_at
-            || self.signature_free_challenge_bytes()?.len() != 32
-            || self.nonce == self.challenge
+            || !(22..=128).contains(&self.request_id.as_str().len())
+            || self.expires_at - self.issued_at > chrono::Duration::seconds(300)
         {
             return Err(WireError::Protocol(
                 "invalid native challenge requester, freshness or authority branch".into(),
@@ -424,26 +430,13 @@ impl RealmActorBackupUnlockChallenge {
         Ok(())
     }
 
-    fn signature_free_challenge_bytes(&self) -> Result<Vec<u8>> {
-        let bytes = arkret_canonical::base64url_decode(self.challenge.as_str())?;
-        if arkret_canonical::base64url_encode(&bytes) != self.challenge.as_str() {
-            return Err(WireError::Protocol("noncanonical native challenge".into()));
-        }
-        Ok(bytes)
-    }
-
-    /// Sign the exact server challenge without a provisional signature value.
-    pub fn sign_device_unlock_proof(
+    fn signed_unlock_value_at(
         &self,
         verification_method: arkret_wire::DidUrl,
+        now: chrono::DateTime<chrono::Utc>,
         sign: impl FnOnce(&[u8]) -> Result<Vec<u8>>,
-    ) -> Result<RealmActorDeviceKeyBackupUnlockProof> {
-        self.validate_at(chrono::Utc::now())?;
-        if self.kind != RealmActorBackupUnlockChallengeKind::RealmActorDevice {
-            return Err(WireError::Protocol(
-                "Device cannot sign a Manager archive intent".into(),
-            ));
-        }
+    ) -> Result<serde_json::Value> {
+        self.validate_at(now)?;
         let mut value = serde_json::to_value(self)?;
         let object = value
             .as_object_mut()
@@ -465,15 +458,111 @@ impl RealmActorBackupUnlockChallenge {
         }
         value["signature_proof"]["signature"] =
             serde_json::json!(arkret_canonical::base64url_encode(signature));
-        let proof: RealmActorDeviceKeyBackupUnlockProof = serde_json::from_value(value)?;
-        proof.validate()?;
-        Ok(proof)
+        Ok(value)
+    }
+
+    /// Sign the exact server challenge; the original caller retains it for
+    /// exact response-loss replay instead of generating another random field.
+    pub fn sign_device_unlock_proof(
+        &self,
+        verification_method: arkret_wire::DidUrl,
+        sign: impl FnOnce(&[u8]) -> Result<Vec<u8>>,
+    ) -> Result<RealmActorDeviceKeyBackupUnlockProof> {
+        self.sign_device_unlock_proof_at(verification_method, chrono::Utc::now(), sign)
+    }
+
+    pub fn sign_device_unlock_proof_at(
+        &self,
+        verification_method: arkret_wire::DidUrl,
+        now: chrono::DateTime<chrono::Utc>,
+        sign: impl FnOnce(&[u8]) -> Result<Vec<u8>>,
+    ) -> Result<RealmActorDeviceKeyBackupUnlockProof> {
+        if self.kind != RealmActorBackupUnlockChallengeKind::RealmActorDevice {
+            return Err(WireError::Protocol(
+                "Device cannot sign a Manager archive intent".into(),
+            ));
+        }
+        Ok(serde_json::from_value(self.signed_unlock_value_at(
+            verification_method,
+            now,
+            sign,
+        )?)?)
+    }
+
+    pub fn sign_manager_unlock_proof_at(
+        &self,
+        verification_method: arkret_wire::DidUrl,
+        now: chrono::DateTime<chrono::Utc>,
+        sign: impl FnOnce(&[u8]) -> Result<Vec<u8>>,
+    ) -> Result<RealmActorManagerKeyBackupUnlockProof> {
+        if self.kind != RealmActorBackupUnlockChallengeKind::RealmActorManager {
+            return Err(WireError::Protocol(
+                "Manager cannot sign a Device predecessor intent".into(),
+            ));
+        }
+        Ok(serde_json::from_value(self.signed_unlock_value_at(
+            verification_method,
+            now,
+            sign,
+        )?)?)
     }
 }
 
+fn validate_native_unlock_window(
+    challenge: &arkret_wire::Base64UrlString,
+    challenge_id: &arkret_wire::Base64UrlString,
+    issued_at: chrono::DateTime<chrono::Utc>,
+    expires_at: chrono::DateTime<chrono::Utc>,
+) -> Result<()> {
+    if !crate::key_backup_operations::is_canonical_backup_challenge(challenge)
+        || !(22..=128).contains(&challenge_id.as_str().len())
+        || expires_at <= issued_at
+        || expires_at - issued_at > chrono::Duration::seconds(300)
+    {
+        return Err(WireError::Protocol(
+            "invalid canonical native challenge or <=300s window".into(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_native_unlock_source(
+    proof: &impl Serialize,
+    challenge: &RealmActorBackupUnlockChallenge,
+) -> Result<()> {
+    challenge.validate_at(challenge.issued_at)?;
+    let source = serde_json::to_value(challenge)?;
+    let proof = serde_json::to_value(proof)?;
+    for (name, value) in source
+        .as_object()
+        .ok_or_else(|| WireError::Protocol("challenge must be an object".into()))?
+    {
+        if name != "operation" && name != "request_id" && proof.get(name) != Some(value) {
+            return Err(WireError::Protocol(format!(
+                "native proof changed issued challenge member {name}"
+            )));
+        }
+    }
+    Ok(())
+}
+
 impl RealmActorDeviceKeyBackupUnlockProof {
+    pub fn validate_for_challenge(
+        &self,
+        challenge: &RealmActorBackupUnlockChallenge,
+    ) -> Result<()> {
+        self.validate()?;
+        validate_native_unlock_source(self, challenge)
+    }
+
     pub fn validate(&self) -> Result<()> {
         validate_realm_actor_backup_scope(&self.realm_actor_id, &self.effective_scope)?;
+        validate_native_unlock_window(
+            &self.challenge,
+            &self.challenge_id,
+            self.issued_at,
+            self.expires_at,
+        )?;
         if self.schema != crate::KeyBackupUnlockProof::SCHEMA
             || self.kind != RealmActorBackupUnlockChallengeKind::RealmActorDevice
             || self.purpose != RealmActorBackupUnlockChallengePurpose::SeriesPredecessor
@@ -502,8 +591,22 @@ impl RealmActorDeviceKeyBackupUnlockProof {
 }
 
 impl RealmActorManagerKeyBackupUnlockProof {
+    pub fn validate_for_challenge(
+        &self,
+        challenge: &RealmActorBackupUnlockChallenge,
+    ) -> Result<()> {
+        self.validate()?;
+        validate_native_unlock_source(self, challenge)
+    }
+
     pub fn validate(&self) -> Result<()> {
         validate_realm_actor_backup_scope(&self.realm_actor_id, &self.effective_scope)?;
+        validate_native_unlock_window(
+            &self.challenge,
+            &self.challenge_id,
+            self.issued_at,
+            self.expires_at,
+        )?;
         if self.schema != crate::KeyBackupUnlockProof::SCHEMA
             || self.kind != RealmActorBackupUnlockChallengeKind::RealmActorManager
             || self.purpose != RealmActorBackupUnlockChallengePurpose::ArchiveRecovery

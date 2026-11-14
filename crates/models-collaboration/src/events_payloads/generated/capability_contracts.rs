@@ -2,16 +2,16 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/event-payload.schema.json
-// sha256=e57f2773764165f5a2e6047ae5491cdf152476deb73c83b2f6c14fff58925305
+// sha256=110f3442df382c602cece0f2f5e0b4f2af3a0374f493911960b3cf6216f99a95
 //
 // Input: schemas/capability-grant.schema.json
-// sha256=0917475cb1732128d998cafea4753bdf6fd618377077b400beab13d3f1219d4e
+// sha256=0e50a23ee38519d805799c4f511744f2c54ec4fb397640090c5c65e2cb66432c
 //
 // Input: schemas/common-ids.schema.json
-// sha256=0cc25a02fe0d9a94f6e41f2cf8f64e492ba36362f1e69a699cf1e684924837ee
+// sha256=81b18acd21f4382860d5cab2384d9bb78ee5dbc23629752a6cc74ce384186149
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=113d054c1defb3940cb07e0f04bb10848b9d375692c24056c947cb624743840a
+// sha256=dc73c01cf2bfb7cc6d4969c8f2f7faa6e44275c4a585ad81f3c94ac408daab8c
 
 /// Counterpart: `event-payload.schema.json#/$defs/capability_revoke_payload`.
 /// Counterpart for
@@ -20,7 +20,7 @@
 #[serde(deny_unknown_fields)]
 pub struct CapabilityRevokePayload {
     pub grant_id: GrantId,
-    pub expected_revision: CurrentRevision,
+    pub expected_commit_id: RealmCommitId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
     pub reason: Option<String>,
@@ -33,7 +33,7 @@ pub struct CapabilityRevokePayload {
 #[serde(deny_unknown_fields)]
 pub struct CapabilityRelinquishPayload {
     pub grant_id: GrantId,
-    pub expected_revision: CurrentRevision,
+    pub expected_commit_id: RealmCommitId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
     pub reason: Option<String>,

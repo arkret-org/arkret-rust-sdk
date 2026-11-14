@@ -21,7 +21,6 @@ fn unlock_proof_roundtrips_both_closed_authority_branches() {
     object.remove("recovery_session_id");
     object.insert("kind".into(), "current_device".into());
     object.insert("challenge_id".into(), "AAAAAAAAAAAAAAAAAAAAAA".into());
-    object.insert("nonce".into(), "BBBBBBBBBBBBBBBBBBBBBB".into());
 
     for input in [recovery, current] {
         let proof: KeyBackupUnlockProof = serde_json::from_value(input.clone()).unwrap();
@@ -53,7 +52,6 @@ fn delete_intent_transcript_includes_exact_challenge_and_null_reason() {
     let challenge: KeysBackupsDeleteChallenge = serde_json::from_value(json!({
         "challenge_id": "AAAAAAAAAAAAAAAAAAAAAA",
         "challenge": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-        "nonce": "BBBBBBBBBBBBBBBBBBBBBB",
         "operation": "ak.self.keys.backups.resource.delete.v1",
         "account_id": {
             "principal_id": "ak:did_core:web:alice.example",
@@ -71,10 +69,15 @@ fn delete_intent_transcript_includes_exact_challenge_and_null_reason() {
     assert_eq!(transcript["reason"], Value::Null);
     assert_eq!(transcript["context"], "ak.key_backup_delete_proof.v1");
     assert_eq!(transcript["issued_at"], "2026-04-27T00:00:00.000Z");
+    assert!(transcript.get("nonce").is_none());
     let expected = arkret_canonical::canonical_sha256(&transcript).unwrap();
     assert_eq!(
         challenge.delete_intent_digest(None).unwrap().as_str(),
-        expected
+        "sha256:e5d4079e4dfec4fef7fa48f56c36bc7ee2983c75c994247908d0331c7493d937"
+    );
+    assert_eq!(
+        expected,
+        challenge.delete_intent_digest(None).unwrap().as_str()
     );
     assert_ne!(
         challenge

@@ -2,10 +2,10 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/identity-resolution.schema.json
-// sha256=a5a2c6b1d3a4da06fb9c254a758ed2497a2924296931e10b5cfcf4f2261b92f5
+// sha256=fc7a8a96b196876b8ff58ef3f414a046b7ffebdd8cc825008e916da5d759a9f0
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=113d054c1defb3940cb07e0f04bb10848b9d375692c24056c947cb624743840a
+// sha256=dc73c01cf2bfb7cc6d4969c8f2f7faa6e44275c4a585ad81f3c94ac408daab8c
 
 /// Counterpart: `identity-resolution.schema.json#/$defs/service_route_projection`.
 /// Derived route projection of one verified service DID state.

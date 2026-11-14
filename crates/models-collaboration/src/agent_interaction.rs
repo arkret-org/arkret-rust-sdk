@@ -1,5 +1,7 @@
 //! Realm-local Agent interaction mode; capability and participation stay independent.
-use arkret_wire::{AccountId, CommitStreamRef, CurrentRevision, RealmId, Result, WireError};
+use arkret_wire::{
+    AccountId, CommitStreamRef, CurrentRevision, RealmCommitId, RealmId, Result, WireError,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -69,6 +71,7 @@ mod tests {
         assert!(serde_json::from_value::<AgentInteractionSetPayload>(value.clone()).is_ok());
         for (key, field) in [
             ("expected_revision", serde_json::Value::Null),
+            ("expected_commit_id", serde_json::Value::Null),
             ("interaction_mode", json!("unknown")),
             ("scope_ref", json!({})),
             (
@@ -80,6 +83,12 @@ mod tests {
             bad[key] = field;
             assert!(serde_json::from_value::<AgentInteractionSetPayload>(bad).is_err());
         }
+        let mut present = value;
+        present["expected_commit_id"] = json!(RealmCommitId::from_digest([41; 32]));
+        assert!(serde_json::from_value::<AgentInteractionSetPayload>(present.clone()).is_ok());
+        present["expected_commit_id"] =
+            json!({"commit_id":RealmCommitId::from_digest([41;32]),"stream_position":3});
+        assert!(serde_json::from_value::<AgentInteractionSetPayload>(present).is_err());
     }
 }
 

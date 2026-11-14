@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/forbidden-wire-fields.json;
-//! sha256=1fdc61a70eb848a68db1a1498bf7c68cb7a7f687352001a3efa1f48c1e191b7e
+//! sha256=f8acc2f5023affd7ec13d8ddf6ebc53d58ced524f7257abd773f17f33c6bca51
 //! Entries: forbidden_wire_fields=238
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -3133,7 +3133,7 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
         value_pointer: "",
     },
     ForbiddenWireFieldDescriptor {
-        id: "expected_revision",
+        id: "expected_commit_id",
         context: "producer_event_envelope_root",
         rejection_level: "hard_reject",
         selectors: &[ForbiddenWireSelector {
@@ -3143,7 +3143,7 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
             match_scope: "root",
         }],
         match_kind: "field",
-        match_values: &["expected_revision"],
+        match_values: &["expected_commit_id"],
         value_pointer: "",
     },
     ForbiddenWireFieldDescriptor {

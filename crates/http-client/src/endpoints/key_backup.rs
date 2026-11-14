@@ -72,6 +72,11 @@ impl Client {
             )
             .await?;
         value.validate_for_native_request(request, backup_id)?;
+        if value.audience.as_str() != self.base_url.origin().ascii_serialization() {
+            return Err(crate::Error::Protocol(
+                "native archive challenge changed its service origin".into(),
+            ));
+        }
         Ok(value)
     }
 
@@ -90,8 +95,14 @@ impl Client {
                 &request,
             )
             .await?;
+        value.backup.validate()?;
+        value.backup.validate_ciphertext_digest()?;
         if value.backup.backup_id != proof.backup_id
             || value.native_source.admission.envelope_digest != proof.envelope_digest
+            || arkret_canonical::canonical_sha256(&value.backup)? != proof.envelope_digest.as_str()
+            || value.backup.series_id != proof.series_id
+            || value.backup.ciphertext_digest != proof.ciphertext_digest
+            || value.backup.actor_id.as_realm_actor_id() != Some(&proof.realm_actor_id)
         {
             return Err(crate::Error::Protocol(
                 "archive unlock returned another immutable packet".into(),
@@ -169,6 +180,12 @@ impl Client {
             )
             .await?;
         challenge.validate_for_request(request, backup_id)?;
+        challenge.validate_at(chrono::Utc::now())?;
+        if challenge.audience.as_str() != self.base_url.origin().ascii_serialization() {
+            return Err(crate::Error::Protocol(
+                "backup unlock challenge changed its service origin".into(),
+            ));
+        }
         Ok(challenge)
     }
 
@@ -179,11 +196,35 @@ impl Client {
     ) -> Result<KeyBackup> {
         reject_path_segment(backup_id.as_str())?;
         request.proof.validate()?;
-        self.post(
-            &format!("/_arkret/self/keys/backups/{}/unlock", backup_id.as_str()),
-            request,
-        )
-        .await
+        if request.proof.backup_id != *backup_id {
+            return Err(crate::Error::Protocol(
+                "backup unlock path/proof identity differs".into(),
+            ));
+        }
+        let record: KeyBackup = self
+            .post(
+                &format!("/_arkret/self/keys/backups/{}/unlock", backup_id.as_str()),
+                request,
+            )
+            .await?;
+        record.validate()?;
+        record.validate_ciphertext_digest()?;
+        let expected_actor = request
+            .proof
+            .subject_actor_id
+            .clone()
+            .unwrap_or_else(|| arkret_wire::ActorId::account(request.proof.account_id.clone()));
+        if record.backup_id != *backup_id
+            || record.backup_id != request.proof.backup_id
+            || record.series_id != request.proof.series_id
+            || record.ciphertext_digest != request.proof.ciphertext_digest
+            || record.actor_id != expected_actor
+        {
+            return Err(crate::Error::Protocol(
+                "backup unlock returned another immutable object/context".into(),
+            ));
+        }
+        Ok(record)
     }
 
     pub async fn list_key_backups(&self, query: &KeyBackupsListQuery) -> Result<KeysBackupsPage> {
@@ -199,14 +240,24 @@ impl Client {
         request: &KeysBackupsIssueDeleteChallengeRequestBody,
     ) -> Result<KeysBackupsDeleteChallenge> {
         reject_path_segment(backup_id.as_str())?;
-        self.post(
-            &format!(
-                "/_arkret/self/keys/backups/{}/delete-challenge",
-                backup_id.as_str()
-            ),
-            request,
-        )
-        .await
+        request.validate()?;
+        let challenge: KeysBackupsDeleteChallenge = self
+            .post(
+                &format!(
+                    "/_arkret/self/keys/backups/{}/delete-challenge",
+                    backup_id.as_str()
+                ),
+                request,
+            )
+            .await?;
+        challenge.validate_for_request(request, backup_id)?;
+        challenge.validate_at(chrono::Utc::now())?;
+        if challenge.audience.as_str() != self.base_url.origin().ascii_serialization() {
+            return Err(crate::Error::Protocol(
+                "backup delete challenge changed its service origin".into(),
+            ));
+        }
+        Ok(challenge)
     }
 
     pub async fn delete_key_backup(

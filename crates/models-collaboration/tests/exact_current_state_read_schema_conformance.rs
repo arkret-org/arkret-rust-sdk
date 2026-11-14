@@ -93,7 +93,7 @@ fn policy_current_rejects_submit_payload_wrappers_and_other_policy_identity() {
     let mut wrapped = value.clone();
     wrapped["current_state"]["value"] = json!({
         "policy_id":value["current_state"]["selector"]["policy_id"],
-        "expected_revision":null, "value":value["current_state"]["value"]
+        "expected_commit_id":null, "value":value["current_state"]["value"]
     });
     assert!(!schema_accepts(
         "#/$defs/exact_current_state_read_response_body",

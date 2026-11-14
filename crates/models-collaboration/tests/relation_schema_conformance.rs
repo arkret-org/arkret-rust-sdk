@@ -66,7 +66,7 @@ fn create_payload() -> Value {
             "from_ref": "ak:strand:AUifoAUG8AEOHYXp999WnI7WlLt19ByDoqYUsFwbw4A4",
             "to_ref": "ak:strand:AQdknt9AByYY2gb16KB093xeB4J8b02mTEd4Mt8z2rO-"
         },
-        "expected_revision": null,
+        "expected_commit_id": null,
         "relation": definition()
     })
 }

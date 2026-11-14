@@ -42,7 +42,6 @@ fn current_device_challenge_binds_history_selection_and_freshness_exactly() {
     .unwrap();
     let challenge: KeysBackupsUnlockChallenge = serde_json::from_value(json!({
         "challenge_id":"AAAAAAAAAAAAAAAAAAAAAA", "challenge":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-        "nonce":"AAAAAAAAAAAAAAAAAAAAAA",
         "operation":arkret_wire::ServiceOperationId::SELF_KEYS_BACKUPS_COMMAND_UNLOCK_V1,
         "account_id":actor["account_id"],
         "requesting_device_id":"ak:device:019a0000-0000-7000-8000-000000000099",

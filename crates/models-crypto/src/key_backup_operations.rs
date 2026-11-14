@@ -9,6 +9,14 @@ use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::{BackupKind, KeyBackupRecipientMethod, KeyBackupSignatureAlgorithm};
 
+pub(crate) fn is_canonical_backup_challenge(value: &Base64UrlString) -> bool {
+    let encoded = value.as_str();
+    encoded.len() == 43
+        && arkret_canonical::base64url_decode(encoded).is_ok_and(|bytes| {
+            bytes.len() == 32 && arkret_canonical::base64url_encode(&bytes) == encoded
+        })
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -284,7 +292,6 @@ impl KeysBackupsIssueUnlockChallengeRequestBody {
 pub struct KeysBackupsUnlockChallenge {
     pub challenge_id: Base64UrlString,
     pub challenge: Base64UrlString,
-    pub nonce: Base64UrlString,
     pub operation: String,
     pub account_id: AccountId,
     pub requesting_device_id: DeviceId,
@@ -319,6 +326,50 @@ pub struct KeysBackupsUnlockChallenge {
 }
 
 impl KeysBackupsUnlockChallenge {
+    pub fn validate_at(&self, now: DateTime<Utc>) -> arkret_wire::Result<()> {
+        self.validate_for_request(&self.request_body(), &self.backup_id)?;
+        if now < self.issued_at || now >= self.expires_at {
+            return Err(arkret_wire::WireError::Protocol(
+                "backup unlock challenge is outside its server-issued window".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Sign the complete received challenge projection, including immutable
+    /// object/context bindings. No caller nonce or provisional signature enters
+    /// the canonical proof bytes.
+    pub fn sign_unlock_proof_at(
+        &self,
+        verification_method: DidUrl,
+        now: DateTime<Utc>,
+        sign: impl FnOnce(&[u8]) -> arkret_wire::Result<Vec<u8>>,
+    ) -> arkret_wire::Result<KeyBackupUnlockProof> {
+        self.validate_at(now)?;
+        let mut value = serde_json::to_value(self)?;
+        let object = value.as_object_mut().ok_or_else(|| {
+            arkret_wire::WireError::Protocol("challenge must be an object".into())
+        })?;
+        object.remove("operation");
+        object.remove("request_id");
+        object.insert(
+            "schema".into(),
+            serde_json::json!(KeyBackupUnlockProof::SCHEMA),
+        );
+        object.insert("kind".into(), serde_json::json!("current_device"));
+        object.insert("backup_kind".into(), serde_json::json!("secret_storage"));
+        object.insert("signature_proof".into(), serde_json::json!({"verification_method":verification_method,"signature_algorithm":"Ed25519"}));
+        let signature = sign(&arkret_canonical::canonical_json_bytes(&value)?)?;
+        if signature.len() != 64 {
+            return Err(arkret_wire::WireError::Protocol(
+                "backup unlock requires an actual Ed25519 signature".into(),
+            ));
+        }
+        value["signature_proof"]["signature"] =
+            serde_json::json!(arkret_canonical::base64url_encode(signature));
+        serde_json::from_value(value).map_err(Into::into)
+    }
+
     /// Recover the complete closed issuance request for durable idempotency.
     /// Fresh challenge bytes and issuance timestamps are server outputs.
     pub fn request_body(&self) -> KeysBackupsIssueUnlockChallengeRequestBody {
@@ -344,8 +395,7 @@ impl KeysBackupsUnlockChallenge {
             || self.operation
                 != arkret_wire::ServiceOperationId::SELF_KEYS_BACKUPS_COMMAND_UNLOCK_V1
             || self.service_id != self.account_id.station_id
-            || self.challenge.as_str().len() != 43
-            || self.nonce.as_str().len() < 22
+            || !is_canonical_backup_challenge(&self.challenge)
             || !(22..=128).contains(&self.challenge_id.as_str().len())
             || self.expires_at <= self.issued_at
             || self.expires_at - self.issued_at > chrono::Duration::seconds(300)
@@ -374,7 +424,6 @@ impl KeysBackupsUnlockChallenge {
 pub enum KeyBackupUnlockAuthority {
     CurrentDevice {
         challenge_id: Base64UrlString,
-        nonce: Base64UrlString,
     },
     RecoverySession {
         recovery_session_id: RecoverySessionId,
@@ -481,7 +530,6 @@ impl<'de> Deserialize<'de> for KeyBackupUnlockProof {
             "schema",
             "kind",
             "challenge_id",
-            "nonce",
             "recovery_session_id",
             "account_id",
             "requesting_device_id",
@@ -504,12 +552,10 @@ impl<'de> Deserialize<'de> for KeyBackupUnlockProof {
         match object.get("kind").and_then(serde_json::Value::as_str) {
             Some("current_device")
                 if object.contains_key("challenge_id")
-                    && object.contains_key("nonce")
                     && !object.contains_key("recovery_session_id") => {}
             Some("recovery_session")
                 if object.contains_key("recovery_session_id")
-                    && !object.contains_key("challenge_id")
-                    && !object.contains_key("nonce") => {}
+                    && !object.contains_key("challenge_id") => {}
             _ => {
                 return Err(D::Error::custom(
                     "unlock proof authority branch is incomplete or mixed",
@@ -560,7 +606,7 @@ impl KeyBackupUnlockProof {
             history.validate()?;
         }
         if self.schema != Self::SCHEMA
-            || self.challenge.as_str().len() != 43
+            || !is_canonical_backup_challenge(&self.challenge)
             || self.expires_at <= self.issued_at
             || self.service_id != self.account_id.station_id
             || self.signature_proof.signature_algorithm == KeyBackupSignatureAlgorithm::Es256
@@ -569,17 +615,40 @@ impl KeyBackupUnlockProof {
                 "invalid exact backup unlock binding".to_owned(),
             ));
         }
-        if let KeyBackupUnlockAuthority::CurrentDevice {
-            challenge_id,
-            nonce,
-        } = &self.authority
+        if let KeyBackupUnlockAuthority::CurrentDevice { challenge_id } = &self.authority
             && (!(22..=128).contains(&challenge_id.as_str().len())
-                || nonce.as_str().len() < 22
                 || self.expires_at - self.issued_at > chrono::Duration::seconds(300))
         {
             return Err(arkret_wire::WireError::Protocol(
                 "invalid current-device unlock freshness".to_owned(),
             ));
+        }
+        Ok(())
+    }
+
+    pub fn validate_for_challenge(
+        &self,
+        challenge: &KeysBackupsUnlockChallenge,
+    ) -> arkret_wire::Result<()> {
+        self.validate()?;
+        challenge.validate_for_request(&challenge.request_body(), &challenge.backup_id)?;
+        if !matches!(&self.authority, KeyBackupUnlockAuthority::CurrentDevice { challenge_id } if challenge_id == &challenge.challenge_id)
+        {
+            return Err(arkret_wire::WireError::Protocol(
+                "unlock proof uses another challenge authority".into(),
+            ));
+        }
+        let proof = serde_json::to_value(self)?;
+        let source = serde_json::to_value(challenge)?;
+        for (name, value) in source
+            .as_object()
+            .ok_or_else(|| arkret_wire::WireError::Protocol("challenge must be an object".into()))?
+        {
+            if name != "operation" && name != "request_id" && proof.get(name) != Some(value) {
+                return Err(arkret_wire::WireError::Protocol(format!(
+                    "unlock proof changed issued challenge member {name}"
+                )));
+            }
         }
         Ok(())
     }
@@ -629,13 +698,23 @@ pub struct KeysBackupsIssueDeleteChallengeRequestBody {
     pub request_id: Base64UrlString,
 }
 
+impl KeysBackupsIssueDeleteChallengeRequestBody {
+    pub fn validate(&self) -> arkret_wire::Result<()> {
+        if !(22..=128).contains(&self.request_id.as_str().len()) {
+            return Err(arkret_wire::WireError::Protocol(
+                "backup delete request_id must contain 22 to 128 base64url characters".into(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeysBackupsDeleteChallenge {
     pub challenge_id: Base64UrlString,
     pub challenge: Base64UrlString,
-    pub nonce: Base64UrlString,
     pub operation: String,
     pub account_id: AccountId,
     pub backup_id: BackupId,
@@ -649,6 +728,47 @@ pub struct KeysBackupsDeleteChallenge {
 }
 
 impl KeysBackupsDeleteChallenge {
+    pub fn validate_for_request(
+        &self,
+        request: &KeysBackupsIssueDeleteChallengeRequestBody,
+        backup_id: &BackupId,
+    ) -> arkret_wire::Result<()> {
+        request.validate()?;
+        self.validate()?;
+        if self.request_id != request.request_id || self.backup_id != *backup_id {
+            return Err(arkret_wire::WireError::Protocol(
+                "delete challenge differs from its exact issuance request/backup".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn validate_at(&self, now: DateTime<Utc>) -> arkret_wire::Result<()> {
+        self.validate()?;
+        if now < self.issued_at || now >= self.expires_at {
+            return Err(arkret_wire::WireError::Protocol(
+                "backup delete challenge is outside its server-issued window".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn validate(&self) -> arkret_wire::Result<()> {
+        if self.operation != arkret_wire::ServiceOperationId::SELF_KEYS_BACKUPS_RESOURCE_DELETE_V1
+            || self.service_id != self.account_id.station_id
+            || !is_canonical_backup_challenge(&self.challenge)
+            || !(22..=128).contains(&self.challenge_id.as_str().len())
+            || !(22..=128).contains(&self.request_id.as_str().len())
+            || self.expires_at <= self.issued_at
+            || self.expires_at - self.issued_at > chrono::Duration::seconds(300)
+        {
+            return Err(arkret_wire::WireError::Protocol(
+                "invalid exact backup delete challenge binding".into(),
+            ));
+        }
+        Ok(())
+    }
+
     /// The single signed transcript for every high-risk backup-delete proof
     /// branch (key-management.md §7.8.1). A missing reason is an explicit null.
     pub fn delete_intent_transcript(&self, reason: Option<&str>) -> serde_json::Value {
@@ -673,6 +793,7 @@ impl KeysBackupsDeleteChallenge {
     }
 
     pub fn delete_intent_digest(&self, reason: Option<&str>) -> arkret_wire::Result<Hash> {
+        self.validate()?;
         Ok(Hash::new(arkret_canonical::canonical_sha256(
             &self.delete_intent_transcript(reason),
         )?)?)
@@ -716,7 +837,6 @@ mod unlock_proof_wire_tests {
             "schema": KeyBackupUnlockProof::SCHEMA,
             "kind": "current_device",
             "challenge_id": "AAAAAAAAAAAAAAAAAAAAAA",
-            "nonce": "AAAAAAAAAAAAAAAAAAAAAA",
             "account_id": {
                 "principal_id": "ak:did_core:web:alice.example",
                 "station_id": "ak:did_core:web:station.example"
@@ -748,7 +868,6 @@ mod unlock_proof_wire_tests {
         let mut recovery = proof();
         recovery["kind"] = json!("recovery_session");
         recovery.as_object_mut().unwrap().remove("challenge_id");
-        recovery.as_object_mut().unwrap().remove("nonce");
         recovery["recovery_session_id"] =
             json!("ak:recovery_session:0198ff00-0000-7000-8000-00000000000c");
         let parsed: KeyBackupUnlockProof = serde_json::from_value(recovery.clone()).unwrap();
@@ -767,8 +886,22 @@ mod unlock_proof_wire_tests {
         assert!(serde_json::from_value::<KeyBackupUnlockProof>(mixed).is_err());
 
         let mut missing = proof();
-        missing.as_object_mut().unwrap().remove("nonce");
+        missing.as_object_mut().unwrap().remove("challenge_id");
         assert!(serde_json::from_value::<KeyBackupUnlockProof>(missing).is_err());
+
+        let mut retired_nonce = proof();
+        retired_nonce["nonce"] = json!("AAAAAAAAAAAAAAAAAAAAAA");
+        assert!(serde_json::from_value::<KeyBackupUnlockProof>(retired_nonce).is_err());
+
+        for challenge in [
+            "A".repeat(42),
+            format!("{}B", "A".repeat(42)),
+            format!("{}=", "A".repeat(43)),
+        ] {
+            let mut malformed = proof();
+            malformed["challenge"] = json!(challenge);
+            assert!(serde_json::from_value::<KeyBackupUnlockProof>(malformed).is_err());
+        }
     }
 }
 

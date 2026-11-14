@@ -26,7 +26,7 @@ use arkret_models_identity::signer_key_operations::{
 use arkret_models_identity::{CurrentPrincipalRequestBody, CurrentPrincipalResponseBody};
 use arkret_wire::{
     AccountId, CommittedEventView, DidCoreId, EventId, RealmId, RealmSnapshotId,
-    RealmStateSnapshot, RealmStreamPage, SessionGrantId, StreamScanRequestBody,
+    RealmStateSnapshot, RealmStreamPage, SessionGrantRef, StreamScanRequestBody,
     StreamScanResponseBody,
 };
 
@@ -51,7 +51,7 @@ pub trait OwnStationSessionSource {
 pub struct OwnStationSessionSnapshot {
     binding: StationConnectionBinding,
     account_id: AccountId,
-    grant_id: SessionGrantId,
+    grant_ref: SessionGrantRef,
     epoch: u64,
     credential: String,
     instance: Option<OwnStationSessionIdentity>,
@@ -88,7 +88,7 @@ impl OwnStationSessionSnapshot {
         binding: StationConnectionBinding,
         account_id: AccountId,
         audience_id: DidCoreId,
-        grant_id: SessionGrantId,
+        grant_ref: SessionGrantRef,
         epoch: u64,
         credential: String,
     ) -> Result<Self> {
@@ -103,7 +103,7 @@ impl OwnStationSessionSnapshot {
         Ok(Self {
             binding,
             account_id,
-            grant_id,
+            grant_ref,
             epoch,
             credential,
             instance: None,
@@ -118,8 +118,8 @@ impl OwnStationSessionSnapshot {
     pub fn account_id(&self) -> &AccountId {
         &self.account_id
     }
-    pub fn grant_id(&self) -> &SessionGrantId {
-        &self.grant_id
+    pub fn grant_ref(&self) -> &SessionGrantRef {
+        &self.grant_ref
     }
     pub fn epoch(&self) -> u64 {
         self.epoch
@@ -495,8 +495,14 @@ mod tests {
                 DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
                 station.clone(),
             ),
-            station,
-            SessionGrantId::from_issuance_digest([1; 32]),
+            station.clone(),
+            SessionGrantRef::new(
+                station,
+                arkret_wire::SessionGrantId::new(
+                    "ak:session_grant:0190c6aa-1234-7000-8000-000000000001",
+                )
+                .unwrap(),
+            ),
             0,
             "session-token".into(),
         )
@@ -633,7 +639,7 @@ mod tests {
                 original.binding.clone(),
                 AccountId::new(original.account_id.principal_id.clone(), wrong_station),
                 original.binding.service_id.clone(),
-                original.grant_id,
+                original.grant_ref,
                 0,
                 "session-token".into()
             )

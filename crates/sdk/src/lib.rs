@@ -95,13 +95,14 @@ pub use arkret_http_client::service_resolution_fetcher::{
 pub use arkret_identifiers as identifiers;
 pub use arkret_identifiers::{
     ActorProfileId, AppletId, BackupId, BackupSeriesId, BatchId, BlobId, BlobRef, BlockId, CallId,
-    CapabilityId, ChunkId, CircleId, ClaimId, ConsentId, DeviceId, DeviceMessageId,
-    DeviceMessageTransactionId, Did, DidCoreId, EventId, FilterId, FrameId, GrantId, Hash, Hlc,
-    InviteId, InviteLocatorId, MessageId, MessageStreamId, MorphId, NotificationId,
-    NotificationProjectionId, OperationId, PolicyId, PresentationId, RealmAuthorityHandoffId,
-    RealmCommitId, RealmId, RealmInviteLinkId, RealmSnapshotId, ReceiptId, RecoverySessionId,
-    RelationId, RequestId, RtcParticipantId, SidecarId, SpaceId, StrandId, SubscriptionId,
-    TransactionId, TrustDomainId, ViewId, WebOrigin, new_prefixed_uuid7, project_did_to_core_id,
+    CallRecordingId, CapabilityId, ChunkId, CircleId, ClaimId, ConsentId, DeviceId,
+    DeviceMessageId, DeviceMessageTransactionId, Did, DidCoreId, EventId, FilterId, FrameId,
+    GrantId, Hash, Hlc, InviteId, InviteLocatorId, MessageId, MessageStreamId, MorphId,
+    NotificationId, NotificationProjectionId, OperationId, PolicyId, PresentationId,
+    RealmAuthorityHandoffId, RealmCommitId, RealmId, RealmInviteLinkId, RealmSnapshotId, ReceiptId,
+    RecoverySessionId, RelationId, RequestId, RtcParticipantId, SessionGrantId, SessionGrantRef,
+    SessionGrantSecret, SidecarId, SpaceId, StrandId, SubscriptionId, TransactionId, TrustDomainId,
+    ViewId, WebOrigin, new_prefixed_uuid7, project_did_to_core_id,
 };
 pub use arkret_identity as identity;
 pub use arkret_identity::service_identity::{

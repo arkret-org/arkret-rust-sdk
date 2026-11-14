@@ -2,7 +2,7 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/recovery-session.schema.json
-// sha256=d1611974b0c00d6bd347ff52e1842366ec13eea38b8b81a0ce533ab0e9c5fffd
+// sha256=553f9ed3ce51c56142695ef99144b660792fc608ca6aa9de33e208a07f260f94
 //
 // Input: schemas/account-operations.schema.json
 // sha256=0ae0fec5fd63dca4b9df9293eb71936cf73a3eeeae13b2268dc99699c1ed7607
@@ -11,10 +11,10 @@
 // sha256=64ee8fa0a54cb044195141e91cfb8989320d304f2ebef750eaa857ef712a4b05
 //
 // Input: schemas/recovery-authority.schema.json
-// sha256=6386cc9e6bc7aab507d81d9e7d20e082c748ce4451fcee5e830e5e72a96a32ea
+// sha256=cb347374d3fde68e8881b5db85a7866c2732d81ccf83e609d9f0114d138d62cf
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=113d054c1defb3940cb07e0f04bb10848b9d375692c24056c947cb624743840a
+// sha256=dc73c01cf2bfb7cc6d4969c8f2f7faa6e44275c4a585ad81f3c94ac408daab8c
 
 /// Counterpart: `recovery-session.schema.json#/$defs/proof_summary`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -62,7 +62,7 @@ pub struct RecoverySessionCreateRequestBody {
 pub struct RecoveryDevicePossessionTranscript {
     pub schema: String,
     pub request_id: RequestId,
-    pub session_grant_id: SessionGrantId,
+    pub session_grant_ref: SessionGrantRef,
     pub session_grant_cnf_jkt: Base64UrlString,
     pub account_id: AccountId,
     pub requesting_device_id: DeviceId,
@@ -188,7 +188,7 @@ pub struct DidRootRecoveryTranscript {
     pub schema: String,
     pub kind: RecoveryProofKind,
     pub request_id: RequestId,
-    pub session_grant_id: SessionGrantId,
+    pub session_grant_ref: SessionGrantRef,
     pub session_grant_cnf_jkt: Base64UrlString,
     pub account_id: AccountId,
     pub requesting_device_id: DeviceId,
@@ -235,7 +235,7 @@ pub struct RecoverySession {
     pub schema: String,
     pub request_id: RequestId,
     pub recovery_session_id: RecoverySessionId,
-    pub session_grant_id: SessionGrantId,
+    pub session_grant_ref: SessionGrantRef,
     pub session_grant_cnf_jkt: Base64UrlString,
     pub account_id: AccountId,
     pub requesting_device_id: DeviceId,
@@ -279,7 +279,7 @@ pub struct GenericRecoveryTranscript {
     pub schema: String,
     pub kind: RecoveryProofKind,
     pub request_id: RequestId,
-    pub session_grant_id: SessionGrantId,
+    pub session_grant_ref: SessionGrantRef,
     pub session_grant_cnf_jkt: Base64UrlString,
     pub account_id: AccountId,
     pub requesting_device_id: DeviceId,

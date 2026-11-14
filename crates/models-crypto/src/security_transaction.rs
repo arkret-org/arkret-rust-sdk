@@ -12,7 +12,7 @@ use arkret_wire::{
     AccountId, ActorId, BackupId, BackupSeriesId, Base64UrlString, CommitStreamRef, DeviceId,
     DidCoreId, DidUrl, Event, EventId, EventKind, Hash, MlsGroupId, PolicyId, RealmCommitId,
     RealmId, ReceiptId, RecoveryCompletionAttestation, RecoverySessionId, Result, SchemaId,
-    ScopeRef, TransactionId, TrustDomainId, WireError, XExtensionMap,
+    ScopeRef, SessionGrantRef, TransactionId, TrustDomainId, WireError,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -23,8 +23,6 @@ pub const MAX_SECURITY_TRANSACTION_TTL: Duration = Duration::hours(24);
 pub const MAX_STEP_OUTPUT_REF_CHARS: usize = 2048;
 pub const RECOVERY_UNIT_EVENT_COUNT: usize = 2;
 
-pub const RECOVERY_STEP_ORDER: [SecurityTransactionStep; 1] =
-    [SecurityTransactionStep::CommitRecoveryUnit];
 pub const SECURITY_ROTATION_STEP_ORDER: [SecurityTransactionStep; 5] = [
     SecurityTransactionStep::Revoke,
     SecurityTransactionStep::UploadNewMaterial,
@@ -59,7 +57,6 @@ pub enum BackupRotationKind {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SecurityTransactionStep {
-    CommitRecoveryUnit,
     Revoke,
     UploadNewMaterial,
     SwitchAuthoritativePointer,
@@ -112,104 +109,6 @@ impl PreparedEventUnit {
             "prepared Event request",
             &self.request,
             &self.request_digest,
-        )
-    }
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RecoveryCommitIntent {
-    pub realm_id: RealmId,
-    pub predecessor_ref: RealmCommitId,
-    pub unit_event_digests: [Hash; RECOVERY_UNIT_EVENT_COUNT],
-}
-
-impl RecoveryCommitIntent {
-    pub fn validate(&self) -> Result<()> {
-        if self.unit_event_digests[0] == self.unit_event_digests[1]
-            || self.unit_event_digests.iter().any(|digest| {
-                !matches!(
-                    digest.digest_suite(),
-                    Ok(arkret_canonical::DigestSuite::Sha256)
-                )
-            })
-        {
-            return protocol(
-                "recovery commit intent requires distinct SHA-256 [reanchor, authorize] Event digests",
-            );
-        }
-        Ok(())
-    }
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PcrPolicyRecoveryIntent {
-    pub recovery_session_id: RecoverySessionId,
-    pub replacement_device_id: DeviceId,
-    pub previous_model_generation_ref: u64,
-    pub new_model_generation_ref: u64,
-    pub terminal_receipt_id: ReceiptId,
-    pub reanchor_unit: PreparedEventUnit,
-    pub reanchor_commit_intent: RecoveryCommitIntent,
-}
-
-impl PcrPolicyRecoveryIntent {
-    pub fn validate(&self, account_id: &AccountId) -> Result<()> {
-        validate_generation_advance(
-            self.previous_model_generation_ref,
-            self.new_model_generation_ref,
-        )?;
-        validate_recovery_event_unit(
-            account_id,
-            &self.reanchor_unit,
-            &self.reanchor_commit_intent,
-            None,
-        )
-    }
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PcrPolicyRecoveryBinding {
-    pub identity_model: RecoveryIdentityModel,
-    pub recovery_session_id: RecoverySessionId,
-    pub replacement_device_id: DeviceId,
-    pub reanchor_event_id: EventId,
-    pub authorize_event_id: EventId,
-    pub terminal_receipt_id: ReceiptId,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PcrPolicyRecoveryPlan {
-    pub binding: PcrPolicyRecoveryBinding,
-    pub recovery_session_snapshot_digest: Hash,
-    pub proof_digest: Hash,
-    pub previous_model_generation_ref: u64,
-    pub new_model_generation_ref: u64,
-    pub reanchor_unit: PreparedEventUnit,
-    pub reanchor_commit_intent: RecoveryCommitIntent,
-}
-
-impl PcrPolicyRecoveryPlan {
-    pub fn validate(&self, account_id: &AccountId) -> Result<()> {
-        if self.binding.identity_model != RecoveryIdentityModel::PcrPolicy {
-            return protocol("recovery plan requires the PCR-policy identity model");
-        }
-        validate_generation_advance(
-            self.previous_model_generation_ref,
-            self.new_model_generation_ref,
-        )?;
-        validate_recovery_event_unit(
-            account_id,
-            &self.reanchor_unit,
-            &self.reanchor_commit_intent,
-            Some(&self.binding),
         )
     }
 }
@@ -309,15 +208,6 @@ impl BackupSeriesEraseConfirmation {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(untagged)]
-#[allow(clippy::large_enum_variant)]
-pub enum SecurityTransactionPreparedPlan {
-    Recovery(PcrPolicyRecoveryPlan),
-    SecurityRotation(SecurityRotationPlan),
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "outcome", rename_all = "snake_case", deny_unknown_fields)]
 #[expect(
     clippy::large_enum_variant,
@@ -388,18 +278,17 @@ pub struct SecurityRotationRevokeCommandOutcome {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct SecurityTransaction {
+pub struct SecurityRotationTransaction {
     pub transaction_id: TransactionId,
     pub kind: SecurityTransactionKind,
     pub account_id: AccountId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub authorizing_device_id: Option<DeviceId>,
+    pub authorizing_device_id: DeviceId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     pub request_digest: Hash,
-    pub prepared_plan: SecurityTransactionPreparedPlan,
+    pub prepared_plan: SecurityRotationPlan,
     pub prepared_plan_digest: Hash,
     pub accepted_steps: Vec<AcceptedSecurityTransactionStep>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -410,18 +299,12 @@ pub struct SecurityTransaction {
     pub terminal_outcome: Option<SecurityTransactionTerminalOutcome>,
 }
 
-impl SecurityTransaction {
+impl SecurityRotationTransaction {
     pub fn step_order(&self) -> Result<&'static [SecurityTransactionStep]> {
-        match (&self.kind, &self.prepared_plan) {
-            (SecurityTransactionKind::Recovery, SecurityTransactionPreparedPlan::Recovery(_)) => {
-                Ok(&RECOVERY_STEP_ORDER)
-            }
-            (
-                SecurityTransactionKind::SecurityRotation,
-                SecurityTransactionPreparedPlan::SecurityRotation(_),
-            ) => Ok(&SECURITY_ROTATION_STEP_ORDER),
-            _ => protocol("security transaction kind and prepared plan disagree"),
+        if self.kind != SecurityTransactionKind::SecurityRotation {
+            return protocol("Rotation resource requires kind=security_rotation");
         }
+        Ok(&SECURITY_ROTATION_STEP_ORDER)
     }
 
     pub fn next_required_step(&self) -> Result<Option<SecurityTransactionStep>> {
@@ -431,22 +314,9 @@ impl SecurityTransaction {
         Ok(self.step_order()?.get(self.accepted_steps.len()).copied())
     }
 
-    pub fn recovery_plan(&self) -> Option<&PcrPolicyRecoveryPlan> {
-        match &self.prepared_plan {
-            SecurityTransactionPreparedPlan::Recovery(plan) => Some(plan),
-            SecurityTransactionPreparedPlan::SecurityRotation(_) => None,
-        }
-    }
-
-    pub fn security_rotation_plan(&self) -> Option<&SecurityRotationPlan> {
-        match &self.prepared_plan {
-            SecurityTransactionPreparedPlan::Recovery(_) => None,
-            SecurityTransactionPreparedPlan::SecurityRotation(plan) => Some(plan),
-        }
-    }
-
     pub fn validate_structural(&self) -> Result<()> {
         self.account_id.validate()?;
+        self.step_order()?;
         if self.expires_at <= self.created_at
             || self.expires_at - self.created_at > MAX_SECURITY_TRANSACTION_TTL
         {
@@ -458,85 +328,68 @@ impl SecurityTransaction {
             &self.prepared_plan,
             &self.prepared_plan_digest,
         )?;
-        match &self.prepared_plan {
-            SecurityTransactionPreparedPlan::Recovery(plan) => {
-                if self.authorizing_device_id.is_some()
-                    || self.revoke_proposal.is_some()
-                    || self.revoke_command_outcome.is_some()
+        let plan = &self.prepared_plan;
+        validate_security_rotation_plan(&self.transaction_id, &self.account_id, plan)?;
+        match (&self.revoke_proposal, &self.revoke_command_outcome) {
+            (None, None)
+                if self.accepted_steps.is_empty()
+                    && matches!(
+                        self.terminal_outcome,
+                        None | Some(SecurityTransactionTerminalOutcome::Aborted { .. })
+                            | Some(SecurityTransactionTerminalOutcome::Expired { .. })
+                    ) => {}
+            (Some(proposal), None)
+                if self.accepted_steps.is_empty() && self.terminal_outcome.is_none() =>
+            {
+                if plan
+                    .revoke_unit
+                    .request
+                    .events
+                    .first()
+                    .is_none_or(|slot| proposal.proposal_event_id != slot.event.event_id)
                 {
-                    return protocol("recovery transaction forbids rotation authority fields");
+                    return protocol("revoke proposal changed the prepared Event");
                 }
-                plan.validate(&self.account_id)?
             }
-            SecurityTransactionPreparedPlan::SecurityRotation(plan) => {
-                if self.authorizing_device_id.is_none() {
-                    return protocol("security rotation requires authorizing_device_id");
+            (Some(proposal), Some(outcome)) => {
+                if proposal.proposal_event_id != outcome.proposal_event_id
+                    || proposal.covering_commit_id != outcome.covering_commit_id
+                    || plan
+                        .revoke_unit
+                        .request
+                        .events
+                        .first()
+                        .is_none_or(|slot| proposal.proposal_event_id != slot.event.event_id)
+                {
+                    return protocol("revoke command outcome changed its covering proposal");
                 }
-                validate_security_rotation_plan(&self.transaction_id, &self.account_id, plan)?;
-                match (&self.revoke_proposal, &self.revoke_command_outcome) {
-                    (None, None)
-                        if self.accepted_steps.is_empty()
-                            && matches!(
-                                self.terminal_outcome,
-                                None | Some(SecurityTransactionTerminalOutcome::Aborted { .. })
-                                    | Some(SecurityTransactionTerminalOutcome::Expired { .. })
-                            ) => {}
-                    (Some(proposal), None)
-                        if self.accepted_steps.is_empty() && self.terminal_outcome.is_none() =>
+                match outcome.outcome {
+                    SecurityRotationRevokeCommandDecision::Accepted
+                        if self.accepted_steps.is_empty() =>
                     {
-                        if plan
-                            .revoke_unit
-                            .request
-                            .events
-                            .first()
-                            .is_none_or(|slot| proposal.proposal_event_id != slot.event.event_id)
-                        {
-                            return protocol("revoke proposal changed the prepared Event");
-                        }
+                        return protocol("accepted revoke requires an accepted step");
                     }
-                    (Some(proposal), Some(outcome)) => {
-                        if proposal.proposal_event_id != outcome.proposal_event_id
-                            || proposal.covering_commit_id != outcome.covering_commit_id
-                            || plan.revoke_unit.request.events.first().is_none_or(|slot| {
-                                proposal.proposal_event_id != slot.event.event_id
-                            })
-                        {
-                            return protocol(
-                                "revoke command outcome changed its covering proposal",
-                            );
-                        }
-                        match outcome.outcome {
-                            SecurityRotationRevokeCommandDecision::Accepted
-                                if self.accepted_steps.is_empty() =>
-                            {
-                                return protocol("accepted revoke requires an accepted step");
-                            }
-                            SecurityRotationRevokeCommandDecision::Rejected
-                                if !self.accepted_steps.is_empty()
-                                    || !matches!(
-                                        self.terminal_outcome,
-                                        Some(
-                                            SecurityTransactionTerminalOutcome::Aborted { .. }
-                                                | SecurityTransactionTerminalOutcome::Expired { .. }
-                                        )
-                                    ) =>
-                            {
-                                return protocol(
-                                    "rejected revoke requires an empty aborted/expired transaction",
-                                );
-                            }
-                            _ => {}
-                        }
-                    }
-                    _ => {
+                    SecurityRotationRevokeCommandDecision::Rejected
+                        if !self.accepted_steps.is_empty()
+                            || !matches!(
+                                self.terminal_outcome,
+                                Some(
+                                    SecurityTransactionTerminalOutcome::Aborted { .. }
+                                        | SecurityTransactionTerminalOutcome::Expired { .. }
+                                )
+                            ) =>
+                    {
                         return protocol(
-                            "rotation revoke proposal/outcome progress is inconsistent",
+                            "rejected revoke requires an empty aborted/expired transaction",
                         );
                     }
+                    _ => {}
                 }
             }
+            _ => {
+                return protocol("rotation revoke proposal/outcome progress is inconsistent");
+            }
         }
-
         let order = self.step_order()?;
         if self.accepted_steps.len() > order.len() {
             return protocol("accepted_steps exceeds the transaction's fixed step order");
@@ -547,32 +400,19 @@ impl SecurityTransaction {
             }
             None => Ok(()),
             Some(SecurityTransactionTerminalOutcome::Completed {
-                completed_at,
                 receipt_id,
                 completion_attestation,
+                ..
             }) => {
-                if self.accepted_steps.len() != order.len() {
-                    return protocol("completed transaction requires its complete accepted prefix");
+                if self.accepted_steps.len() != order.len()
+                    || receipt_id.is_some()
+                    || completion_attestation.is_some()
+                {
+                    return protocol(
+                        "Rotation completion requires its full prefix and forbids Recovery evidence",
+                    );
                 }
-                match (&self.prepared_plan, receipt_id, completion_attestation) {
-                    (
-                        SecurityTransactionPreparedPlan::Recovery(plan),
-                        Some(receipt_id),
-                        Some(attestation),
-                    ) => self.validate_recovery_completion(
-                        plan,
-                        receipt_id,
-                        attestation,
-                        *completed_at,
-                    ),
-                    (SecurityTransactionPreparedPlan::Recovery(_), ..) => protocol(
-                        "completed recovery requires receipt_id and completion_attestation",
-                    ),
-                    (SecurityTransactionPreparedPlan::SecurityRotation(_), None, None) => Ok(()),
-                    (SecurityTransactionPreparedPlan::SecurityRotation(_), ..) => {
-                        protocol("security rotation completion must not carry recovery evidence")
-                    }
-                }
+                Ok(())
             }
             Some(SecurityTransactionTerminalOutcome::Aborted { reason_code, .. })
             | Some(SecurityTransactionTerminalOutcome::Expired { reason_code, .. }) => {
@@ -586,83 +426,143 @@ impl SecurityTransaction {
             }
         }
     }
+}
 
-    fn validate_recovery_completion(
-        &self,
-        plan: &PcrPolicyRecoveryPlan,
-        receipt_id: &ReceiptId,
-        attestation: &RecoveryCompletionAttestation,
-        completed_at: DateTime<Utc>,
-    ) -> Result<()> {
-        attestation.validate_structural()?;
-        let binding = &plan.binding;
-        self.accepted_steps.last().ok_or_else(|| {
-            WireError::Protocol("completed recovery is missing its accepted step".to_owned())
-        })?;
-        if receipt_id != &binding.terminal_receipt_id
-            || attestation.transaction_id != self.transaction_id
-            || attestation.transaction_request_digest != self.request_digest
-            || attestation.prepared_plan_digest != self.prepared_plan_digest
-            || attestation.account_id != self.account_id
-            || attestation.recovery_session_id != binding.recovery_session_id
-            || attestation.terminal_receipt_id != binding.terminal_receipt_id
-            || attestation.replacement_device_id != binding.replacement_device_id
-            || attestation.reanchor_event_ref.event_id != binding.reanchor_event_id
-            || attestation.device_authorization_event_ref.event_id != binding.authorize_event_id
-            || attestation.new_model_generation_ref != plan.new_model_generation_ref
-            || attestation.completed_at != completed_at
-            || attestation.reanchor_event_ref.stream_ref
+impl SecurityTransaction {
+    pub fn transaction_id(&self) -> &TransactionId {
+        match self {
+            Self::Recovery(value) => &value.transaction_id,
+            Self::SecurityRotation(value) => &value.transaction_id,
+        }
+    }
+    pub fn account_id(&self) -> &AccountId {
+        match self {
+            Self::Recovery(value) => &value.account_id,
+            Self::SecurityRotation(value) => &value.account_id,
+        }
+    }
+    pub fn validate_structural(&self) -> Result<()> {
+        match self {
+            Self::Recovery(value) => value.validate_structural(),
+            Self::SecurityRotation(value) => value.validate_structural(),
+        }
+    }
+}
+
+impl RecoveryTransactionCreateRequestBody {
+    pub fn new(recovery_receipt: RecoveryReceipt) -> Result<Self> {
+        let value = Self {
+            kind: SecurityTransactionKind::Recovery,
+            recovery_receipt,
+        };
+        value.validate()?;
+        Ok(value)
+    }
+    pub fn validate(&self) -> Result<()> {
+        if self.kind != SecurityTransactionKind::Recovery
+            || self.recovery_receipt.outcome != RecoveryReceiptOutcome::Completed
+        {
+            return protocol("Recovery create requires the sole completed signed receipt");
+        }
+        self.recovery_receipt.validate()
+    }
+}
+
+impl SecurityTransactionCreateRequestBody {
+    pub fn validate(&self) -> Result<()> {
+        match self {
+            Self::Recovery(value) => value.validate(),
+            Self::SecurityRotation(value) => value.validate(),
+        }
+    }
+    pub fn transaction_id(&self) -> &TransactionId {
+        match self {
+            Self::Recovery(value) => &value.recovery_receipt.transaction_id,
+            Self::SecurityRotation(value) => &value.transaction_id,
+        }
+    }
+    pub fn into_rotation_resource(
+        self,
+        created_at: DateTime<Utc>,
+    ) -> Result<(SecurityTransaction, Vec<u8>)> {
+        self.validate()?;
+        let canonical_request = arkret_canonical::canonical_json_bytes(&self)?;
+        let Self::SecurityRotation(request) = self else {
+            return protocol("Recovery cannot create a prepared resource");
+        };
+        let resource = SecurityRotationTransaction {
+            transaction_id: request.transaction_id,
+            kind: request.kind,
+            account_id: request.account_id,
+            authorizing_device_id: request.authorizing_device_id,
+            expires_at: request.expires_at,
+            created_at,
+            request_digest: Hash::new(arkret_canonical::canonical::sha256_digest(
+                &canonical_request,
+            ))?,
+            prepared_plan_digest: digest_value(
+                arkret_canonical::DigestSuite::Sha256,
+                &request.prepared_plan,
+            )?,
+            prepared_plan: request.prepared_plan,
+            accepted_steps: Vec::new(),
+            revoke_proposal: None,
+            revoke_command_outcome: None,
+            terminal_outcome: None,
+        };
+        resource.validate_structural()?;
+        Ok((
+            SecurityTransaction::SecurityRotation(resource),
+            canonical_request,
+        ))
+    }
+}
+
+impl RecoveryTransactionCompletion {
+    pub fn validate_structural(&self) -> Result<()> {
+        let receipt = &self.recovery_receipt;
+        let completion = &self.completion_attestation;
+        receipt.validate()?;
+        completion.validate_structural()?;
+        let [reanchor, authorize] = &receipt.recovery_unit.events;
+        if self.kind != SecurityTransactionKind::Recovery
+            || receipt.outcome != RecoveryReceiptOutcome::Completed
+            || self.transaction_id != receipt.transaction_id
+            || self.account_id != receipt.account_id
+            || completion.transaction_id != receipt.transaction_id
+            || completion.account_id != receipt.account_id
+            || completion.recovery_session_id != receipt.recovery_session_id
+            || completion.terminal_receipt_id != receipt.receipt_id
+            || completion.terminal_receipt_digest != receipt.receipt_digest()?
+            || completion.replacement_device_id != receipt.new_device_id
+            || completion.new_model_generation_ref != receipt.new_model_generation_ref
+            || completion.completed_at < receipt.completed_at
+            || self.created_at != completion.completed_at
+            || completion.reanchor_event_ref.event_id != reanchor.event.event_id
+            || completion.device_authorization_event_ref.event_id != authorize.event.event_id
+            || completion.reanchor_event_ref.stream_ref
                 != (CommitStreamRef::Realm {
-                    realm_id: plan.reanchor_commit_intent.realm_id.clone(),
+                    realm_id: reanchor.event.realm_id.clone(),
                 })
         {
             return protocol(
-                "recovery completion attestation disagrees with the durable transaction",
+                "Recovery completion changed the exact signed receipt or native Event binding",
             );
         }
         Ok(())
     }
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RecoveryTransactionCreateRequestBody {
-    pub transaction_id: TransactionId,
-    pub kind: SecurityTransactionKind,
-    pub account_id: AccountId,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
-    pub recovery_intent: PcrPolicyRecoveryIntent,
-}
-
-impl RecoveryTransactionCreateRequestBody {
-    pub fn new(
-        transaction_id: TransactionId,
-        account_id: AccountId,
-        expires_at: DateTime<Utc>,
-        recovery_intent: PcrPolicyRecoveryIntent,
-    ) -> Result<Self> {
-        let request = Self {
-            transaction_id,
-            kind: SecurityTransactionKind::Recovery,
-            account_id,
-            expires_at,
-            recovery_intent,
-        };
+    pub fn validate_for_request(
+        &self,
+        request: &RecoveryTransactionCreateRequestBody,
+    ) -> Result<()> {
+        self.validate_structural()?;
         request.validate()?;
-        Ok(request)
-    }
-
-    pub fn validate(&self) -> Result<()> {
-        if self.kind != SecurityTransactionKind::Recovery {
-            return protocol("recovery create request requires kind=recovery");
+        if !canonical_equal(&self.recovery_receipt, &request.recovery_receipt)? {
+            return protocol("Recovery response changed the full signed receipt bytes");
         }
-        self.account_id.validate()?;
-        self.recovery_intent.validate(&self.account_id)
+        Ok(())
     }
 }
-
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -741,86 +641,6 @@ impl SecurityRotationTransactionCreateRequestBody {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(untagged)]
-#[allow(clippy::large_enum_variant)]
-pub enum SecurityTransactionCreateRequestBody {
-    Recovery(RecoveryTransactionCreateRequestBody),
-    SecurityRotation(SecurityRotationTransactionCreateRequestBody),
-}
-
-impl SecurityTransactionCreateRequestBody {
-    pub fn validate(&self) -> Result<()> {
-        match self {
-            Self::Recovery(request) => request.validate(),
-            Self::SecurityRotation(request) => request.validate(),
-        }
-    }
-
-    pub fn transaction_id(&self) -> &TransactionId {
-        match self {
-            Self::Recovery(request) => &request.transaction_id,
-            Self::SecurityRotation(request) => &request.transaction_id,
-        }
-    }
-
-    pub fn into_initial_resource(
-        self,
-        prepared_plan: SecurityTransactionPreparedPlan,
-        created_at: DateTime<Utc>,
-    ) -> Result<(SecurityTransaction, Vec<u8>)> {
-        self.validate()?;
-        let canonical_request = arkret_canonical::canonical_json_bytes(&self)?;
-        let request_digest = Hash::new(arkret_canonical::canonical::sha256_digest(
-            &canonical_request,
-        ))?;
-        let (transaction_id, kind, account_id, authorizing_device_id, expires_at) =
-            match (&self, &prepared_plan) {
-                (Self::Recovery(request), SecurityTransactionPreparedPlan::Recovery(plan)) => {
-                    validate_prepared_plan_matches_intent(&request.recovery_intent, plan)?;
-                    (
-                        request.transaction_id.clone(),
-                        request.kind,
-                        request.account_id.clone(),
-                        None,
-                        request.expires_at,
-                    )
-                }
-                (
-                    Self::SecurityRotation(request),
-                    SecurityTransactionPreparedPlan::SecurityRotation(plan),
-                ) if canonical_equal(&request.prepared_plan, plan)? => (
-                    request.transaction_id.clone(),
-                    request.kind,
-                    request.account_id.clone(),
-                    Some(request.authorizing_device_id.clone()),
-                    request.expires_at,
-                ),
-                _ => return protocol("create request and prepared plan disagree"),
-            };
-        let prepared_plan_digest =
-            digest_value(arkret_canonical::DigestSuite::Sha256, &prepared_plan)?;
-        let resource = SecurityTransaction {
-            transaction_id,
-            kind,
-            account_id,
-            authorizing_device_id,
-            expires_at,
-            created_at,
-            request_digest,
-            prepared_plan,
-            prepared_plan_digest,
-            accepted_steps: Vec::new(),
-            revoke_proposal: None,
-            revoke_command_outcome: None,
-            terminal_outcome: None,
-        };
-        resource.validate_structural()?;
-        Ok((resource, canonical_request))
-    }
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SecurityRotationLocalCommit {
@@ -844,28 +664,6 @@ impl SecurityRotationLocalCommit {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RecoveryTerminalCommit {
-    pub recovery_receipt: RecoveryReceipt,
-}
-
-impl RecoveryTerminalCommit {
-    pub fn validate(&self) -> Result<()> {
-        self.recovery_receipt.validate()
-    }
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(untagged)]
-#[allow(clippy::large_enum_variant)]
-pub enum ClientStepAttestationArtifact {
-    Recovery(RecoveryTerminalCommit),
-    SecurityRotation(SecurityRotationLocalCommit),
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ClientStepAttestationSignatureProof {
@@ -883,7 +681,7 @@ pub struct ClientStepAttestation {
     pub transaction_id: TransactionId,
     pub transaction_request_digest: Hash,
     pub prepared_plan_digest: Hash,
-    pub artifact: ClientStepAttestationArtifact,
+    pub artifact: SecurityRotationLocalCommit,
     pub signature_proof: ClientStepAttestationSignatureProof,
 }
 
@@ -891,39 +689,26 @@ impl ClientStepAttestation {
     pub fn attestation_digest(&self) -> Result<Hash> {
         digest_value(arkret_canonical::DigestSuite::Sha256, &self.artifact)
     }
-
     pub fn validate(&self) -> Result<()> {
         validate_step_output_ref(&self.output_ref)?;
         require_sha256("prepared_plan_digest", &self.prepared_plan_digest)?;
-        if self.signature_proof.signature_algorithm != "Ed25519" {
-            return protocol("client step attestation requires Ed25519");
+        require_sha256("output_ref", &Hash::new(self.output_ref.clone())?)?;
+        if self.signature_proof.signature_algorithm != "Ed25519"
+            || self.step != SecurityTransactionStep::LocalCommit
+        {
+            return protocol("client step attestation is only Rotation local_commit Ed25519");
         }
-        match (&self.step, &self.artifact) {
-            (
-                SecurityTransactionStep::CommitRecoveryUnit,
-                ClientStepAttestationArtifact::Recovery(artifact),
-            ) => artifact.validate()?,
-            (
-                SecurityTransactionStep::LocalCommit,
-                ClientStepAttestationArtifact::SecurityRotation(artifact),
-            ) => artifact.validate()?,
-            _ => return protocol("client attestation step and artifact disagree"),
-        }
+        self.artifact.validate()?;
         self.attestation_digest()?;
         Ok(())
     }
-
     pub fn signing_bytes(&self) -> Result<Vec<u8>> {
         self.validate()?;
         arkret_canonical::canonical_json_bytes(&serde_json::json!({
-            "step": self.step,
-            "output_ref": self.output_ref,
-            "transaction_id": self.transaction_id,
-            "transaction_request_digest": self.transaction_request_digest,
-            "prepared_plan_digest": self.prepared_plan_digest,
+            "step": self.step, "output_ref": self.output_ref, "transaction_id": self.transaction_id,
+            "transaction_request_digest": self.transaction_request_digest, "prepared_plan_digest": self.prepared_plan_digest,
             "attestation_digest": self.attestation_digest()?,
-        }))
-        .map_err(Into::into)
+        })).map_err(Into::into)
     }
 }
 
@@ -936,81 +721,42 @@ pub struct SecurityTransactionContinueRequestBody {
     pub expected_accepted_step_count: u64,
     pub client_attestation: ClientStepAttestation,
 }
-
 impl SecurityTransactionContinueRequestBody {
     pub fn validate_for_transaction(&self, transaction: &SecurityTransaction) -> Result<()> {
+        let SecurityTransaction::SecurityRotation(transaction) = transaction else {
+            return protocol("Recovery has no continue route");
+        };
         transaction.validate_structural()?;
         if self.request_digest != transaction.request_digest
             || self.prepared_plan_digest != transaction.prepared_plan_digest
+            || usize::try_from(self.expected_accepted_step_count).ok()
+                != Some(transaction.accepted_steps.len())
         {
-            return protocol("continue request changed request or prepared-plan digest");
+            return protocol("continue request changed request/plan or accepted-prefix CAS");
         }
-        if usize::try_from(self.expected_accepted_step_count).ok()
-            != Some(transaction.accepted_steps.len())
-        {
-            return protocol("continue request accepted-step CAS does not match current progress");
-        }
-        let next = transaction.next_required_step()?.ok_or_else(|| {
-            WireError::Protocol("terminal transaction cannot continue".to_owned())
-        })?;
-        if !matches!(
-            next,
-            SecurityTransactionStep::CommitRecoveryUnit | SecurityTransactionStep::LocalCommit
-        ) {
-            return protocol("coordinator-owned transaction steps cannot be driven by continue");
+        if transaction.next_required_step()? != Some(SecurityTransactionStep::LocalCommit) {
+            return protocol("only the ready Rotation local_commit may be driven by continue");
         }
         let attestation = &self.client_attestation;
         attestation.validate()?;
-        if attestation.step != next
-            || attestation.transaction_id != transaction.transaction_id
+        let artifact = &attestation.artifact;
+        if attestation.transaction_id != transaction.transaction_id
             || attestation.transaction_request_digest != transaction.request_digest
             || attestation.prepared_plan_digest != transaction.prepared_plan_digest
+            || attestation.output_ref != transaction.prepared_plan.local_commit_digest.as_str()
+            || artifact.transaction_id != transaction.transaction_id
+            || artifact.transaction_request_digest != transaction.request_digest
+            || artifact.prepared_plan_digest != transaction.prepared_plan_digest
+            || artifact.local_commit_digest != transaction.prepared_plan.local_commit_digest
+            || artifact.device_id != transaction.authorizing_device_id
         {
-            return protocol("client attestation does not bind the current transaction step");
-        }
-        match (&transaction.prepared_plan, &attestation.artifact) {
-            (
-                SecurityTransactionPreparedPlan::Recovery(plan),
-                ClientStepAttestationArtifact::Recovery(artifact),
-            ) => {
-                let receipt = &artifact.recovery_receipt;
-                if attestation.output_ref != plan.binding.terminal_receipt_id.as_str()
-                    || receipt.receipt_id != plan.binding.terminal_receipt_id
-                    || receipt.transaction_id != transaction.transaction_id
-                    || receipt.transaction_request_digest != transaction.request_digest
-                    || receipt.prepared_plan_digest != transaction.prepared_plan_digest
-                    || receipt.account_id != transaction.account_id
-                    || receipt.recovery_session_id != plan.binding.recovery_session_id
-                    || receipt.new_device_id != plan.binding.replacement_device_id
-                    || receipt.reanchor_event_id != plan.binding.reanchor_event_id
-                    || receipt.authorization_event_id != plan.binding.authorize_event_id
-                    || receipt.previous_model_generation_ref != plan.previous_model_generation_ref
-                    || receipt.new_model_generation_ref != plan.new_model_generation_ref
-                {
-                    return protocol("recovery receipt disagrees with the prepared transaction");
-                }
-            }
-            (
-                SecurityTransactionPreparedPlan::SecurityRotation(plan),
-                ClientStepAttestationArtifact::SecurityRotation(artifact),
-            ) => {
-                if attestation.output_ref != plan.local_commit_digest.as_str()
-                    || artifact.transaction_id != transaction.transaction_id
-                    || artifact.transaction_request_digest != transaction.request_digest
-                    || artifact.prepared_plan_digest != transaction.prepared_plan_digest
-                    || artifact.local_commit_digest != plan.local_commit_digest
-                {
-                    return protocol(
-                        "security rotation local commit disagrees with the prepared transaction",
-                    );
-                }
-            }
-            _ => return protocol("client attestation artifact does not match transaction kind"),
+            return protocol(
+                "Rotation local commit does not bind the exact current prepared transaction",
+            );
         }
         Ok(())
     }
 }
-
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -1083,14 +829,17 @@ pub struct RecoveryReceiptSignatureProof {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RecoveryReceipt {
     pub schema: String,
     pub receipt_id: ReceiptId,
     pub transaction_id: TransactionId,
-    pub transaction_request_digest: Hash,
-    pub prepared_plan_digest: Hash,
     pub account_id: AccountId,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub expires_at: DateTime<Utc>,
     pub recovery_session_id: RecoverySessionId,
+    pub session_grant_ref: SessionGrantRef,
+    pub session_grant_cnf_jkt: Base64UrlString,
     pub policy_id: PolicyId,
     pub policy_version: u64,
     pub trust_domain: TrustDomainId,
@@ -1099,9 +848,8 @@ pub struct RecoveryReceipt {
     pub recovery_authority_kind: RecoveryAuthorityKind,
     pub previous_model_generation_ref: u64,
     pub new_model_generation_ref: u64,
-    pub authorization_event_id: EventId,
-    pub reanchor_event_id: EventId,
     pub proof_summary: RecoveryProofSummary,
+    pub recovery_unit: RecoveryUnit,
     pub unlocked_backups: Vec<RecoveryBackupUnlocked>,
     pub welcome_count: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1114,41 +862,134 @@ pub struct RecoveryReceipt {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub completed_at: DateTime<Utc>,
     pub signature_proof: RecoveryReceiptSignatureProof,
-    #[serde(default, flatten)]
-    pub extra: XExtensionMap,
 }
 
 impl RecoveryReceipt {
     pub fn validate(&self) -> Result<()> {
+        self.account_id.validate()?;
         if self.schema != SchemaId::RECOVERY_RECEIPT_V1
             || self.identity_model != RecoveryIdentityModel::PcrPolicy
+            || self.recovery_authority_kind != RecoveryAuthorityKind::PcrPolicy
             || self.policy_version == 0
             || self.completed_at < self.started_at
+            || self.expires_at <= self.completed_at
+            || self.signature_proof.signature_algorithm != "Ed25519"
+            || !self
+                .signature_proof
+                .verification_method
+                .as_str()
+                .ends_with(&format!("#{}", self.new_device_id))
         {
-            return protocol("recovery receipt has invalid closed fields");
+            return protocol("recovery receipt has invalid closed binding, time or signer fields");
         }
         validate_generation_advance(
             self.previous_model_generation_ref,
             self.new_model_generation_ref,
         )?;
-        if self.signature_proof.signature_algorithm != "Ed25519" {
-            return protocol("recovery receipt requires Ed25519");
-        }
         if (self.proof_summary.kind == RecoveryProofKind::DeviceQuorum)
             != self
                 .proof_summary
                 .quorum_participant_count
                 .is_some_and(|count| count > 0)
+            || (self.outcome == RecoveryReceiptOutcome::Completed)
+                == self.outcome_reason_code.is_some()
         {
-            return protocol("device-quorum proof requires a positive exclusive participant count");
+            return protocol("recovery receipt proof or outcome summary is inconsistent");
         }
-        if (self.outcome == RecoveryReceiptOutcome::Completed) == self.outcome_reason_code.is_some()
+        for submission in &self.recovery_unit.events {
+            submission.validate()?;
+            if submission.approval_signatures.is_some() {
+                return protocol("native PCR Recovery has no generic approval carrier");
+            }
+        }
+        let [reanchor, authorize] = &self.recovery_unit.events;
+        let (reanchor, authorize) = (&reanchor.event, &authorize.event);
+        let actor = ActorId::account(self.account_id.clone());
+        if reanchor.kind != EventKind::DeviceReanchor
+            || authorize.kind != EventKind::DeviceAuthorize
+            || reanchor.actor_id != actor
+            || authorize.actor_id != actor
+            || reanchor.realm_id != authorize.realm_id
+            || reanchor.scope_ref
+                != (ScopeRef::Realm {
+                    realm_id: reanchor.realm_id.clone(),
+                })
+            || authorize.scope_ref != reanchor.scope_ref
+            || reanchor.event_id == authorize.event_id
         {
             return protocol(
-                "recovery receipt reason is required exactly for non-completed outcomes",
+                "Recovery unit is not the exact account-owned PCR reanchor/authorize pair",
             );
         }
-        validate_unique_recovery_artifacts(self)?;
+        for event in [reanchor, authorize] {
+            event.validate_for_submit_structural()?;
+            event.verify_producer_proof_self_consistency(arkret_canonical::DigestSuite::Sha256)?;
+            if unique_producer_signer(event)? != &self.signature_proof.verification_method {
+                return protocol("Recovery producer proofs differ from the receipt candidate");
+            }
+        }
+        let r = serde_json::to_value(&reanchor.payload)?;
+        let a = serde_json::to_value(&authorize.payload)?;
+        if r["account_id"] != serde_json::to_value(&self.account_id)?
+            || r["recovery_authority_kind"] != "pcr_policy"
+            || r["recovery_policy_id"] != serde_json::to_value(&self.policy_id)?
+            || r["recovery_policy_version"] != self.policy_version
+            || r["recovery_session_id"] != serde_json::to_value(&self.recovery_session_id)?
+            || r["previous_device_generation"] != self.previous_model_generation_ref
+            || r["new_device_generation"] != self.new_model_generation_ref
+            || r["replacement_authorize_payload_digest"]
+                != serde_json::to_value(digest_value(arkret_canonical::DigestSuite::Sha256, &a)?)?
+            || a["device_id"] != serde_json::to_value(&self.new_device_id)?
+            || a["authorized_by"] != serde_json::to_value(&self.account_id.principal_id)?
+            || a["authorization_binding_kind"] != "pcr_recovery"
+            || a["authorized_generation_ref"] != self.new_model_generation_ref
+            || a["recovery_session_id"] != serde_json::to_value(&self.recovery_session_id)?
+        {
+            return protocol("Recovery native payloads do not bind the exact receipt intent");
+        }
+        validate_unique_recovery_artifacts(self)
+    }
+
+    /// Check a first submission against independently verified, frozen Session
+    /// source. It does not manufacture current grant/policy authorization.
+    pub fn validate_for_session(
+        &self,
+        session: &crate::RecoverySession,
+        now: DateTime<Utc>,
+    ) -> Result<()> {
+        self.validate()?;
+        session.validate_shape()?;
+        if session.state != crate::RecoverySessionState::Verified
+            || session.transaction_id.is_some()
+            || self.account_id != session.account_id
+            || self.recovery_session_id != session.recovery_session_id
+            || self.session_grant_ref != session.session_grant_ref
+            || self.session_grant_cnf_jkt != session.session_grant_cnf_jkt
+            || self.policy_id != session.policy_id
+            || self.policy_version != session.policy_version
+            || self.trust_domain != session.trust_domain
+            || self.new_device_id != session.requesting_device_id
+            || self.previous_model_generation_ref != session.current_device_generation_ref
+            || self.identity_model != session.identity_model
+            || self.expires_at > session.expires_at
+            || now >= self.expires_at
+            || self.completed_at > now
+            || session.proof_summary.as_ref().is_none_or(|proof| {
+                proof.kind != self.proof_summary.kind
+                    || proof.proof_digest != self.proof_summary.proof_digest
+            })
+            || self.recovery_unit.predecessor_ref != session.realm_stream_head.commit_id
+            || session.realm_stream_head.stream_ref
+                != (CommitStreamRef::Realm {
+                    realm_id: self.recovery_unit.events[0].event.realm_id.clone(),
+                })
+            || serde_json::to_value(&self.recovery_unit.events[1].event.payload)?["device_public_key_did"]
+                != serde_json::to_value(&session.requesting_device_public_key_did)?
+        {
+            return protocol(
+                "Recovery receipt differs from the verified Session source or first-admission window",
+            );
+        }
         Ok(())
     }
 
@@ -1157,14 +998,27 @@ impl RecoveryReceipt {
         let mut value = serde_json::to_value(self)?;
         value
             .as_object_mut()
-            .ok_or_else(|| WireError::Protocol("recovery receipt must be an object".to_owned()))?
+            .ok_or_else(|| WireError::Protocol("receipt must be an object".into()))?
             .remove("signature_proof");
         let mut bytes = b"ak.identity.recovery_receipt.signature.v1\n".to_vec();
         bytes.extend(arkret_canonical::canonical_json_bytes(&value)?);
         Ok(bytes)
     }
+    pub fn receipt_digest(&self) -> Result<Hash> {
+        self.validate()?;
+        digest_value(arkret_canonical::DigestSuite::Sha256, self)
+    }
 }
 
+fn unique_producer_signer(event: &Event) -> Result<&DidUrl> {
+    Ok(&event
+        .producer_proof
+        .as_ref()
+        .ok_or_else(|| WireError::Protocol("Recovery Event requires producer_proof".into()))?
+        .verification_method)
+}
+
+include!("generated/security_transaction_contracts.rs");
 /// `SHA-256(JCS({schema: "ak.backup_series_erase_confirmation_preimage.v1",
 /// transaction_id, series}))` over the plan's backup rotation bindings
 /// (security-transactions.md §3). The preimage discriminator member is
@@ -1202,25 +1056,6 @@ pub fn security_rotation_local_commit_digest(
     )
 }
 
-fn validate_prepared_plan_matches_intent(
-    intent: &PcrPolicyRecoveryIntent,
-    plan: &PcrPolicyRecoveryPlan,
-) -> Result<()> {
-    let same_unit = canonical_equal(&intent.reanchor_unit, &plan.reanchor_unit)?;
-    if plan.binding.identity_model != RecoveryIdentityModel::PcrPolicy
-        || plan.binding.recovery_session_id != intent.recovery_session_id
-        || plan.binding.replacement_device_id != intent.replacement_device_id
-        || plan.binding.terminal_receipt_id != intent.terminal_receipt_id
-        || plan.previous_model_generation_ref != intent.previous_model_generation_ref
-        || plan.new_model_generation_ref != intent.new_model_generation_ref
-        || plan.reanchor_commit_intent != intent.reanchor_commit_intent
-        || !same_unit
-    {
-        return protocol("recovery prepared plan changed caller-authored intent");
-    }
-    Ok(())
-}
-
 fn validate_native_control_unit(unit: &PreparedEventUnit) -> Result<()> {
     unit.validate()?;
     // Native PCR control has no registered capability-action approval carrier.
@@ -1234,72 +1069,6 @@ fn validate_native_control_unit(unit: &PreparedEventUnit) -> Result<()> {
         return protocol("native PCR control unit does not accept approval_signatures");
     }
     Ok(())
-}
-
-fn validate_recovery_event_unit(
-    account_id: &AccountId,
-    unit: &PreparedEventUnit,
-    commit_intent: &RecoveryCommitIntent,
-    binding: Option<&PcrPolicyRecoveryBinding>,
-) -> Result<()> {
-    validate_native_control_unit(unit)?;
-    commit_intent.validate()?;
-    let [reanchor, authorize]: &[arkret_wire::EventAdmissionSubmission; RECOVERY_UNIT_EVENT_COUNT] =
-        unit.request.events.as_slice().try_into().map_err(|_| {
-            WireError::Protocol(
-                "recovery unit requires exactly reanchor and authorize Events".to_owned(),
-            )
-        })?;
-    let (reanchor, authorize) = (&reanchor.event, &authorize.event);
-    let account_actor = ActorId::account(account_id.clone());
-    if reanchor.kind != EventKind::DeviceReanchor
-        || authorize.kind != EventKind::DeviceAuthorize
-        || reanchor.actor_id != account_actor
-        || authorize.actor_id != account_actor
-        || reanchor.realm_id != commit_intent.realm_id
-        || authorize.realm_id != commit_intent.realm_id
-        || reanchor.scope_ref
-            != (ScopeRef::Realm {
-                realm_id: commit_intent.realm_id.clone(),
-            })
-        || authorize.scope_ref != reanchor.scope_ref
-        || reanchor.event_id == authorize.event_id
-    {
-        return protocol(
-            "recovery unit must be the exact account-owned PCR Realm reanchor/authorize pair",
-        );
-    }
-    reanchor.validate_for_submit_structural()?;
-    authorize.validate_for_submit_structural()?;
-    let expected = [
-        Hash::new(reanchor.event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)?)?,
-        Hash::new(
-            authorize.event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)?,
-        )?,
-    ];
-    if expected != commit_intent.unit_event_digests {
-        return protocol("recovery commit intent does not name the two producer Event digests");
-    }
-    let reanchor_signer = unique_producer_signer(reanchor)?;
-    let authorize_signer = unique_producer_signer(authorize)?;
-    if reanchor_signer != authorize_signer {
-        return protocol("recovery Events must use the same session-frozen replacement key");
-    }
-    if let Some(binding) = binding
-        && (binding.reanchor_event_id != reanchor.event_id
-            || binding.authorize_event_id != authorize.event_id)
-    {
-        return protocol("recovery binding does not name the prepared Event pair");
-    }
-    Ok(())
-}
-
-fn unique_producer_signer(event: &Event) -> Result<&DidUrl> {
-    let proof = event
-        .producer_proof
-        .as_ref()
-        .ok_or_else(|| WireError::Protocol("recovery Event requires producer_proof".to_owned()))?;
-    Ok(&proof.verification_method)
 }
 
 fn validate_security_rotation_plan(
@@ -1428,7 +1197,10 @@ fn validate_unique_recovery_artifacts(receipt: &RecoveryReceipt) -> Result<()> {
 }
 
 fn validate_generation_advance(previous: u64, outcome: u64) -> Result<()> {
-    if previous == 0 || outcome <= previous {
+    if previous == 0
+        || previous >= 9_007_199_254_740_991
+        || previous.checked_add(1) != Some(outcome)
+    {
         return protocol("PCR generation refs require a positive monotonic advance");
     }
     Ok(())
@@ -1574,29 +1346,6 @@ mod tests {
             digest_value(arkret_canonical::DigestSuite::Sha256, &legacy).unwrap(),
             security_rotation_erase_confirmation_digest(&transaction_id, &bindings).unwrap()
         );
-    }
-
-    #[test]
-    fn recovery_commit_intent_is_exactly_two_sha256_event_digests() {
-        let realm_id = RealmId::from_event_id(&EventId::from_digest(
-            arkret_canonical::DigestSuite::Sha256,
-            [1; 32],
-        ));
-        let predecessor_ref = RealmCommitId::from_digest([2; 32]);
-        let value = serde_json::json!({
-            "realm_id": realm_id,
-            "predecessor_ref": predecessor_ref,
-            "unit_event_digests": [
-                format!("sha256:{}", "a".repeat(64)),
-                format!("sha256:{}", "b".repeat(64)),
-            ]
-        });
-        let intent: RecoveryCommitIntent = serde_json::from_value(value.clone()).unwrap();
-        intent.validate().unwrap();
-
-        let mut one = value;
-        one["unit_event_digests"] = serde_json::json!([format!("sha256:{}", "a".repeat(64))]);
-        assert!(serde_json::from_value::<RecoveryCommitIntent>(one).is_err());
     }
 
     #[test]

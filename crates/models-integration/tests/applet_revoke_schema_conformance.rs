@@ -77,10 +77,8 @@ fn formal_plan_round_trips_exact_grant_revision_and_digest() {
     let plan: AppletRevokePlan = serde_json::from_value(value.clone()).unwrap();
     assert_eq!(plan.capability_revocations.len(), 1);
     assert_eq!(
-        plan.capability_revocations[0]
-            .expected_revision
-            .stream_position,
-        41
+        serde_json::to_value(&plan.capability_revocations[0].expected_commit_id).unwrap(),
+        value["capability_revocations"][0]["expected_commit_id"]
     );
     assert_eq!(serde_json::to_value(&plan).unwrap(), value);
 
@@ -93,7 +91,8 @@ fn formal_plan_round_trips_exact_grant_revision_and_digest() {
     );
 
     let mut changed = value;
-    changed["capability_revocations"][0]["expected_revision"]["stream_position"] = json!(42);
+    changed["capability_revocations"][0]["expected_commit_id"] =
+        json!(arkret_wire::RealmCommitId::from_digest([42; 32]));
     assert_ne!(
         arkret_canonical::canonical_sha256(&changed).unwrap(),
         digest
@@ -108,20 +107,25 @@ fn missing_untyped_or_unknown_revision_carriers_are_rejected() {
     missing["capability_revocations"][0]
         .as_object_mut()
         .unwrap()
-        .remove("expected_revision");
+        .remove("expected_commit_id");
     assert!(!schema_accepts(&missing));
     assert!(serde_json::from_value::<AppletRevokePlan>(missing).is_err());
 
     let mut untyped = value.clone();
-    untyped["capability_revocations"][0]["expected_revision"] = json!(41);
+    untyped["capability_revocations"][0]["expected_commit_id"] = json!(41);
     assert!(!schema_accepts(&untyped));
     assert!(serde_json::from_value::<AppletRevokePlan>(untyped).is_err());
 
     let mut unknown = value;
-    unknown["capability_revocations"][0]["expected_revision"]["event_id"] =
-        json!("ak:event:AXKJvMpMFIFTD9GYNEzOeImU-2ytvLCtsCq3Mrq9-Ci8");
+    unknown["capability_revocations"][0]["expected_commit_id"] =
+        json!({"commit_id":arkret_wire::RealmCommitId::from_digest([41;32]),"stream_position":41});
     assert!(!schema_accepts(&unknown));
     assert!(serde_json::from_value::<AppletRevokePlan>(unknown).is_err());
+
+    let mut legacy = fixture()["preview_plan_digest_kat"]["revoke_plan"].clone();
+    legacy["capability_revocations"][0]["expected_revision"] = json!(null);
+    assert!(!schema_accepts(&legacy));
+    assert!(serde_json::from_value::<AppletRevokePlan>(legacy).is_err());
 }
 
 #[test]

@@ -91,7 +91,7 @@ fn fixture() -> (
     value["id"] = json!(id);
     value["status"] = json!("active");
     value["authority_depth"] = json!(1);
-    value["authority_root_refs"] = value["issuer_authority_refs"].clone();
+    value["authority_root_ref"] = value["issuer_authority_refs"][0].clone();
     let current = ExactCurrentStateReadResponseBody::Present {
         realm_id: realm,
         governance_generation: 0,

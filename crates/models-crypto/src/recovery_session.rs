@@ -11,7 +11,7 @@
 use arkret_wire::{
     AccountId, Base64UrlString, CommitStreamHead, DeviceId, DidCoreId, DidKey, DidUrl, Hash,
     PolicyId, RealmCommitId, RecoverySessionId, RequestId, Result, SchemaId, ScopeRef,
-    SessionGrantId, TransactionId, TrustDomainId, WireError,
+    SessionGrantRef, TransactionId, TrustDomainId, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -93,6 +93,16 @@ impl RecoverySession {
         if self.policy_version == 0 || self.current_device_generation_ref == 0 {
             return Err(WireError::Protocol(
                 "recovery session policy version and device generation start at 1".to_owned(),
+            ));
+        }
+        if self.expires_at <= self.created_at
+            || self.expires_at - self.created_at
+                > chrono::Duration::seconds(RECOVERY_SESSION_DEFAULT_TTL_SECONDS)
+            || self.updated_at < self.created_at
+            || (self.state == RecoverySessionState::Completed) != self.transaction_id.is_some()
+        {
+            return Err(WireError::Protocol(
+                "RecoverySession lifetime or success-only transaction binding is invalid".into(),
             ));
         }
         self.publication_authority_context.validate_shape()?;
@@ -318,8 +328,8 @@ mod tests {
         format!("sha256:{}", format!("{byte:02x}").repeat(32))
     }
 
-    fn session_grant_id() -> SessionGrantId {
-        SessionGrantId::from_issuance_digest([4; 32])
+    fn session_grant_ref() -> SessionGrantRef {
+        serde_json::from_value(serde_json::json!({"issuer_id":"ak:did_core:web:station.example", "id":"ak:session_grant:0198ff00-0000-7000-8000-00000000000d"})).unwrap()
     }
 
     fn realm_id() -> arkret_wire::RealmId {
@@ -358,7 +368,7 @@ mod tests {
             "schema": "ak.schema.recovery_session.v1",
             "request_id": REQUEST_ID,
             "recovery_session_id": SESSION_ID,
-            "session_grant_id": session_grant_id(),
+            "session_grant_ref": session_grant_ref(),
             "session_grant_cnf_jkt": CNF_JKT,
             "account_id": fixtures::account_id(),
             "requesting_device_id": DEVICE_ID,
@@ -482,7 +492,7 @@ mod tests {
         let value = json!({
             "schema": "ak.identity.recovery_device_possession.v1",
             "request_id": REQUEST_ID,
-            "session_grant_id": session_grant_id(),
+            "session_grant_ref": session_grant_ref(),
             "session_grant_cnf_jkt": CNF_JKT,
             "account_id": fixtures::account_id(),
             "requesting_device_id": DEVICE_ID,
@@ -590,7 +600,7 @@ mod tests {
             "schema": "ak.identity.recovery_proof.v1",
             "kind": "recovery_unlock",
             "request_id": REQUEST_ID,
-            "session_grant_id": session_grant_id(),
+            "session_grant_ref": session_grant_ref(),
             "session_grant_cnf_jkt": CNF_JKT,
             "account_id": fixtures::account_id(),
             "requesting_device_id": DEVICE_ID,

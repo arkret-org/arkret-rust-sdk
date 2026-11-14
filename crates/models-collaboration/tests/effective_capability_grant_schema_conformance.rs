@@ -68,12 +68,12 @@ fn grant() -> Value {
             "grant_id": "ak:grant:AU1_A5a8MMz_OdxEleQlWPFn-ljdJteaJv3ZZ9APkcrZ"
         }],
         "authority_depth": 2,
-        "authority_root_refs": [{
+        "authority_root_ref": {
             "kind": "realm_root",
             "realm_id": "ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5",
             "authority_event_ref": "ak:event:AR9qVnHK4a0914zPmH5CRZLTjSSV_8ghJKuGGivDaExf",
             "authority_generation": "0"
-        }],
+        },
         "issued_at": "2026-09-21T00:00:00.000Z",
         "status": "active"
     })
@@ -211,8 +211,20 @@ fn materialized_grant_requires_reducer_derived_authority_fields() {
     missing_roots
         .as_object_mut()
         .unwrap()
-        .remove("authority_root_refs");
+        .remove("authority_root_ref");
     assert!(serde_json::from_value::<CapabilityGrant>(missing_roots).is_err());
+
+    let mut array_root = grant();
+    array_root["authority_root_ref"] = json!([array_root["authority_root_ref"].clone()]);
+    assert!(serde_json::from_value::<CapabilityGrant>(array_root).is_err());
+    let mut legacy_roots = grant();
+    let root = legacy_roots
+        .as_object_mut()
+        .unwrap()
+        .remove("authority_root_ref")
+        .unwrap();
+    legacy_roots["authority_root_refs"] = json!([root]);
+    assert!(serde_json::from_value::<CapabilityGrant>(legacy_roots).is_err());
 }
 
 #[test]
@@ -222,7 +234,7 @@ fn create_body_excludes_materialized_authority_fields() {
     object.remove("id");
     object.remove("status");
     object.remove("authority_depth");
-    object.remove("authority_root_refs");
+    object.remove("authority_root_ref");
 
     let parsed: CapabilityGrantCreateBody = serde_json::from_value(value.clone())
         .expect("create body must accept author-controlled members only");

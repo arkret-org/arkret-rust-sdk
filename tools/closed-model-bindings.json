@@ -311,7 +311,40 @@
     "keys-operations.schema.json#/$defs/realm_actor_backup_unlock_challenge/properties/operation": "arkret_models_crypto::RealmActorBackupUnlockChallengeOperation",
     "keys-operations.schema.json#/$defs/realm_actor_backup_unlock_challenge/properties/kind": "arkret_models_crypto::RealmActorBackupUnlockChallengeKind",
     "keys-operations.schema.json#/$defs/realm_actor_backup_unlock_challenge/properties/purpose": "arkret_models_crypto::RealmActorBackupUnlockChallengePurpose",
-    "keys-operations.schema.json#/$defs/realm_actor_content_backup_sealed_handover/properties/hpke_suite": "arkret_models_integration::RealmActorContentBackupSealedHandoverHpkeSuite"
+    "keys-operations.schema.json#/$defs/realm_actor_content_backup_sealed_handover/properties/hpke_suite": "arkret_models_integration::RealmActorContentBackupSealedHandoverHpkeSuite",
+    "common-ids.schema.json#/$defs/session_grant_ref": "arkret_wire::SessionGrantRef",
+    "service-operation-dtos.schema.json#/$defs/EventAdmissionSubmission": "arkret_wire::EventAdmissionSubmission",
+    "service-operation-dtos.schema.json#/$defs/InitialSessionGrantIntent": "arkret_models_identity::InitialSessionGrantIntent",
+    "recovery-receipt.schema.json": "arkret_models_crypto::RecoveryReceipt",
+    "recovery-receipt.schema.json#/properties/recovery_unit": "arkret_models_crypto::RecoveryUnit",
+    "recovery-authority.schema.json#/$defs/recovery_completion_attestation": "arkret_wire::RecoveryCompletionAttestation",
+    "recovery-authority.schema.json#/$defs/recovery_completion_grant_request_body": "arkret_models_identity::RecoveryCompletionGrantRequestBody",
+    "recovery-authority.schema.json#/$defs/issue_recovery_completion_grant_response_body": "arkret_models_identity::IssueRecoveryCompletionGrantResponseBody",
+    "security-transaction.schema.json": "arkret_models_crypto::SecurityTransaction",
+    "security-transaction.schema.json#/$defs/security_transaction_create_request_body": "arkret_models_crypto::SecurityTransactionCreateRequestBody",
+    "security-transaction.schema.json#/$defs/recovery_create_request_body": "arkret_models_crypto::RecoveryTransactionCreateRequestBody",
+    "security-transaction.schema.json#/$defs/recovery_transaction_completion": "arkret_models_crypto::RecoveryTransactionCompletion",
+    "security-transaction.schema.json#/$defs/security_rotation_transaction": "arkret_models_crypto::SecurityRotationTransaction",
+    "security-transaction.schema.json#/$defs/security_rotation_create_request_body": "arkret_models_crypto::SecurityRotationTransactionCreateRequestBody",
+    "common-ids.schema.json#/$defs/session_grant_id": "arkret_wire::SessionGrantId",
+    "common-ids.schema.json#/$defs/session_grant_secret": "arkret_wire::SessionGrantSecret",
+    "service-operation-dtos.schema.json#/$defs/SessionGrantMetadata": "arkret_models_identity::SessionGrantMetadata",
+    "service-operation-dtos.schema.json#/$defs/SessionGrantResponseBody": "arkret_models_identity::SessionGrantResponseBody",
+    "service-operation-dtos.schema.json#/$defs/SessionGrantScope": "arkret_models_identity::SessionGrantScope",
+    "service-operation-dtos.schema.json#/$defs/SessionGrantScope/properties/resources": "arkret_models_identity::SessionGrantScopeResources",
+    "service-operation-dtos.schema.json#/$defs/SessionGrantScope/properties/constraints": "arkret_models_identity::SessionGrantScopeConstraints",
+    "service-operation-dtos.schema.json#/$defs/SessionGrantCredentialClass": "arkret_models_identity::SessionGrantCredentialClass",
+    "service-operation-dtos.schema.json#/$defs/SessionGrantMetadata/properties/proof_kind": "arkret_models_identity::SessionGrantProofKind",
+    "principal-operations.schema.json#/$defs/session_grant_holder_binding": "arkret_models_identity::SessionGrantHolderBinding",
+    "principal-operations.schema.json#/$defs/participation_bits": "arkret_models_identity::ParticipationBits",
+    "principal-operations.schema.json#/$defs/participation_scope": "arkret_models_identity::ParticipationScope",
+    "principal-operations.schema.json#/$defs/realm_id": "arkret_wire::RealmId",
+    "principal-operations.schema.json#/$defs/circle_id": "arkret_wire::CircleId",
+    "principal-operations.schema.json#/$defs/strand_id": "arkret_wire::StrandId",
+    "agent-operations.schema.json#/$defs/agent_participation": "arkret_models_identity::ParticipationBits",
+    "agent-operations.schema.json#/$defs/agent_participation_scope": "arkret_models_identity::ParticipationScope",
+    "agent-operations.schema.json#/$defs/agent_participation_view": "arkret_models_identity::AgentParticipationView",
+    "agent-operations.schema.json#/$defs/agent_participation_view/properties/next_replace_input": "arkret_models_identity::ParticipationNextReplaceInput"
   },
   "families": [
     {
@@ -1129,9 +1162,9 @@
                   "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
                 ]
               },
-              "expected_revision": {
-                "name": "expected_revision",
-                "type": "Option<CurrentRevision>",
+              "expected_commit_id": {
+                "name": "expected_commit_id",
+                "type": "Option<RealmCommitId>",
                 "visibility": "pub",
                 "attributes": []
               }
@@ -2319,10 +2352,10 @@
                 "type": "GrantId",
                 "attributes": []
               },
-              "expected_revision": {
-                "name": "expected_revision",
+              "expected_commit_id": {
+                "name": "expected_commit_id",
                 "visibility": "pub",
-                "type": "CurrentRevision",
+                "type": "RealmCommitId",
                 "attributes": []
               },
               "reason": {
@@ -2354,10 +2387,10 @@
                 "type": "GrantId",
                 "attributes": []
               },
-              "expected_revision": {
-                "name": "expected_revision",
+              "expected_commit_id": {
+                "name": "expected_commit_id",
                 "visibility": "pub",
-                "type": "CurrentRevision",
+                "type": "RealmCommitId",
                 "attributes": []
               },
               "reason": {
@@ -3867,10 +3900,10 @@
                 "type": "RelationPrimaryConflictDomain",
                 "attributes": []
               },
-              "expected_revision": {
-                "name": "expected_revision",
+              "expected_commit_id": {
+                "name": "expected_commit_id",
                 "visibility": "pub",
-                "type": "Option<CurrentRevision>",
+                "type": "Option<RealmCommitId>",
                 "attributes": []
               },
               "relation": {
@@ -3900,10 +3933,10 @@
                 "type": "RelationPrimaryConflictDomain",
                 "attributes": []
               },
-              "expected_revision": {
-                "name": "expected_revision",
+              "expected_commit_id": {
+                "name": "expected_commit_id",
                 "visibility": "pub",
-                "type": "CurrentRevision",
+                "type": "RealmCommitId",
                 "attributes": []
               },
               "patch": {
@@ -3939,10 +3972,10 @@
                 "type": "RelationPrimaryConflictDomain",
                 "attributes": []
               },
-              "expected_revision": {
-                "name": "expected_revision",
+              "expected_commit_id": {
+                "name": "expected_commit_id",
                 "visibility": "pub",
-                "type": "CurrentRevision",
+                "type": "RealmCommitId",
                 "attributes": []
               },
               "relation_id": {
@@ -5153,7 +5186,7 @@
               "/// repeated `ak.policy.set` Events under the same `policy_id` converge on one",
               "/// document rather than accumulating versions. There is no cell head, basis or",
               "/// version member on the wire. Agent and Applet governance policies carry a required",
-              "/// nullable `expected_revision` precondition; other policy families omit it.",
+              "/// nullable `expected_commit_id` precondition; other policy families omit it.",
               "#[derive(Clone, Debug, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
             ],
@@ -5164,10 +5197,10 @@
                 "type": "PolicyId",
                 "attributes": []
               },
-              "expected_revision": {
-                "name": "expected_revision",
+              "expected_commit_id": {
+                "name": "expected_commit_id",
                 "visibility": "pub",
-                "type": "Option<Option<CurrentRevision>>",
+                "type": "Option<Option<RealmCommitId>>",
                 "attributes": [
                   "#[serde(\n        default,\n        skip_serializing_if = \"Option::is_none\",\n        deserialize_with = \"arkret_canonical::serde_helpers::deserialize_non_null_optional\"\n    )]"
                 ]
@@ -7954,10 +7987,10 @@
                 "type": "RequestId",
                 "attributes": []
               },
-              "session_grant_id": {
-                "name": "session_grant_id",
+              "session_grant_ref": {
+                "name": "session_grant_ref",
                 "visibility": "pub",
-                "type": "SessionGrantId",
+                "type": "SessionGrantRef",
                 "attributes": []
               },
               "session_grant_cnf_jkt": {
@@ -8408,10 +8441,10 @@
                 "type": "RequestId",
                 "attributes": []
               },
-              "session_grant_id": {
-                "name": "session_grant_id",
+              "session_grant_ref": {
+                "name": "session_grant_ref",
                 "visibility": "pub",
-                "type": "SessionGrantId",
+                "type": "SessionGrantRef",
                 "attributes": []
               },
               "session_grant_cnf_jkt": {
@@ -8584,10 +8617,10 @@
                 "type": "RecoverySessionId",
                 "attributes": []
               },
-              "session_grant_id": {
-                "name": "session_grant_id",
+              "session_grant_ref": {
+                "name": "session_grant_ref",
                 "visibility": "pub",
-                "type": "SessionGrantId",
+                "type": "SessionGrantRef",
                 "attributes": []
               },
               "session_grant_cnf_jkt": {
@@ -8759,10 +8792,10 @@
                 "type": "RequestId",
                 "attributes": []
               },
-              "session_grant_id": {
-                "name": "session_grant_id",
+              "session_grant_ref": {
+                "name": "session_grant_ref",
                 "visibility": "pub",
-                "type": "SessionGrantId",
+                "type": "SessionGrantRef",
                 "attributes": []
               },
               "session_grant_cnf_jkt": {
@@ -9543,7 +9576,7 @@
               "/// Realm's own stream, its Circles and its Sidecars advance independently, and",
               "/// one number could not state where this result stands in all of them.",
               "///",
-              "/// Convergence is by stable domain selector plus `expected_revision` CAS, so a",
+              "/// Convergence is by stable domain selector plus `expected_commit_id` CAS, so a",
               "/// caller writes back against the `revision` of the exact entry it read — never",
               "/// against a whole-Realm token.",
               "/// Field declaration order is byte-for-byte the `properties` order of",
@@ -9717,6 +9750,222 @@
               }
             }
           }
+        },
+        {
+          "name": "SessionGrantScopeResources",
+          "schema": "service-operation-dtos.schema.json#/$defs/SessionGrantScope/properties/resources",
+          "rust": {
+            "signature": "pub struct SessionGrantScopeResources",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "realm_ids": {
+                "name": "realm_ids",
+                "visibility": "pub",
+                "type": "Vec<arkret_wire::RealmId>",
+                "attributes": []
+              },
+              "strand_ids": {
+                "name": "strand_ids",
+                "visibility": "pub",
+                "type": "Vec<arkret_wire::StrandId>",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "SessionGrantScopeConstraints",
+          "schema": "service-operation-dtos.schema.json#/$defs/SessionGrantScope/properties/constraints",
+          "rust": {
+            "signature": "pub struct SessionGrantScopeConstraints",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "allowed_tracks": {
+                "name": "allowed_tracks",
+                "visibility": "pub",
+                "type": "Vec<String>",
+                "attributes": []
+              },
+              "allowed_data_labels": {
+                "name": "allowed_data_labels",
+                "visibility": "pub",
+                "type": "Vec<String>",
+                "attributes": []
+              },
+              "allowed_endpoints": {
+                "name": "allowed_endpoints",
+                "visibility": "pub",
+                "type": "Vec<String>",
+                "attributes": []
+              },
+              "allowed_strand_ids": {
+                "name": "allowed_strand_ids",
+                "visibility": "pub",
+                "type": "Option<Vec<arkret_wire::StrandId>>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "name": "SessionGrantScope",
+          "schema": "service-operation-dtos.schema.json#/$defs/SessionGrantScope",
+          "rust": {
+            "signature": "pub struct SessionGrantScope",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "controller_principal_id": {
+                "name": "controller_principal_id",
+                "visibility": "pub",
+                "type": "DidCoreId",
+                "attributes": []
+              },
+              "agent_key_authorization_ref": {
+                "name": "agent_key_authorization_ref",
+                "visibility": "pub",
+                "type": "EventId",
+                "attributes": []
+              },
+              "realm_ids": {
+                "name": "realm_ids",
+                "visibility": "pub",
+                "type": "Vec<arkret_wire::RealmId>",
+                "attributes": []
+              },
+              "strand_ids": {
+                "name": "strand_ids",
+                "visibility": "pub",
+                "type": "Vec<arkret_wire::StrandId>",
+                "attributes": []
+              },
+              "resources": {
+                "name": "resources",
+                "visibility": "pub",
+                "type": "SessionGrantScopeResources",
+                "attributes": []
+              },
+              "constraints": {
+                "name": "constraints",
+                "visibility": "pub",
+                "type": "SessionGrantScopeConstraints",
+                "attributes": []
+              },
+              "capability_grant_refs": {
+                "name": "capability_grant_refs",
+                "visibility": "pub",
+                "type": "Vec<String>",
+                "attributes": []
+              },
+              "policy_refs": {
+                "name": "policy_refs",
+                "visibility": "pub",
+                "type": "Vec<String>",
+                "attributes": []
+              },
+              "participations": {
+                "name": "participations",
+                "visibility": "pub",
+                "type": "Option<Vec<crate::agent_participation::AgentParticipationView>>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "name": "SessionGrantResponseBody",
+          "schema": "service-operation-dtos.schema.json#/$defs/SessionGrantResponseBody",
+          "rust": {
+            "signature": "pub struct SessionGrantResponseBody",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "account_id": {
+                "name": "account_id",
+                "visibility": "pub",
+                "type": "AccountId",
+                "attributes": []
+              },
+              "issuer_id": {
+                "name": "issuer_id",
+                "visibility": "pub",
+                "type": "DidCoreId",
+                "attributes": []
+              },
+              "device_id": {
+                "name": "device_id",
+                "visibility": "pub",
+                "type": "Option<DeviceId>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
+                ]
+              },
+              "session_grant": {
+                "name": "session_grant",
+                "visibility": "pub",
+                "type": "arkret_wire::SessionGrantSecret",
+                "attributes": []
+              },
+              "expires_at": {
+                "name": "expires_at",
+                "visibility": "pub",
+                "type": "DateTime<Utc>",
+                "attributes": [
+                  "#[serde(with = \"arkret_canonical::serde_helpers::canonical_timestamp\")]"
+                ]
+              },
+              "session_grant_id": {
+                "name": "session_grant_id",
+                "visibility": "pub",
+                "type": "SessionGrantId",
+                "attributes": []
+              },
+              "session_public_key": {
+                "name": "session_public_key",
+                "visibility": "pub",
+                "type": "CanonicalSessionPublicJwk",
+                "attributes": []
+              },
+              "audience_id": {
+                "name": "audience_id",
+                "visibility": "pub",
+                "type": "DidCoreId",
+                "attributes": []
+              },
+              "granted_scope": {
+                "name": "granted_scope",
+                "visibility": "pub",
+                "type": "Vec<String>",
+                "attributes": []
+              },
+              "previous_session_grant_id": {
+                "name": "previous_session_grant_id",
+                "visibility": "pub",
+                "type": "Option<SessionGrantId>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
+                ]
+              }
+            }
+          }
         }
       ]
     },
@@ -9789,10 +10038,10 @@
               "#[serde(deny_unknown_fields)]"
             ],
             "members": {
-              "grant_jwt": {
-                "name": "grant_jwt",
+              "session_grant": {
+                "name": "session_grant",
                 "visibility": "pub",
-                "type": "String",
+                "type": "SessionGrantSecret",
                 "attributes": []
               },
               "audience_id": {
@@ -10008,10 +10257,10 @@
               "#[serde(deny_unknown_fields)]"
             ],
             "members": {
-              "grant_jwt": {
-                "name": "grant_jwt",
+              "session_grant": {
+                "name": "session_grant",
                 "visibility": "pub",
-                "type": "String",
+                "type": "SessionGrantSecret",
                 "attributes": []
               },
               "audience_id": {
@@ -13137,10 +13386,10 @@
                 "type": "AgentInteractionMode",
                 "attributes": []
               },
-              "expected_revision": {
-                "name": "expected_revision",
+              "expected_commit_id": {
+                "name": "expected_commit_id",
                 "visibility": "pub",
-                "type": "Option<CurrentRevision>",
+                "type": "Option<RealmCommitId>",
                 "attributes": [
                   "#[serde(\n        default,\n        skip_serializing_if = \"Option::is_none\",\n        deserialize_with = \"crate::serde_absence::deserialize_non_null_optional\"\n    )]"
                 ]
@@ -13252,32 +13501,33 @@
       "inline": true,
       "types": [
         {
-          "name": "ReactionAssertionEntry",
-          "schema": "current-state.schema.json#/$defs/reaction_assertion_entry",
+          "name": "ReactionCurrentEntry",
+          "schema": "current-state.schema.json#/$defs/reaction_current_entry",
           "rust": {
-            "signature": "pub struct ReactionAssertionEntry",
+            "signature": "pub struct ReactionCurrentEntry",
             "attributes": [
-              "/// One asserted element of the `message_reactions` keyed set",
-              "/// (`current-state.schema.json#/$defs/reaction_assertion_entry`): the",
-              "/// accepting Event's canonical dot and that Event's complete reaction payload.",
-              "///",
-              "/// The asserting actor and the polarity (add or remove) are deliberately not",
-              "/// element fields: `models/strand-and-message.md` section 9.8.3 reads both from",
-              "/// the signed envelope of the Event the dot names.",
+              "/// One active full-Actor/key membership and its original accepted add source.",
+              "/// The reference grants no historical Event/key access or AEAD verification.",
               "#[derive(Clone, Debug, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
             ],
             "members": {
-              "tag_id": {
-                "name": "tag_id",
+              "actor_id": {
+                "name": "actor_id",
                 "visibility": "pub",
-                "type": "CanonicalEventDot",
+                "type": "ActorId",
                 "attributes": []
               },
-              "value": {
-                "name": "value",
+              "key": {
+                "name": "key",
                 "visibility": "pub",
-                "type": "ReactionPayload",
+                "type": "String",
+                "attributes": []
+              },
+              "source": {
+                "name": "source",
+                "visibility": "pub",
+                "type": "CommittedEventRef",
                 "attributes": []
               }
             }
@@ -13289,24 +13539,17 @@
           "rust": {
             "signature": "pub struct MessageReactionsCurrentValue",
             "attributes": [
-              "/// Closed value of the `message_reactions` current state",
-              "/// (`current-state.schema.json#/$defs/message_reactions_value`): the",
-              "/// canonically sorted dot set of reaction assertions on one target.",
-              "///",
-              "/// `ak.reaction.add` and `ak.reaction.remove` each project exactly one",
-              "/// `keyed_set_add`, so every element's dot names write index 0 of its Event,",
-              "/// and a remove is itself an element. The join is the keyed-set union of",
-              "/// `models/common-fields.md` section 2; membership, deduplication and counts",
-              "/// are read-side folds and never part of this value. Decoding enforces the",
-              "/// set invariants, so a held value is always a valid set of one target.",
+              "/// Complete active metadata for one outer target/scope selector.",
+              "/// Empty entries retain the outer row's real revision. This is not a",
+              "/// historical assertion union or a client-side Event reducer.",
               "#[derive(Clone, Debug, Serialize)]",
               "#[serde(deny_unknown_fields)]"
             ],
             "members": {
-              "assertions": {
-                "name": "assertions",
+              "entries": {
+                "name": "entries",
                 "visibility": "",
-                "type": "Vec<ReactionAssertionEntry>",
+                "type": "Vec<ReactionCurrentEntry>",
                 "attributes": []
               }
             }
@@ -13941,6 +14184,64 @@
                 "name": "last_source",
                 "visibility": "pub",
                 "type": "CallModerationSource",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "CallCaptureResultStatus",
+          "schema": "current-state.schema.json#/$defs/call_capture_result_status",
+          "copy": true,
+          "openapi": false
+        },
+        {
+          "name": "CallRecordingArtifactCurrentValue",
+          "schema": "current-state.schema.json#/$defs/current_call_recording_artifact/properties/value",
+          "rust": {
+            "signature": "pub struct CallRecordingArtifactCurrentValue",
+            "attributes": [
+              "/// Complete capture result; revision belongs to the enclosing CurrentState.",
+              "#[derive(Clone, Debug, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "status": {
+                "name": "status",
+                "visibility": "pub",
+                "type": "CallCaptureResultStatus",
+                "attributes": []
+              },
+              "details": {
+                "name": "details",
+                "visibility": "pub",
+                "type": "CallRecordingMetadata",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "CallTranscriptArtifactCurrentValue",
+          "schema": "current-state.schema.json#/$defs/current_call_transcript_artifact/properties/value",
+          "rust": {
+            "signature": "pub struct CallTranscriptArtifactCurrentValue",
+            "attributes": [
+              "/// Complete capture result; revision belongs to the enclosing CurrentState.",
+              "#[derive(Clone, Debug, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "status": {
+                "name": "status",
+                "visibility": "pub",
+                "type": "CallCaptureResultStatus",
+                "attributes": []
+              },
+              "details": {
+                "name": "details",
+                "visibility": "pub",
+                "type": "CallTranscriptMetadata",
                 "attributes": []
               }
             }
@@ -16569,10 +16870,10 @@
               "#[serde(deny_unknown_fields)]"
             ],
             "members": {
-              "expected_revision": {
-                "name": "expected_revision",
+              "expected_commit_id": {
+                "name": "expected_commit_id",
                 "visibility": "pub",
-                "type": "arkret_wire::CurrentRevision",
+                "type": "arkret_wire::RealmCommitId",
                 "attributes": []
               },
               "next_resolution": {
@@ -16618,10 +16919,10 @@
                 "type": "arkret_wire::ActorId",
                 "attributes": []
               },
-              "expected_revision": {
-                "name": "expected_revision",
+              "expected_commit_id": {
+                "name": "expected_commit_id",
                 "visibility": "pub",
-                "type": "arkret_wire::CurrentRevision",
+                "type": "arkret_wire::RealmCommitId",
                 "attributes": []
               },
               "next_resolution": {
@@ -16679,10 +16980,10 @@
                 "type": "RealmActorStatusSetPayloadGate",
                 "attributes": []
               },
-              "expected_revision": {
-                "name": "expected_revision",
+              "expected_commit_id": {
+                "name": "expected_commit_id",
                 "visibility": "pub",
-                "type": "arkret_wire::CurrentRevision",
+                "type": "arkret_wire::RealmCommitId",
                 "attributes": []
               },
               "state": {
@@ -16704,10 +17005,10 @@
               "#[serde(deny_unknown_fields)]"
             ],
             "members": {
-              "expected_revision": {
-                "name": "expected_revision",
+              "expected_commit_id": {
+                "name": "expected_commit_id",
                 "visibility": "pub",
-                "type": "arkret_wire::CurrentRevision",
+                "type": "arkret_wire::RealmCommitId",
                 "attributes": []
               },
               "expected_generation": {
@@ -16735,22 +17036,22 @@
               "#[serde(deny_unknown_fields)]"
             ],
             "members": {
-              "expected_manager_revision": {
-                "name": "expected_manager_revision",
+              "expected_manager_commit_id": {
+                "name": "expected_manager_commit_id",
                 "visibility": "pub",
-                "type": "arkret_wire::CurrentRevision",
+                "type": "arkret_wire::RealmCommitId",
                 "attributes": []
               },
-              "expected_control_revision": {
-                "name": "expected_control_revision",
+              "expected_control_commit_id": {
+                "name": "expected_control_commit_id",
                 "visibility": "pub",
-                "type": "arkret_wire::CurrentRevision",
+                "type": "arkret_wire::RealmCommitId",
                 "attributes": []
               },
-              "expected_device_generation_revision": {
-                "name": "expected_device_generation_revision",
+              "expected_device_generation_commit_id": {
+                "name": "expected_device_generation_commit_id",
                 "visibility": "pub",
-                "type": "arkret_wire::CurrentRevision",
+                "type": "arkret_wire::RealmCommitId",
                 "attributes": []
               },
               "expected_generation": {
@@ -16844,22 +17145,22 @@
                 "type": "arkret_wire::AppletId",
                 "attributes": []
               },
-              "expected_manager_revision": {
-                "name": "expected_manager_revision",
+              "expected_manager_commit_id": {
+                "name": "expected_manager_commit_id",
                 "visibility": "pub",
-                "type": "arkret_wire::CurrentRevision",
+                "type": "arkret_wire::RealmCommitId",
                 "attributes": []
               },
-              "expected_control_revision": {
-                "name": "expected_control_revision",
+              "expected_control_commit_id": {
+                "name": "expected_control_commit_id",
                 "visibility": "pub",
-                "type": "arkret_wire::CurrentRevision",
+                "type": "arkret_wire::RealmCommitId",
                 "attributes": []
               },
-              "expected_device_generation_revision": {
-                "name": "expected_device_generation_revision",
+              "expected_device_generation_commit_id": {
+                "name": "expected_device_generation_commit_id",
                 "visibility": "pub",
-                "type": "arkret_wire::CurrentRevision",
+                "type": "arkret_wire::RealmCommitId",
                 "attributes": []
               },
               "expected_generation": {
@@ -17021,28 +17322,28 @@
                 "type": "arkret_wire::CommittedEventRef",
                 "attributes": []
               },
-              "expected_control_revision": {
-                "name": "expected_control_revision",
+              "expected_control_commit_id": {
+                "name": "expected_control_commit_id",
                 "visibility": "pub",
-                "type": "arkret_wire::CurrentRevision",
+                "type": "arkret_wire::RealmCommitId",
                 "attributes": []
               },
-              "expected_owner_status_revision": {
-                "name": "expected_owner_status_revision",
+              "expected_owner_status_commit_id": {
+                "name": "expected_owner_status_commit_id",
                 "visibility": "pub",
-                "type": "arkret_wire::CurrentRevision",
+                "type": "arkret_wire::RealmCommitId",
                 "attributes": []
               },
-              "expected_governance_status_revision": {
-                "name": "expected_governance_status_revision",
+              "expected_governance_status_commit_id": {
+                "name": "expected_governance_status_commit_id",
                 "visibility": "pub",
-                "type": "arkret_wire::CurrentRevision",
+                "type": "arkret_wire::RealmCommitId",
                 "attributes": []
               },
-              "expected_device_generation_revision": {
-                "name": "expected_device_generation_revision",
+              "expected_device_generation_commit_id": {
+                "name": "expected_device_generation_commit_id",
                 "visibility": "pub",
-                "type": "arkret_wire::CurrentRevision",
+                "type": "arkret_wire::RealmCommitId",
                 "attributes": []
               },
               "expected_generation": {
@@ -17140,28 +17441,28 @@
                 "type": "arkret_wire::CommittedEventRef",
                 "attributes": []
               },
-              "expected_control_revision": {
-                "name": "expected_control_revision",
+              "expected_control_commit_id": {
+                "name": "expected_control_commit_id",
                 "visibility": "pub",
-                "type": "arkret_wire::CurrentRevision",
+                "type": "arkret_wire::RealmCommitId",
                 "attributes": []
               },
-              "expected_owner_status_revision": {
-                "name": "expected_owner_status_revision",
+              "expected_owner_status_commit_id": {
+                "name": "expected_owner_status_commit_id",
                 "visibility": "pub",
-                "type": "arkret_wire::CurrentRevision",
+                "type": "arkret_wire::RealmCommitId",
                 "attributes": []
               },
-              "expected_governance_status_revision": {
-                "name": "expected_governance_status_revision",
+              "expected_governance_status_commit_id": {
+                "name": "expected_governance_status_commit_id",
                 "visibility": "pub",
-                "type": "arkret_wire::CurrentRevision",
+                "type": "arkret_wire::RealmCommitId",
                 "attributes": []
               },
-              "expected_device_generation_revision": {
-                "name": "expected_device_generation_revision",
+              "expected_device_generation_commit_id": {
+                "name": "expected_device_generation_commit_id",
                 "visibility": "pub",
-                "type": "arkret_wire::CurrentRevision",
+                "type": "arkret_wire::RealmCommitId",
                 "attributes": []
               },
               "expected_generation": {
@@ -17272,28 +17573,28 @@
                 "type": "arkret_wire::CommittedEventRef",
                 "attributes": []
               },
-              "expected_recovery_revision": {
-                "name": "expected_recovery_revision",
+              "expected_recovery_commit_id": {
+                "name": "expected_recovery_commit_id",
                 "visibility": "pub",
-                "type": "arkret_wire::CurrentRevision",
+                "type": "arkret_wire::RealmCommitId",
                 "attributes": []
               },
-              "expected_manager_revision": {
-                "name": "expected_manager_revision",
+              "expected_manager_commit_id": {
+                "name": "expected_manager_commit_id",
                 "visibility": "pub",
-                "type": "arkret_wire::CurrentRevision",
+                "type": "arkret_wire::RealmCommitId",
                 "attributes": []
               },
-              "expected_control_revision": {
-                "name": "expected_control_revision",
+              "expected_control_commit_id": {
+                "name": "expected_control_commit_id",
                 "visibility": "pub",
-                "type": "arkret_wire::CurrentRevision",
+                "type": "arkret_wire::RealmCommitId",
                 "attributes": []
               },
-              "expected_device_generation_revision": {
-                "name": "expected_device_generation_revision",
+              "expected_device_generation_commit_id": {
+                "name": "expected_device_generation_commit_id",
                 "visibility": "pub",
-                "type": "arkret_wire::CurrentRevision",
+                "type": "arkret_wire::RealmCommitId",
                 "attributes": []
               },
               "published_method_history_evidence": {
@@ -17321,16 +17622,16 @@
                 "type": "arkret_wire::ActorId",
                 "attributes": []
               },
-              "expected_recovery_revision": {
-                "name": "expected_recovery_revision",
+              "expected_recovery_commit_id": {
+                "name": "expected_recovery_commit_id",
                 "visibility": "pub",
-                "type": "arkret_wire::CurrentRevision",
+                "type": "arkret_wire::RealmCommitId",
                 "attributes": []
               },
-              "expected_manager_revision": {
-                "name": "expected_manager_revision",
+              "expected_manager_commit_id": {
+                "name": "expected_manager_commit_id",
                 "visibility": "pub",
-                "type": "arkret_wire::CurrentRevision",
+                "type": "arkret_wire::RealmCommitId",
                 "attributes": []
               },
               "enabled": {
@@ -18841,12 +19142,6 @@
                 "type": "arkret_wire::Base64UrlString",
                 "attributes": []
               },
-              "nonce": {
-                "name": "nonce",
-                "visibility": "pub",
-                "type": "arkret_wire::Base64UrlString",
-                "attributes": []
-              },
               "operation": {
                 "name": "operation",
                 "visibility": "pub",
@@ -19457,12 +19752,6 @@
                 "type": "arkret_wire::Base64UrlString",
                 "attributes": []
               },
-              "nonce": {
-                "name": "nonce",
-                "visibility": "pub",
-                "type": "arkret_wire::Base64UrlString",
-                "attributes": []
-              },
               "realm_actor_id": {
                 "name": "realm_actor_id",
                 "visibility": "pub",
@@ -19611,12 +19900,6 @@
               },
               "challenge_id": {
                 "name": "challenge_id",
-                "visibility": "pub",
-                "type": "arkret_wire::Base64UrlString",
-                "attributes": []
-              },
-              "nonce": {
-                "name": "nonce",
                 "visibility": "pub",
                 "type": "arkret_wire::Base64UrlString",
                 "attributes": []
@@ -20639,6 +20922,270 @@
               }
             }
           }
+        }
+      ]
+    },
+    {
+      "output": "crates/models-crypto/src/generated/security_transaction_contracts.rs",
+      "inline": true,
+      "types": [
+        {
+          "name": "RecoveryUnit",
+          "schema": "recovery-receipt.schema.json#/properties/recovery_unit",
+          "rust": {
+            "signature": "pub struct RecoveryUnit",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "predecessor_ref": {
+                "name": "predecessor_ref",
+                "visibility": "pub",
+                "type": "RealmCommitId",
+                "attributes": []
+              },
+              "events": {
+                "name": "events",
+                "visibility": "pub",
+                "type": "[arkret_wire::EventAdmissionSubmission; 2]",
+                "attributes": [
+                  "#[cfg_attr(feature = \"openapi\", salvo(schema(value_type = [serde_json::Value; 2])))]"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "name": "RecoveryTransactionCreateRequestBody",
+          "schema": "security-transaction.schema.json#/$defs/recovery_create_request_body",
+          "rust": {
+            "signature": "pub struct RecoveryTransactionCreateRequestBody",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "kind": {
+                "name": "kind",
+                "visibility": "pub",
+                "type": "SecurityTransactionKind",
+                "attributes": []
+              },
+              "recovery_receipt": {
+                "name": "recovery_receipt",
+                "visibility": "pub",
+                "type": "RecoveryReceipt",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "RecoveryTransactionCompletion",
+          "schema": "security-transaction.schema.json#/$defs/recovery_transaction_completion",
+          "rust": {
+            "signature": "pub struct RecoveryTransactionCompletion",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "transaction_id": {
+                "name": "transaction_id",
+                "visibility": "pub",
+                "type": "TransactionId",
+                "attributes": []
+              },
+              "kind": {
+                "name": "kind",
+                "visibility": "pub",
+                "type": "SecurityTransactionKind",
+                "attributes": []
+              },
+              "account_id": {
+                "name": "account_id",
+                "visibility": "pub",
+                "type": "AccountId",
+                "attributes": []
+              },
+              "created_at": {
+                "name": "created_at",
+                "visibility": "pub",
+                "type": "DateTime<Utc>",
+                "attributes": [
+                  "#[serde(with = \"arkret_canonical::serde_helpers::canonical_timestamp\")]"
+                ]
+              },
+              "recovery_receipt": {
+                "name": "recovery_receipt",
+                "visibility": "pub",
+                "type": "RecoveryReceipt",
+                "attributes": []
+              },
+              "completion_attestation": {
+                "name": "completion_attestation",
+                "visibility": "pub",
+                "type": "RecoveryCompletionAttestation",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "SecurityTransaction",
+          "schema": "security-transaction.schema.json",
+          "reference_variants": {
+            "Recovery": "RecoveryTransactionCompletion",
+            "SecurityRotation": "SecurityRotationTransaction"
+          },
+          "eq": false,
+          "expect_large_enum_variant": true
+        },
+        {
+          "name": "SecurityTransactionCreateRequestBody",
+          "schema": "security-transaction.schema.json#/$defs/security_transaction_create_request_body",
+          "reference_variants": {
+            "Recovery": "RecoveryTransactionCreateRequestBody",
+            "SecurityRotation": "SecurityRotationTransactionCreateRequestBody"
+          },
+          "eq": false,
+          "expect_large_enum_variant": true
+        }
+      ]
+    },
+    {
+      "output": "crates/models-identity/src/generated/recovery_completion_contracts.rs",
+      "inline": true,
+      "types": [
+        {
+          "name": "RecoveryCompletionGrantRequestBody",
+          "schema": "recovery-authority.schema.json#/$defs/recovery_completion_grant_request_body",
+          "rust": {
+            "signature": "pub struct RecoveryCompletionGrantRequestBody",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "terminal_receipt": {
+                "name": "terminal_receipt",
+                "visibility": "pub",
+                "type": "RecoveryReceipt",
+                "attributes": []
+              },
+              "initial_session": {
+                "name": "initial_session",
+                "visibility": "pub",
+                "type": "InitialSessionGrantIntent",
+                "attributes": []
+              },
+              "accepted_device_possession_proof": {
+                "name": "accepted_device_possession_proof",
+                "visibility": "pub",
+                "type": "arkret_wire::AcceptedDeviceIssuePossessionProof",
+                "attributes": []
+              },
+              "canonical_request_digest": {
+                "name": "canonical_request_digest",
+                "visibility": "pub",
+                "type": "Hash",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "IssueRecoveryCompletionGrantResponseBody",
+          "schema": "recovery-authority.schema.json#/$defs/issue_recovery_completion_grant_response_body",
+          "rust": {
+            "signature": "pub struct IssueRecoveryCompletionGrantResponseBody",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "transaction_id": {
+                "name": "transaction_id",
+                "visibility": "pub",
+                "type": "arkret_wire::TransactionId",
+                "attributes": []
+              },
+              "issued_session": {
+                "name": "issued_session",
+                "visibility": "pub",
+                "type": "crate::session_credential::SessionGrantResponseBody",
+                "attributes": []
+              },
+              "issued_at": {
+                "name": "issued_at",
+                "visibility": "pub",
+                "type": "DateTime<Utc>",
+                "attributes": [
+                  "#[serde(with = \"arkret_canonical::serde_helpers::canonical_timestamp\")]"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "output": "crates/models-identity/src/generated/agent_participation_contracts.rs",
+      "inline": true,
+      "types": [
+        {
+          "name": "ParticipationBits",
+          "schema": "principal-operations.schema.json#/$defs/participation_bits",
+          "rust": {
+            "signature": "pub struct ParticipationBits",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "message_creation_allowed": {
+                "name": "message_creation_allowed",
+                "visibility": "pub",
+                "type": "bool",
+                "attributes": []
+              },
+              "reaction_addition_allowed": {
+                "name": "reaction_addition_allowed",
+                "visibility": "pub",
+                "type": "bool",
+                "attributes": []
+              },
+              "reaction_removal_allowed": {
+                "name": "reaction_removal_allowed",
+                "visibility": "pub",
+                "type": "bool",
+                "attributes": []
+              },
+              "third_party_mention_delivery_allowed": {
+                "name": "third_party_mention_delivery_allowed",
+                "visibility": "pub",
+                "type": "bool",
+                "attributes": []
+              },
+              "acting_on_behalf_allowed": {
+                "name": "acting_on_behalf_allowed",
+                "visibility": "pub",
+                "type": "bool",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "ParticipationScope",
+          "schema": "principal-operations.schema.json#/$defs/participation_scope"
         }
       ]
     }
@@ -21922,18 +22469,6 @@
       "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
     },
     {
-      "rust_type": "crates/models-collaboration/src/governance/agent_participation.rs::ParticipationBits",
-      "schema": "principal-operations.schema.json#/$defs/participation_bits",
-      "category": "domain_semantics",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/agent_participation.rs::AgentParticipationView",
-      "schema": "agent-operations.schema.json#/$defs/agent_participation_view",
-      "category": "domain_semantics",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
-    },
-    {
       "rust_type": "crates/models-collaboration/src/governance/authorization.rs::AuthorizationCheckRequestBody",
       "schema": "service-operation-dtos.schema.json#/$defs/AuthorizationCheckRequestBody",
       "category": "domain_semantics",
@@ -22579,12 +23114,6 @@
       "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
     },
     {
-      "rust_type": "crates/models-collaboration/src/session_grants.rs::SessionGrantResponseBody",
-      "schema": "service-operation-dtos.schema.json#/$defs/SessionGrantResponseBody",
-      "category": "domain_semantics",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
-    },
-    {
       "rust_type": "crates/models-collaboration/src/session_grants.rs::SessionGrantDpopBindingProof",
       "schema": "service-operation-dtos.schema.json#/$defs/SessionGrantDpopBindingProof",
       "category": "domain_semantics",
@@ -22910,30 +23439,6 @@
       "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
     },
     {
-      "rust_type": "crates/models-crypto/src/security_transaction.rs::RecoveryCommitIntent",
-      "schema": "security-transaction.schema.json#/$defs/recovery_commit_intent",
-      "category": "domain_semantics",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
-    },
-    {
-      "rust_type": "crates/models-crypto/src/security_transaction.rs::PcrPolicyRecoveryIntent",
-      "schema": "security-transaction.schema.json#/$defs/pcr_policy_recovery_intent",
-      "category": "domain_semantics",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
-    },
-    {
-      "rust_type": "crates/models-crypto/src/security_transaction.rs::PcrPolicyRecoveryBinding",
-      "schema": "security-transaction.schema.json#/$defs/pcr_policy_recovery_binding",
-      "category": "domain_semantics",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
-    },
-    {
-      "rust_type": "crates/models-crypto/src/security_transaction.rs::PcrPolicyRecoveryPlan",
-      "schema": "security-transaction.schema.json#/$defs/pcr_policy_recovery_plan",
-      "category": "domain_semantics",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
-    },
-    {
       "rust_type": "crates/models-crypto/src/security_transaction.rs::BackupObjectRef",
       "schema": "security-transaction.schema.json#/$defs/backup_object_ref",
       "category": "domain_semantics",
@@ -22964,20 +23469,8 @@
       "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
     },
     {
-      "rust_type": "crates/models-crypto/src/security_transaction.rs::SecurityTransaction",
-      "schema": "security-transaction.schema.json",
-      "category": "domain_semantics",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
-    },
-    {
       "rust_type": "crates/models-crypto/src/security_transaction.rs::SecurityRotationLocalCommit",
       "schema": "security-transaction.schema.json#/$defs/security_rotation_local_commit",
-      "category": "domain_semantics",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
-    },
-    {
-      "rust_type": "crates/models-crypto/src/security_transaction.rs::RecoveryTerminalCommit",
-      "schema": "security-transaction.schema.json#/$defs/recovery_terminal_commit",
       "category": "domain_semantics",
       "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
     },
@@ -22996,8 +23489,7 @@
     {
       "rust_type": "crates/models-crypto/src/security_transaction.rs::RecoveryReceipt",
       "schema": "recovery-receipt.schema.json",
-      "comparison": "rust_fields_subset",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs.",
+      "reason": "The sole signed RecoveryReceipt owns exact closed fields and its complete signature projection. No serde(flatten), extension slot, subset comparison or outer terminal-wrapper signature is retained; all source binding and native Event/receipt validation methods remain handwritten.",
       "category": "domain_semantics"
     },
     {
@@ -23505,12 +23997,6 @@
       "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
     },
     {
-      "rust_type": "crates/models-identity/src/session_credential.rs::SignedSessionGrantClaims",
-      "schema": "service-operation-dtos.schema.json#/$defs/SignedSessionGrantClaims",
-      "category": "domain_semantics",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
-    },
-    {
       "rust_type": "crates/models-identity/src/signer_key_operations.rs::CurrentDeviceSigningKey",
       "schema": "signer-key-operations.schema.json#/$defs/current_device_signing_key",
       "category": "domain_semantics",
@@ -23998,18 +24484,6 @@
       "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
     },
     {
-      "rust_type": "crates/wire/src/recovery_authority.rs::RecoveryCompletionGrantRequestBody",
-      "schema": "recovery-authority.schema.json#/$defs/recovery_completion_grant_request_body",
-      "category": "domain_semantics",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
-    },
-    {
-      "rust_type": "crates/wire/src/recovery_authority.rs::IssueRecoveryCompletionGrantResponseBody",
-      "schema": "recovery-authority.schema.json#/$defs/issue_recovery_completion_grant_response_body",
-      "category": "domain_semantics",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
-    },
-    {
       "rust_type": "crates/wire/src/relation.rs::Relation",
       "schema": "relation.schema.json",
       "category": "domain_semantics",
@@ -24487,6 +24961,36 @@
       "schema": "keys-operations.schema.json#/$defs/keys_backups_unlock_request_body",
       "category": "domain_semantics",
       "reason": "The operation body owns all three independently validated closed authority proof branches; legacy Account APIs retain their genuine original shape and methods without aliases or raw JSON dispatch."
+    },
+    {
+      "rust_type": "crates/models-crypto/src/security_transaction.rs::SecurityRotationTransaction",
+      "schema": "security-transaction.schema.json#/$defs/security_rotation_transaction",
+      "category": "domain_semantics",
+      "reason": "Rotation keeps the original durable prepared plan, accepted-prefix, revoke outcome, worker progression and client local_commit validators. Only the former shared resource struct is renamed to its actual Rotation branch owner; no gate is retired."
+    },
+    {
+      "rust_type": "crates/models-identity/src/session_credential.rs::SessionGrantMetadata",
+      "schema": "service-operation-dtos.schema.json#/$defs/SessionGrantMetadata",
+      "category": "domain_semantics",
+      "reason": "The sole immutable non-secret metadata type keeps handwritten holder/class XOR, public-JWK canonical bytes and JKT binding, time/scope and issuer-scoped record validation; opaque shape alone never creates an authenticated issuer result. No JWT/preimage fallback is retained."
+    },
+    {
+      "rust_type": "crates/identifiers/src/lib.rs::SessionGrantRef",
+      "schema": "common-ids.schema.json#/$defs/session_grant_ref",
+      "category": "domain_semantics",
+      "reason": "The complete issuer/id reference is a closed typed identity with an issuer-allocated UUIDv7 record ID. It never carries a secret, authenticates a holder or grants bearer authority."
+    },
+    {
+      "rust_type": "crates/models-identity/src/agent_participation.rs::AgentParticipationView",
+      "schema": "agent-operations.schema.json#/$defs/agent_participation_view",
+      "category": "domain_semantics",
+      "reason": "This sole controller-owned leaf retains custom non-null deserialization, signed-64 version bounds and exact next_replace_input echo/exhaustion validation after its identity-owner move; governance ceilings and current authorization stay with the enforcing collaboration consumer."
+    },
+    {
+      "rust_type": "crates/models-identity/src/agent_participation.rs::ParticipationNextReplaceInput",
+      "schema": "agent-operations.schema.json#/$defs/agent_participation_view/properties/next_replace_input",
+      "category": "domain_semantics",
+      "reason": "The sole identity-owned replace echo retains its custom canonical decimal serialization and maximum signed-64-minus-one bound. It is not regenerated with a weaker generic integer adapter."
     }
   ],
   "retained_exemptions": [

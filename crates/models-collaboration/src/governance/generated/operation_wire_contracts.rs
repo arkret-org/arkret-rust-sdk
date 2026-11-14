@@ -5,16 +5,13 @@
 // sha256=c62cd7a01272cd4527562d61558b1dc8432ceeaada49397498199e87d4e93269
 //
 // Input: schemas/common-ids.schema.json
-// sha256=0cc25a02fe0d9a94f6e41f2cf8f64e492ba36362f1e69a699cf1e684924837ee
+// sha256=81b18acd21f4382860d5cab2384d9bb78ee5dbc23629752a6cc74ce384186149
 //
 // Input: schemas/event-payload.schema.json
-// sha256=e57f2773764165f5a2e6047ae5491cdf152476deb73c83b2f6c14fff58925305
-//
-// Input: schemas/current-state.schema.json
-// sha256=b9b2fcecf87470a1def1e55bf536bdb637b04f0e6f42083d5ed9962a80b14c61
+// sha256=110f3442df382c602cece0f2f5e0b4f2af3a0374f493911960b3cf6216f99a95
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=113d054c1defb3940cb07e0f04bb10848b9d375692c24056c947cb624743840a
+// sha256=dc73c01cf2bfb7cc6d4969c8f2f7faa6e44275c4a585ad81f3c94ac408daab8c
 
 /// Counterpart: `policy.schema.json#/$defs/policy_rule/properties/resources/items`.
 /// Resource selector from `policy.schema.json#/$defs/policy_rule/properties/resources/items`.
@@ -161,7 +158,7 @@ pub struct PolicyServerSelector {
 /// repeated `ak.policy.set` Events under the same `policy_id` converge on one
 /// document rather than accumulating versions. There is no cell head, basis or
 /// version member on the wire. Agent and Applet governance policies carry a required
-/// nullable `expected_revision` precondition; other policy families omit it.
+/// nullable `expected_commit_id` precondition; other policy families omit it.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PolicySetStatePayload {
@@ -171,6 +168,6 @@ pub struct PolicySetStatePayload {
         skip_serializing_if = "Option::is_none",
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
-    pub expected_revision: Option<Option<CurrentRevision>>,
+    pub expected_commit_id: Option<Option<RealmCommitId>>,
     pub value: PolicySetValue,
 }

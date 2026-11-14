@@ -203,7 +203,7 @@ impl ConsentCurrentReadResponseBody {
         match &self.current {
             ConsentCurrentReadState::Present { current_state } => {
                 crate::events_payloads::consent::ConsentExpectedCurrent::Present {
-                    revision: current_state.revision.clone(),
+                    commit_id: current_state.revision.commit_id.clone(),
                 }
             }
             ConsentCurrentReadState::NeverWritten => {

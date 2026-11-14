@@ -81,13 +81,19 @@ fn rejects_header_unsafe_auth_material() {
 
 #[test]
 fn dpop_auth_adds_dpop_token_and_per_request_proof() {
+    let secret = arkret_wire::SessionGrantSecret::from_bytes([42; 32]);
+    let expected_secret = secret.as_str().to_owned();
+    let callback_secret = expected_secret.clone();
     let client = Client::builder(Url::parse("https://alice.example/arkret/").unwrap())
-        .auth(Auth::Dpop(DpopAuth::with_dpop_token("grant.jwt", |req| {
-            assert_eq!(req.method, "POST");
-            assert_eq!(req.htu, "https://alice.example/arkret/_arkret/self/events");
-            assert_eq!(req.access_token.as_deref(), Some("grant.jwt"));
-            Ok("proof.jwt".to_owned())
-        })))
+        .auth(Auth::Dpop(DpopAuth::with_dpop_token(
+            secret.into_string(),
+            move |req| {
+                assert_eq!(req.method, "POST");
+                assert_eq!(req.htu, "https://alice.example/arkret/_arkret/self/events");
+                assert_eq!(req.access_token.as_deref(), Some(callback_secret.as_str()));
+                Ok("proof.jwt".to_owned())
+            },
+        )))
         .build()
         .unwrap();
     let request = client
@@ -96,7 +102,12 @@ fn dpop_auth_adds_dpop_token_and_per_request_proof() {
         .build()
         .unwrap();
 
-    assert_eq!(request.headers()["authorization"], "DPoP grant.jwt");
+    assert_eq!(
+        request.headers()["authorization"].to_str().unwrap(),
+        format!("DPoP {expected_secret}")
+    );
+    assert!(request.headers()["authorization"].is_sensitive());
+    assert!(!format!("{:?}", request.headers()).contains(&expected_secret));
     assert_eq!(request.headers()["dpop"], "proof.jwt");
 }
 

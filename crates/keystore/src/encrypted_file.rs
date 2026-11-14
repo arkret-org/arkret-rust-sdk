@@ -290,6 +290,25 @@ impl KeyStore for EncryptedFileKeyStore {
         })
     }
 
+    fn compare_exchange(
+        &self,
+        id: &str,
+        expected: Option<&[u8]>,
+        replacement: &[u8],
+    ) -> Result<bool> {
+        validate_entry(id, replacement)?;
+        self.with_exclusive_lock(|| {
+            let mut entries = self.read_entries()?;
+            let entry = (self.namespace.clone(), id.to_owned());
+            if entries.get(&entry).map(KeyBytes::as_slice) != expected {
+                return Ok(false);
+            }
+            entries.insert(entry, KeyBytes::new(replacement.to_vec()));
+            self.write_entries(&entries)?;
+            Ok(true)
+        })
+    }
+
     fn list(&self) -> Result<Vec<String>> {
         self.with_shared_lock(|| {
             Ok(self
@@ -595,6 +614,44 @@ mod tests {
         fn drop(&mut self) {
             let _ = fs::remove_dir_all(&self.0);
         }
+    }
+
+    #[test]
+    fn compare_exchange_rejects_stale_namespace_and_corruption_without_writing() {
+        let directory = TestDirectory::new("exact-cas");
+        let path = directory.file();
+        let first = EncryptedFileKeyStore::new(&path, "one", [7; 32]).unwrap();
+        let other = EncryptedFileKeyStore::new(&path, "two", [7; 32]).unwrap();
+        assert!(
+            first
+                .compare_exchange("key", None, b"{malformed public JSON")
+                .unwrap()
+        );
+        let before = fs::read(&path).unwrap();
+        assert!(
+            !first
+                .compare_exchange("key", Some(b"different"), b"erase")
+                .unwrap()
+        );
+        assert_eq!(fs::read(&path).unwrap(), before);
+        assert!(
+            other
+                .compare_exchange("key", None, b"other namespace")
+                .unwrap()
+        );
+        assert_eq!(
+            first.load("key").unwrap().as_slice(),
+            b"{malformed public JSON"
+        );
+        let before = fs::read(&path).unwrap();
+        let wrong = EncryptedFileKeyStore::new(&path, "one", [8; 32]).unwrap();
+        assert!(wrong.compare_exchange("key", None, b"overwrite").is_err());
+        assert_eq!(fs::read(&path).unwrap(), before);
+        let mut corrupt = before;
+        *corrupt.last_mut().unwrap() ^= 1;
+        fs::write(&path, &corrupt).unwrap();
+        assert!(first.compare_exchange("key", None, b"overwrite").is_err());
+        assert_eq!(fs::read(&path).unwrap(), corrupt);
     }
 
     #[test]

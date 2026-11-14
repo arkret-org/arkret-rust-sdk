@@ -115,6 +115,14 @@ impl KeyStore for WindowsProtectedKeyStore {
     fn create_if_absent(&self, id: &str, key: &[u8]) -> Result<KeyBytes> {
         self.vault.create_if_absent(id, key)
     }
+    fn compare_exchange(
+        &self,
+        id: &str,
+        expected: Option<&[u8]>,
+        replacement: &[u8],
+    ) -> Result<bool> {
+        self.vault.compare_exchange(id, expected, replacement)
+    }
     fn list(&self) -> Result<Vec<String>> {
         self.vault.list()
     }

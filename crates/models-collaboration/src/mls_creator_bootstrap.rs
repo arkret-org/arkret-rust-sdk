@@ -291,7 +291,7 @@ pub struct MlsCreatorBootstrapOwnStationCut {
     snapshot: arkret_wire::RealmStateSnapshot,
     realm_genesis: crate::events_payloads::RealmGenesis,
     account_id: arkret_wire::AccountId,
-    session_grant_id: arkret_wire::SessionGrantId,
+    session_grant_ref: arkret_wire::SessionGrantRef,
     session_epoch: u64,
     request_sequence: u64,
 }
@@ -300,7 +300,7 @@ impl PartialEq for MlsCreatorBootstrapOwnStationCut {
     fn eq(&self, other: &Self) -> bool {
         self.snapshot == other.snapshot
             && self.account_id == other.account_id
-            && self.session_grant_id == other.session_grant_id
+            && self.session_grant_ref == other.session_grant_ref
             && self.session_epoch == other.session_epoch
             && self.request_sequence == other.request_sequence
             && match (
@@ -411,7 +411,7 @@ impl MlsCreatorBootstrapAuthority {
         snapshot: arkret_wire::RealmStateSnapshot,
         realm_genesis: crate::events_payloads::RealmGenesis,
         account_id: arkret_wire::AccountId,
-        session_grant_id: arkret_wire::SessionGrantId,
+        session_grant_ref: arkret_wire::SessionGrantRef,
         session_epoch: u64,
         request_sequence: u64,
     ) -> Result<Self> {
@@ -419,7 +419,7 @@ impl MlsCreatorBootstrapAuthority {
             snapshot,
             realm_genesis,
             account_id,
-            session_grant_id,
+            session_grant_ref,
             session_epoch,
             request_sequence,
         });
@@ -571,7 +571,7 @@ impl MlsCreatorBootstrapAuthority {
             }
             (Self::OwnStation(a), Self::OwnStation(b)) => {
                 a.account_id == b.account_id
-                    && a.session_grant_id == b.session_grant_id
+                    && a.session_grant_ref == b.session_grant_ref
                     && a.session_epoch == b.session_epoch
                     && a.request_sequence == b.request_sequence
             }

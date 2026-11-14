@@ -2321,16 +2321,12 @@ impl RealmRecoveryServiceHistoricalSignerFact {
                 }
             }
             EventKind::RealmActorControlReset => {
-                let revision = |r: &arkret_wire::CommittedEventRef| arkret_wire::CurrentRevision {
-                    commit_id: r.commit_id.clone(),
-                    stream_position: r.stream_position,
-                };
                 if event.payload.get("recovery_begin_ref")
                     != Some(&serde_json::to_value(&self.recovery_ref)?)
-                    || event.payload.get("expected_recovery_revision")
-                        != Some(&serde_json::to_value(revision(&self.recovery_ref))?)
-                    || event.payload.get("expected_manager_revision")
-                        != Some(&serde_json::to_value(revision(&self.manager_ref))?)
+                    || event.payload.get("expected_recovery_commit_id")
+                        != Some(&serde_json::to_value(&self.recovery_ref.commit_id)?)
+                    || event.payload.get("expected_manager_commit_id")
+                        != Some(&serde_json::to_value(&self.manager_ref.commit_id)?)
                 {
                     return Err(invalid());
                 }

@@ -1001,10 +1001,21 @@ mod tests {
             .collect::<Vec<_>>();
         let contract_value = &profiles["sdk_conformance_contract"];
         let contract = SdkConformanceContract::from_value(contract_value, active).unwrap();
-        assert_eq!(
-            contract.digest(),
-            "sha256:929511858ad5ca062368af34150eaa832b270496d1a036bcf4234755103820b4"
-        );
+        let claims: Value = serde_json::from_slice(
+            &std::fs::read(artifacts.join("fixtures/sdk-conformance-claim-fixture.json")).unwrap(),
+        )
+        .unwrap();
+        let bound_claim: SdkConformanceClaim = serde_json::from_value(
+            claims["schema_validation_cases"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|case| case["name"] == "valid_signed_artifact_bound_claim")
+                .unwrap()["instance"]
+                .clone(),
+        )
+        .unwrap();
+        assert_eq!(contract.digest(), bound_claim.contract_digest);
 
         let evidence = contract
             .vector_result_evidence(

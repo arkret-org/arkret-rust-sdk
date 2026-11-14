@@ -4,7 +4,7 @@ use chrono::{DateTime, TimeDelta, Utc};
 use serde_json::{Value, json};
 
 fn timestamp(at: DateTime<Utc>) -> String {
-    at.to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
+    arkret_canonical::format_timestamp_canonical(at)
 }
 
 fn fixture() -> (KeyBackup, RecoveryPolicy, DateTime<Utc>) {

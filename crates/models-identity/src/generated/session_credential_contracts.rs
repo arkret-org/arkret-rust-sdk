@@ -2,10 +2,16 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/service-operation-dtos.schema.json
-// sha256=8a166319961d452f87d8becf5db9e089008f477e28de749aedc0696a44f9ec7e
+// sha256=ea8656aa662fbc6c156db58266ed98a416d60254ecf5c9b166da2cdd0a3b976a
+//
+// Input: schemas/grant-constraint.schema.json
+// sha256=ebe4131f02bed74e67ff49eb57d7601531544a1946b2531190bc8b861cde02a3
+//
+// Input: schemas/common-ids.schema.json
+// sha256=81b18acd21f4382860d5cab2384d9bb78ee5dbc23629752a6cc74ce384186149
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=113d054c1defb3940cb07e0f04bb10848b9d375692c24056c947cb624743840a
+// sha256=dc73c01cf2bfb7cc6d4969c8f2f7faa6e44275c4a585ad81f3c94ac408daab8c
 
 /// Counterpart: `service-operation-dtos.schema.json#/$defs/SessionGrantDeviceBinding`.
 /// Authorization state committed into a standard human-device grant.
@@ -23,4 +29,67 @@ pub struct SessionGrantDeviceBinding {
     pub device_id: DeviceId,
     pub authorization_event_id: EventId,
     pub model_generation_ref: u64,
+}
+
+/// Counterpart: `service-operation-dtos.schema.json#/$defs/SessionGrantScope/properties/resources`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SessionGrantScopeResources {
+    pub realm_ids: Vec<arkret_wire::RealmId>,
+    pub strand_ids: Vec<arkret_wire::StrandId>,
+}
+
+/// Counterpart:
+/// `service-operation-dtos.schema.json#/$defs/SessionGrantScope/properties/constraints`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SessionGrantScopeConstraints {
+    pub allowed_tracks: Vec<String>,
+    pub allowed_data_labels: Vec<String>,
+    pub allowed_endpoints: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
+    pub allowed_strand_ids: Option<Vec<arkret_wire::StrandId>>,
+}
+
+/// Counterpart: `service-operation-dtos.schema.json#/$defs/SessionGrantScope`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SessionGrantScope {
+    pub controller_principal_id: DidCoreId,
+    pub agent_key_authorization_ref: EventId,
+    pub realm_ids: Vec<arkret_wire::RealmId>,
+    pub strand_ids: Vec<arkret_wire::StrandId>,
+    pub resources: SessionGrantScopeResources,
+    pub constraints: SessionGrantScopeConstraints,
+    pub capability_grant_refs: Vec<String>,
+    pub policy_refs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
+    pub participations: Option<Vec<crate::agent_participation::AgentParticipationView>>,
+}
+
+/// Counterpart: `service-operation-dtos.schema.json#/$defs/SessionGrantResponseBody`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SessionGrantResponseBody {
+    pub account_id: AccountId,
+    pub issuer_id: DidCoreId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
+    pub device_id: Option<DeviceId>,
+    pub session_grant: arkret_wire::SessionGrantSecret,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub expires_at: DateTime<Utc>,
+    pub session_grant_id: SessionGrantId,
+    pub session_public_key: CanonicalSessionPublicJwk,
+    pub audience_id: DidCoreId,
+    pub granted_scope: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
+    pub previous_session_grant_id: Option<SessionGrantId>,
 }

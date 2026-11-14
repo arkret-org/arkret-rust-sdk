@@ -85,8 +85,8 @@ pub struct Grant {
     /// Absolute distance from a committed authority decision.
     pub authority_depth: u64,
     /// Committed authority decisions reached by this grant.
-    pub authority_root_refs:
-        Vec<arkret_models_collaboration::governance::grant_constraint::AuthorityRootRef>,
+    pub authority_root_ref:
+        arkret_models_collaboration::governance::grant_constraint::AuthorityRootRef,
 }
 
 /// A constraint entry attached to a [`Grant`].
@@ -388,7 +388,8 @@ pub fn validate_applet_authority_binding(
 ///
 /// Multiple refs only ever *add* constraints: the grant holds iff **every**
 /// path is intact. An alternate live path MUST NOT launder a revoked one.
-/// Cycles are defended by a visit budget.
+/// Accepted depth strictly decreases along every parent edge. The caller
+/// retains its independent current-root and business-constraint gates.
 ///
 /// `grants` is treated as a flat slice; lookup is O(N) per hop. For a hot
 /// path with many grants, the caller may prefer to build a `BTreeMap` once
@@ -414,15 +415,16 @@ where
         if !visited.insert(current) {
             continue;
         }
-        if visited.len() > 64 {
-            return false;
-        }
         // A ref that names no known grant is a broken chain, not a root: only
         // an absent grant edge can be missing, and a root is not an edge.
         let Some(grant) = snapshot.get(current).map(|g| g.borrow()) else {
             return false;
         };
-        if grant.revoked || is_grant_expired(grant, now) {
+        if grant.revoked
+            || is_grant_expired(grant, now)
+            || !(1..=4).contains(&grant.authority_depth)
+            || grant.issuer_authority_refs.is_empty()
+        {
             return false;
         }
         // A grant-only snapshot cannot prove current controller membership,
@@ -435,18 +437,34 @@ where
         {
             return false;
         }
-        for parent in grant
-            .issuer_authority_refs
-            .iter()
-            .filter_map(IssuerAuthorityRef::grant_id)
-        {
+        let mut deepest = 0;
+        for reference in &grant.issuer_authority_refs {
+            let Some(parent) = reference.grant_id() else {
+                if !matches!((reference, &grant.authority_root_ref),
+                    (IssuerAuthorityRef::RealmRoot { realm_id, authority_event_ref, authority_generation },
+                     arkret_models_collaboration::governance::grant_constraint::AuthorityRootRef::RealmRoot {
+                        realm_id: root_realm, authority_event_ref: root_event, authority_generation: root_generation })
+                     if realm_id == root_realm && authority_event_ref == root_event && authority_generation == root_generation)
+                {
+                    return false;
+                }
+                continue;
+            };
             let Some(parent_grant) = snapshot.get(parent).map(|value| value.borrow()) else {
                 return false;
             };
-            if parent_grant.subject_id != grant.issuer_id {
+            if parent_grant.subject_id != grant.issuer_id
+                || parent_grant.realm_id != grant.realm_id
+                || parent_grant.authority_root_ref != grant.authority_root_ref
+                || parent_grant.authority_depth >= grant.authority_depth
+            {
                 return false;
             }
+            deepest = deepest.max(parent_grant.authority_depth);
             pending.push(parent);
+        }
+        if deepest.checked_add(1) != Some(grant.authority_depth) {
+            return false;
         }
     }
     true
@@ -525,8 +543,7 @@ mod tests {
                 authority_generation: 0,
             }],
             authority_depth: 1,
-            authority_root_refs: vec![
-                arkret_models_collaboration::governance::grant_constraint::AuthorityRootRef::RealmRoot {
+            authority_root_ref: arkret_models_collaboration::governance::grant_constraint::AuthorityRootRef::RealmRoot {
                     realm_id,
                     authority_event_ref: EventId::from_digest(
                         arkret_canonical::DigestSuite::Sha256,
@@ -534,7 +551,6 @@ mod tests {
                     ),
                     authority_generation: 0,
                 },
-            ],
         }
     }
 
@@ -570,8 +586,7 @@ mod tests {
                 grant_id: test_grant_id(parent),
             }],
             authority_depth: 2,
-            authority_root_refs: vec![
-                arkret_models_collaboration::governance::grant_constraint::AuthorityRootRef::RealmRoot {
+            authority_root_ref: arkret_models_collaboration::governance::grant_constraint::AuthorityRootRef::RealmRoot {
                     realm_id: RealmId::from_event_id(&EventId::from_digest(
                         arkret_canonical::DigestSuite::Sha256,
                         [1; 32],
@@ -582,7 +597,6 @@ mod tests {
                     ),
                     authority_generation: 0,
                 },
-            ],
         }
     }
 
@@ -709,7 +723,7 @@ mod tests {
             "ak:realm:1",
             None,
         );
-        let leaf = child_grant(
+        let mut leaf = child_grant(
             "g3",
             "g2",
             "ak:did_core:webvh:z6mkfixturecarol",
@@ -718,6 +732,7 @@ mod tests {
             "ak:realm:1",
             None,
         );
+        leaf.authority_depth = 3;
         // Pre-condition: all three chain-intact.
         let intact = vec![root.clone(), middle.clone(), leaf.clone()];
         assert!(authority_chain_intact(
@@ -1127,7 +1142,11 @@ mod managed_service_child_tests {
             created_at: Utc::now(),
             issuer_authority_refs: vec![],
             authority_depth: 1,
-            authority_root_refs: vec![],
+            authority_root_ref: arkret_models_collaboration::governance::grant_constraint::AuthorityRootRef::RealmRoot {
+                realm_id: "ak:realm:AUGIFvQctz4TjQTmvvO4Wdy-xdc5XP2ZnJ5Qpbh4s8Ru".parse().unwrap(),
+                authority_event_ref: arkret_wire::EventId::from_digest(arkret_canonical::DigestSuite::Sha256,[2;32]),
+                authority_generation: 0,
+            },
         };
         let mut child = parent.clone();
         child.grant_id = test_grant_id("child").to_string();

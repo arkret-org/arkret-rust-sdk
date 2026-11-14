@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/error-code-registry.json;
-//! sha256=d8b59ba963a979c5f74d2a6fe1a57ed4a15415b4389ad1b0c4fa8a535e0c70e5
+//! sha256=04aef63465e22b101b9c571cd81f048a9d933b605982b7e0938241ff3513d51c
 //! Entries: error_codes=157, reserved_not_emitted=92
 
 use serde::{Deserialize, Serialize};
@@ -2038,7 +2038,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "A high-risk self-service action (for example ak.gate.account.command.request_erasure.v1) requires fresh high-risk action authentication â€” recent login, WebAuthn, recovery key or a deployment equivalent â€” and the presented session does not satisfy the deployment policy. The caller MUST re-authenticate and retry with new request material; the strength of the required proof is deployment governance. See zh/identity/account-lifecycle.md section 8.1 and section 10.",
+        description: "A high-risk self-service action (for example ak.gate.account.command.request_erasure.v1) requires fresh high-risk action authentication â€” recent login, WebAuthn, recovery key or a deployment equivalent â€” and the presented session does not satisfy the deployment policy. The caller MUST re-authenticate and retry with new request material; the strength of the required proof is deployment governance. See zh/identity/account-lifecycle.md section 8.1 and section 10. In ak.gate.account.command.issue_recovery_completion_grant.v1, HTTP 401 with the registered reason_code=proof_invalid has the exclusive same-business-key serialized expired-frozen-PoP denial semantics specified in zh/identity/security-transactions.md section 2.3; generic authentication failures must not emit that combination.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RecoveryPolicyMismatch,

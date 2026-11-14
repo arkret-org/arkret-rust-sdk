@@ -15,9 +15,9 @@ impl RealmActorManagerChangePayload {
         RealmActorManagerAcceptanceTranscript {
             actor_id,
             applet_id,
-            expected_manager_revision: self.expected_manager_revision.clone(),
-            expected_control_revision: self.expected_control_revision.clone(),
-            expected_device_generation_revision: self.expected_device_generation_revision.clone(),
+            expected_manager_commit_id: self.expected_manager_commit_id.clone(),
+            expected_control_commit_id: self.expected_control_commit_id.clone(),
+            expected_device_generation_commit_id: self.expected_device_generation_commit_id.clone(),
             expected_generation: self.expected_generation,
             new_generation: self.new_generation,
             new_service_id: self.new_service_id.clone(),

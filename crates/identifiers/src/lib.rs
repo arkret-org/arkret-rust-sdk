@@ -157,6 +157,7 @@ macro_rules! id_type {
 /// against the genesis Event and has no DID-subject-derived branch.
 /// RFC 9562 version nibble for producer-allocated typed ids (UUIDv7).
 pub const UUID_VERSION_PRODUCER_ALLOCATED: u8 = b'7';
+pub const UUID_VERSION_ISSUER_ALLOCATED: u8 = b'7';
 
 macro_rules! uuid_id_type {
     ($name:ident, $prefix:literal, $version:expr) => {
@@ -949,11 +950,6 @@ declare_event_token_id_kinds! {
     ViewId, "ak:view:";
 }
 
-fn decode_session_grant_token(value: &str) -> Option<[u8; 33]> {
-    let token = decode_digest_token(value, SessionGrantId::KIND_PREFIX)?;
-    (token[0] == DigestSuiteCode::Sha256.as_u8()).then_some(token)
-}
-
 fn decode_account_status_record_token(value: &str) -> Option<[u8; 33]> {
     let token = decode_digest_token(value, AccountStatusRecordId::KIND_PREFIX)?;
     (token[0] == DigestSuiteCode::Sha256.as_u8()).then_some(token)
@@ -999,45 +995,122 @@ impl AccountStatusRecordId {
     }
 }
 
-id_type!(SessionGrantId, |value: &str| decode_session_grant_token(
-    value
-)
-.is_some());
+id_type!(
+    /// Stable capture-segment handle shared by recording and transcript selectors.
+    CallRecordingId,
+    |value: &str| !value.is_empty()
+        && value.len() <= 128
+        && value.bytes().all(|byte| byte.is_ascii_alphanumeric()
+            || matches!(byte, b'.' | b'_' | b'-'))
+);
+
+id_type!(SessionGrantId, |value: &str| is_strict_typed_id(
+    value,
+    "ak:session_grant:",
+    UUID_VERSION_ISSUER_ALLOCATED
+));
 
 impl SessionGrantId {
     pub const KIND_PREFIX: &'static str = "ak:session_grant:";
 
-    /// Derive the issuer-record identifier from the SHA-256 digest of the
-    /// closed `ak.session_grant.issuance.v1` preimage.
-    pub fn from_issuance_digest(digest: [u8; 32]) -> Self {
-        let mut token = [0_u8; 33];
-        token[0] = DigestSuiteCode::Sha256.as_u8();
-        token[1..].copy_from_slice(&digest);
-        Self(encode_digest_token(Self::KIND_PREFIX, token))
+    /// Allocate a record ID. Only its issuer ledger establishes authority.
+    pub fn new_v7_at(unix_ms: u64) -> Self {
+        Self(format!("{}{}", Self::KIND_PREFIX, uuid_v7_at(unix_ms)))
     }
 
-    pub fn token_bytes(&self) -> [u8; 33] {
-        decode_session_grant_token(&self.0)
-            .expect("validated SessionGrant id carries a canonical digest token")
+    pub fn try_from_uuid(value: uuid::Uuid) -> Result<Self> {
+        Self::new(format!("{}{}", Self::KIND_PREFIX, value))
     }
 
-    pub fn digest_suite_code(&self) -> DigestSuiteCode {
-        DigestSuiteCode::try_from(self.token_bytes()[0])
-            .expect("validated SessionGrant id carries an active digest suite")
-    }
-
-    pub fn issuance_digest(&self) -> [u8; 32] {
-        let token = self.token_bytes();
-        let mut digest = [0_u8; 32];
-        digest.copy_from_slice(&token[1..]);
-        digest
+    pub fn uuid(&self) -> uuid::Uuid {
+        uuid::Uuid::parse_str(&self.0[Self::KIND_PREFIX.len()..])
+            .expect("validated issuer-allocated record ID contains a UUIDv7")
     }
 }
+
+/// Complete public identity of one immutable issuer-ledger record.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct SessionGrantRef {
+    pub issuer_id: DidCoreId,
+    pub id: SessionGrantId,
+}
+
+impl SessionGrantRef {
+    pub fn new(issuer_id: DidCoreId, id: SessionGrantId) -> Self {
+        Self { issuer_id, id }
+    }
+}
+
+/// Canonical opaque credential. Constructing it proves shape, never authority.
+#[derive(
+    Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, zeroize::Zeroize, zeroize::ZeroizeOnDrop,
+)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(transparent)]
+pub struct SessionGrantSecret(String);
+
+impl SessionGrantSecret {
+    pub fn from_bytes(bytes: [u8; 32]) -> Self {
+        Self(URL_SAFE_NO_PAD.encode(bytes))
+    }
+
+    pub fn new(value: impl Into<String>) -> Result<Self> {
+        let value = value.into();
+        let valid = value.len() == 43
+            && URL_SAFE_NO_PAD
+                .decode(&value)
+                .ok()
+                .is_some_and(|bytes| bytes.len() == 32 && URL_SAFE_NO_PAD.encode(bytes) == value);
+        if !valid {
+            return Err(IdentifierError::Protocol(
+                "invalid opaque SessionGrant credential encoding".to_owned(),
+            ));
+        }
+        Ok(Self(value))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn into_string(mut self) -> String {
+        std::mem::take(&mut self.0)
+    }
+}
+
+impl fmt::Debug for SessionGrantSecret {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("SessionGrantSecret(<redacted>)")
+    }
+}
+
+impl AsRef<str> for SessionGrantSecret {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
+impl FromStr for SessionGrantSecret {
+    type Err = IdentifierError;
+
+    fn from_str(value: &str) -> Result<Self> {
+        Self::new(value)
+    }
+}
+
+impl<'de> Deserialize<'de> for SessionGrantSecret {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> std::result::Result<Self, D::Error> {
+        Self::new(String::deserialize(deserializer)?).map_err(de::Error::custom)
+    }
+}
+
+pub const DECLARED_ISSUER_ALLOCATED_ID_KIND_PREFIXES: &[&str] = &[SessionGrantId::KIND_PREFIX];
 
 /// Identifiers whose wire payload is a complete registered suite byte plus
 /// a 32-byte digest, with authority distinct from Event-derived identities.
 pub const DECLARED_SUITE_TAGGED_FULL_DIGEST_ID_KIND_PREFIXES: &[&str] = &[
-    SessionGrantId::KIND_PREFIX,
     AccountStatusRecordId::KIND_PREFIX,
     NotificationProjectionId::KIND_PREFIX,
     RealmCommitId::KIND_PREFIX,
@@ -1703,7 +1776,7 @@ mod tests {
                         &event.as_str()[EventId::KIND_PREFIX.len()..]
                     )
                 } else if DECLARED_SUITE_TAGGED_FULL_DIGEST_ID_KIND_PREFIXES.contains(&$prefix) {
-                    SessionGrantId::from_issuance_digest([0x11; 32]).into_string()
+                    format!("{}{}", $prefix, URL_SAFE_NO_PAD.encode([1_u8; 33]))
                 } else {
                     format!("{}01904100-0000-7000-8000-000000000001", $prefix)
                 };
@@ -1763,28 +1836,59 @@ mod tests {
     }
 
     #[test]
-    fn session_grant_id_is_an_issuer_record_digest_token() {
-        let id = SessionGrantId::from_issuance_digest([0x42; 32]);
-        assert_eq!(id.digest_suite_code(), DigestSuiteCode::Sha256);
-        assert_eq!(id.issuance_digest(), [0x42; 32]);
+    fn session_grant_id_is_checked_issuer_allocated_uuid() {
+        let id = SessionGrantId::new_v7_at(1_785_000_000_000);
         assert!(SessionGrantId::new(id.as_str()).is_ok());
+        assert_eq!(SessionGrantId::try_from_uuid(id.uuid()).unwrap(), id);
         assert!(!EVENT_DERIVED_ID_KIND_PREFIXES.contains(&SessionGrantId::KIND_PREFIX));
-
-        let mut unknown = id.token_bytes();
-        unknown[0] = 0x7f;
         assert!(
-            SessionGrantId::new(encode_digest_token(SessionGrantId::KIND_PREFIX, unknown)).is_err()
+            !DECLARED_SUITE_TAGGED_FULL_DIGEST_ID_KIND_PREFIXES
+                .contains(&SessionGrantId::KIND_PREFIX)
         );
+        for value in [
+            "ak:session_grant:0190c6aa-1234-4000-8000-000000000001",
+            "ak:session_grant:0190C6AA-1234-7000-8000-000000000001",
+            "ak:session_grant:0190c6aa-1234-7000-7000-000000000001",
+            "ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW",
+        ] {
+            assert!(SessionGrantId::new(value).is_err(), "{value}");
+        }
+        let v4 = uuid::Uuid::parse_str("0190c6aa-1234-4000-8000-000000000001").unwrap();
+        assert!(SessionGrantId::try_from_uuid(v4).is_err());
+    }
 
-        let mut blake3 = id.token_bytes();
-        blake3[0] = DigestSuiteCode::Blake3.as_u8();
-        let blake3_token = encode_digest_token(SessionGrantId::KIND_PREFIX, blake3);
-        assert_eq!(
-            decode_digest_token(&blake3_token, SessionGrantId::KIND_PREFIX),
-            Some(blake3)
+    #[test]
+    fn opaque_secret_and_portable_reference_do_not_authenticate_each_other() {
+        let secret = SessionGrantSecret::from_bytes([0x42; 32]);
+        assert_eq!(SessionGrantSecret::new(secret.as_str()).unwrap(), secret);
+        assert_eq!(format!("{secret:?}"), "SessionGrantSecret(<redacted>)");
+        for invalid in [
+            format!("{}=", secret.as_str()),
+            "a.b.c".to_owned(),
+            "A".repeat(42),
+            "B".repeat(43),
+        ] {
+            let error = SessionGrantSecret::new(&invalid).unwrap_err();
+            assert!(!error.to_string().contains(&invalid));
+        }
+        let id = SessionGrantId::new_v7_at(1_785_000_000_000);
+        let first = SessionGrantRef::new(
+            DidCoreId::new("ak:did_core:web:first.example").unwrap(),
+            id.clone(),
         );
-        assert!(SessionGrantId::new(blake3_token).is_err());
+        let second = SessionGrantRef::new(
+            DidCoreId::new("ak:did_core:web:second.example").unwrap(),
+            id,
+        );
+        assert_ne!(first, second);
+        assert!(SessionGrantSecret::new(first.id.as_str()).is_err());
+        let mut value = serde_json::to_value(&first).unwrap();
+        value["session_grant"] = serde_json::to_value(secret).unwrap();
+        assert!(serde_json::from_value::<SessionGrantRef>(value).is_err());
+    }
 
+    #[test]
+    fn event_suite_remains_independent_of_issuer_uuid_identity() {
         let mut blake3_event =
             EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [0x42; 32]).token_bytes();
         blake3_event[0] = DigestSuiteCode::Blake3.as_u8();

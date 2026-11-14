@@ -26,6 +26,10 @@ fn empty_is_a_real_value_and_never_written_is_an_explicit_precondition() {
     );
     for invalid in [
         json!({"state":"present"}),
+        json!({"state":"present","commit_id":null}),
+        json!({"state":"present","commit_id":{"commit_id":arkret_wire::RealmCommitId::from_digest([7;32]),"stream_position":1}}),
+        json!({"state":"never_written","commit_id":arkret_wire::RealmCommitId::from_digest([7;32])}),
+        json!({"state":"never_written","commit_id":null}),
         json!({"state":"never_written","revision":null}),
         json!({"state":"missing"}),
     ] {
@@ -114,7 +118,7 @@ fn full_native_replacement_roundtrips_unrelated_expired_permissions_and_optional
         {"consent_scope":"voice_call","expires_at":"2020-01-01T00:00:00.000Z","constraints":[{"unknown_rule":true}]}
     ]})).unwrap();
     let value = json!({"peer":{"kind":"actor","actor_id":{"kind":"service","service_id":"ak:did_core:web:peer.example"}},
-        "expected_current":{"state":"present","revision":{"commit_id":arkret_wire::RealmCommitId::from_digest([29;32]),"stream_position":6}},
+        "expected_current":{"state":"present","commit_id":arkret_wire::RealmCommitId::from_digest([29;32])},
         "permissions":[previous.permissions[0],previous.permissions[1],{"consent_scope":"presence"}]});
     let target: ConsentReplacePayload = serde_json::from_value(value.clone()).unwrap();
     target.validate().unwrap();

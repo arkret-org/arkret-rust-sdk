@@ -266,8 +266,8 @@ fn manager_handover_requires_two_native_rotations_new_control_and_service_accept
             stream_position: 4,
         };
         let unsigned = json!({
-            "expected_manager_revision":rev,"expected_control_revision":rev,
-            "expected_device_generation_revision":rev,"expected_generation":1,"new_generation":2,
+            "expected_manager_commit_id":rev.commit_id,"expected_control_commit_id":rev.commit_id,
+            "expected_device_generation_commit_id":rev.commit_id,"expected_generation":1,"new_generation":2,
             "new_service_id":project_did_to_core_id(&service_did).unwrap(),
             "new_registration_ref":creation.registration_ref,
             "management_authorization_ref":creation.creation_authorization_ref,
@@ -564,10 +564,6 @@ fn recovery_service_originals_verify_without_business_grants_and_bind_all_source
         .realm_id
         .clone();
     let scope = ScopeRef::RealmControl { realm_id };
-    let revision = |r: &CommittedEventRef| CurrentRevision {
-        commit_id: r.commit_id.clone(),
-        stream_position: r.stream_position,
-    };
     for reset in [false, true] {
         let intent = if reset {
             TypedEventDraft::<event_spec::RealmActorControlReset>::new(
@@ -576,11 +572,11 @@ fn recovery_service_originals_verify_without_business_grants_and_bind_all_source
                 RealmActorControlResetPayload {
                     target_actor_id: begin.target_actor_id.clone(),
                     recovery_begin_ref: begin.recovery_ref.clone(),
-                    expected_recovery_revision: revision(&begin.recovery_ref),
-                    expected_manager_revision: revision(&begin.manager_ref),
-                    expected_control_revision: begin.expected_control_revision.clone(),
-                    expected_device_generation_revision: begin
-                        .expected_device_generation_revision
+                    expected_recovery_commit_id: begin.recovery_ref.commit_id.clone(),
+                    expected_manager_commit_id: begin.manager_ref.commit_id.clone(),
+                    expected_control_commit_id: begin.expected_control_commit_id.clone(),
+                    expected_device_generation_commit_id: begin
+                        .expected_device_generation_commit_id
                         .clone(),
                     published_method_history_evidence: creation.method_history_evidence.clone(),
                 },
@@ -631,7 +627,7 @@ fn recovery_service_originals_verify_without_business_grants_and_bind_all_source
         bad.recovery_ref.stream_position += 1;
         assert!(verify(bad).is_err());
         let mut bad = original.clone();
-        bad.manager_ref.stream_position += 1;
+        bad.manager_ref.commit_id = RealmCommitId::from_digest([91; 32]);
         assert!(verify(bad).is_err());
         let mut bad = original.clone();
         bad.actor_id = begin.target_actor_id.clone();
@@ -710,9 +706,9 @@ fn recovery_plan() -> (
     };
     let mut value = json!({
         "target_actor_id":creation.actor_id,"request_id":"0123456789012345678901",
-        "manager_ref":source,"recovery_ref":source,"expected_control_revision":revision,
-        "expected_owner_status_revision":revision,"expected_governance_status_revision":revision,
-        "expected_device_generation_revision":revision,"expected_generation":1,"new_generation":2,
+        "manager_ref":source,"recovery_ref":source,"expected_control_commit_id":revision.commit_id,
+        "expected_owner_status_commit_id":revision.commit_id,"expected_governance_status_commit_id":revision.commit_id,
+        "expected_device_generation_commit_id":revision.commit_id,"expected_generation":1,"new_generation":2,
         "replaces_recovery_ref":null,"next_resolution":resolution,
         "method_history_evidence":{"log_entries":entries,"witness_records":[]},
         "next_control_method_kid":next_method,"expires_at":"2026-10-20T00:10:00.000Z"
@@ -862,7 +858,7 @@ fn private_current_writer_rejects_another_subject_selector_and_gate() {
     update.kind = EventKind::RealmActorStatusSet;
     update.payload = serde_json::from_value(json!({
         "target_actor_id": candidate.actor_id, "gate":"governance", "state":"paused",
-        "expected_revision":{"commit_id":RealmCommitId::from_digest([61;32]),"stream_position":1}
+        "expected_commit_id":RealmCommitId::from_digest([61;32])
     }))
     .unwrap();
     let governance = CurrentSelector::RealmActorStatus {

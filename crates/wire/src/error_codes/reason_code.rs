@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/error-code-registry.json;
-//! sha256=d8b59ba963a979c5f74d2a6fe1a57ed4a15415b4389ad1b0c4fa8a535e0c70e5
-//! Entries: reason_codes=286, reserved_not_emitted=66
+//! sha256=04aef63465e22b101b9c571cd81f048a9d933b605982b7e0938241ff3513d51c
+//! Entries: reason_codes=285, reserved_not_emitted=66
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -37,7 +37,6 @@ pub enum ReasonCode {
     ApprovalNonceReused,
     ApprovalRequired,
     AudienceMismatch,
-    AuthorityCycle,
     AuthorityExpiryWidening,
     BackendUnavailable,
     BackupRevisionStale,
@@ -344,7 +343,6 @@ impl ReasonCode {
     pub const APPROVAL_NONCE_REUSED: &'static str = "approval_nonce_reused";
     pub const APPROVAL_REQUIRED: &'static str = "approval_required";
     pub const AUDIENCE_MISMATCH: &'static str = "audience_mismatch";
-    pub const AUTHORITY_CYCLE: &'static str = "authority_cycle";
     pub const AUTHORITY_EXPIRY_WIDENING: &'static str = "authority_expiry_widening";
     pub const BACKEND_UNAVAILABLE: &'static str = "backend_unavailable";
     pub const BACKUP_REVISION_STALE: &'static str = "backup_revision_stale";
@@ -685,7 +683,6 @@ impl ReasonCode {
             Self::ApprovalNonceReused => Self::APPROVAL_NONCE_REUSED,
             Self::ApprovalRequired => Self::APPROVAL_REQUIRED,
             Self::AudienceMismatch => Self::AUDIENCE_MISMATCH,
-            Self::AuthorityCycle => Self::AUTHORITY_CYCLE,
             Self::AuthorityExpiryWidening => Self::AUTHORITY_EXPIRY_WIDENING,
             Self::BackendUnavailable => Self::BACKEND_UNAVAILABLE,
             Self::BackupRevisionStale => Self::BACKUP_REVISION_STALE,
@@ -1031,7 +1028,6 @@ impl ReasonCode {
             Self::APPROVAL_NONCE_REUSED => Self::ApprovalNonceReused,
             Self::APPROVAL_REQUIRED => Self::ApprovalRequired,
             Self::AUDIENCE_MISMATCH => Self::AudienceMismatch,
-            Self::AUTHORITY_CYCLE => Self::AuthorityCycle,
             Self::AUTHORITY_EXPIRY_WIDENING => Self::AuthorityExpiryWidening,
             Self::BACKEND_UNAVAILABLE => Self::BackendUnavailable,
             Self::BACKUP_REVISION_STALE => Self::BackupRevisionStale,
@@ -1549,14 +1545,9 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "A proof, token, Auth Server verification result, invite claim, KeyPackage claim, or signed handoff was presented to a Realm / service / audience different from the one bound into the signed material. Receivers MUST reject rather than reinterpret the audience. See zh/conformance/conformance-vectors.md.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::AUTHORITY_CYCLE,
-        applies_to: &["event_envelope", "auth_decision"],
-        description: "A ak.capability.grant would close a cycle in the authority graph, traversed as a DFS over grant_id edges taken from issuer_authority_refs entries with kind=grant. realm_root refs are rooted terminals and contribute no edge. Reducer MUST reject the grant; evaluation MUST NOT recurse without terminating. See zh/authz/capabilities.md §10.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::AUTHORITY_EXPIRY_WIDENING,
         applies_to: &["event_envelope", "auth_decision"],
-        description: "For some action this grant claims, its effective window is wider than the refs that cover that action allow: it starts before the earliest effective_not_before among them, or ends after the latest effective_expires_at. The bound is evaluated per action, because a global min/max would let an action covered only by a late-window ref borrow an early one. See zh/authz/capabilities.md §10.",
+        description: "For an exact action-resource pair this grant claims, its effective window exceeds the union of the real windows supplied by its covering issuer authority sources. Gaps cannot be filled by a convex hull or another action/resource. A new explicit finite root authorization uses its own accepting RealmCommit.committed_at plus effective L; finite upstream windows do not renew. See zh/authz/capabilities.md section 10.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::BACKEND_UNAVAILABLE,
@@ -2315,7 +2306,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::PROOF_INVALID,
         applies_to: &["auth_decision", "service_call"],
-        description: "A runtime key-pairing or session-grant proof (DID `assertionMethod` signature, agent_key_proof transcript, etc.) failed signature verification, transcript binding, or `proof_kind` check. Distinct from `signature_invalid` in that the wire shape was syntactically valid but the proof semantics did not bind to the expected principal / nonce / audience. See zh/identity/key-management.md §3.6.2.",
+        description: "A runtime key-pairing or session-grant proof (DID `assertionMethod` signature, agent_key_proof transcript, etc.) failed signature verification, transcript binding, or `proof_kind` check. Distinct from `signature_invalid` in that the wire shape was syntactically valid but the proof semantics did not bind to the expected principal / nonce / audience. See zh/identity/key-management.md §3.6.2. For issue_recovery_completion_grant only, paired with HTTP 401 reauthentication_required, it exclusively means the issuer has serialized against all first acceptances, found no accepted or unresolved operation and confirmed the exact frozen PoP expired; no old-body first acceptance may follow. It permits same-holder client CAS replacement of only the PoP and request digest, with fresh authentication still mandatory. Other proof or current-eligibility errors must not emit this combination. See zh/identity/security-transactions.md section 2.3.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::PUSH_GATEWAY_UNREACHABLE,

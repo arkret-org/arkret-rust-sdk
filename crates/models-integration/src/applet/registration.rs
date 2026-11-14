@@ -482,7 +482,7 @@ pub struct AppletRegistrationEpochDidDocument {
 pub struct AppletRegistrationPayload {
     pub applet_id: AppletId,
     pub service_id: DidCoreId,
-    pub expected_revision: Option<arkret_wire::CurrentRevision>,
+    pub expected_commit_id: Option<arkret_wire::RealmCommitId>,
     pub controller_principal_id: DidCoreId,
     pub base_url: String,
     pub claimed_profiles: Vec<String>,
@@ -533,7 +533,7 @@ struct AppletRegistrationPayloadWire {
     applet_id: AppletId,
     service_id: DidCoreId,
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_required_nullable")]
-    expected_revision: Option<arkret_wire::CurrentRevision>,
+    expected_commit_id: Option<arkret_wire::RealmCommitId>,
     controller_principal_id: DidCoreId,
     base_url: String,
     claimed_profiles: Vec<String>,
@@ -560,7 +560,7 @@ impl<'de> Deserialize<'de> for AppletRegistrationPayload {
         Ok(Self {
             applet_id: wire.applet_id,
             service_id: wire.service_id,
-            expected_revision: wire.expected_revision,
+            expected_commit_id: wire.expected_commit_id,
             controller_principal_id: wire.controller_principal_id,
             base_url: wire.base_url,
             claimed_profiles: wire.claimed_profiles,
@@ -1523,13 +1523,13 @@ impl AppletPackage {
     pub fn to_registration(
         &self,
         registration_epoch_evidence: &AppletRegistrationEpochEvidence,
-        expected_revision: Option<arkret_wire::CurrentRevision>,
+        expected_commit_id: Option<arkret_wire::RealmCommitId>,
     ) -> Result<AppletRegistrationPayload> {
         self.validate_with_epoch_evidence(registration_epoch_evidence)?;
         Ok(AppletRegistrationPayload {
             applet_id: self.applet_id.clone(),
             service_id: self.service_id.clone(),
-            expected_revision,
+            expected_commit_id,
             controller_principal_id: self.controller_principal_id.clone(),
             base_url: self.base_url.clone(),
             claimed_profiles: self.claimed_profiles.clone(),

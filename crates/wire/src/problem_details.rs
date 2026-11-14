@@ -798,8 +798,7 @@ mod tests {
     }
 
     fn session_grant_id() -> crate::SessionGrantId {
-        crate::SessionGrantId::new("ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW")
-            .unwrap()
+        crate::SessionGrantId::new("ak:session_grant:0190c6aa-1234-7000-8000-000000000001").unwrap()
     }
 
     #[test]

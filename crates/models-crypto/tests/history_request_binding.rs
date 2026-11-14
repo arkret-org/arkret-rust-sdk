@@ -36,6 +36,9 @@ fn grant_matches_every_accepted_request_binding_and_rejects_legacy_top_level_aut
         "/recipient/endpoint/device_id",
         "/recipient/actor_id/account_id/principal_id",
         "/recipient_hpke_key_base64url",
+        "/history_cut/event_id",
+        "/history_cut/commit_id",
+        "/history_cut/stream_ref/realm_id",
         "/history_cut/stream_position",
         "/expires_at",
     ] {
@@ -46,10 +49,32 @@ fn grant_matches_every_accepted_request_binding_and_rejects_legacy_top_level_aut
                 json!("ak:device:019a0000-0000-7000-8000-000000000099")
             }
             "/recipient/actor_id/account_id/principal_id" => json!("ak:did_core:webvh:z6mkother"),
-            "/history_cut/stream_position" => json!(1),
+            "/history_cut/event_id" => json!(arkret_wire::EventId::from_digest(
+                arkret_canonical::DigestSuite::Sha256,
+                [0x94; 32],
+            )),
+            "/history_cut/commit_id" => json!(arkret_wire::RealmCommitId::from_digest([0x95; 32])),
+            "/history_cut/stream_ref/realm_id" => {
+                json!(arkret_wire::RealmId::from_event_id(
+                    &arkret_wire::EventId::from_digest(
+                        arkret_canonical::DigestSuite::Sha256,
+                        [0x96; 32],
+                    )
+                ))
+            }
+            "/history_cut/stream_position" => json!(
+                request_json
+                    .pointer(pointer)
+                    .unwrap()
+                    .as_u64()
+                    .unwrap()
+                    .checked_add(1)
+                    .unwrap()
+            ),
             "/expires_at" => json!("2026-11-08T00:14:59.000Z"),
             _ => json!(arkret_canonical::base64url_encode([7; 32])),
         };
+        assert_ne!(changed, request_json, "mutation must change {pointer}");
         let changed: HistoryRequest = serde_json::from_value(changed).unwrap();
         changed.validate().unwrap();
         assert!(

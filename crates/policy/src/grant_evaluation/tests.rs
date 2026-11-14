@@ -255,7 +255,7 @@ fn grant(
         "resources": resources,
         "issuer_authority_refs": [root_ref()],
         "authority_depth": 1,
-        "authority_root_refs": [root_ref()],
+        "authority_root_ref": root_ref(),
         "issued_at": "2026-09-21T00:00:00.000Z",
         "status": "active"
     }))
@@ -1886,6 +1886,8 @@ fn current_authority_is_action_local_and_deduplicates_shared_ancestors() {
         grant_id: ancestor.id.clone(),
     }];
     b.issuer_authority_refs = a.issuer_authority_refs.clone();
+    a.authority_depth = 2;
+    b.authority_depth = 2;
     let mut child = grant(
         208,
         &["ak.message.create", "ak.event.read"],
@@ -1896,6 +1898,7 @@ fn current_authority_is_action_local_and_deduplicates_shared_ancestors() {
         panic!("Service source")
     };
     child.issuer_id = service.clone();
+    child.authority_depth = 3;
     child.issuer_authority_refs = vec![
         IssuerAuthorityRef::Grant {
             grant_id: a.id.clone(),
@@ -2006,6 +2009,7 @@ fn managed_sources_split_resources_without_joining_unrelated_current_fences() {
     child.subject = body.subject;
     child.resources = body.resources;
     child.issuer_authority_refs = body.issuer_authority_refs;
+    child.authority_depth = 2;
     b.status = CapabilityGrantStatus::Revoked;
     let rows = std::collections::BTreeMap::from([(a.id.clone(), a.clone()), (b.id.clone(), b)]);
     assert_eq!(
@@ -2046,6 +2050,7 @@ fn managed_sources_split_resources_without_joining_unrelated_current_fences() {
     ordinary.issuer_authority_refs = vec![IssuerAuthorityRef::Grant {
         grant_id: wrong.id.clone(),
     }];
+    ordinary.authority_depth = 2;
     let rows = std::collections::BTreeMap::from([(wrong.id.clone(), wrong)]);
     assert!(matches!(
         current_sources(
@@ -2076,6 +2081,7 @@ fn current_source_graph_accepts_four_levels_and_rejects_a_fifth() {
         if let Some(id) = previous {
             node.issuer_authority_refs = vec![IssuerAuthorityRef::Grant { grant_id: id }];
         }
+        node.authority_depth = u64::from(index) + 1;
         previous = Some(node.id.clone());
         rows.insert(node.id.clone(), node.clone());
         let result = current_sources(&node, "ak.message.create", &realm(), &rows, now(), |_| true);
@@ -2114,6 +2120,7 @@ fn a_missing_global_refusal_source_is_not_a_known_revocation() {
     deny.issuer_authority_refs = vec![IssuerAuthorityRef::Grant {
         grant_id: ancestor.id.clone(),
     }];
+    deny.authority_depth = 2;
     let mut rows = std::collections::BTreeMap::from([
         (allow.id.clone(), allow.clone()),
         (deny.id.clone(), deny.clone()),

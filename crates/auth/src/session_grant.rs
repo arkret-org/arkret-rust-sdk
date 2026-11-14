@@ -11,7 +11,9 @@ use arkret_models_collaboration::session_grants::{
     RequestedAgentSessionGrantScope, SessionGrantDpopBindingProof, SessionGrantRefreshRequestBody,
     SessionGrantRequestBody,
 };
-use arkret_wire::{DeviceId, DidCoreId, DidUrl, EventId, NonEmptyString, RequestId};
+use arkret_wire::{
+    DeviceId, DidCoreId, DidUrl, EventId, NonEmptyString, RequestId, SessionGrantSecret,
+};
 use chrono::{DateTime, Utc};
 
 pub fn human_session_grant_request(
@@ -33,13 +35,13 @@ pub fn human_session_grant_request(
 }
 
 pub fn human_session_grant_refresh_request(
-    grant_jwt: impl Into<String>,
+    session_grant: SessionGrantSecret,
     audience_id: Option<DidCoreId>,
     device_id: DeviceId,
     accepted_device_possession_proof: AcceptedDeviceRefreshPossessionProof,
 ) -> crate::Result<SessionGrantRefreshRequestBody> {
     let request = HumanSessionGrantRefreshRequestBody {
-        grant_jwt: grant_jwt.into(),
+        session_grant,
         audience_id,
         device_id,
         accepted_device_possession_proof,

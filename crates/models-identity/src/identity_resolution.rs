@@ -35,7 +35,7 @@ pub struct PrincipalResolutionProjection {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct PrincipalResolutionUpdatePayload {
-    pub expected_revision: arkret_wire::CurrentRevision,
+    pub expected_commit_id: arkret_wire::RealmCommitId,
     pub next: ResolutionCommitment,
 }
 

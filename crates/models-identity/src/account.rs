@@ -168,7 +168,7 @@ pub struct AccountRegistrationAudit {
 /// Its logical key is `(envelope.actor_id, payload.key)`, so only the holder may
 /// sign it and each holder keeps an independent `server_revision_cas` counter.
 ///
-/// So the body carries the signed Event and nothing else. `expected_revision`,
+/// So the body carries the signed Event and nothing else. `expected_server_revision`,
 /// `key` and the value (`body` or `encrypted_payload`) all live in
 /// `set_event.event.payload`, which is where the CAS precondition has its one
 /// source. A tombstone payload is rejected here; erasure goes through
@@ -187,7 +187,7 @@ pub struct AccountDataReplaceRequestBody {
 /// Same signer rule as [`AccountDataReplaceRequestBody`]; the payload MUST carry
 /// `tombstone`. The DELETE takes a body because that is the only place the
 /// holder's signature can go — `ak.self.keys.backups.resource.delete.v1` already
-/// shows a DELETE may carry one — and `expected_revision` moved into the payload
+/// shows a DELETE may carry one — and `expected_server_revision` lives in the payload
 /// rather than staying a query parameter, so one CAS precondition has one source.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

@@ -710,12 +710,12 @@ fn validate(inputs: &SpecInputs) -> Result<()> {
                     slot.event_kind
                 );
             }
-            if slot.extra.keys().any(|key| key != "expected_revision") {
+            if slot.extra.keys().any(|key| key != "expected_commit_id") {
                 bail!("realm_bootstrap_registry.{owner} contains an unsupported slot field");
             }
-            if let Some(expected_revision) = slot.extra.get("expected_revision") {
-                if !expected_revision.is_null() {
-                    bail!("realm_bootstrap_registry.{owner} supports only expected_revision=null");
+            if let Some(expected_commit_id) = slot.extra.get("expected_commit_id") {
+                if !expected_commit_id.is_null() {
+                    bail!("realm_bootstrap_registry.{owner} supports only expected_commit_id=null");
                 }
             }
             if let Some(condition) = &slot.condition
@@ -1268,7 +1268,7 @@ pub enum RealmBootstrapCondition {
         r#"}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum RealmBootstrapExpectedRevision { Null }
+pub enum RealmBootstrapExpectedCommitId { Null }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RealmBootstrapSlotDescriptor {
@@ -1276,7 +1276,7 @@ pub struct RealmBootstrapSlotDescriptor {
     pub presence: RealmBootstrapPresence,
     pub id_source: Option<RealmBootstrapIdSource>,
     pub condition: Option<RealmBootstrapCondition>,
-    pub expected_revision: Option<RealmBootstrapExpectedRevision>,
+    pub expected_commit_id: Option<RealmBootstrapExpectedCommitId>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1306,14 +1306,14 @@ pub struct RealmBootstrapProfileDescriptor {
                 || "None".to_owned(),
                 |value| format!("Some(RealmBootstrapCondition::{})", variant(value, &[])),
             );
-            let expected_revision = if slot.extra.contains_key("expected_revision") {
-                "Some(RealmBootstrapExpectedRevision::Null)"
+            let expected_commit_id = if slot.extra.contains_key("expected_commit_id") {
+                "Some(RealmBootstrapExpectedCommitId::Null)"
             } else {
                 "None"
             };
             writeln!(
                 output,
-                "    RealmBootstrapSlotDescriptor {{ event_kind: event_kind_str::{}, presence: RealmBootstrapPresence::{}, id_source: {id_source}, condition: {condition}, expected_revision: {expected_revision} }},",
+                "    RealmBootstrapSlotDescriptor {{ event_kind: event_kind_str::{}, presence: RealmBootstrapPresence::{}, id_source: {id_source}, condition: {condition}, expected_commit_id: {expected_commit_id} }},",
                 associated_name(&slot.event_kind, &["ak."]), variant(&slot.presence, &[])
             )
             .expect("write to String");

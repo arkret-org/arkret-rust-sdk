@@ -15,7 +15,7 @@ use serde_json::json;
 
 use super::super::{OwnStationSessionSnapshot, OwnStationSessionSource};
 use super::*;
-use crate::{Auth, ClientBuilder};
+use crate::{Auth, ClientBuilder, Error};
 
 struct Source(Mutex<OwnStationSessionSnapshot>);
 impl OwnStationSessionSource for Source {
@@ -65,7 +65,13 @@ fn client_at(
         binding.clone(),
         holder(station),
         station.service_id.clone(),
-        arkret_wire::SessionGrantId::from_issuance_digest([1; 32]),
+        arkret_wire::SessionGrantRef::new(
+            station.service_id.clone(),
+            arkret_wire::SessionGrantId::new(
+                "ak:session_grant:0190c6aa-1234-7000-8000-000000000001",
+            )
+            .unwrap(),
+        ),
         0,
         "token".into(),
     )
@@ -269,6 +275,26 @@ fn human_consent_authority_requires_exact_live_original_and_initial_tenure() {
     assert!(
         ConsentCurrentReadAuthority::from_human_genesis(&holder(&station), &pcr, &bound).is_err()
     );
+}
+
+#[test]
+fn own_station_result_rejects_another_issuer_with_the_same_local_grant_id() {
+    let station = station_fixture(72);
+    let (client, source) = client(&station);
+    let full = genesis(&station, true);
+    let bound = client
+        .bind(full.event.event_id.clone(), CommittedEventView::Full(full))
+        .unwrap();
+    let original = source.snapshot().unwrap();
+    source.0.lock().unwrap().grant_ref.issuer_id =
+        "ak:did_core:web:another-issuer.example".parse().unwrap();
+    let changed = source.snapshot().unwrap();
+    assert_eq!(original.grant_ref().id, changed.grant_ref().id);
+    assert_ne!(original.grant_ref(), changed.grant_ref());
+    assert!(matches!(
+        bound.value(),
+        Err(Error::OwnStationSessionChanged)
+    ));
 }
 
 #[test]

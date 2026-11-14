@@ -245,7 +245,14 @@ impl Client {
                 validate_header_value("DPoP proof", &proof)?;
                 if let Some(token) = auth.access_token() {
                     validate_header_value("DPoP authorization credential", token)?;
-                    builder = builder.header("Authorization", format!("DPoP {token}"));
+                    let mut authorization = HeaderValue::from_bytes(
+                        format!("DPoP {token}").as_bytes(),
+                    )
+                    .map_err(|_| {
+                        Error::Protocol("invalid DPoP authorization credential header".into())
+                    })?;
+                    authorization.set_sensitive(true);
+                    builder = builder.header(reqwest::header::AUTHORIZATION, authorization);
                 }
                 builder = builder.header("DPoP", proof);
             }

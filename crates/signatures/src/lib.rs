@@ -26,6 +26,8 @@ pub mod approval_signature;
 pub mod detached_object;
 #[cfg(feature = "content-backup")]
 pub mod realm_actor_content_backup;
+#[cfg(feature = "content-backup")]
+pub mod recovery;
 
 pub use eddsa_jcs_2022::{
     DATA_INTEGRITY_PROOF_TYPE, DataIntegrityProofPurpose, EDDSA_JCS_2022_CRYPTOSUITE,

@@ -37,8 +37,9 @@ fn device_possession_canonical_milliseconds_verify_after_wire_roundtrip() {
             if managed {
                 value["applet_id"] = json!("ak:applet:01964137-0000-7000-8000-000000000002");
                 value["scopes"] = scopes["cases"][0]["scopes"].clone();
-                value["expected_control_revision"] = json!({"commit_id":arkret_wire::RealmCommitId::from_digest([42;32]),"stream_position":0});
-                value["expected_device_revision"] = Value::Null;
+                value["expected_control_commit_id"] =
+                    json!(arkret_wire::RealmCommitId::from_digest([42; 32]));
+                value["expected_device_commit_id"] = Value::Null;
             } else if branch == "pcr_recovery" {
                 value["authorized_generation_ref"] = json!(2);
                 value["recovery_session_id"] =

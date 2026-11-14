@@ -107,8 +107,8 @@ impl HumanPcrOriginalsFixture {
             recovery_session_id: None,
             pairing_challenge_transcript_digest: None,
             applet_id: None,
-            expected_control_revision: None,
-            expected_device_revision: None,
+            expected_control_commit_id: None,
+            expected_device_commit_id: None,
         };
         payload.device_signature =
             SignatureMaterial::NonEmptyString(non_empty(arkret_canonical::base64url_encode(

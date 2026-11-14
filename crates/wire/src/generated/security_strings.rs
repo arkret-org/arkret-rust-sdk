@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/proof-context-registry.json;
-//! sha256=caec242952220e46493648d6a3bb837f34219a2fe7add8d25a45f1940f514ea4 Input: registry/
+//! sha256=4f5133e2b6cbdbda52da0346f8ea57dff2acd5427dba9f8d1e5ed5464ac67847 Input: registry/
 //! exporter-label-registry.json;
 //! sha256=99383803ea8d87be955f9d8785d46c20bd98348e59739c73af31505ab76f3391 Input: registry/
 //! digest-suite-registry.json;
@@ -1128,7 +1128,6 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "reason",
             "challenge_id",
             "challenge",
-            "nonce",
             "audience",
             "service_id",
             "issued_at",
@@ -1381,7 +1380,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "request_id?",
             "account_subject?",
             "account_handoff_grant_digest?",
-            "predecessor_session_grant_id?",
+            "predecessor_session_grant_ref?",
             "account_id",
             "device_id",
             "audience_id",

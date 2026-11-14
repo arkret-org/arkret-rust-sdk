@@ -843,7 +843,7 @@ mod authority_material_current_tests {
             "kind":"realm_root", "realm_id":grant["realm_id"], "authority_generation":"0",
             "authority_event_ref":arkret_wire::EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [80; 32])
         }]);
-        grant["authority_root_refs"] = grant["issuer_authority_refs"].clone();
+        grant["authority_root_ref"] = grant["issuer_authority_refs"][0].clone();
         grant["subject"] = json!(arkret_wire::ActorId::service(
             arkret_wire::DidCoreId::new("ak:did_core:web:applet.example").unwrap()
         ));

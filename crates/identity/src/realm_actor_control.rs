@@ -269,7 +269,7 @@ pub fn verify_realm_actor_control_successor(
     )?;
     let transcript = arkret_models_integration::RealmActorControlAcceptanceTranscript {
         actor_id: actor.clone(),
-        expected_revision: payload.expected_revision.clone(),
+        expected_commit_id: payload.expected_commit_id.clone(),
         next_resolution: payload.next_resolution.clone(),
         method_history_evidence: payload.method_history_evidence.clone(),
         next_control_method_kid: payload.next_control_method_kid.clone(),

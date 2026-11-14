@@ -33,8 +33,8 @@ use arkret_models_collaboration::objects::read_receipts::{
 };
 #[cfg(all(test, not(target_arch = "wasm32")))]
 use arkret_models_collaboration::session_grants::{
-    AgentSessionGrantProof, AgentSessionGrantProofKind, AgentSessionGrantRequestBody,
-    RequestedAgentSessionGrantScope, SessionGrantDpopBindingProof,
+    AgentSessionGrantProofInput, AgentSessionGrantSigningInput, RequestedAgentSessionGrantScope,
+    SessionGrantDpopBindingProof,
 };
 use arkret_models_collaboration::session_grants::{
     SessionGrantRefreshRequestBody, SessionGrantRequestBody, SessionGrantResponseBody,
@@ -240,6 +240,8 @@ impl Client {
         &self,
         req: &SessionGrantRequestBody,
     ) -> Result<SessionGrantResponseBody> {
+        req.validate()
+            .map_err(|error| Error::Protocol(error.to_string()))?;
         self.post_protocol_replay_safe("/_arkret/gate/account/session-grants", req)
             .await
     }
@@ -251,6 +253,8 @@ impl Client {
         &self,
         req: &SessionGrantRefreshRequestBody,
     ) -> Result<SessionGrantResponseBody> {
+        req.validate()
+            .map_err(|error| Error::Protocol(error.to_string()))?;
         self.post_protocol_replay_safe("/_arkret/gate/account/session-grants/refresh", req)
             .await
     }
@@ -707,7 +711,7 @@ mod tests {
     /// nothing failed until the body was actually deserialized at run time.
     #[cfg(not(target_arch = "wasm32"))]
     fn session_grant_request() -> SessionGrantRequestBody {
-        SessionGrantRequestBody::Agent(AgentSessionGrantRequestBody {
+        AgentSessionGrantSigningInput {
             principal_id: arkret_wire::DidCoreId::new("ak:did_core:web:agent.example").unwrap(),
             requested_scope: vec!["ak.message.create".to_owned()],
             agent_key_authorization_ref: arkret_wire::EventId::new(
@@ -724,14 +728,8 @@ mod tests {
             dpop_binding_proof: SessionGrantDpopBindingProof {
                 proof_jwt: "holder.proof.jwt".to_owned(),
             },
-            proof: AgentSessionGrantProof {
-                proof_kind: AgentSessionGrantProofKind::AgentKeyProof,
+            proof: AgentSessionGrantProofInput {
                 challenge: arkret_wire::base64url::base64url_encode([0u8; 16]),
-                request_canonical_digest: arkret_wire::Hash::new(format!(
-                    "sha256:{}",
-                    "00".repeat(32)
-                ))
-                .unwrap(),
                 audience_id: arkret_wire::DidCoreId::new("ak:did_core:web:service.example")
                     .unwrap(),
                 issued_at: "2026-08-08T12:00:00.000Z".parse().unwrap(),
@@ -740,9 +738,10 @@ mod tests {
                     "did:web:agent.example#runtime-key-1",
                 )
                 .unwrap(),
-                signature: "detached.jws".to_owned(),
             },
-        })
+        }
+        .attach_signature(arkret_wire::NonEmptyString::new("detached.jws").unwrap())
+        .unwrap()
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -752,9 +751,10 @@ mod tests {
                 "principal_id": "ak:did_core:web:alice.example",
                 "station_id": "ak:did_core:web:service.example"
             },
-            "session_grant": "signed.jwt",
+            "issuer_id": "ak:did_core:web:authority.example",
+            "session_grant": arkret_wire::SessionGrantSecret::from_bytes([42; 32]),
             "expires_at": "2026-08-08T12:04:00.000Z",
-            "session_grant_id": "ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW",
+            "session_grant_id": "ak:session_grant:0190c6aa-1234-7000-8000-000000000001",
             "session_public_key": r#"{"crv":"Ed25519","kty":"OKP","x":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}"#,
             "audience_id": "ak:did_core:web:service.example",
             "granted_scope": []
@@ -764,14 +764,14 @@ mod tests {
 
     #[cfg(not(target_arch = "wasm32"))]
     fn session_grant_refresh_request() -> SessionGrantRefreshRequestBody {
-        serde_json::from_value(serde_json::json!({
-            "grant_jwt": "predecessor.jwt",
+        let mut value = serde_json::json!({
+            "session_grant": arkret_wire::SessionGrantSecret::from_bytes([42; 32]),
             "device_id": "ak:device:01964137-0000-7000-8000-000000000041",
             "audience_id": "ak:did_core:web:service.example",
             "accepted_device_possession_proof": {
                 "context": "ak.session_grant_accepted_device_possession_proof.v1",
                 "purpose": "session_grant_refresh",
-                "predecessor_session_grant_id": "ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW",
+                "predecessor_session_grant_ref": {"issuer_id":"ak:did_core:web:authority.example","id":"ak:session_grant:0190c6aa-1234-7000-8000-000000000001"},
                 "account_id": {
                     "principal_id": "ak:did_core:web:alice.example",
                     "station_id": "ak:did_core:web:service.example"
@@ -785,24 +785,36 @@ mod tests {
                 "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
                 "verification_method": "did:web:alice.example#device-1"
             }
-        }))
-        .unwrap()
+        });
+        let proof = &value["accepted_device_possession_proof"];
+        let digest = arkret_models_collaboration::session_grant_bodies::session_grant_refresh_request_digest(
+            &arkret_wire::SessionGrantSecret::from_bytes([42; 32]),
+            &serde_json::from_value(proof["predecessor_session_grant_ref"].clone()).unwrap(),
+            &serde_json::from_value(proof["account_id"]["principal_id"].clone()).unwrap(),
+            &serde_json::from_value(proof["device_id"].clone()).unwrap(),
+            &serde_json::from_value(proof["audience_id"].clone()).unwrap(),
+            proof["holder_jkt"].as_str().unwrap(),
+        ).unwrap();
+        value["accepted_device_possession_proof"]["session_intent_digest"] =
+            serde_json::to_value(digest).unwrap();
+        serde_json::from_value(value).unwrap()
     }
 
     #[cfg(not(target_arch = "wasm32"))]
     fn session_grant_refresh_outcome_json() -> String {
         serde_json::json!({
-            "session_grant_id": "ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW",
+            "session_grant_id": "ak:session_grant:0190c6aa-1234-7000-8000-000000000002",
             "account_id": {
                 "principal_id": "ak:did_core:web:alice.example",
                 "station_id": "ak:did_core:web:service.example"
             },
-            "session_grant": "successor.jwt",
+            "issuer_id": "ak:did_core:web:authority.example",
+            "session_grant": arkret_wire::SessionGrantSecret::from_bytes([43; 32]),
             "session_public_key": r#"{"crv":"Ed25519","kty":"OKP","x":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}"#,
             "expires_at": "2026-08-08T12:04:00.000Z",
             "audience_id": "ak:did_core:web:service.example",
             "granted_scope": [],
-            "previous_session_grant_id": "ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW"
+            "previous_session_grant_id": "ak:session_grant:0190c6aa-1234-7000-8000-000000000001"
         })
         .to_string()
     }
@@ -866,13 +878,33 @@ mod tests {
         let addr = listener.local_addr().unwrap();
         let (received_tx, received_rx) = tokio::sync::oneshot::channel();
         let server = tokio::spawn(async move {
-            let (mut first, _) = listener.accept().await.unwrap();
-            let first_raw = read_http_request(&mut first).await;
+            let (mut first, _) =
+                tokio::time::timeout(std::time::Duration::from_secs(5), listener.accept())
+                    .await
+                    .expect("first replay request did not connect")
+                    .unwrap();
+            let first_raw = tokio::time::timeout(
+                std::time::Duration::from_secs(5),
+                read_http_request(&mut first),
+            )
+            .await
+            .expect("first replay request body did not arrive");
             received_tx.send(()).unwrap();
             // Keep the first committed request open until the actual timeout
             // causes a retry. No server sleep competes with its response budget.
-            let (mut second, _) = listener.accept().await.unwrap();
-            let second_raw = read_http_request(&mut second).await;
+            // This budget must exceed the 31-second virtual-clock advance
+            // used below to expire the committed first attempt.
+            let (mut second, _) =
+                tokio::time::timeout(std::time::Duration::from_secs(90), listener.accept())
+                    .await
+                    .expect("committed request was not retried")
+                    .unwrap();
+            let second_raw = tokio::time::timeout(
+                std::time::Duration::from_secs(5),
+                read_http_request(&mut second),
+            )
+            .await
+            .expect("retried request body did not arrive");
             let response = format!(
                 "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
                 success_body.len(),
@@ -886,8 +918,20 @@ mod tests {
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    async fn expire_committed_attempt(received: tokio::sync::oneshot::Receiver<()>) {
-        received.await.unwrap();
+    async fn expire_committed_attempt<T: std::fmt::Debug>(
+        received: tokio::sync::oneshot::Receiver<()>,
+        request: &mut tokio::task::JoinHandle<T>,
+    ) {
+        tokio::select! {
+            biased;
+            observed = tokio::time::timeout(std::time::Duration::from_secs(5), received) => {
+                observed.expect("first committed request was not observed")
+                    .expect("replay server ended before receiving a request");
+            }
+            outcome = request => {
+                panic!("request ended before the server observed its first body: {outcome:?}");
+            }
+        }
         // Freeze only after real TCP/request progress: a paused runtime must
         // not auto-advance the deadline while the socket is still connecting.
         tokio::time::pause();
@@ -963,14 +1007,21 @@ mod tests {
             .build()
             .unwrap();
 
-        let request = tokio::spawn(async move {
+        let mut request = tokio::spawn(async move {
             client
                 .auth_issue_session_grant(&session_grant_request())
                 .await
         });
-        expire_committed_attempt(received).await;
-        request.await.unwrap().unwrap();
-        let (first, second) = server.await.unwrap();
+        expire_committed_attempt(received, &mut request).await;
+        tokio::time::timeout(StdDuration::from_secs(5), request)
+            .await
+            .expect("retried issuance did not finish")
+            .unwrap()
+            .unwrap();
+        let (first, second) = tokio::time::timeout(StdDuration::from_secs(5), server)
+            .await
+            .expect("issuance replay server did not finish")
+            .unwrap();
         let (_, first_headers, first_body) = split_request(&first);
         let (_, second_headers, second_body) = split_request(&second);
         assert_eq!(first_body, second_body);
@@ -1004,14 +1055,21 @@ mod tests {
         let (addr, server, received) =
             start_timeout_replay_server(session_grant_refresh_outcome_json()).await;
         let client = exact_replay_client(addr, 30_000);
-        let request = tokio::spawn(async move {
+        let mut request = tokio::spawn(async move {
             client
                 .auth_refresh_session_grant(&session_grant_refresh_request())
                 .await
         });
-        expire_committed_attempt(received).await;
-        request.await.unwrap().unwrap();
-        let (first, second) = server.await.unwrap();
+        expire_committed_attempt(received, &mut request).await;
+        tokio::time::timeout(std::time::Duration::from_secs(5), request)
+            .await
+            .expect("retried refresh did not finish")
+            .unwrap()
+            .unwrap();
+        let (first, second) = tokio::time::timeout(std::time::Duration::from_secs(5), server)
+            .await
+            .expect("refresh replay server did not finish")
+            .unwrap();
         assert_exact_replay_capture(
             &first,
             &second,
@@ -1062,7 +1120,7 @@ mod tests {
                 "status": 409,
                 "detail": "recorded grant is superseded",
                 "instance": "request-1",
-                "session_grant_id": "ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW",
+                "session_grant_id": "ak:session_grant:0190c6aa-1234-7000-8000-000000000001",
                 "state": "superseded"
             })
             .to_string();
@@ -1168,14 +1226,20 @@ mod tests {
         });
 
         let expected_htu = format!("http://{addr}/_arkret/gate/account/logout");
+        let secret = arkret_wire::SessionGrantSecret::from_bytes([42; 32]);
+        let expected_secret = secret.as_str().to_owned();
+        let callback_secret = expected_secret.clone();
         let client = Client::builder(Url::parse(&format!("http://{addr}/")).unwrap())
             .allow_insecure_localhost()
             .auth(Auth::Dpop(DpopAuth::with_dpop_token(
-                "grant.jwt",
+                secret.into_string(),
                 move |request| {
                     assert_eq!(request.method, "POST");
                     assert_eq!(request.htu, expected_htu);
-                    assert_eq!(request.access_token.as_deref(), Some("grant.jwt"));
+                    assert_eq!(
+                        request.access_token.as_deref(),
+                        Some(callback_secret.as_str())
+                    );
                     Ok("proof.jwt".to_owned())
                 },
             )))
@@ -1192,9 +1256,10 @@ mod tests {
             "unexpected request line: {request_line}"
         );
         assert!(
-            headers
-                .lines()
-                .any(|line| line.eq_ignore_ascii_case("authorization: DPoP grant.jwt")),
+            headers.lines().any(|line| line
+                .split_once(':')
+                .is_some_and(|(name, value)| name.eq_ignore_ascii_case("authorization")
+                    && value.trim_start() == format!("DPoP {expected_secret}"))),
             "missing Authorization header: {headers}"
         );
         assert!(

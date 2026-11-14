@@ -2,47 +2,36 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/current-state.schema.json
-// sha256=b9b2fcecf87470a1def1e55bf536bdb637b04f0e6f42083d5ed9962a80b14c61
+// sha256=7df2b471b4cf8fdd16049ce20e07129c8669d5de08f2bd80e1ecd0d142162973
 //
 // Input: schemas/event-payload.schema.json
-// sha256=e57f2773764165f5a2e6047ae5491cdf152476deb73c83b2f6c14fff58925305
+// sha256=110f3442df382c602cece0f2f5e0b4f2af3a0374f493911960b3cf6216f99a95
 //
 // Input: schemas/encrypted-envelope.schema.json
 // sha256=79f44b93062a197a5ed0854fa6ae7b113f028dd8e38369f40276457d00d93e0b
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=113d054c1defb3940cb07e0f04bb10848b9d375692c24056c947cb624743840a
+// sha256=dc73c01cf2bfb7cc6d4969c8f2f7faa6e44275c4a585ad81f3c94ac408daab8c
 
-/// Counterpart: `current-state.schema.json#/$defs/reaction_assertion_entry`.
-/// One asserted element of the `message_reactions` keyed set
-/// (`current-state.schema.json#/$defs/reaction_assertion_entry`): the
-/// accepting Event's canonical dot and that Event's complete reaction payload.
-///
-/// The asserting actor and the polarity (add or remove) are deliberately not
-/// element fields: `models/strand-and-message.md` section 9.8.3 reads both from
-/// the signed envelope of the Event the dot names.
+/// Counterpart: `current-state.schema.json#/$defs/reaction_current_entry`.
+/// One active full-Actor/key membership and its original accepted add source.
+/// The reference grants no historical Event/key access or AEAD verification.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ReactionAssertionEntry {
-    pub tag_id: CanonicalEventDot,
-    pub value: ReactionPayload,
+pub struct ReactionCurrentEntry {
+    pub actor_id: ActorId,
+    pub key: String,
+    pub source: CommittedEventRef,
 }
 
 /// Counterpart: `current-state.schema.json#/$defs/message_reactions_value`.
-/// Closed value of the `message_reactions` current state
-/// (`current-state.schema.json#/$defs/message_reactions_value`): the
-/// canonically sorted dot set of reaction assertions on one target.
-///
-/// `ak.reaction.add` and `ak.reaction.remove` each project exactly one
-/// `keyed_set_add`, so every element's dot names write index 0 of its Event,
-/// and a remove is itself an element. The join is the keyed-set union of
-/// `models/common-fields.md` section 2; membership, deduplication and counts
-/// are read-side folds and never part of this value. Decoding enforces the
-/// set invariants, so a held value is always a valid set of one target.
+/// Complete active metadata for one outer target/scope selector.
+/// Empty entries retain the outer row's real revision. This is not a
+/// historical assertion union or a client-side Event reducer.
 #[derive(Clone, Debug, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct MessageReactionsCurrentValue {
-    assertions: Vec<ReactionAssertionEntry>,
+    entries: Vec<ReactionCurrentEntry>,
 }
 
 /// Counterpart: `event-payload.schema.json#/$defs/reaction_payload`.

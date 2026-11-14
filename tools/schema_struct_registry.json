@@ -1147,8 +1147,8 @@
       "schema": "current-state.schema.json#/$defs/agent_sidecar_exchange_controls_value/properties/assertions/items"
     },
     {
-      "rust_type": "crates/models-collaboration/src/events_payloads/generated/reaction_contracts.rs::ReactionAssertionEntry",
-      "schema": "current-state.schema.json#/$defs/reaction_assertion_entry"
+      "rust_type": "crates/models-collaboration/src/events_payloads/generated/reaction_contracts.rs::ReactionCurrentEntry",
+      "schema": "current-state.schema.json#/$defs/reaction_current_entry"
     },
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/generated/reaction_contracts.rs::MessageReactionsCurrentValue",
@@ -2326,14 +2326,6 @@
       "schema": "agent-membership-cascade.schema.json#/$defs/agent_cleanup_record"
     },
     {
-      "rust_type": "crates/models-collaboration/src/governance/agent_participation.rs::ParticipationBits",
-      "schema": "principal-operations.schema.json#/$defs/participation_bits"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/agent_participation.rs::AgentParticipationView",
-      "schema": "agent-operations.schema.json#/$defs/agent_participation_view"
-    },
-    {
       "rust_type": "crates/models-collaboration/src/governance/authorization.rs::AuthorizationCheckRequestBody",
       "schema": "service-operation-dtos.schema.json#/$defs/AuthorizationCheckRequestBody"
     },
@@ -2776,10 +2768,6 @@
       "schema": "principal-operations.schema.json#/$defs/prepared_event_draft"
     },
     {
-      "rust_type": "crates/models-collaboration/src/session_grants.rs::SessionGrantResponseBody",
-      "schema": "service-operation-dtos.schema.json#/$defs/SessionGrantResponseBody"
-    },
-    {
       "rust_type": "crates/models-collaboration/src/session_grants.rs::SessionGrantDpopBindingProof",
       "schema": "service-operation-dtos.schema.json#/$defs/SessionGrantDpopBindingProof"
     },
@@ -2998,22 +2986,6 @@
       "schema": "security-transaction.schema.json#/$defs/prepared_event_unit"
     },
     {
-      "rust_type": "crates/models-crypto/src/security_transaction.rs::RecoveryCommitIntent",
-      "schema": "security-transaction.schema.json#/$defs/recovery_commit_intent"
-    },
-    {
-      "rust_type": "crates/models-crypto/src/security_transaction.rs::PcrPolicyRecoveryIntent",
-      "schema": "security-transaction.schema.json#/$defs/pcr_policy_recovery_intent"
-    },
-    {
-      "rust_type": "crates/models-crypto/src/security_transaction.rs::PcrPolicyRecoveryBinding",
-      "schema": "security-transaction.schema.json#/$defs/pcr_policy_recovery_binding"
-    },
-    {
-      "rust_type": "crates/models-crypto/src/security_transaction.rs::PcrPolicyRecoveryPlan",
-      "schema": "security-transaction.schema.json#/$defs/pcr_policy_recovery_plan"
-    },
-    {
       "rust_type": "crates/models-crypto/src/security_transaction.rs::BackupObjectRef",
       "schema": "security-transaction.schema.json#/$defs/backup_object_ref"
     },
@@ -3034,16 +3006,8 @@
       "schema": "keys-operations.schema.json#/$defs/backup_series_erase_confirmation"
     },
     {
-      "rust_type": "crates/models-crypto/src/security_transaction.rs::SecurityTransaction",
-      "schema": "security-transaction.schema.json"
-    },
-    {
       "rust_type": "crates/models-crypto/src/security_transaction.rs::SecurityRotationLocalCommit",
       "schema": "security-transaction.schema.json#/$defs/security_rotation_local_commit"
-    },
-    {
-      "rust_type": "crates/models-crypto/src/security_transaction.rs::RecoveryTerminalCommit",
-      "schema": "security-transaction.schema.json#/$defs/recovery_terminal_commit"
     },
     {
       "rust_type": "crates/models-crypto/src/security_transaction.rs::ClientStepAttestation",
@@ -3055,9 +3019,7 @@
     },
     {
       "rust_type": "crates/models-crypto/src/security_transaction.rs::RecoveryReceipt",
-      "schema": "recovery-receipt.schema.json",
-      "comparison": "rust_fields_subset",
-      "reason": "The named core is checked exactly against the canonical schema; serde(flatten) carries the registered variant payload or extension slot and cannot justify excluding any named Rust field."
+      "schema": "recovery-receipt.schema.json"
     },
     {
       "rust_type": "crates/models-identity/src/account.rs::AccountRegistrationVerificationPolicy",
@@ -3396,10 +3358,6 @@
       "schema": "service-operation-dtos.schema.json#/$defs/ServiceRegistrationResponseBody"
     },
     {
-      "rust_type": "crates/models-identity/src/session_credential.rs::SignedSessionGrantClaims",
-      "schema": "service-operation-dtos.schema.json#/$defs/SignedSessionGrantClaims"
-    },
-    {
       "rust_type": "crates/models-identity/src/signer_key_operations.rs::CurrentDeviceSigningKey",
       "schema": "signer-key-operations.schema.json#/$defs/current_device_signing_key"
     },
@@ -3724,14 +3682,6 @@
     {
       "rust_type": "crates/wire/src/recovery_authority.rs::RecoveryCompletionAttestation",
       "schema": "recovery-authority.schema.json#/$defs/recovery_completion_attestation"
-    },
-    {
-      "rust_type": "crates/wire/src/recovery_authority.rs::RecoveryCompletionGrantRequestBody",
-      "schema": "recovery-authority.schema.json#/$defs/recovery_completion_grant_request_body"
-    },
-    {
-      "rust_type": "crates/wire/src/recovery_authority.rs::IssueRecoveryCompletionGrantResponseBody",
-      "schema": "recovery-authority.schema.json#/$defs/issue_recovery_completion_grant_response_body"
     },
     {
       "rust_type": "crates/wire/src/relation.rs::Relation",
@@ -4404,6 +4354,74 @@
       "schema": "key-backup-unlock-proof.schema.json",
       "schema_field_set": "accepted",
       "schema_branch": 3
+    },
+    {
+      "rust_type": "crates/models-crypto/src/security_transaction.rs::SecurityRotationTransaction",
+      "schema": "security-transaction.schema.json#/$defs/security_rotation_transaction"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/security_transaction_contracts.rs::RecoveryUnit",
+      "schema": "recovery-receipt.schema.json#/properties/recovery_unit"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/security_transaction_contracts.rs::RecoveryTransactionCreateRequestBody",
+      "schema": "security-transaction.schema.json#/$defs/recovery_create_request_body"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/security_transaction_contracts.rs::RecoveryTransactionCompletion",
+      "schema": "security-transaction.schema.json#/$defs/recovery_transaction_completion"
+    },
+    {
+      "rust_type": "crates/models-identity/src/generated/recovery_completion_contracts.rs::RecoveryCompletionGrantRequestBody",
+      "schema": "recovery-authority.schema.json#/$defs/recovery_completion_grant_request_body"
+    },
+    {
+      "rust_type": "crates/models-identity/src/generated/recovery_completion_contracts.rs::IssueRecoveryCompletionGrantResponseBody",
+      "schema": "recovery-authority.schema.json#/$defs/issue_recovery_completion_grant_response_body"
+    },
+    {
+      "rust_type": "crates/models-identity/src/session_credential.rs::SessionGrantMetadata",
+      "schema": "service-operation-dtos.schema.json#/$defs/SessionGrantMetadata"
+    },
+    {
+      "rust_type": "crates/identifiers/src/lib.rs::SessionGrantRef",
+      "schema": "common-ids.schema.json#/$defs/session_grant_ref"
+    },
+    {
+      "rust_type": "crates/models-identity/src/agent_participation.rs::AgentParticipationView",
+      "schema": "agent-operations.schema.json#/$defs/agent_participation_view"
+    },
+    {
+      "rust_type": "crates/models-identity/src/agent_participation.rs::ParticipationNextReplaceInput",
+      "schema": "agent-operations.schema.json#/$defs/agent_participation_view/properties/next_replace_input"
+    },
+    {
+      "rust_type": "crates/models-identity/src/generated/session_credential_contracts.rs::SessionGrantScopeResources",
+      "schema": "service-operation-dtos.schema.json#/$defs/SessionGrantScope/properties/resources"
+    },
+    {
+      "rust_type": "crates/models-identity/src/generated/session_credential_contracts.rs::SessionGrantScopeConstraints",
+      "schema": "service-operation-dtos.schema.json#/$defs/SessionGrantScope/properties/constraints"
+    },
+    {
+      "rust_type": "crates/models-identity/src/generated/session_credential_contracts.rs::SessionGrantScope",
+      "schema": "service-operation-dtos.schema.json#/$defs/SessionGrantScope"
+    },
+    {
+      "rust_type": "crates/models-identity/src/generated/session_credential_contracts.rs::SessionGrantResponseBody",
+      "schema": "service-operation-dtos.schema.json#/$defs/SessionGrantResponseBody"
+    },
+    {
+      "rust_type": "crates/models-identity/src/generated/agent_participation_contracts.rs::ParticipationBits",
+      "schema": "principal-operations.schema.json#/$defs/participation_bits"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/generated/call_contracts.rs::CallRecordingArtifactCurrentValue",
+      "schema": "current-state.schema.json#/$defs/current_call_recording_artifact/properties/value"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/generated/call_contracts.rs::CallTranscriptArtifactCurrentValue",
+      "schema": "current-state.schema.json#/$defs/current_call_transcript_artifact/properties/value"
     }
   ],
   "exemptions": [

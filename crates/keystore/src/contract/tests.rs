@@ -92,3 +92,19 @@ fn service_name_namespaces_per_application_id() {
     assert_eq!(service_name("inkson"), "arkret.inkson");
     assert_eq!(service_name("coland.authority"), "arkret.coland.authority");
 }
+
+#[test]
+fn import_only_backend_cannot_emulate_compare_exchange() {
+    assert!(matches!(
+        ImportOnly.compare_exchange("key", None, b"replacement"),
+        Err(KeyStoreError::Unsupported { .. })
+    ));
+    assert!(matches!(
+        ImportOnly.compare_exchange("key", Some(b"old"), b"replacement"),
+        Err(KeyStoreError::Unsupported { .. })
+    ));
+    assert!(matches!(
+        ImportOnly.compare_exchange("", None, b"replacement"),
+        Err(KeyStoreError::InvalidId { .. })
+    ));
+}

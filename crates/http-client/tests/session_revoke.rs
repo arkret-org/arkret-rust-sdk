@@ -100,7 +100,7 @@ fn server(responses: Vec<(u16, Value)>) -> (Client, CapturedRequests, Arc<Atomic
 }
 #[tokio::test]
 async fn current_revoke_freezes_identity_across_transport_and_explicit_retry() {
-    let id = SessionGrantId::from_issuance_digest([5; 32]);
+    let id = SessionGrantId::new("ak:session_grant:0190c6aa-1234-7000-8000-000000000005").unwrap();
     let response = json!({"revoked_count":1,"revoked_session_grant_ids":[id]});
     let (sdk, server, calls) = server(vec![
         (503, json!({})),
@@ -117,8 +117,9 @@ async fn current_revoke_freezes_identity_across_transport_and_explicit_retry() {
 }
 #[tokio::test]
 async fn inner_challenge_preserves_body_with_fresh_outer_proofs() {
-    let id = SessionGrantId::from_issuance_digest([5; 32]);
-    let target = SessionGrantId::from_issuance_digest([6; 32]);
+    let id = SessionGrantId::new("ak:session_grant:0190c6aa-1234-7000-8000-000000000005").unwrap();
+    let target =
+        SessionGrantId::new("ak:session_grant:0190c6aa-1234-7000-8000-000000000006").unwrap();
     let (sdk, server, _) = server(vec![
         (503, json!({})),
         (
@@ -136,8 +137,9 @@ async fn inner_challenge_preserves_body_with_fresh_outer_proofs() {
 }
 #[tokio::test]
 async fn outcome_rejects_substitution_duplicate_ids_counts_and_unknown_members() {
-    let id = SessionGrantId::from_issuance_digest([5; 32]);
-    let other = SessionGrantId::from_issuance_digest([6; 32]);
+    let id = SessionGrantId::new("ak:session_grant:0190c6aa-1234-7000-8000-000000000005").unwrap();
+    let other =
+        SessionGrantId::new("ak:session_grant:0190c6aa-1234-7000-8000-000000000006").unwrap();
     for (response, valid) in [
         (json!({"revoked_count":1}), true),
         (
@@ -162,7 +164,7 @@ async fn outcome_rejects_substitution_duplicate_ids_counts_and_unknown_members()
 }
 #[test]
 fn invalid_selectors_proof_and_authentication_fail_before_network() {
-    let id = SessionGrantId::from_issuance_digest([5; 32]);
+    let id = SessionGrantId::new("ak:session_grant:0190c6aa-1234-7000-8000-000000000005").unwrap();
     let sdk = Client::builder("http://127.0.0.1:1/".parse().unwrap())
         .allow_insecure_localhost()
         .build()

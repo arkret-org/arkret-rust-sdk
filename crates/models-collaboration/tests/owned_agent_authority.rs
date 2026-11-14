@@ -19,7 +19,7 @@ fn owned_grant_value() -> Value {
         &arkret_wire::EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [31; 32])
     ));
     value["authority_depth"] = serde_json::json!(1);
-    value["authority_root_refs"] = value["issuer_authority_refs"].clone();
+    value["authority_root_ref"] = value["issuer_authority_refs"][0].clone();
     value["status"] = serde_json::json!("active");
     value
 }
@@ -32,6 +32,9 @@ fn original_issuer_identity_survives_terminal_status_but_not_station_or_ref_chan
     let mut grant: CapabilityGrant = serde_json::from_value(owned_grant_value()).unwrap();
     let original = grant.issuer_id.as_account_id().unwrap().clone();
     assert_eq!(grant.owned_agent_issuer(), Some(&original));
+    grant.authority_depth = 2;
+    assert!(grant.owned_agent_issuer().is_none());
+    grant.authority_depth = 1;
     grant.status = CapabilityGrantStatus::Revoked;
     assert_eq!(grant.owned_agent_issuer(), Some(&original));
     grant.status = CapabilityGrantStatus::Relinquished;

@@ -432,9 +432,8 @@ request!(
     self,
     match self {
         Self::Recovery(value) => value
-            .recovery_intent
-            .reanchor_unit
-            .request
+            .recovery_receipt
+            .recovery_unit
             .events
             .iter()
             .map(|slot| &slot.event)

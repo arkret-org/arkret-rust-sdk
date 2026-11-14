@@ -16,33 +16,33 @@ fn relation_update_path_allowed(path: &str) -> bool {
         .any(|root| path == *root || path.starts_with(&format!("{root}.")))
 }
 
-fn deserialize_required_nullable_revision<'de, D>(
+fn deserialize_required_nullable_commit_id<'de, D>(
     deserializer: D,
-) -> std::result::Result<Option<CurrentRevision>, D::Error>
+) -> std::result::Result<Option<RealmCommitId>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
-    Option::<CurrentRevision>::deserialize(deserializer)
+    Option::<RealmCommitId>::deserialize(deserializer)
 }
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RelationCreatePayloadWire {
     primary_conflict_domain: RelationPrimaryConflictDomain,
-    #[serde(deserialize_with = "deserialize_required_nullable_revision")]
-    expected_revision: Option<CurrentRevision>,
+    #[serde(deserialize_with = "deserialize_required_nullable_commit_id")]
+    expected_commit_id: Option<RealmCommitId>,
     relation: RelationDefinition,
 }
 
 impl RelationCreatePayload {
     pub fn try_new(
         primary_conflict_domain: RelationPrimaryConflictDomain,
-        expected_revision: Option<CurrentRevision>,
+        expected_commit_id: Option<RealmCommitId>,
         relation: RelationDefinition,
     ) -> Result<Self> {
         let payload = Self {
             primary_conflict_domain,
-            expected_revision,
+            expected_commit_id,
             relation,
         };
         payload.validate()?;
@@ -69,7 +69,7 @@ impl<'de> Deserialize<'de> for RelationCreatePayload {
         let wire = RelationCreatePayloadWire::deserialize(deserializer)?;
         let payload = Self {
             primary_conflict_domain: wire.primary_conflict_domain,
-            expected_revision: wire.expected_revision,
+            expected_commit_id: wire.expected_commit_id,
             relation: wire.relation,
         };
         payload.validate().map_err(serde::de::Error::custom)?;
@@ -81,7 +81,7 @@ impl<'de> Deserialize<'de> for RelationCreatePayload {
 #[serde(deny_unknown_fields)]
 struct RelationUpdatePayloadWire {
     primary_conflict_domain: RelationPrimaryConflictDomain,
-    expected_revision: CurrentRevision,
+    expected_commit_id: RealmCommitId,
     patch: Patch,
     relation_id: RelationId,
 }
@@ -112,7 +112,7 @@ impl<'de> Deserialize<'de> for RelationUpdatePayload {
         let wire = RelationUpdatePayloadWire::deserialize(deserializer)?;
         let payload = Self {
             primary_conflict_domain: wire.primary_conflict_domain,
-            expected_revision: wire.expected_revision,
+            expected_commit_id: wire.expected_commit_id,
             patch: wire.patch,
             relation_id: wire.relation_id,
         };
@@ -125,7 +125,7 @@ impl<'de> Deserialize<'de> for RelationUpdatePayload {
 #[serde(deny_unknown_fields)]
 struct RelationTombstonePayloadWire {
     primary_conflict_domain: RelationPrimaryConflictDomain,
-    expected_revision: CurrentRevision,
+    expected_commit_id: RealmCommitId,
     relation_id: RelationId,
     reason: Option<NonEmptyString>,
 }
@@ -152,7 +152,7 @@ impl<'de> Deserialize<'de> for RelationTombstonePayload {
         let wire = RelationTombstonePayloadWire::deserialize(deserializer)?;
         let payload = Self {
             primary_conflict_domain: wire.primary_conflict_domain,
-            expected_revision: wire.expected_revision,
+            expected_commit_id: wire.expected_commit_id,
             relation_id: wire.relation_id,
             reason: wire.reason,
         };
@@ -176,17 +176,14 @@ mod tests {
         })
     }
 
-    fn revision() -> Value {
-        json!({
-            "commit_id": "ak:realm_commit:ARNRmzDi2r78zveOLmoHOb6AephFMwVuGE1fwXmCoeo4",
-            "stream_position": 41
-        })
+    fn commit_id() -> Value {
+        json!("ak:realm_commit:ARNRmzDi2r78zveOLmoHOb6AephFMwVuGE1fwXmCoeo4")
     }
 
     fn create_payload() -> Value {
         json!({
             "primary_conflict_domain": domain(),
-            "expected_revision": null,
+            "expected_commit_id": null,
             "relation": {
                 "relation_kind": "references",
                 "from_ref": "ak:strand:AUifoAUG8AEOHYXp999WnI7WlLt19ByDoqYUsFwbw4A4",
@@ -200,14 +197,21 @@ mod tests {
     #[test]
     fn create_requires_nullable_revision_and_exact_primary_domain() {
         let payload: RelationCreatePayload = serde_json::from_value(create_payload()).unwrap();
-        assert!(payload.expected_revision.is_none());
+        assert!(payload.expected_commit_id.is_none());
         assert!(payload.validate().is_ok());
+
+        let mut legacy = create_payload();
+        legacy["expected_revision"] = Value::Null;
+        assert!(serde_json::from_value::<RelationCreatePayload>(legacy).is_err());
+        let mut compound = create_payload();
+        compound["expected_commit_id"] = json!({"commit_id":commit_id(), "stream_position":41});
+        assert!(serde_json::from_value::<RelationCreatePayload>(compound).is_err());
 
         let mut missing_revision = create_payload();
         missing_revision
             .as_object_mut()
             .unwrap()
-            .remove("expected_revision");
+            .remove("expected_commit_id");
         assert!(serde_json::from_value::<RelationCreatePayload>(missing_revision).is_err());
 
         let mut mismatched = create_payload();
@@ -257,7 +261,7 @@ mod tests {
     fn update_accepts_mutable_fields_and_rejects_identity_paths() {
         let valid = json!({
             "primary_conflict_domain": domain(),
-            "expected_revision": revision(),
+            "expected_commit_id": commit_id(),
             "patch": {"fields.note": "updated"},
             "relation_id": "ak:relation:AUifoAUG8AEOHYXp999WnI7WlLt19ByDoqYUsFwbw4A4"
         });
@@ -266,7 +270,7 @@ mod tests {
         for path in ["relation_kind", "from_ref", "to_ref", "effective_scope"] {
             let invalid = json!({
                 "primary_conflict_domain": domain(),
-                "expected_revision": revision(),
+                "expected_commit_id": commit_id(),
                 "patch": {(path): "forbidden"},
                 "relation_id": "ak:relation:AUifoAUG8AEOHYXp999WnI7WlLt19ByDoqYUsFwbw4A4"
             });
@@ -278,10 +282,10 @@ mod tests {
     }
 
     #[test]
-    fn tombstone_requires_exact_revision() {
+    fn tombstone_requires_exact_commit_id() {
         let valid = json!({
             "primary_conflict_domain": domain(),
-            "expected_revision": revision(),
+            "expected_commit_id": commit_id(),
             "relation_id": "ak:relation:AUifoAUG8AEOHYXp999WnI7WlLt19ByDoqYUsFwbw4A4"
         });
         assert!(serde_json::from_value::<RelationTombstonePayload>(valid).is_ok());

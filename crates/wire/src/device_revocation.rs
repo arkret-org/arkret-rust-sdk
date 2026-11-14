@@ -783,10 +783,11 @@ mod tests {
         AcceptedDevicePossessionProof::Refresh(AcceptedDeviceRefreshPossessionProof {
             context: AcceptedDevicePossessionProofContext::V1,
             purpose: AcceptedDeviceRefreshPossessionPurpose::SessionGrantRefresh,
-            predecessor_session_grant_id: SessionGrantId::new(
-                "ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW",
-            )
-            .unwrap(),
+            predecessor_session_grant_ref: crate::SessionGrantRef::new(
+                DidCoreId::new("ak:did_core:web:authority.example").unwrap(),
+                SessionGrantId::new("ak:session_grant:0190c6aa-1234-7000-8000-000000000001")
+                    .unwrap(),
+            ),
             account_id: account_id(),
             device_id: device_id(),
             audience_id: DidCoreId::new("ak:did_core:web:service.example").unwrap(),

@@ -14,6 +14,7 @@ pub mod actor_profile;
 pub mod actor_profile_operations;
 pub mod admin_grant;
 pub mod agent_authority_evidence;
+pub mod agent_participation;
 pub mod agent_signer_evidence;
 pub mod agent_signer_state;
 pub mod artifacts_account;
@@ -37,6 +38,7 @@ pub mod organization_registration;
 pub mod primary_handle;
 pub mod principal_registration_anchor;
 pub mod proof;
+pub mod recovery_completion;
 pub mod service_binding_results;
 pub mod service_identity;
 pub mod session_credential;
@@ -48,6 +50,10 @@ pub use actor_profile::*;
 pub use actor_profile_operations::*;
 pub use admin_grant::*;
 pub use agent_authority_evidence::*;
+pub use agent_participation::{
+    AgentParticipationView, MAX_PARTICIPATION_REPLACE_EXPECTED_VERSION, ParticipationBits,
+    ParticipationNextReplaceInput, ParticipationScope,
+};
 pub use agent_signer_state::*;
 pub use artifacts_account::*;
 pub use artifacts_device_identity::*;
@@ -66,6 +72,7 @@ pub use member_identity::*;
 pub use organization_registration::*;
 pub use principal_registration_anchor::*;
 pub use proof::*;
+pub use recovery_completion::*;
 pub use service_binding_results::*;
 pub use session_credential::*;
 pub use signer_key_operations::*;

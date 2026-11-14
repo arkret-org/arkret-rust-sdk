@@ -76,6 +76,7 @@ def main() -> int:
                 if (
                     (relative, field.group(1)) not in EXTERNAL_DATETIME_FIELDS
                     and "canonical_timestamp" not in context
+                    and "deserialize_non_null_optional_timestamp" not in context
                 ):
                     errors.append(
                         f"{relative}:{index + 1}: serde DateTime field lacks canonical timestamp adapter"

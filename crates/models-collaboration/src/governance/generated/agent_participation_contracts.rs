@@ -5,7 +5,7 @@
 // sha256=80fba7d397f1c4d067304c83b87dcdacee8db4585991eda985aceb0272890fa1
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=113d054c1defb3940cb07e0f04bb10848b9d375692c24056c947cb624743840a
+// sha256=dc73c01cf2bfb7cc6d4969c8f2f7faa6e44275c4a585ad81f3c94ac408daab8c
 
 /// Counterpart: `agent-operations.schema.json#/$defs/agent_participation_response_body`.
 /// Response for `ak.self.agent.participation.{set,get}`.

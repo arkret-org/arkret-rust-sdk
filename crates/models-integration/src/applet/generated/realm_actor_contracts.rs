@@ -2,19 +2,19 @@
 //! Generator: tools/generate-closed-models.py
 //!
 //! Input: schemas/realm-actor.schema.json
-//! sha256=87c35a6c300e76490630f6c0fad0dd6bb7c7c601042572f84b1f24ca28be4dc7
+//! sha256=61c5e64619b36a92bd52168fefe55f7643dbee653acdca81f37cde5e0398c420
 //!
 //! Input: schemas/current-state.schema.json
-//! sha256=b9b2fcecf87470a1def1e55bf536bdb637b04f0e6f42083d5ed9962a80b14c61
+//! sha256=7df2b471b4cf8fdd16049ce20e07129c8669d5de08f2bd80e1ecd0d142162973
 //!
 //! Input: schemas/event-payload.schema.json
-//! sha256=e57f2773764165f5a2e6047ae5491cdf152476deb73c83b2f6c14fff58925305
+//! sha256=110f3442df382c602cece0f2f5e0b4f2af3a0374f493911960b3cf6216f99a95
 //!
 //! Input: schemas/account-operations.schema.json
 //! sha256=0ae0fec5fd63dca4b9df9293eb71936cf73a3eeeae13b2268dc99699c1ed7607
 //!
 //! Bindings: tools/closed-model-bindings.json
-//! sha256=113d054c1defb3940cb07e0f04bb10848b9d375692c24056c947cb624743840a
+//! sha256=dc73c01cf2bfb7cc6d4969c8f2f7faa6e44275c4a585ad81f3c94ac408daab8c
 
 /// Counterpart: `realm-actor.schema.json#/$defs/control_scope/properties/kind`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -142,7 +142,7 @@ pub struct RealmActorCreationTranscript {
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmActorControlUpdatePayload {
-    pub expected_revision: arkret_wire::CurrentRevision,
+    pub expected_commit_id: arkret_wire::RealmCommitId,
     pub next_resolution: arkret_models_identity::ResolutionCommitment,
     pub method_history_evidence: crate::AppletManagedActorMethodHistoryEvidence,
     pub next_control_method_kid: arkret_wire::DidUrl,
@@ -154,7 +154,7 @@ pub struct RealmActorControlUpdatePayload {
 #[serde(deny_unknown_fields)]
 pub struct RealmActorControlAcceptanceTranscript {
     pub actor_id: arkret_wire::ActorId,
-    pub expected_revision: arkret_wire::CurrentRevision,
+    pub expected_commit_id: arkret_wire::RealmCommitId,
     pub next_resolution: arkret_models_identity::ResolutionCommitment,
     pub method_history_evidence: crate::AppletManagedActorMethodHistoryEvidence,
     pub next_control_method_kid: arkret_wire::DidUrl,
@@ -186,7 +186,7 @@ pub enum RealmActorStatusSetPayloadState {
 pub struct RealmActorStatusSetPayload {
     pub target_actor_id: arkret_wire::ActorId,
     pub gate: RealmActorStatusSetPayloadGate,
-    pub expected_revision: arkret_wire::CurrentRevision,
+    pub expected_commit_id: arkret_wire::RealmCommitId,
     pub state: RealmActorStatusSetPayloadState,
 }
 
@@ -194,7 +194,7 @@ pub struct RealmActorStatusSetPayload {
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmActorDevicesResetPayload {
-    pub expected_revision: arkret_wire::CurrentRevision,
+    pub expected_commit_id: arkret_wire::RealmCommitId,
     pub expected_generation: u64,
     pub new_generation: u64,
 }
@@ -203,9 +203,9 @@ pub struct RealmActorDevicesResetPayload {
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmActorManagerChangePayload {
-    pub expected_manager_revision: arkret_wire::CurrentRevision,
-    pub expected_control_revision: arkret_wire::CurrentRevision,
-    pub expected_device_generation_revision: arkret_wire::CurrentRevision,
+    pub expected_manager_commit_id: arkret_wire::RealmCommitId,
+    pub expected_control_commit_id: arkret_wire::RealmCommitId,
+    pub expected_device_generation_commit_id: arkret_wire::RealmCommitId,
     pub expected_generation: u64,
     pub new_generation: u64,
     pub new_service_id: arkret_wire::DidCoreId,
@@ -225,9 +225,9 @@ pub struct RealmActorManagerChangePayload {
 pub struct RealmActorManagerAcceptanceTranscript {
     pub actor_id: arkret_wire::ActorId,
     pub applet_id: arkret_wire::AppletId,
-    pub expected_manager_revision: arkret_wire::CurrentRevision,
-    pub expected_control_revision: arkret_wire::CurrentRevision,
-    pub expected_device_generation_revision: arkret_wire::CurrentRevision,
+    pub expected_manager_commit_id: arkret_wire::RealmCommitId,
+    pub expected_control_commit_id: arkret_wire::RealmCommitId,
+    pub expected_device_generation_commit_id: arkret_wire::RealmCommitId,
     pub expected_generation: u64,
     pub new_generation: u64,
     pub new_service_id: arkret_wire::DidCoreId,
@@ -272,10 +272,10 @@ pub struct RealmActorRecoveryBeginPayload {
     pub request_id: String,
     pub manager_ref: arkret_wire::CommittedEventRef,
     pub recovery_ref: arkret_wire::CommittedEventRef,
-    pub expected_control_revision: arkret_wire::CurrentRevision,
-    pub expected_owner_status_revision: arkret_wire::CurrentRevision,
-    pub expected_governance_status_revision: arkret_wire::CurrentRevision,
-    pub expected_device_generation_revision: arkret_wire::CurrentRevision,
+    pub expected_control_commit_id: arkret_wire::RealmCommitId,
+    pub expected_owner_status_commit_id: arkret_wire::RealmCommitId,
+    pub expected_governance_status_commit_id: arkret_wire::RealmCommitId,
+    pub expected_device_generation_commit_id: arkret_wire::RealmCommitId,
     pub expected_generation: u64,
     pub new_generation: u64,
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_required_nullable")]
@@ -302,10 +302,10 @@ pub struct RealmActorRecoveryAcceptanceTranscriptPayloadWithoutControlSignature 
     pub request_id: String,
     pub manager_ref: arkret_wire::CommittedEventRef,
     pub recovery_ref: arkret_wire::CommittedEventRef,
-    pub expected_control_revision: arkret_wire::CurrentRevision,
-    pub expected_owner_status_revision: arkret_wire::CurrentRevision,
-    pub expected_governance_status_revision: arkret_wire::CurrentRevision,
-    pub expected_device_generation_revision: arkret_wire::CurrentRevision,
+    pub expected_control_commit_id: arkret_wire::RealmCommitId,
+    pub expected_owner_status_commit_id: arkret_wire::RealmCommitId,
+    pub expected_governance_status_commit_id: arkret_wire::RealmCommitId,
+    pub expected_device_generation_commit_id: arkret_wire::RealmCommitId,
     pub expected_generation: u64,
     pub new_generation: u64,
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_required_nullable")]
@@ -337,10 +337,10 @@ pub struct RealmActorRecoveryAcceptanceTranscript {
 pub struct RealmActorControlResetPayload {
     pub target_actor_id: arkret_wire::ActorId,
     pub recovery_begin_ref: arkret_wire::CommittedEventRef,
-    pub expected_recovery_revision: arkret_wire::CurrentRevision,
-    pub expected_manager_revision: arkret_wire::CurrentRevision,
-    pub expected_control_revision: arkret_wire::CurrentRevision,
-    pub expected_device_generation_revision: arkret_wire::CurrentRevision,
+    pub expected_recovery_commit_id: arkret_wire::RealmCommitId,
+    pub expected_manager_commit_id: arkret_wire::RealmCommitId,
+    pub expected_control_commit_id: arkret_wire::RealmCommitId,
+    pub expected_device_generation_commit_id: arkret_wire::RealmCommitId,
     pub published_method_history_evidence: crate::AppletManagedActorMethodHistoryEvidence,
 }
 
@@ -349,8 +349,8 @@ pub struct RealmActorControlResetPayload {
 #[serde(deny_unknown_fields)]
 pub struct RealmActorRecoverySetPayload {
     pub target_actor_id: arkret_wire::ActorId,
-    pub expected_recovery_revision: arkret_wire::CurrentRevision,
-    pub expected_manager_revision: arkret_wire::CurrentRevision,
+    pub expected_recovery_commit_id: arkret_wire::RealmCommitId,
+    pub expected_manager_commit_id: arkret_wire::RealmCommitId,
     pub enabled: bool,
 }
 

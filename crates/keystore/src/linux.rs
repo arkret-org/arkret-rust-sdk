@@ -197,6 +197,27 @@ impl KeyStore for LinuxSecretServiceKeyStore {
         }
     }
 
+    fn compare_exchange(
+        &self,
+        id: &str,
+        expected: Option<&[u8]>,
+        replacement: &[u8],
+    ) -> Result<bool> {
+        validate_id(id)?;
+        let (_lease, ss) = self.mutation_session()?;
+        let existing = match self.load_from(&ss, id) {
+            Ok(bytes) => Some(bytes),
+            Err(error) if error.is_not_found() => None,
+            Err(error) => return Err(error),
+        };
+        if existing.as_ref().map(KeyBytes::as_slice) != expected {
+            return Ok(false);
+        }
+        // This lease is also held by store/create/delete in every SDK process.
+        self.write_to(&ss, id, replacement, existing.is_some())?;
+        Ok(true)
+    }
+
     fn list(&self) -> Result<Vec<String>> {
         let ss = Self::connect()?;
         zbus::block_on(async {

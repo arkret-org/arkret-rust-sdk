@@ -164,9 +164,8 @@ pub enum CallRosterDelta {
     Leave {
         actor_id: ActorId,
         device_id: String,
-        /// Typed revision of the roster value the producer read. The compare is
-        /// field-for-field, not a bare Commit ID and not a counter.
-        expected_revision: CurrentRevision,
+        /// Exact source Commit ID of the complete roster value the producer read.
+        expected_commit_id: RealmCommitId,
     },
 }
 
@@ -181,9 +180,8 @@ pub enum CallModerationDelta {
         restored_by: DidCoreId,
         #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
         restored_at: DateTime<Utc>,
-        /// Typed revision of the complete Call moderation axis the producer
-        /// read. The compare is field-for-field.
-        expected_revision: CurrentRevision,
+        /// Exact source Commit ID of the complete moderation axis the producer read.
+        expected_commit_id: RealmCommitId,
     },
 }
 
@@ -223,41 +221,8 @@ impl CallMuteOverride {
     }
 }
 
-/// Stable opaque recording/transcript lifecycle handle used byte-for-byte in
-/// exporter context derivation.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct CallRecordingId(String);
-
-impl CallRecordingId {
-    pub fn new(value: impl Into<String>) -> Result<Self> {
-        let value = value.into();
-        if !recording_id_is_canonical(&value) {
-            return schema_violation("recording_id must be ASCII [A-Za-z0-9._-], length 1..=128");
-        }
-        Ok(Self(value))
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-impl Serialize for CallRecordingId {
-    fn serialize<S: serde::Serializer>(
-        &self,
-        serializer: S,
-    ) -> std::result::Result<S::Ok, S::Error> {
-        serializer.serialize_str(self.as_str())
-    }
-}
-
-impl<'de> Deserialize<'de> for CallRecordingId {
-    fn deserialize<D: serde::Deserializer<'de>>(
-        deserializer: D,
-    ) -> std::result::Result<Self, D::Error> {
-        Self::new(String::deserialize(deserializer)?).map_err(serde::de::Error::custom)
-    }
-}
+/// The unique byte-exact capture segment leaf, shared with current selectors.
+pub use arkret_wire::CallRecordingId;
 
 /// Closed failure-code subset used by recording, transcription and artifact
 /// deletion. Registered values are stored as the generated [`ReasonCode`];
@@ -395,8 +360,10 @@ impl CallRecordingStartPayload {
 #[serde(rename_all = "snake_case")]
 pub enum CallRecordingEncryptionAlgorithm {
     MlsExporterAeadXchacha20poly1305,
+    #[serde(rename = "mls_exporter_aead_aes_256_gcm")]
     MlsExporterAeadAes256Gcm,
     MlsExporterAeadXchacha20poly1305Stream,
+    #[serde(rename = "mls_exporter_aead_aes_256_gcm_stream")]
     MlsExporterAeadAes256GcmStream,
 }
 
@@ -530,30 +497,80 @@ impl CallRecordingArtifact {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CallRecordingMetadata {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub content_digest: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub duration_ms: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub media_type: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub retention_policy_id: Option<PolicyId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub retention: Option<CallRecordingRetention>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub recording_start_event_id: Option<EventId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub artifact: Option<CallRecordingArtifact>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub failure_reason_code: Option<CallCaptureFailureReasonCode>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub failure_message: Option<String>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub recording_stop_event_id: Option<EventId>,
 }
 
 impl CallRecordingMetadata {
+    #[must_use]
+    pub fn ready(artifact: CallRecordingArtifact) -> Self {
+        Self {
+            artifact: Some(artifact),
+            ..Self::default()
+        }
+    }
+
     pub fn validate_ready_artifact(
         &self,
         call_id: &CallId,
@@ -562,6 +579,18 @@ impl CallRecordingMetadata {
         let Some(artifact) = &self.artifact else {
             return Err(ErrorCode::SCHEMA_VIOLATION);
         };
+        if self.content_digest.is_some()
+            || self.duration_ms.is_some()
+            || self.media_type.is_some()
+            || self.retention_policy_id.is_some()
+            || self.retention.is_some()
+            || self.recording_start_event_id.is_some()
+            || self.recording_stop_event_id.is_some()
+            || self.failure_reason_code.is_some()
+            || self.failure_message.is_some()
+        {
+            return Err(ErrorCode::SCHEMA_VIOLATION);
+        }
         if let Err(error) = artifact.validate() {
             let message = error.to_string();
             if message.contains(ReasonCode::RECORDING_ARTIFACT_PIPELINE_BYPASSED) {
@@ -575,45 +604,6 @@ impl CallRecordingMetadata {
         if &artifact.call_id != call_id || &artifact.recording_id != recording_id {
             return Err(ErrorCode::SCHEMA_VIOLATION);
         }
-        if self
-            .recording_start_event_id
-            .as_ref()
-            .is_some_and(|id| id != &artifact.recording_start_event_id)
-        {
-            return Err(ErrorCode::SCHEMA_VIOLATION);
-        }
-        if self.content_digest.as_ref().is_some_and(|digest| {
-            artifact.blob_ref.as_str().strip_prefix("ak:blob:") != Some(digest.as_str())
-        }) {
-            return Err(ErrorCode::SCHEMA_VIOLATION);
-        }
-        if self
-            .duration_ms
-            .is_some_and(|duration| duration != artifact.duration_ms)
-        {
-            return Err(ErrorCode::SCHEMA_VIOLATION);
-        }
-        if self
-            .media_type
-            .as_ref()
-            .is_some_and(|media_type| media_type != &artifact.media_type)
-        {
-            return Err(ErrorCode::SCHEMA_VIOLATION);
-        }
-        if self
-            .retention_policy_id
-            .as_ref()
-            .is_some_and(|policy_id| Some(policy_id) != artifact.retention_policy_id.as_ref())
-        {
-            return Err(ErrorCode::SCHEMA_VIOLATION);
-        }
-        if self
-            .retention
-            .as_ref()
-            .is_some_and(|retention| retention != &artifact.retention)
-        {
-            return Err(ErrorCode::SCHEMA_VIOLATION);
-        }
         Ok(())
     }
 }
@@ -621,20 +611,126 @@ impl CallRecordingMetadata {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CallTranscriptMetadata {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub content_digest: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub media_type: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub language: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub retention_policy_id: Option<PolicyId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub retention: Option<CallRecordingRetention>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub transcript_start_event_id: Option<EventId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub transcript_stop_event_id: Option<EventId>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub failure_reason_code: Option<CallCaptureFailureReasonCode>,
+}
+
+impl CallRecordingArtifactCurrentValue {
+    pub fn validate(
+        &self,
+        call_id: &CallId,
+        recording_id: &CallRecordingId,
+    ) -> std::result::Result<(), &'static str> {
+        match self.status {
+            CallCaptureResultStatus::Ready => {
+                self.details.validate_ready_artifact(call_id, recording_id)
+            }
+            CallCaptureResultStatus::Pending => {
+                if self.details.recording_start_event_id.is_none()
+                    || self.details.artifact.is_some()
+                    || self.details.recording_stop_event_id.is_some()
+                    || self.details.failure_reason_code.is_some()
+                    || self
+                        .details
+                        .retention
+                        .as_ref()
+                        .is_none_or(|retention| retention.consent_confirmed != Some(true))
+                    || self.details.content_digest.is_some()
+                    || self.details.duration_ms.is_some()
+                    || self.details.media_type.is_some()
+                    || self.details.retention_policy_id.is_some()
+                    || self.details.failure_message.is_some()
+                {
+                    return Err(ErrorCode::SCHEMA_VIOLATION);
+                }
+                Ok(())
+            }
+            CallCaptureResultStatus::Failed => {
+                if self.details.recording_stop_event_id.is_none()
+                    || self.details.artifact.is_some()
+                    || self
+                        .details
+                        .failure_message
+                        .as_deref()
+                        .is_some_and(contains_backend_direct_recording_ref)
+                {
+                    return Err(ErrorCode::SCHEMA_VIOLATION);
+                }
+                Ok(())
+            }
+        }
+    }
+}
+
+impl CallTranscriptArtifactCurrentValue {
+    pub fn validate(&self) -> std::result::Result<(), &'static str> {
+        if self.details.transcript_start_event_id.is_none()
+            || (self.status != CallCaptureResultStatus::Pending
+                && self.details.transcript_stop_event_id.is_none())
+            || (self.status == CallCaptureResultStatus::Ready && self.details.retention.is_none())
+            || (self.status == CallCaptureResultStatus::Pending
+                && (self.details.transcript_stop_event_id.is_some()
+                    || self.details.failure_reason_code.is_some()
+                    || self.details.content_digest.is_some()
+                    || self.details.media_type.is_some()
+                    || self.details.language.is_some()
+                    || self.details.retention_policy_id.is_some()
+                    || self
+                        .details
+                        .retention
+                        .as_ref()
+                        .is_none_or(|retention| retention.consent_confirmed != Some(true))))
+        {
+            return Err(ErrorCode::SCHEMA_VIOLATION);
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -754,7 +850,17 @@ pub struct CallRecordingTransition {
     pub recording_id: CallRecordingId,
     pub from: CallRecordingState,
     pub to: CallRecordingState,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub expected_commit_id: Option<RealmCommitId>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub capture_metadata: Option<CallRecordingMetadata>,
 }
 
@@ -773,7 +879,17 @@ pub struct CallTranscriptTransition {
     pub recording_id: CallRecordingId,
     pub from: CallTranscriptState,
     pub to: CallTranscriptState,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub expected_commit_id: Option<RealmCommitId>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub capture_metadata: Option<CallTranscriptMetadata>,
 }
 
@@ -820,6 +936,18 @@ impl CallStatePayload {
         if transition.to == CallRecordingState::Recording {
             return Err(ErrorCode::SCHEMA_VIOLATION);
         }
+        let expected_from = if transition.to == CallRecordingState::Stopped {
+            CallRecordingState::Recording
+        } else {
+            CallRecordingState::Stopped
+        };
+        if transition.from != expected_from {
+            return Err(ReasonCode::CALL_STATE_TRANSITION_INVALID);
+        }
+        if transition.expected_commit_id.is_some() == (transition.to == CallRecordingState::Stopped)
+        {
+            return Err(ErrorCode::SCHEMA_VIOLATION);
+        }
         match transition.to {
             CallRecordingState::Ready => transition
                 .capture_metadata
@@ -827,16 +955,29 @@ impl CallStatePayload {
                 .ok_or(ErrorCode::SCHEMA_VIOLATION)?
                 .validate_ready_artifact(&self.call_id, &transition.recording_id),
             CallRecordingState::Failed => {
-                if let Some(capture_metadata) = &transition.capture_metadata
-                    && (capture_metadata.artifact.is_some()
-                        || capture_metadata
-                            .failure_message
-                            .as_deref()
-                            .is_some_and(contains_backend_direct_recording_ref))
+                let capture_metadata = transition
+                    .capture_metadata
+                    .as_ref()
+                    .ok_or(ErrorCode::SCHEMA_VIOLATION)?;
+                if capture_metadata.recording_stop_event_id.is_none() {
+                    return Err(ErrorCode::SCHEMA_VIOLATION);
+                }
+                if capture_metadata.artifact.is_some()
+                    || capture_metadata
+                        .failure_message
+                        .as_deref()
+                        .is_some_and(contains_backend_direct_recording_ref)
                 {
                     return Err(ReasonCode::RECORDING_ARTIFACT_PIPELINE_BYPASSED);
                 }
                 Ok(())
+            }
+            _ if transition
+                .capture_metadata
+                .as_ref()
+                .is_some_and(|metadata| metadata.artifact.is_some()) =>
+            {
+                Err(ErrorCode::SCHEMA_VIOLATION)
             }
             _ => Ok(()),
         }
@@ -849,13 +990,41 @@ impl CallStatePayload {
         if transition.to == CallTranscriptState::Transcribing {
             return Err(ErrorCode::SCHEMA_VIOLATION);
         }
+        let expected_from = if transition.to == CallTranscriptState::Stopped {
+            CallTranscriptState::Transcribing
+        } else {
+            CallTranscriptState::Stopped
+        };
+        if transition.from != expected_from {
+            return Err(ReasonCode::CALL_STATE_TRANSITION_INVALID);
+        }
+        if transition.expected_commit_id.is_some()
+            == (transition.to == CallTranscriptState::Stopped)
+        {
+            return Err(ErrorCode::SCHEMA_VIOLATION);
+        }
         match transition.to {
             CallTranscriptState::Ready => {
                 let capture_metadata = transition
                     .capture_metadata
                     .as_ref()
                     .ok_or(ErrorCode::SCHEMA_VIOLATION)?;
-                if capture_metadata.transcript_start_event_id.is_none() {
+                if capture_metadata.transcript_start_event_id.is_none()
+                    || capture_metadata.transcript_stop_event_id.is_none()
+                    || capture_metadata.retention.is_none()
+                {
+                    return Err(ErrorCode::SCHEMA_VIOLATION);
+                }
+                Ok(())
+            }
+            CallTranscriptState::Failed => {
+                let metadata = transition
+                    .capture_metadata
+                    .as_ref()
+                    .ok_or(ErrorCode::SCHEMA_VIOLATION)?;
+                if metadata.transcript_start_event_id.is_none()
+                    || metadata.transcript_stop_event_id.is_none()
+                {
                     return Err(ErrorCode::SCHEMA_VIOLATION);
                 }
                 Ok(())
@@ -899,14 +1068,6 @@ fn validate_recording_deletion_audit(
         ));
     }
     Ok(())
-}
-
-fn recording_id_is_canonical(value: &str) -> bool {
-    !value.is_empty()
-        && value.len() <= 128
-        && value
-            .bytes()
-            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'-'))
 }
 
 fn call_capture_failure_reason_code_is_valid(value: &str) -> bool {

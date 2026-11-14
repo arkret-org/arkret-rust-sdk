@@ -229,7 +229,7 @@ impl MimiUpdateConsentRequestBody {
         }
         let expected = current.map_or(ConsentExpectedCurrent::NeverWritten, |row| {
             ConsentExpectedCurrent::Present {
-                revision: row.revision.clone(),
+                commit_id: row.revision.commit_id.clone(),
             }
         });
         if payload.expected_current != expected {
@@ -633,7 +633,7 @@ mod tests {
                 EventKind::ConsentReplace,
                 json!({
                     "peer":{"kind":"actor","actor_id":peer},
-                    "expected_current":{"state":"present","revision":revision},
+                    "expected_current":{"state":"present","commit_id":revision.commit_id},
                     "permissions":permissions
                 }),
             );
@@ -677,7 +677,7 @@ mod tests {
             stream_position: 7,
         };
         let current=CurrentConsent{selector:ConsentCurrentSelector{kind:ConsentCurrentSelectorKind::Consent,peer_id:peer.clone()},source_stream_ref:CommitStreamRef::Realm{realm_id:request.consent_event.event.realm_id.clone()},revision:revision.clone(),value:ConsentValue{permissions:serde_json::from_value(json!([{"consent_scope":"voice_call","expires_at":"2020-01-01T00:00:00.000Z"},{"consent_scope":"presence","constraints":[],"reason":""}])).unwrap()}};
-        let replacement = |permissions: Value| json!({"peer":{"kind":"actor","actor_id":peer},"expected_current":{"state":"present","revision":revision},"permissions":permissions});
+        let replacement = |permissions: Value| json!({"peer":{"kind":"actor","actor_id":peer},"expected_current":{"state":"present","commit_id":revision.commit_id},"permissions":permissions});
         request.consent_event = consent_event(
             EventKind::ConsentReplace,
             replacement(
@@ -713,8 +713,14 @@ mod tests {
             EventKind::ConsentReplace,
             replacement(json!([{"consent_scope":"presence","constraints":[],"reason":""}])),
         );
-        let mut stale = current;
-        stale.revision.stream_position += 1;
+        let mut later_read_coordinate = current;
+        later_read_coordinate.revision.stream_position += 1;
+        request
+            .validate_replacement_for(&peer, ConsentScope::VoiceCall, Some(&later_read_coordinate))
+            .unwrap();
+        assert_eq!(later_read_coordinate.revision.stream_position, 8);
+        let mut stale = later_read_coordinate;
+        stale.revision.commit_id = RealmCommitId::from_digest([18; 32]);
         assert!(
             request
                 .validate_replacement_for(&peer, ConsentScope::VoiceCall, Some(&stale))

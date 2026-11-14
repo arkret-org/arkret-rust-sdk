@@ -11,110 +11,12 @@
 //! An action is allowed only when ordinary capability/lifecycle checks pass
 //! and the current selection/ceiling intersection enables its bit.
 
-use arkret_wire::{CircleId, DidCoreId, RealmId, StrandId};
+pub use arkret_models_identity::agent_participation::{
+    AgentParticipationView, MAX_PARTICIPATION_REPLACE_EXPECTED_VERSION, ParticipationBits,
+    ParticipationNextReplaceInput, ParticipationScope,
+};
+use arkret_wire::DidCoreId;
 use serde::{Deserialize, Serialize};
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ParticipationBits {
-    pub message_creation_allowed: bool,
-    pub reaction_addition_allowed: bool,
-    pub reaction_removal_allowed: bool,
-    pub third_party_mention_delivery_allowed: bool,
-    pub acting_on_behalf_allowed: bool,
-}
-
-impl ParticipationBits {
-    pub const NONE: Self = Self {
-        message_creation_allowed: false,
-        reaction_addition_allowed: false,
-        reaction_removal_allowed: false,
-        third_party_mention_delivery_allowed: false,
-        acting_on_behalf_allowed: false,
-    };
-
-    pub const ALL: Self = Self {
-        message_creation_allowed: true,
-        reaction_addition_allowed: true,
-        reaction_removal_allowed: true,
-        third_party_mention_delivery_allowed: true,
-        acting_on_behalf_allowed: true,
-    };
-
-    #[must_use]
-    pub fn intersect(self, other: Self) -> Self {
-        Self {
-            message_creation_allowed: self.message_creation_allowed
-                && other.message_creation_allowed,
-            reaction_addition_allowed: self.reaction_addition_allowed
-                && other.reaction_addition_allowed,
-            reaction_removal_allowed: self.reaction_removal_allowed
-                && other.reaction_removal_allowed,
-            third_party_mention_delivery_allowed: self.third_party_mention_delivery_allowed
-                && other.third_party_mention_delivery_allowed,
-            acting_on_behalf_allowed: self.acting_on_behalf_allowed
-                && other.acting_on_behalf_allowed,
-        }
-    }
-
-    #[must_use]
-    pub fn is_subset_of(self, ceiling: Self) -> bool {
-        (!self.message_creation_allowed || ceiling.message_creation_allowed)
-            && (!self.reaction_addition_allowed || ceiling.reaction_addition_allowed)
-            && (!self.reaction_removal_allowed || ceiling.reaction_removal_allowed)
-            && (!self.third_party_mention_delivery_allowed
-                || ceiling.third_party_mention_delivery_allowed)
-            && (!self.acting_on_behalf_allowed || ceiling.acting_on_behalf_allowed)
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum ParticipationScope {
-    Realm {
-        realm_id: RealmId,
-    },
-    Circle {
-        realm_id: RealmId,
-        circle_id: CircleId,
-    },
-    Strand {
-        realm_id: RealmId,
-        strand_id: StrandId,
-    },
-}
-
-impl ParticipationScope {
-    pub fn realm_id(&self) -> &RealmId {
-        match self {
-            Self::Realm { realm_id }
-            | Self::Circle { realm_id, .. }
-            | Self::Strand { realm_id, .. } => realm_id,
-        }
-    }
-
-    /// Stable account-data key used by participation projections.
-    ///
-    /// Each scope component remains a complete typed ID. Event-derived tokens
-    /// must never be reduced to an untyped suffix in account-data authority
-    /// keys.
-    #[must_use]
-    pub fn scope_key(&self) -> String {
-        match self {
-            Self::Realm { realm_id } => format!("realm:{realm_id}"),
-            Self::Circle {
-                realm_id,
-                circle_id,
-            } => format!("circle:{realm_id}:{circle_id}"),
-            Self::Strand {
-                realm_id,
-                strand_id,
-            } => format!("strand:{realm_id}:{strand_id}"),
-        }
-    }
-}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -123,7 +25,9 @@ pub struct ParticipationReplaceRequestBody {
     pub target_scope: ParticipationScope,
     pub selection: ParticipationBits,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
-    #[serde(with = "participation_expected_version_decimal")]
+    #[serde(
+        with = "arkret_models_identity::agent_participation::serde_helpers::participation_expected_version_decimal"
+    )]
     pub expected_version: u64,
 }
 
@@ -198,118 +102,13 @@ pub fn effective_participation(
     ceiling.intersect(selection)
 }
 
-/// Largest accepted version that can still be echoed into the next replace
-/// request under the closed schema.
-pub const MAX_PARTICIPATION_REPLACE_EXPECTED_VERSION: u64 = i64::MAX as u64 - 1;
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ParticipationNextReplaceInput {
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
-    #[serde(with = "participation_expected_version_decimal")]
-    pub expected_version: u64,
-}
-
-mod participation_expected_version_decimal {
-    pub fn serialize<S: serde::Serializer>(value: &u64, serializer: S) -> Result<S::Ok, S::Error> {
-        if *value > super::MAX_PARTICIPATION_REPLACE_EXPECTED_VERSION {
-            return Err(serde::ser::Error::custom(
-                "participation replace version exhausted",
-            ));
-        }
-        arkret_canonical::serde_helpers::nonnegative_int64_decimal::serialize(value, serializer)
-    }
-    pub fn deserialize<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<u64, D::Error> {
-        let value =
-            arkret_canonical::serde_helpers::nonnegative_int64_decimal::deserialize(deserializer)?;
-        if value > super::MAX_PARTICIPATION_REPLACE_EXPECTED_VERSION {
-            return Err(serde::de::Error::custom(
-                "participation replace version exhausted",
-            ));
-        }
-        Ok(value)
-    }
-}
-
-/// One controller-owned, versioned per-scope participation selection.
-/// Governance and deployment ceilings are evaluated at action time and are
-/// intentionally not copied into this authority record.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AgentParticipationView {
-    pub target_scope: ParticipationScope,
-    pub selection: ParticipationBits,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
-    #[serde(with = "arkret_canonical::serde_helpers::nonnegative_int64_decimal")]
-    pub version: u64,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub next_replace_input: Option<ParticipationNextReplaceInput>,
-}
-
-impl AgentParticipationView {
-    pub fn validate(&self) -> Result<(), String> {
-        if self.version == 0 || self.version > i64::MAX as u64 {
-            return Err(
-                "agent participation entry version is outside the replace echo range".to_owned(),
-            );
-        }
-        let expected =
-            (self.version <= MAX_PARTICIPATION_REPLACE_EXPECTED_VERSION).then_some(self.version);
-        if self
-            .next_replace_input
-            .as_ref()
-            .map(|input| input.expected_version)
-            != expected
-        {
-            return Err(
-                "agent participation next_replace_input.expected_version must equal version"
-                    .to_owned(),
-            );
-        }
-        Ok(())
-    }
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct AgentParticipationViewWire {
-    target_scope: ParticipationScope,
-    selection: ParticipationBits,
-    #[serde(with = "arkret_canonical::serde_helpers::nonnegative_int64_decimal")]
-    version: u64,
-    #[serde(
-        default,
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    next_replace_input: Option<ParticipationNextReplaceInput>,
-}
-
-impl<'de> Deserialize<'de> for AgentParticipationView {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let wire = AgentParticipationViewWire::deserialize(deserializer)?;
-        let entry = Self {
-            target_scope: wire.target_scope,
-            selection: wire.selection,
-            version: wire.version,
-            next_replace_input: wire.next_replace_input,
-        };
-        entry.validate().map_err(serde::de::Error::custom)?;
-        Ok(entry)
-    }
-}
-
 /// An observation from one exact authenticated Agent session. This local
 /// value is never a participation-current verdict or a wire carrier.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AgentParticipationObservation {
     pub agent_account: arkret_wire::AccountId,
     pub controller_account: arkret_wire::AccountId,
-    pub grant_id: arkret_wire::SessionGrantId,
+    pub grant_ref: arkret_wire::SessionGrantRef,
     pub agent_key_authorization_ref: arkret_wire::EventId,
     pub verification_method: arkret_wire::DidUrl,
     pub session_id: String,
@@ -319,61 +118,47 @@ pub struct AgentParticipationObservation {
 }
 
 impl AgentParticipationObservation {
-    /// The caller authenticates the exact session claims before using this
-    /// helper. Claim parsing alone does not authenticate an issuer.
-    pub fn from_authenticated_claims(
-        claims: &arkret_models_identity::SignedSessionGrantClaims,
+    /// The caller obtains metadata through the exact credential's authenticated issuer result.
+    /// Parsing metadata alone does not authenticate that result or create current participation
+    /// authority.
+    pub fn from_authenticated_metadata(
+        metadata: &arkret_models_identity::SessionGrantMetadata,
     ) -> Result<Self, String> {
+        metadata.validate().map_err(|error| error.to_string())?;
         let arkret_models_identity::SessionGrantHolderBinding::AgentRuntime {
             agent_id,
             agent_key_authorization_ref,
             verification_method,
-        } = &claims.holder_binding
+        } = &metadata.holder_binding
         else {
             return Err("participation overlay requires an Agent runtime session".into());
         };
-        if agent_id != &claims.account_id.principal_id
-            || claims.account_id.station_id != claims.audience_id
+        if agent_id != &metadata.account_id.principal_id
+            || metadata.account_id.station_id != metadata.audience_id
         {
             return Err("Agent participation observation has another Account/Station".into());
         }
-        let details = claims
+        let details = metadata
             .scope_details
             .as_ref()
             .ok_or("Agent session has no scope details")?;
-        let controller: DidCoreId = serde_json::from_value(
-            details
-                .get("controller_principal_id")
-                .ok_or("Agent session has no controller binding")?
-                .clone(),
-        )
-        .map_err(|e| e.to_string())?;
-        let entries: Vec<AgentParticipationView> = serde_json::from_value(
-            details
-                .get("participations")
-                .ok_or("Agent session has no participation observation")?
-                .clone(),
-        )
-        .map_err(|e| e.to_string())?;
-        let mut scopes = std::collections::BTreeSet::new();
-        for entry in &entries {
-            entry.validate()?;
-            if !scopes.insert(entry.target_scope.scope_key()) {
-                return Err("duplicate participation target scope".into());
-            }
-        }
+        let controller = details.controller_principal_id.clone();
+        let entries = details
+            .participations
+            .clone()
+            .ok_or("Agent session has no participation observation")?;
         Ok(Self {
-            agent_account: claims.account_id.clone(),
+            agent_account: metadata.account_id.clone(),
             controller_account: arkret_wire::AccountId::new(
                 controller,
-                claims.account_id.station_id.clone(),
+                metadata.account_id.station_id.clone(),
             ),
-            grant_id: claims.grant_id.clone(),
+            grant_ref: metadata.grant_ref(),
             agent_key_authorization_ref: agent_key_authorization_ref.clone(),
             verification_method: verification_method.clone(),
-            session_id: claims.session_id.clone(),
-            observed_at: claims.not_before,
-            expires_at: claims.expires_at,
+            session_id: metadata.session_id.clone(),
+            observed_at: metadata.not_before,
+            expires_at: metadata.expires_at,
             entries,
         })
     }
@@ -397,6 +182,8 @@ impl AgentParticipationObservation {
             || self.controller_account != next.controller_account
             || self.agent_key_authorization_ref != next.agent_key_authorization_ref
             || self.verification_method != next.verification_method
+            || self.grant_ref.issuer_id != next.grant_ref.issuer_id
+            || self.session_id != next.session_id
             || next.observed_at < self.observed_at
         {
             return Err("participation observation changed owner or moved backwards".into());
@@ -420,7 +207,7 @@ impl AgentParticipationObservation {
 mod observation_tests {
     use super::*;
     fn observation() -> AgentParticipationObservation {
-        let realm = RealmId::from_event_id(&arkret_wire::EventId::from_digest(
+        let realm = arkret_wire::RealmId::from_event_id(&arkret_wire::EventId::from_digest(
             arkret_canonical::DigestSuite::Sha256,
             [7; 32],
         ));
@@ -434,7 +221,12 @@ mod observation_tests {
                 "ak:did_core:web:controller.example".parse().unwrap(),
                 "ak:did_core:web:station.example".parse().unwrap(),
             ),
-            grant_id: arkret_wire::SessionGrantId::from_issuance_digest([8; 32]),
+            grant_ref: arkret_wire::SessionGrantRef::new(
+                "ak:did_core:web:authority.example".parse().unwrap(),
+                "ak:session_grant:0190c6aa-1234-7000-8000-000000000001"
+                    .parse()
+                    .unwrap(),
+            ),
             agent_key_authorization_ref: arkret_wire::EventId::from_digest(
                 arkret_canonical::DigestSuite::Sha256,
                 [9; 32],
@@ -475,21 +267,25 @@ mod observation_tests {
     }
 
     #[test]
-    fn authenticated_claims_consume_the_canonical_participations_member() {
+    fn authenticated_metadata_consumes_the_typed_participations_member() {
         use arkret_models_identity::{
             CanonicalSessionPublicJwk, SessionGrantCredentialClass, SessionGrantHolderBinding,
-            SessionGrantIssuanceNonce, SignedSessionGrantClaims,
+            SessionGrantMetadata, SessionGrantScope, SessionGrantScopeConstraints,
+            SessionGrantScopeResources,
         };
         let expected = observation();
-        let mut claims = SignedSessionGrantClaims {
-            kind: "ak.session.grant".into(),
-            grant_id: expected.grant_id.clone(),
-            issuer_id: "ak:did_core:web:authority.example".parse().unwrap(),
-            issuance_nonce: SessionGrantIssuanceNonce::from_bytes([5; 32]),
+        let key = CanonicalSessionPublicJwk::new(
+            r#"{"crv":"Ed25519","kty":"OKP","x":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}"#,
+        )
+        .unwrap();
+        let realms = vec![expected.entries[0].target_scope.realm_id().clone()];
+        let mut metadata = SessionGrantMetadata {
+            id: expected.grant_ref.id.clone(),
+            issuer_id: expected.grant_ref.issuer_id.clone(),
             account_id: expected.agent_account.clone(),
-            session_public_key: CanonicalSessionPublicJwk::new(
-                r#"{"crv":"Ed25519","kty":"OKP","x":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}"#,
-            ).unwrap(),
+            device_id: None,
+            cnf_jkt: key.thumbprint_sha256().unwrap(),
+            session_public_key: key,
             audience_id: expected.agent_account.station_id.clone(),
             scopes: vec!["ak.self.committed_event.read.scan.v1".into()],
             not_before: expected.observed_at,
@@ -503,19 +299,32 @@ mod observation_tests {
             },
             device_binding: None,
             proof_kind: None,
-            scope_details: Some(serde_json::json!({
-                "controller_principal_id":expected.controller_account.principal_id,
-                "participations":expected.entries,
-            }).as_object().unwrap().clone()),
+            scope_details: Some(SessionGrantScope {
+                controller_principal_id: expected.controller_account.principal_id.clone(),
+                agent_key_authorization_ref: expected.agent_key_authorization_ref.clone(),
+                realm_ids: realms.clone(),
+                strand_ids: vec![],
+                resources: SessionGrantScopeResources {
+                    realm_ids: realms,
+                    strand_ids: vec![],
+                },
+                constraints: SessionGrantScopeConstraints {
+                    allowed_tracks: vec![],
+                    allowed_data_labels: vec![],
+                    allowed_endpoints: vec![],
+                    allowed_strand_ids: None,
+                },
+                capability_grant_refs: vec![],
+                policy_refs: vec![],
+                participations: Some(expected.entries.clone()),
+            }),
         };
         assert_eq!(
-            AgentParticipationObservation::from_authenticated_claims(&claims).unwrap(),
+            AgentParticipationObservation::from_authenticated_metadata(&metadata).unwrap(),
             expected
         );
-        let details = claims.scope_details.as_mut().unwrap();
-        let entries = details.remove("participations").unwrap();
-        details.insert("participation".into(), entries);
-        assert!(AgentParticipationObservation::from_authenticated_claims(&claims).is_err());
+        metadata.scope_details.as_mut().unwrap().participations = None;
+        assert!(AgentParticipationObservation::from_authenticated_metadata(&metadata).is_err());
     }
 
     #[test]

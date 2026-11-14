@@ -98,8 +98,8 @@ fn realm_device_original_expiry_round_trips_through_generated_current() {
             "authorized_by":actor.signing_principal_id(), "authorization_binding_kind":"realm_managed_delegation",
             "authorized_generation_ref":1, "not_before":"2026-10-16T00:00:00.000Z", "expires_at":expiry,
             "scopes":fixture["cases"][0]["scopes"], "applet_id":applet, "device_signature":"AA",
-            "expected_control_revision":{"commit_id":arkret_wire::RealmCommitId::from_digest([42;32]),"stream_position":0},
-            "expected_device_revision":null
+            "expected_control_commit_id":arkret_wire::RealmCommitId::from_digest([42;32]),
+            "expected_device_commit_id":null
         });
         let payload: DeviceAuthorizePayload = serde_json::from_value(wire.clone()).unwrap();
         assert_eq!(serde_json::to_value(payload).unwrap(), wire);

@@ -12,8 +12,8 @@
 
 use arkret_models_identity::SessionGrantCredentialClass;
 use arkret_wire::{
-    Base64UrlString, DeviceId, DidCoreId, DidUrl, EventId, Hash, RequestId, Result, SessionGrantId,
-    WireError, canonical,
+    Base64UrlString, DeviceId, DidCoreId, DidUrl, EventId, Hash, RequestId, Result,
+    SessionGrantRef, SessionGrantSecret, WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -56,11 +56,6 @@ impl RecoverySessionGrantRequestBody {
 
 impl AgentSessionGrantRefreshRequestBody {
     pub fn validate(&self) -> Result<()> {
-        if self.grant_jwt.trim().is_empty() {
-            return Err(WireError::Protocol(
-                "agent session refresh grant_jwt must not be empty".to_owned(),
-            ));
-        }
         self.agent_session_refresh_proof.validate()?;
         if self
             .audience_id
@@ -69,6 +64,18 @@ impl AgentSessionGrantRefreshRequestBody {
         {
             return Err(WireError::Protocol(
                 "agent session refresh proof audience_id mismatch".to_owned(),
+            ));
+        }
+        let expected = agent_session_refresh_request_digest(
+            &self.session_grant,
+            &self.principal_id,
+            &self.agent_key_authorization_ref,
+            &self.agent_session_refresh_proof.audience_id,
+            &self.agent_session_refresh_proof.verification_method,
+        )?;
+        if self.agent_session_refresh_proof.request_canonical_digest != expected {
+            return Err(WireError::Protocol(
+                "Agent refresh proof does not bind the exact credential request".into(),
             ));
         }
         Ok(())
@@ -148,7 +155,8 @@ fn validate_agent_session_refresh_window(
     expires_at: DateTime<Utc>,
 ) -> Result<()> {
     if expires_at <= issued_at
-        || (expires_at - issued_at).num_seconds() > AGENT_SESSION_REFRESH_PROOF_MAX_LIFETIME_SECONDS
+        || expires_at - issued_at
+            > chrono::Duration::seconds(AGENT_SESSION_REFRESH_PROOF_MAX_LIFETIME_SECONDS)
     {
         return Err(WireError::Protocol(format!(
             "agent refresh proof validity window must be positive and at most {AGENT_SESSION_REFRESH_PROOF_MAX_LIFETIME_SECONDS} seconds"
@@ -160,7 +168,7 @@ fn validate_agent_session_refresh_window(
 #[derive(Serialize)]
 struct AgentSessionRefreshRequestDigestInput<'a> {
     operation: &'static str,
-    grant_jwt_digest: String,
+    session_grant_digest: String,
     principal_id: &'a DidCoreId,
     agent_key_authorization_ref: &'a EventId,
     audience_id: &'a DidCoreId,
@@ -169,10 +177,10 @@ struct AgentSessionRefreshRequestDigestInput<'a> {
 
 /// Stable canonical intent an Agent runtime key signs when it rotates a grant.
 ///
-/// The predecessor JWT is hashed rather than carried, so the digest never
+/// The exact opaque predecessor is hashed rather than carried, so the digest never
 /// re-exposes the credential it replaces.
 pub fn agent_session_refresh_request_digest(
-    grant_jwt: &str,
+    session_grant: &SessionGrantSecret,
     principal_id: &DidCoreId,
     agent_key_authorization_ref: &EventId,
     audience_id: &DidCoreId,
@@ -181,7 +189,7 @@ pub fn agent_session_refresh_request_digest(
     Ok(Hash::new(canonical::canonical_sha256(
         &AgentSessionRefreshRequestDigestInput {
             operation: AGENT_SESSION_REFRESH_OPERATION,
-            grant_jwt_digest: canonical::sha256_digest(grant_jwt.as_bytes()),
+            session_grant_digest: canonical::sha256_digest(session_grant.as_str().as_bytes()),
             principal_id,
             agent_key_authorization_ref,
             audience_id,
@@ -193,8 +201,8 @@ pub fn agent_session_refresh_request_digest(
 #[derive(Serialize)]
 struct SessionGrantRefreshRequestDigestInput<'a> {
     operation: &'static str,
-    grant_jwt_digest: String,
-    predecessor_session_grant_id: &'a SessionGrantId,
+    session_grant_digest: String,
+    predecessor_session_grant_ref: &'a SessionGrantRef,
     principal_id: &'a DidCoreId,
     device_id: &'a DeviceId,
     audience_id: &'a str,
@@ -203,15 +211,15 @@ struct SessionGrantRefreshRequestDigestInput<'a> {
 
 /// Stable canonical rotation intent a human device signs.
 ///
-/// The predecessor JWT is hashed rather than carried, so the digest never
-/// re-exposes the credential it replaces, while the predecessor's signed
-/// stable id is carried separately to prevent cross-chain replay. Together
-/// with `predecessor_grant_id` it forms the request identity that makes an
+/// The exact opaque predecessor is hashed rather than carried, so the digest never
+/// re-exposes the credential it replaces, while the predecessor's complete issuer-scoped
+/// record reference is carried separately to prevent cross-chain replay. Together
+/// with `predecessor_session_grant_ref` it forms the request identity that makes an
 /// exact replay return the recorded successor.
 #[allow(clippy::too_many_arguments)]
 pub fn session_grant_refresh_request_digest(
-    grant_jwt: &str,
-    predecessor_session_grant_id: &SessionGrantId,
+    session_grant: &SessionGrantSecret,
+    predecessor_session_grant_ref: &SessionGrantRef,
     principal_id: &DidCoreId,
     device_id: &DeviceId,
     audience_id: &DidCoreId,
@@ -219,8 +227,8 @@ pub fn session_grant_refresh_request_digest(
 ) -> Result<Hash> {
     let input = SessionGrantRefreshRequestDigestInput {
         operation: AGENT_SESSION_REFRESH_OPERATION,
-        grant_jwt_digest: canonical::sha256_digest(grant_jwt.as_bytes()),
-        predecessor_session_grant_id,
+        session_grant_digest: canonical::sha256_digest(session_grant.as_str().as_bytes()),
+        predecessor_session_grant_ref,
         principal_id,
         device_id,
         audience_id: audience_id.as_str(),
@@ -259,13 +267,25 @@ mod tests {
     }
 
     fn agent_refresh_value() -> Value {
-        json!({
-            "grant_jwt": "header.body.signature",
+        let mut value = json!({
+            "session_grant": SessionGrantSecret::from_bytes([42; 32]),
             "audience_id": AUDIENCE,
             "principal_id": PRINCIPAL,
             "agent_key_authorization_ref": AUTHORIZATION,
             "agent_session_refresh_proof": refresh_proof_value()
-        })
+        });
+        value["agent_session_refresh_proof"]["request_canonical_digest"] = serde_json::to_value(
+            agent_session_refresh_request_digest(
+                &SessionGrantSecret::from_bytes([42; 32]),
+                &PRINCIPAL.parse().unwrap(),
+                &AUTHORIZATION.parse().unwrap(),
+                &AUDIENCE.parse().unwrap(),
+                &DidUrl::new(VERIFICATION_METHOD).unwrap(),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        value
     }
 
     fn recovery_value() -> Value {
@@ -349,7 +369,7 @@ mod tests {
         assert_rejects_each_omitted_required_member::<AgentSessionGrantRefreshRequestBody>(
             agent_refresh_value(),
             &[
-                "grant_jwt",
+                "session_grant",
                 "principal_id",
                 "agent_key_authorization_ref",
                 "agent_session_refresh_proof",
@@ -467,7 +487,7 @@ mod tests {
         let audience_id = DidCoreId::new(AUDIENCE).unwrap();
         let verification_method = DidUrl::new(VERIFICATION_METHOD).unwrap();
         let first = agent_session_refresh_request_digest(
-            "header.body.signature",
+            &SessionGrantSecret::from_bytes([42; 32]),
             &principal_id,
             &authorization_ref,
             &audience_id,
@@ -475,7 +495,7 @@ mod tests {
         )
         .unwrap();
         let second = agent_session_refresh_request_digest(
-            "header.body.other",
+            &SessionGrantSecret::from_bytes([43; 32]),
             &principal_id,
             &authorization_ref,
             &audience_id,
@@ -487,7 +507,7 @@ mod tests {
         assert_ne!(
             first,
             agent_session_refresh_request_digest(
-                "header.body.signature",
+                &SessionGrantSecret::from_bytes([42; 32]),
                 &principal_id,
                 &other_ref,
                 &audience_id,
@@ -498,7 +518,7 @@ mod tests {
         assert_eq!(
             first,
             agent_session_refresh_request_digest(
-                "header.body.signature",
+                &SessionGrantSecret::from_bytes([42; 32]),
                 &principal_id,
                 &authorization_ref,
                 &audience_id,
@@ -506,6 +526,48 @@ mod tests {
             )
             .unwrap()
         );
+    }
+
+    #[test]
+    fn refresh_intent_binds_the_complete_issuer_reference() {
+        let secret = SessionGrantSecret::from_bytes([42; 32]);
+        let mut reference = SessionGrantRef::new(
+            "ak:did_core:web:first.example".parse().unwrap(),
+            "ak:session_grant:0190c6aa-1234-7000-8000-000000000001"
+                .parse()
+                .unwrap(),
+        );
+        let digest = |reference: &SessionGrantRef| {
+            session_grant_refresh_request_digest(
+                &secret,
+                reference,
+                &PRINCIPAL.parse().unwrap(),
+                &DEVICE.parse().unwrap(),
+                &AUDIENCE.parse().unwrap(),
+                &"A".repeat(43),
+            )
+            .unwrap()
+        };
+        let first = digest(&reference);
+        reference.issuer_id = "ak:did_core:web:second.example".parse().unwrap();
+        assert_ne!(first, digest(&reference));
+    }
+
+    #[test]
+    fn agent_refresh_rejects_a_proof_for_another_exact_secret() {
+        let mut value = agent_refresh_value();
+        value["session_grant"] =
+            serde_json::to_value(SessionGrantSecret::from_bytes([43; 32])).unwrap();
+        let body: AgentSessionGrantRefreshRequestBody = serde_json::from_value(value).unwrap();
+        assert!(body.validate().is_err());
+        let mut legacy = agent_refresh_value();
+        let secret = legacy
+            .as_object_mut()
+            .unwrap()
+            .remove("session_grant")
+            .unwrap();
+        legacy["grant_jwt"] = secret;
+        assert!(serde_json::from_value::<AgentSessionGrantRefreshRequestBody>(legacy).is_err());
     }
 }
 

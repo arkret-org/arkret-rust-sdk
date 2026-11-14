@@ -1329,6 +1329,27 @@ impl Event {
         validate_semantic_ref_count(self.semantic_refs.len())?;
         self.validate_applet_provenance_invariants()
             .map_err(WireError::Protocol)?;
+        if self.kind == EventKind::CallRecordingStart && self.authorization_ref.is_none() {
+            return Err(WireError::Protocol(
+                "capture start requires its exact initiating Grant reference".into(),
+            ));
+        }
+        if self.kind == EventKind::CallState
+            && self
+                .payload
+                .get("recording_transition")
+                .and_then(|transition| transition.get("to"))
+                .and_then(Value::as_str)
+                == Some("ready")
+            && !matches!(
+                self.executed_by.as_ref().unwrap_or(&self.actor_id),
+                ActorId::Service { .. }
+            )
+        {
+            return Err(WireError::Protocol(
+                "recording ready requires the actual Media Service producer".into(),
+            ));
+        }
         let Some(producer) = self.producer_proof.as_ref() else {
             return Err(WireError::Protocol(
                 "Event must carry producer_proof".to_owned(),

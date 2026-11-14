@@ -84,7 +84,8 @@ pub trait KeyStore: Send + Sync {
     /// Load the raw key bytes for `id`.
     ///
     /// Returns the bytes verbatim; the caller is responsible for any
-    /// envelope decoding (PKCS#8, raw seed, etc.).
+    /// envelope decoding (PKCS#8, raw seed, etc.). Each call reads committed
+    /// backend storage; instance-local cached bytes cannot implement this port.
     fn load(&self, id: &str) -> Result<KeyBytes>;
 
     /// Load the first present key in priority order, returning its input index.
@@ -114,11 +115,30 @@ pub trait KeyStore: Send + Sync {
     /// bytes. Existing entries MUST remain unchanged, including invalid data.
     /// Implementations MUST NOT emulate this with an unlocked load then store.
     /// Unsupported backends fail closed; ordinary imports still use `store`.
-    /// Explicit rotation/deletion must be serialized by the application.
     fn create_if_absent(&self, id: &str, _key: &[u8]) -> Result<KeyBytes> {
         validate_id(id)?;
         Err(KeyStoreError::unsupported(
             "atomic first creation is unavailable",
+        ))
+    }
+
+    /// Compare the exact committed bytes and replace them in one durable mutation.
+    ///
+    /// `None` expects absence; `Some(&[])` expects a present empty value.
+    /// `false` leaves storage untouched. A successful return follows the durable
+    /// commit. All cooperating handles and processes, including ordinary stores
+    /// and deletion, MUST share the same serialization boundary. An unlocked
+    /// load followed by store and a process-local mutex do not satisfy this port.
+    /// Backends without this primitive MUST fail closed.
+    fn compare_exchange(
+        &self,
+        id: &str,
+        _expected: Option<&[u8]>,
+        _replacement: &[u8],
+    ) -> Result<bool> {
+        validate_id(id)?;
+        Err(KeyStoreError::unsupported(
+            "atomic compare exchange is unavailable",
         ))
     }
 

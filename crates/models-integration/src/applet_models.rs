@@ -12,9 +12,9 @@ use arkret_models_identity::authenticated_signer_resolution_evidence::{
     AuthenticatedSignerKind, AuthenticatedSignerResolutionEvidence,
 };
 use arkret_wire::{
-    ActorId, AppletId, AppletRevokeMode, BlobRef, CommittedEventRef, CurrentRevision, Did,
-    DidCoreId, DidUrl, Event, EventAdmissionSubmission, EventId, GrantId, Hash, PayloadSigner,
-    ProtocolOperationId, RealmId, ReasonCode, Result, ScopeRef, SignalEnvelope, SignerEvidenceRef,
+    ActorId, AppletId, AppletRevokeMode, BlobRef, CommittedEventRef, Did, DidCoreId, DidUrl, Event,
+    EventAdmissionSubmission, EventId, GrantId, Hash, PayloadSigner, ProtocolOperationId,
+    RealmCommitId, RealmId, ReasonCode, Result, ScopeRef, SignalEnvelope, SignerEvidenceRef,
     WireError, canonical,
 };
 use chrono::{DateTime, Utc};
@@ -403,7 +403,7 @@ pub struct AppletCapabilityRevokeIntent {
     /// Exact revision of the same active Grant selected by the governing
     /// Station's preview snapshot. This value is covered by the canonical
     /// revoke-plan digest and copied unchanged into the signed revoke Event.
-    pub expected_revision: CurrentRevision,
+    pub expected_commit_id: RealmCommitId,
     pub registration_epoch: Hash,
     pub reason_code: ReasonCode,
 }

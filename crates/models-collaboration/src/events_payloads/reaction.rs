@@ -1,6 +1,5 @@
 //! Reaction event payloads and the `message_reactions` typed current value.
 
-use crate::exact_current_state::CanonicalEventDot;
 use crate::internal_prelude::*;
 
 #[derive(Deserialize)]
@@ -67,78 +66,162 @@ impl<'de> Deserialize<'de> for ReactionPayload {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct MessageReactionsCurrentValueWire {
-    assertions: Vec<ReactionAssertionEntry>,
+    entries: Vec<ReactionCurrentEntry>,
 }
 
 impl MessageReactionsCurrentValue {
-    /// Build a set from its elements. The elements MUST already be strictly
-    /// ascending in canonical dot string order.
-    pub fn new(assertions: Vec<ReactionAssertionEntry>) -> Result<Self> {
-        if assertions
-            .iter()
-            .any(|entry| entry.tag_id.write_index() != 0)
-        {
-            return Err(WireError::Protocol(
-                "message_reactions assertion dot must name write index 0".to_owned(),
-            ));
-        }
-        if assertions
-            .windows(2)
-            .any(|pair| pair[0].tag_id >= pair[1].tag_id)
-        {
-            return Err(WireError::Protocol(
-                "message_reactions dots are not a canonically sorted set".to_owned(),
-            ));
-        }
-        if assertions
-            .windows(2)
-            .any(|pair| pair[0].value.target_ref != pair[1].value.target_ref)
-        {
-            return Err(WireError::Protocol(
-                "message_reactions assertions name more than one target".to_owned(),
-            ));
-        }
-        Ok(Self { assertions })
-    }
-
-    /// Insert one more assertion at its canonical position. A dot already
-    /// present is refused; each accepted Event contributes its dot once.
-    pub fn with_assertion(mut self, entry: ReactionAssertionEntry) -> Result<Self> {
-        match self
-            .assertions
-            .binary_search_by(|existing| existing.tag_id.cmp(&entry.tag_id))
-        {
-            Ok(_) => Err(WireError::Protocol(
-                "message_reactions already holds this assertion dot".to_owned(),
-            )),
-            Err(index) => {
-                self.assertions.insert(index, entry);
-                Self::new(self.assertions)
+    /// Install one complete active value, already sorted by full ActorId JCS
+    /// bytes and then key UTF-8 bytes. This does not merge historical fragments.
+    pub fn new(entries: Vec<ReactionCurrentEntry>) -> Result<Self> {
+        let mut previous = None;
+        for entry in &entries {
+            entry
+                .actor_id
+                .validate()
+                .map_err(|error| invalid(&error.to_string()))?;
+            if !(1..=128).contains(&entry.key.chars().count()) {
+                return Err(invalid("message_reactions key must be 1..=128 characters"));
             }
+            let key = (
+                arkret_canonical::canonical_json_bytes(&entry.actor_id)
+                    .map_err(|error| invalid(&error.to_string()))?,
+                entry.key.as_bytes().to_vec(),
+            );
+            if previous.as_ref().is_some_and(|prior| prior >= &key) {
+                return Err(invalid(
+                    "message_reactions actor/key entries are not sorted and unique",
+                ));
+            }
+            previous = Some(key);
         }
+        Ok(Self { entries })
     }
 
-    pub fn assertions(&self) -> &[ReactionAssertionEntry] {
-        &self.assertions
+    pub fn entries(&self) -> &[ReactionCurrentEntry] {
+        &self.entries
     }
 
-    pub fn into_assertions(self) -> Vec<ReactionAssertionEntry> {
-        self.assertions
+    pub fn into_entries(self) -> Vec<ReactionCurrentEntry> {
+        self.entries
     }
 
-    /// Every assertion reacts to exactly the selector's `target_ref`.
+    /// The target is carried only by the complete outer selector.
     pub fn validate_for_target(&self, target_ref: &str) -> Result<()> {
-        if self
-            .assertions
-            .iter()
-            .any(|entry| entry.value.target_ref != target_ref)
-        {
-            return Err(WireError::Protocol(
-                "message_reactions assertion reacts to another target".to_owned(),
+        if !is_object_ref(target_ref) {
+            return Err(invalid(
+                "message_reactions target is not a formal object_ref",
             ));
         }
         Ok(())
     }
+
+    /// Validate a complete trusted row against its atomic stream cut. The
+    /// caller binds the authenticated account/scope/selector and atomically
+    /// persists the value and checkpoint; history scans never call this as a
+    /// reducer. No old Event or historical key is fetched by this method.
+    pub fn validate_installation(
+        &self,
+        target_ref: &str,
+        stream: &CommitStreamRef,
+        revision: &CurrentRevision,
+        head: &CommitStreamHead,
+        previous: Option<(&Self, &CurrentRevision)>,
+    ) -> Result<()> {
+        self.validate_for_target(target_ref)?;
+        if &head.stream_ref != stream
+            || revision.stream_position > head.stream_position
+            || (revision.stream_position == head.stream_position
+                && revision.commit_id != head.commit_id)
+            || (revision.commit_id == head.commit_id
+                && revision.stream_position != head.stream_position)
+        {
+            return Err(invalid(
+                "message_reactions row does not match its stream cut",
+            ));
+        }
+        for entry in &self.entries {
+            let source = &entry.source;
+            if &source.stream_ref != stream
+                || source.stream_position > revision.stream_position
+                || ((source.stream_position == revision.stream_position)
+                    != (source.commit_id == revision.commit_id))
+            {
+                return Err(invalid(
+                    "message_reactions active source exceeds or differs from its row",
+                ));
+            }
+        }
+        if let Some((prior, prior_revision)) = previous {
+            if revision.stream_position < prior_revision.stream_position {
+                return Err(invalid("message_reactions current revision rollback"));
+            }
+            if (revision.stream_position == prior_revision.stream_position)
+                != (revision.commit_id == prior_revision.commit_id)
+            {
+                return Err(invalid("message_reactions current revision equivocation"));
+            }
+            if revision == prior_revision
+                && arkret_canonical::canonical_json_bytes(self)
+                    .map_err(|error| invalid(&error.to_string()))?
+                    != arkret_canonical::canonical_json_bytes(prior)
+                        .map_err(|error| invalid(&error.to_string()))?
+            {
+                return Err(invalid(
+                    "message_reactions same revision has different value",
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+impl ReactionCurrentEntry {
+    /// Check an available original's exact binding. Native producer/authority
+    /// verification and historical-read permission remain the caller's gates;
+    /// this method does not turn metadata into an Event, signer key or AEAD proof.
+    pub fn validate_source_binding(
+        &self,
+        target_ref: &str,
+        original: &CommittedEventFullView,
+    ) -> Result<()> {
+        let event = &original.event;
+        let commit = &original.commit;
+        if event.kind != EventKind::ReactionAdd
+            || event.actor_id != self.actor_id
+            || event.payload.get("target_ref").and_then(Value::as_str) != Some(target_ref)
+            || event.payload.get("key").and_then(Value::as_str) != Some(self.key.as_str())
+            || event.event_id != self.source.event_id
+            || commit.event_ref != event.event_id
+            || commit.commit_id != self.source.commit_id
+            || commit.stream_ref != self.source.stream_ref
+            || commit.stream_position != self.source.stream_position
+            || event.realm_id != commit.realm_id
+            || CommitStreamRef::from_scope(&event.scope_ref, Some(event.realm_id.clone()))
+                .map_err(|error| invalid(&error.to_string()))?
+                != commit.stream_ref
+        {
+            return Err(invalid(
+                "message_reactions source is not the exact accepted active add",
+            ));
+        }
+        commit
+            .validate_content_address()
+            .map_err(|error| invalid(&error.to_string()))?;
+        event
+            .verify_event_id_matches_content_with_digest_suite(
+                event
+                    .event_id
+                    .event_digest()
+                    .digest_suite()
+                    .map_err(|error| invalid(&error.to_string()))?,
+            )
+            .map_err(|error| invalid(&error.to_string()))?;
+        Ok(())
+    }
+}
+
+fn invalid(message: &str) -> WireError {
+    WireError::Protocol(message.to_owned())
 }
 
 impl<'de> Deserialize<'de> for MessageReactionsCurrentValue {
@@ -147,7 +230,7 @@ impl<'de> Deserialize<'de> for MessageReactionsCurrentValue {
         D: serde::Deserializer<'de>,
     {
         let wire = MessageReactionsCurrentValueWire::deserialize(deserializer)?;
-        Self::new(wire.assertions).map_err(serde::de::Error::custom)
+        Self::new(wire.entries).map_err(serde::de::Error::custom)
     }
 }
 

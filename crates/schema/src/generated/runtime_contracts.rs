@@ -2,7 +2,7 @@
 //! Generator: tools/spec-codegen
 //! Input: registry/agent-runtime-scope-registry.json;
 //! sha256=c19999dee0337692d6415cb6631373e0fec3b60cf47e6aa892afab259ab3d995 Input: registry/
-//! contract-registry.json; sha256=f5fe4a08f94cc0d538dceb909c034d566c936f1863a5fac347252e03a6f66075
+//! contract-registry.json; sha256=20c973fcbc386b8d1148783837c9977134d1dab586d4fff11b57a69091a820e3
 //! Input: deployment-probes.json;
 //! sha256=d460713a703e79c05fe21df3844650be21b201c32e5673df81460ea132d48c89
 //! Entries: capability_sets=2, layers=3, feature_additions=1, bootstrap_profiles=2,
@@ -128,7 +128,7 @@ pub enum RealmBootstrapCondition {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum RealmBootstrapExpectedRevision {
+pub enum RealmBootstrapExpectedCommitId {
     Null,
 }
 
@@ -138,7 +138,7 @@ pub struct RealmBootstrapSlotDescriptor {
     pub presence: RealmBootstrapPresence,
     pub id_source: Option<RealmBootstrapIdSource>,
     pub condition: Option<RealmBootstrapCondition>,
-    pub expected_revision: Option<RealmBootstrapExpectedRevision>,
+    pub expected_commit_id: Option<RealmBootstrapExpectedCommitId>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -156,63 +156,63 @@ const ORDINARY_COLLABORATION_BOOTSTRAP_SLOTS: &[RealmBootstrapSlotDescriptor] = 
         presence: RealmBootstrapPresence::Required,
         id_source: Some(RealmBootstrapIdSource::EventDerived),
         condition: None,
-        expected_revision: None,
+        expected_commit_id: None,
     },
     RealmBootstrapSlotDescriptor {
         event_kind: event_kind_str::REALM_PROFILE,
         presence: RealmBootstrapPresence::Required,
         id_source: None,
         condition: None,
-        expected_revision: None,
+        expected_commit_id: None,
     },
     RealmBootstrapSlotDescriptor {
         event_kind: event_kind_str::REALM_POLICY_BUNDLE,
         presence: RealmBootstrapPresence::Required,
         id_source: None,
         condition: None,
-        expected_revision: None,
+        expected_commit_id: None,
     },
     RealmBootstrapSlotDescriptor {
         event_kind: event_kind_str::REALM_JOIN_RULE,
         presence: RealmBootstrapPresence::Required,
         id_source: None,
         condition: None,
-        expected_revision: None,
+        expected_commit_id: None,
     },
     RealmBootstrapSlotDescriptor {
         event_kind: event_kind_str::REALM_HISTORY_ACCESS,
         presence: RealmBootstrapPresence::Required,
         id_source: None,
         condition: None,
-        expected_revision: None,
+        expected_commit_id: None,
     },
     RealmBootstrapSlotDescriptor {
         event_kind: event_kind_str::REALM_DISCOVERY,
         presence: RealmBootstrapPresence::Required,
         id_source: None,
         condition: None,
-        expected_revision: None,
+        expected_commit_id: None,
     },
     RealmBootstrapSlotDescriptor {
         event_kind: event_kind_str::REALM_ALIAS,
         presence: RealmBootstrapPresence::Optional,
         id_source: None,
         condition: None,
-        expected_revision: None,
+        expected_commit_id: None,
     },
     RealmBootstrapSlotDescriptor {
         event_kind: event_kind_str::REALM_PLAINTEXT_VISIBLE_SERVICES,
         presence: RealmBootstrapPresence::Conditional,
         id_source: None,
         condition: Some(RealmBootstrapCondition::DeclaredPlaintextServiceVisibility),
-        expected_revision: None,
+        expected_commit_id: None,
     },
     RealmBootstrapSlotDescriptor {
         event_kind: event_kind_str::MEMBER_STATE,
         presence: RealmBootstrapPresence::Required,
         id_source: None,
         condition: Some(RealmBootstrapCondition::SubjectIsGenesisActorAndMembershipIsJoin),
-        expected_revision: Some(RealmBootstrapExpectedRevision::Null),
+        expected_commit_id: Some(RealmBootstrapExpectedCommitId::Null),
     },
 ];
 
@@ -222,28 +222,28 @@ const DIRECT_CONVERSATION_BOOTSTRAP_SLOTS: &[RealmBootstrapSlotDescriptor] = &[
         presence: RealmBootstrapPresence::Required,
         id_source: Some(RealmBootstrapIdSource::EventDerived),
         condition: None,
-        expected_revision: None,
+        expected_commit_id: None,
     },
     RealmBootstrapSlotDescriptor {
         event_kind: event_kind_str::MEMBER_STATE,
         presence: RealmBootstrapPresence::Required,
         id_source: None,
         condition: Some(RealmBootstrapCondition::SubjectIsGenesisActorAndMembershipIsJoin),
-        expected_revision: Some(RealmBootstrapExpectedRevision::Null),
+        expected_commit_id: Some(RealmBootstrapExpectedCommitId::Null),
     },
     RealmBootstrapSlotDescriptor {
         event_kind: event_kind_str::MEMBER_STATE,
         presence: RealmBootstrapPresence::Required,
         id_source: None,
         condition: Some(RealmBootstrapCondition::SubjectIsPeerParticipantAndMembershipIsJoin),
-        expected_revision: None,
+        expected_commit_id: None,
     },
     RealmBootstrapSlotDescriptor {
         event_kind: event_kind_str::STRAND_CREATE,
         presence: RealmBootstrapPresence::Required,
         id_source: Some(RealmBootstrapIdSource::EventDerived),
         condition: Some(RealmBootstrapCondition::MainStrandAndScopeCircleIdIsNull),
-        expected_revision: None,
+        expected_commit_id: None,
     },
 ];
 

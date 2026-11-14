@@ -2,16 +2,16 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/realm-actor.schema.json
-// sha256=87c35a6c300e76490630f6c0fad0dd6bb7c7c601042572f84b1f24ca28be4dc7
+// sha256=61c5e64619b36a92bd52168fefe55f7643dbee653acdca81f37cde5e0398c420
 //
 // Input: schemas/key-backup.schema.json
 // sha256=e9280313666a5fc0055a9f15edaa9e4716369fb362e6a808b64f919a1c8a398d
 //
 // Input: schemas/keys-operations.schema.json
-// sha256=8dc3a9556fd7ff9a27bb8ea8014b6b7a859692c94e40b7b7b4202192e3ea7dcf
+// sha256=cb5763958ff30cf36945f339522fd69f0bc9b2150fad93ccace6d230acb70537
 //
 // Input: schemas/common-ids.schema.json
-// sha256=0cc25a02fe0d9a94f6e41f2cf8f64e492ba36362f1e69a699cf1e684924837ee
+// sha256=81b18acd21f4382860d5cab2384d9bb78ee5dbc23629752a6cc74ce384186149
 //
 // Input: schemas/authorization-operations.schema.json
 // sha256=b367d60aeb13aa9e524c5201cc1857d8ac9defd5c78293f696a4f4c0a5d4450b
@@ -29,10 +29,10 @@
 // sha256=fe13177cf262150b299d101c2cf7e364e2f38fc2fbb8dc6a78ae3c45b1816d1b
 //
 // Input: schemas/key-backup-unlock-proof.schema.json
-// sha256=0f7bd19e12cdfcf610e9456e1b704c1f52f11059b038ecd2bdaaa8baeaad9a9b
+// sha256=044d45d62401cc0435f045b5931ce8c7ec54fc2c6901c5d4d2b2f1ffda3028dc
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=113d054c1defb3940cb07e0f04bb10848b9d375692c24056c947cb624743840a
+// sha256=dc73c01cf2bfb7cc6d4969c8f2f7faa6e44275c4a585ad81f3c94ac408daab8c
 
 /// Counterpart: `realm-actor.schema.json#/$defs/content_backup_recipient/properties/hpke_suite`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -298,7 +298,6 @@ pub enum RealmActorBackupUnlockChallengePurpose {
 pub struct RealmActorBackupUnlockChallenge {
     pub challenge_id: arkret_wire::Base64UrlString,
     pub challenge: arkret_wire::Base64UrlString,
-    pub nonce: arkret_wire::Base64UrlString,
     pub operation: RealmActorBackupUnlockChallengeOperation,
     pub backup_id: arkret_wire::BackupId,
     pub audience: arkret_wire::NonEmptyString,
@@ -450,7 +449,6 @@ pub struct RealmActorDeviceKeyBackupUnlockProof {
     pub audience: arkret_wire::NonEmptyString,
     pub service_id: arkret_wire::DidCoreId,
     pub challenge_id: arkret_wire::Base64UrlString,
-    pub nonce: arkret_wire::Base64UrlString,
     pub realm_actor_id: arkret_wire::RealmActorId,
     pub effective_scope: arkret_wire::ScopeRef,
     pub manager_ref: arkret_wire::CommittedEventRef,
@@ -483,7 +481,6 @@ pub struct RealmActorManagerKeyBackupUnlockProof {
     pub audience: arkret_wire::NonEmptyString,
     pub service_id: arkret_wire::DidCoreId,
     pub challenge_id: arkret_wire::Base64UrlString,
-    pub nonce: arkret_wire::Base64UrlString,
     pub realm_actor_id: arkret_wire::RealmActorId,
     pub effective_scope: arkret_wire::ScopeRef,
     pub manager_ref: arkret_wire::CommittedEventRef,

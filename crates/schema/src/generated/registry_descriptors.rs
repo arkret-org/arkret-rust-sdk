@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json;
-//! sha256=f5fe4a08f94cc0d538dceb909c034d566c936f1863a5fac347252e03a6f66075 Input: registry/
+//! sha256=20c973fcbc386b8d1148783837c9977134d1dab586d4fff11b57a69091a820e3 Input: registry/
 //! account-data-key-registry.json;
-//! sha256=0989a67abbe00359bf0974896a84210791dd75c26b7d77d8eb1bee7fcd70370e Entries: id_kinds=47,
-//! special_forms=15, actions=162, approval_carriers=2, schemas=238, account_data_patterns=24
+//! sha256=14c426553e88881fcf3501b1c471472248c2e9ff5c3a8b87673b5e235d4f6762 Entries: id_kinds=47,
+//! special_forms=15, actions=162, approval_carriers=2, schemas=237, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -301,7 +301,7 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
     IdKindDescriptor {
         kind: "session_grant",
         category: "authz",
-        wire_form: "ak:session_grant:<44-char-suite-tagged-full-digest-token>",
+        wire_form: "ak:session_grant:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "sidecar",
@@ -4148,10 +4148,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::RECOVERY_SESSION_V1,
         file: "schemas/recovery-session.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::RECOVERY_TERMINAL_COMMIT_V1,
-        file: "schemas/security-transaction.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::REGISTRATION_DID_EVIDENCE_V1,

@@ -338,9 +338,9 @@ pub struct DeviceAuthorizePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub applet_id: Option<AppletId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expected_control_revision: Option<arkret_wire::CurrentRevision>,
+    pub expected_control_commit_id: Option<arkret_wire::RealmCommitId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expected_device_revision: Option<Option<arkret_wire::CurrentRevision>>,
+    pub expected_device_commit_id: Option<Option<arkret_wire::RealmCommitId>>,
 }
 
 #[derive(Deserialize)]
@@ -374,12 +374,12 @@ struct DeviceAuthorizePayloadWire {
         default,
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
-    expected_control_revision: Option<arkret_wire::CurrentRevision>,
+    expected_control_commit_id: Option<arkret_wire::RealmCommitId>,
     #[serde(
         default,
         deserialize_with = "crate::serde_absence::deserialize_present_nullable"
     )]
-    expected_device_revision: Option<Option<arkret_wire::CurrentRevision>>,
+    expected_device_commit_id: Option<Option<arkret_wire::RealmCommitId>>,
 }
 
 fn deserialize_device_authorize_expiry<'de, D>(
@@ -427,8 +427,8 @@ impl<'de> Deserialize<'de> for DeviceAuthorizePayload {
             recovery_session_id: wire.recovery_session_id,
             pairing_challenge_transcript_digest: wire.pairing_challenge_transcript_digest,
             applet_id: wire.applet_id,
-            expected_control_revision: wire.expected_control_revision,
-            expected_device_revision: wire.expected_device_revision,
+            expected_control_commit_id: wire.expected_control_commit_id,
+            expected_device_commit_id: wire.expected_device_commit_id,
         };
         payload
             .validate_wire_constraints()
@@ -481,8 +481,8 @@ impl DeviceAuthorizePayload {
         let applet_branch = self.authorization_binding_kind
             == DeviceAuthorizationBindingKind::RealmManagedDelegation;
         if applet_branch != self.applet_id.is_some()
-            || applet_branch != self.expected_control_revision.is_some()
-            || applet_branch != self.expected_device_revision.is_some()
+            || applet_branch != self.expected_control_commit_id.is_some()
+            || applet_branch != self.expected_device_commit_id.is_some()
         {
             return Err("device_authorize_applet_binding_mismatch");
         }
@@ -546,8 +546,8 @@ impl DeviceAuthorizePayload {
             "not_before": canonical::format_timestamp_canonical(self.not_before),
             "expires_at": self.expires_at.flatten().map(canonical::format_timestamp_canonical),
             "scopes": self.scopes, "applet_id": self.applet_id,
-            "expected_control_revision": self.expected_control_revision,
-            "expected_device_revision": self.expected_device_revision,
+            "expected_control_commit_id": self.expected_control_commit_id,
+            "expected_device_commit_id": self.expected_device_commit_id,
         });
         let mut bytes = self
             .authorization_binding_kind
@@ -923,8 +923,9 @@ mod device_authorize_tests {
                     value["authorization_binding_kind"] = json!("realm_managed_delegation");
                     value["applet_id"] = json!("ak:applet:01964137-0000-7000-8000-000000000002");
                     value["scopes"] = scopes["cases"][0]["scopes"].clone();
-                    value["expected_control_revision"] = json!({"commit_id": arkret_wire::RealmCommitId::from_digest([42; 32]), "stream_position": 0});
-                    value["expected_device_revision"] = Value::Null;
+                    value["expected_control_commit_id"] =
+                        json!(arkret_wire::RealmCommitId::from_digest([42; 32]));
+                    value["expected_device_commit_id"] = Value::Null;
                 }
                 let mut payload: DeviceAuthorizePayload = serde_json::from_value(value).unwrap();
                 // Typed producers may start with a finer instant. Both the
@@ -1326,16 +1327,18 @@ mod managed_scope_tests {
             "hpke_key":"z6LShpke", "algorithms":["Ed25519"], "device_key_algorithm":"Ed25519",
             "authorized_by":"ak:did_core:webvh:z6mkcontroller",
             "authorization_binding_kind":"realm_managed_delegation", "authorized_generation_ref":1,
-            "expected_control_revision":{
-                "commit_id":arkret_wire::RealmCommitId::from_digest([42;32]),
-                "stream_position":0
-            },
-            "expected_device_revision":null,
+            "expected_control_commit_id":arkret_wire::RealmCommitId::from_digest([42;32]),
+            "expected_device_commit_id":null,
             "scopes":[{"effective_scope":scope,"actions":["ak.event.read"]}],
             "not_before":"2026-10-16T00:00:00.000Z", "expires_at":"2026-10-17T00:00:00.000Z",
             "device_signature":"AA", "applet_id":"ak:applet:01964137-0000-7000-8000-000000000002"
         });
         let payload: DeviceAuthorizePayload = serde_json::from_value(value.clone()).unwrap();
+        for old in ["expected_control_revision", "expected_device_revision"] {
+            let mut alias = value.clone();
+            alias[old] = Value::Null;
+            assert!(serde_json::from_value::<DeviceAuthorizePayload>(alias).is_err());
+        }
         let actor = arkret_wire::ActorId::realm(arkret_wire::RealmActorId::new(
             arkret_wire::RealmId::new(scope["realm_id"].as_str().unwrap()).unwrap(),
             DidCoreId::new("ak:did_core:webvh:z6mkcontroller").unwrap(),
@@ -1348,8 +1351,8 @@ mod managed_scope_tests {
         assert_eq!(body["scopes"], value["scopes"]);
         assert_eq!(body["actor_id"], json!(actor));
         assert_eq!(
-            body["expected_control_revision"],
-            value["expected_control_revision"]
+            body["expected_control_commit_id"],
+            value["expected_control_commit_id"]
         );
         assert!(body.get("account_id").is_none());
         value["scopes"][0]["actions"] = json!(["ak.event.read", "ak.message.create"]);

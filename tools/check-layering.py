@@ -166,6 +166,11 @@ ALLOWED_EDGES: dict[str, set[str]] = {
     # deterministic signing material out of production dependency graphs.
     "arkret-test-kit": _WIRE
     | {
+        # Deterministic PCR fixtures use the production genesis builder and
+        # real HPKE/identity-root primitives. The test-kit production-boundary
+        # gate independently forbids applications from normal-linking it.
+        "arkret-bootstrap",
+        "arkret-crypto",
         "arkret-event-draft",
         "arkret-identity",
         "arkret-models-collaboration",
