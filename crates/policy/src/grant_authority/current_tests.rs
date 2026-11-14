@@ -302,3 +302,147 @@ fn candidate_lineage_never_downgrades_unknown_or_invalid_sources_to_absence() {
         AuthorityError::Unproved
     );
 }
+
+#[test]
+fn current_action_windows_preserve_registered_local_temporal_boundaries() {
+    let skew = TimeDelta::milliseconds(
+        arkret_identifiers::protocol_time_tolerance_scenario_descriptor(
+            arkret_identifiers::ProtocolTimeToleranceScenario::TemporalConstraint,
+        )
+        .tolerance_ms(),
+    );
+    let subject = actor("holder");
+    let target = WireResourceSelector::realm(realm());
+    for (from, until, time, expected) in [
+        (Some(60), None, at(60) - skew, true),
+        (
+            Some(60),
+            None,
+            at(60) - skew - TimeDelta::milliseconds(1),
+            false,
+        ),
+        (None, Some(60), at(60) + skew, true),
+        (
+            None,
+            Some(60),
+            at(60) + skew + TimeDelta::milliseconds(1),
+            false,
+        ),
+    ] {
+        let source = grant(
+            246,
+            subject.clone(),
+            vec![
+                global_window(),
+                temporal(GrantConstraintEffect::Allow, Some(ACTION), from, until),
+            ],
+        );
+        let rows = BTreeMap::from([(source.id.clone(), source.clone())]);
+        assert_eq!(
+            matches!(
+                evaluate(&subject, [&source], time),
+                GrantEvaluation::Allowed(_)
+            ),
+            expected,
+        );
+        assert_eq!(
+            current_action_window_is_open(&source, ACTION, time),
+            expected
+        );
+        assert_eq!(
+            current_sources(&source, ACTION, &target, &rows, time, root_current).is_ok(),
+            expected,
+        );
+        // A terminal local allow never changes the separate refusal set.
+        assert!(
+            current_candidate_sources(&source, ACTION, &target, &rows, time, root_current).is_ok()
+        );
+    }
+}
+
+#[test]
+fn current_local_tolerance_does_not_change_global_lifecycle_or_admission_geometry() {
+    let mut global = global_window();
+    global.not_before = Some(at(20));
+    let source = grant(
+        247,
+        actor("holder"),
+        vec![
+            global,
+            temporal(
+                GrantConstraintEffect::Allow,
+                Some(ACTION),
+                Some(60),
+                Some(90),
+            ),
+        ],
+    );
+    assert!(!current_action_window_is_open(
+        &source,
+        ACTION,
+        at(20) - TimeDelta::milliseconds(1),
+    ));
+    assert!(!current_action_window_is_open(&source, ACTION, at(120)));
+    assert!(current_action_window_is_open(
+        &source,
+        ACTION,
+        at(60) - TimeDelta::milliseconds(1),
+    ));
+    // Admission continues to use its original exact interval and geometry.
+    assert!(!active(
+        &source,
+        at(60) - TimeDelta::milliseconds(1),
+        ACTION
+    ));
+    assert_eq!(window(&source, ACTION), (Some(at(60)), Some(at(90))));
+    let unbounded = grant(248, actor("holder"), Vec::new());
+    assert!(!current_action_window_is_open(
+        &unbounded,
+        ACTION,
+        DateTime::<Utc>::MIN_UTC,
+    ));
+    assert!(!current_action_window_is_open(
+        &unbounded,
+        ACTION,
+        DateTime::<Utc>::MAX_UTC,
+    ));
+}
+
+#[test]
+fn delegated_current_candidates_keep_the_same_local_temporal_tolerance() {
+    let skew = TimeDelta::milliseconds(
+        arkret_identifiers::protocol_time_tolerance_scenario_descriptor(
+            arkret_identifiers::ProtocolTimeToleranceScenario::TemporalConstraint,
+        )
+        .tolerance_ms(),
+    );
+    let (mut parent, mut child) = delegated_pair();
+    parent.constraints = vec![
+        global_window(),
+        temporal(GrantConstraintEffect::Allow, Some(ACTION), None, Some(60)),
+        GrantConstraint::authority_control(1, true),
+    ];
+    child.constraints = vec![
+        global_window(),
+        parent.constraints[1].clone(),
+        GrantConstraint::authority_control(0, false),
+    ];
+    let rows = BTreeMap::from([
+        (parent.id.clone(), parent.clone()),
+        (child.id.clone(), child.clone()),
+    ]);
+    let target = WireResourceSelector::realm(realm());
+    for (time, expected) in [
+        (at(60) + skew, true),
+        (at(60) + skew + TimeDelta::milliseconds(1), false),
+    ] {
+        assert_eq!(
+            current_sources(&child, ACTION, &target, &rows, time, root_current).is_ok(),
+            expected,
+        );
+        assert_eq!(
+            current_candidate_sources(&child, ACTION, &target, &rows, time, root_current).is_ok(),
+            expected,
+        );
+    }
+}

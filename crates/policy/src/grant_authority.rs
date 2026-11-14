@@ -84,6 +84,47 @@ fn candidate_active(grant: &CapabilityGrant, at: DateTime<Utc>) -> bool {
             .is_none_or(|until| at < until)
 }
 
+/// Qualify a current action's numeric temporal bounds, not its permission.
+///
+/// The independent global lifecycle stays strict. Local action/recurrence
+/// bounds retain the registered inclusive temporal tolerance; their complete
+/// predicates, required facts and every other constraint still belong to the
+/// business evaluator. Admission window geometry is unchanged.
+pub fn current_action_window_is_open(
+    grant: &CapabilityGrant,
+    action: &str,
+    at: DateTime<Utc>,
+) -> bool {
+    if !candidate_active(grant, at) {
+        return false;
+    }
+    let descriptor = arkret_identifiers::protocol_time_tolerance_scenario_descriptor(
+        arkret_identifiers::ProtocolTimeToleranceScenario::TemporalConstraint,
+    );
+    let skew = chrono::TimeDelta::milliseconds(descriptor.tolerance_ms());
+    let (Some(earliest), Some(latest)) = (at.checked_sub_signed(skew), at.checked_add_signed(skew))
+    else {
+        return false;
+    };
+    grant
+        .constraints
+        .iter()
+        .filter(|constraint| {
+            constraint.constraint_kind == GrantConstraintKind::Temporal
+                && constraint.effect == GrantConstraintEffect::Allow
+                && (!constraint.applies_to_actions.is_empty() || constraint.recurrence.is_some())
+                && (constraint.applies_to_actions.is_empty()
+                    || constraint
+                        .applies_to_actions
+                        .iter()
+                        .any(|named| named == action))
+        })
+        .all(|constraint| {
+            constraint.not_before.is_none_or(|from| from <= latest)
+                && constraint.expires_at.is_none_or(|until| earliest <= until)
+        })
+}
+
 #[derive(Clone, Copy)]
 enum SourceWindow {
     /// Only the terminal candidate's own local allows remain unevaluated.
@@ -380,7 +421,7 @@ fn walk<'g>(
     }
     let is_active = match window {
         SourceWindow::TerminalCandidate => candidate_active(grant, at),
-        SourceWindow::Action => active(grant, at, action),
+        SourceWindow::Action => current_action_window_is_open(grant, action, at),
     };
     if !is_active {
         return Err(AuthorityError::Closed);
