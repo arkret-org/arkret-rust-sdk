@@ -1,6 +1,10 @@
 {
   "description": "Retired owned symbols; a new protocol role requires its own explicit name rather than restoring a compatibility alias.",
   "types": {
+    "FilterOp": "FilterOperator",
+    "KeyBackupAuthBinding": "KeyBackupAuthorizationBinding",
+    "RealmActorBackupAuthBinding": "RealmActorBackupAuthorizationBinding",
+    "RealmActorBackupAuthBindingKind": "RealmActorBackupAuthorizationBindingKind",
     "GrantSnapshot": "AgentGrantView",
     "AgentParticipationEntry": "AgentParticipationView",
     "QueryDeviceRecord": "DeviceKeyView",

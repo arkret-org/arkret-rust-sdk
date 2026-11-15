@@ -449,7 +449,7 @@ pub struct GrantConstraint {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub allowed_to_container_refs: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub wip_limit_override_allowed: Option<bool>,
+    pub active_strand_count_override_allowed: Option<bool>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub allowed_tracks: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -489,7 +489,7 @@ pub struct GrantConstraint {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub period: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub burst: Option<u64>,
+    pub burst_operation_count: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub constraint_scope: Option<GrantConstraintScope>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -609,7 +609,7 @@ impl GrantConstraint {
             allowed_relation_kinds: Vec::new(),
             allowed_from_container_refs: Vec::new(),
             allowed_to_container_refs: Vec::new(),
-            wip_limit_override_allowed: None,
+            active_strand_count_override_allowed: None,
             allowed_tracks: Vec::new(),
             denied_tracks: Vec::new(),
             blob_presign_scope: None,
@@ -629,7 +629,7 @@ impl GrantConstraint {
             max_artifact_bytes: None,
             max_operation_count: None,
             period: None,
-            burst: None,
+            burst_operation_count: None,
             constraint_scope: None,
             max_resource_count: None,
             resource_kind: None,

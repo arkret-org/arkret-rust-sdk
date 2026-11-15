@@ -2389,7 +2389,7 @@ fn embedded_webvh_document_value_without_enrollment(
             {
                 "id": format!("{did}#service"),
                 "type": "ArkretService",
-                "serviceKind": service_kind,
+                "service_kind": service_kind,
                 "serviceEndpoint": service_endpoint,
             }
         ],
@@ -3069,12 +3069,12 @@ mod historical_verification_tests {
             entry["required_extension_members"]
                 .as_array()
                 .unwrap()
-                .contains(&json!("serviceKind"))
+                .contains(&json!("service_kind"))
         );
         for document in [&principal, &agent] {
             let service = &document["service"][0];
             assert_eq!(service["type"], entry["type"]);
-            assert_eq!(service["serviceKind"], "station");
+            assert_eq!(service["service_kind"], "station");
             assert!(station_schema_accepts(service));
             validate_station_document_service(did, service).unwrap();
         }
@@ -3091,8 +3091,8 @@ mod historical_verification_tests {
         for service in [
             json!({"id":format!("{did}#coland"),"type":"ArkretStation", "serviceEndpoint":"https://station.example/"}),
             json!({"id":format!("{did}#coland"),"type":"ArkretService", "serviceEndpoint":"https://station.example/"}),
-            json!({"id":format!("{did}#coland"),"type":"ArkretService", "serviceKind":"identity_registry", "serviceEndpoint":"https://station.example/"}),
-            json!({"id":format!("{did}#coland"),"type":"ArkretService", "serviceKind":"station", "serviceEndpoint":"https://station.example/?query=1"}),
+            json!({"id":format!("{did}#coland"),"type":"ArkretService", "service_kind":"identity_registry", "serviceEndpoint":"https://station.example/"}),
+            json!({"id":format!("{did}#coland"),"type":"ArkretService", "service_kind":"station", "serviceEndpoint":"https://station.example/?query=1"}),
         ] {
             let mut invalid = document.clone();
             invalid["service"][0] = service;

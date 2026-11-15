@@ -73,7 +73,7 @@ fn rule(
         "agent_target":target,"agent_operations":operations});
     if effect == "require_review" {
         value["agent_operations"] = json!(["join", "publish"]);
-        value["review_requirement"] = json!({"approver_actor_ids":[ActorId::account(Fixture::new().controller)],"threshold":1,"max_age_seconds":300});
+        value["review_requirement"] = json!({"approver_actor_ids":[ActorId::account(Fixture::new().controller)],"min_approver_count":1,"max_age_seconds":300});
     }
     value
 }

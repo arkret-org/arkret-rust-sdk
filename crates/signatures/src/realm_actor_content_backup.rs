@@ -159,7 +159,7 @@ pub fn verify_realm_actor_backup_packet(
         &admission.effective_scope,
     )?;
     let auth = packet
-        .auth_binding
+        .authorization_binding
         .as_ref()
         .ok_or_else(|| Error::Protocol("packet lacks native binding".into()))?;
     let context = packet
@@ -236,21 +236,28 @@ mod tests {
     fn native_single_challenge_device_and_manager_proofs_match_independent_ed_goldens() {
         use ed25519_dalek::Signer as _;
         let fixture = fixture();
+        let goldens: serde_json::Value = serde_json::from_str(include_str!(
+            "../tests/fixtures/native-backup-unlock-kat.json"
+        ))
+        .unwrap();
         for manager in [false, true] {
             let challenge = native_challenge(manager);
-            let (seed, method, expected_hash, expected_signature) = if manager {
+            let golden = &goldens["cases"][if manager { "manager" } else { "device" }];
+            assert_eq!(
+                serde_json::to_value(&challenge).unwrap(),
+                golden["challenge"]
+            );
+            let expected_hash = golden["transcript_digest"].as_str().unwrap();
+            let expected_signature = golden["signature"].as_str().unwrap();
+            let (seed, method) = if manager {
                 (
                     &fixture["test_material"]["manager_seed_hex"],
                     &fixture["native_put_response"]["admission"]["signature"]["verification_method"],
-                    "sha256:b17946a2e80724faec233bba7979c173fb12572bf73b063aaf54823583a3aad2",
-                    "lxDom3Lgreyiuw8C7K5zzdIhDSPxKDAbNET3Vd_wrjugyQrqgw3ZI0Esi3oQ5whJI8uHF21HTGZrV3Xj7yBPAQ",
                 )
             } else {
                 (
                     &fixture["test_material"]["device_seed_hex"],
                     &fixture["native_packet"]["signature_proof"]["verification_method"],
-                    "sha256:cf7d7e00f839f09a63bb9c12a7ad78ef0feb683f9fc85b8b2507b4732d4be8f4",
-                    "qh8eXp0oS759EedTCHKiBG3NRR2I51gwDmkVYeZTLq5nGlvU4Hq2oNgUYmO00BgCc8YiheelKd3ZjCCAHGB_AA",
                 )
             };
             let seed = seed.as_str().unwrap();
@@ -270,6 +277,10 @@ mod tests {
                 verify_realm_actor_manager_unlock_proof(&proof, &challenge, &method, &public)
                     .unwrap();
                 assert_eq!(
+                    proof.signing_payload_bytes().unwrap(),
+                    golden["preimage_utf8"].as_str().unwrap().as_bytes()
+                );
+                assert_eq!(
                     arkret_canonical::canonical::sha256_digest(
                         proof.signing_payload_bytes().unwrap()
                     ),
@@ -282,6 +293,10 @@ mod tests {
                     .unwrap();
                 verify_realm_actor_device_unlock_proof(&proof, &challenge, &method, &public)
                     .unwrap();
+                assert_eq!(
+                    proof.signing_payload_bytes().unwrap(),
+                    golden["preimage_utf8"].as_str().unwrap().as_bytes()
+                );
                 assert_eq!(
                     arkret_canonical::canonical::sha256_digest(
                         proof.signing_payload_bytes().unwrap()

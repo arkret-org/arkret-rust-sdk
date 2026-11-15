@@ -87,7 +87,7 @@ pub enum MemberCountMode {
 #[serde(deny_unknown_fields)]
 pub struct MemberCountHysteresis {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub absolute: Option<u64>,
+    pub absolute_count: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ratio_basis_points: Option<u16>,
 }

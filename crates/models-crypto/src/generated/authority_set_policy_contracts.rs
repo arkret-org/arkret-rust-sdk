@@ -2,10 +2,10 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/authority-set-policy.schema.json
-// sha256=117c43cd784874177c317507f281d49e5cfd2fa7c7ee136ba77abb5484697766
+// sha256=2122246a1c4c8ae0dfdbbdb1178957bb255ccc3101dea2a1c556417fed6fd0e7
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=f8598148149e81024ca07d8b02d6f7c48f1dc0672c100b2e8e4103790a652e46
+// sha256=378099dfc0552c94d918067d3fefafa8cc572fc164f01f1a4d741a161c5c7c1a
 
 /// Counterpart: `authority-set-policy.schema.json`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

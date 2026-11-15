@@ -73,6 +73,45 @@ def authority(data):
     return data
 
 
+def native_backup_unlock(_data):
+    fixture_path = ROOT.parent / 'arkret-spec/spec/v1/artifacts/fixtures/realm-actor-content-backup-fixture.json'
+    fixture_bytes = fixture_path.read_bytes()
+    fixture = json.loads(fixture_bytes)
+    admission = fixture['native_put_response']['admission']
+    result = {'generated_by': 'tools/regenerate-independent-wire-kats.py',
+              'source_fixture_sha256': hashlib.sha256(fixture_bytes).hexdigest(), 'cases': {}}
+    for manager in (False, True):
+        name = 'manager' if manager else 'device'
+        challenge = {
+            'challenge_id': 'AAAAAAAAAAAAAAAAAAAAAA',
+            'challenge': 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+            'operation': 'ak.self.keys.backups.command.unlock.v1',
+            'backup_id': admission['backup_id'], 'audience': 'https://station.example',
+            'service_id': admission['service_id'], 'request_id': 'BBBBBBBBBBBBBBBBBBBBBB',
+            'issued_at': '2026-11-14T12:00:00.000Z', 'expires_at': '2026-11-14T12:05:00.000Z',
+            'series_id': fixture['native_packet']['series_id'],
+            'ciphertext_digest': admission['ciphertext_digest'],
+            'kind': 'realm_actor_manager' if manager else 'realm_actor_device',
+            'purpose': 'archive_recovery' if manager else 'series_predecessor',
+            **{field: admission[field] for field in ('realm_actor_id', 'effective_scope',
+               'manager_ref', 'recovery_ref', 'recipient_ref', 'envelope_digest')},
+        }
+        if not manager:
+            challenge.update(requesting_device_id=admission['device_id'],
+                             device_authorize_event_id=admission['device_authorize_ref']['event_id'],
+                             device_generation=admission['device_generation'])
+        proof = {key: value for key, value in challenge.items() if key not in ('operation', 'request_id')}
+        method = (admission['signature']['verification_method'] if manager
+                  else fixture['native_packet']['signature_proof']['verification_method'])
+        proof.update(schema='ak.schema.key_backup_unlock_proof.v1', backup_kind='secret_storage',
+                     signature_proof={'verification_method': method, 'signature_algorithm': 'Ed25519'})
+        transcript = canonical(proof)
+        key = Ed25519PrivateKey.from_private_bytes(bytes.fromhex(fixture['test_material'][name + '_seed_hex']))
+        result['cases'][name] = {'challenge': challenge, 'preimage_utf8': transcript.decode(),
+                                 'transcript_digest': digest(transcript), 'signature': b64(key.sign(transcript))}
+    return result
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--check', action='store_true')
@@ -80,6 +119,7 @@ def main():
     for relative, build in (
         ('crates/models-collaboration/tests/fixtures/identity-link-kat.json', identity_link),
         ('crates/test-kit/fixtures/authority-object-canonical.json', authority),
+        ('crates/signatures/tests/fixtures/native-backup-unlock-kat.json', native_backup_unlock),
     ):
         path = ROOT / relative
         rendered = json.dumps(build(json.loads(path.read_text(encoding='utf-8'))), ensure_ascii=False, indent=2) + '\n'

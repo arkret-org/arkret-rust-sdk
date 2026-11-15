@@ -30,7 +30,7 @@ pub enum OrganizationControlProofKind {
 pub struct OrganizationControlProof {
     pub proof_kind: OrganizationControlProofKind,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub quorum_threshold: Option<u64>,
+    pub min_signature_count: Option<u64>,
     pub proofs: Vec<PayloadProof>,
 }
 
@@ -54,7 +54,7 @@ impl OrganizationControlProof {
                 "organization control proofs must use distinct verification methods".to_owned(),
             ));
         }
-        match (self.proof_kind, self.quorum_threshold) {
+        match (self.proof_kind, self.min_signature_count) {
             (OrganizationControlProofKind::ResolvedVerificationMethod, None)
                 if self.proofs.len() == 1 =>
             {
@@ -71,14 +71,16 @@ impl OrganizationControlProof {
                 Ok(())
             }
             (OrganizationControlProofKind::GovernanceQuorum, Some(_)) => Err(WireError::Protocol(
-                "governance control proof does not meet quorum_threshold".to_owned(),
+                "governance control proof does not meet min_signature_count".to_owned(),
             )),
             (OrganizationControlProofKind::GovernanceQuorum, None) => Err(WireError::Protocol(
-                "governance control proof requires quorum_threshold".to_owned(),
+                "governance control proof requires min_signature_count".to_owned(),
             )),
-            (OrganizationControlProofKind::ResolvedVerificationMethod, Some(_)) => Err(
-                WireError::Protocol("resolved control proof forbids quorum_threshold".to_owned()),
-            ),
+            (OrganizationControlProofKind::ResolvedVerificationMethod, Some(_)) => {
+                Err(WireError::Protocol(
+                    "resolved control proof forbids min_signature_count".to_owned(),
+                ))
+            }
         }
     }
 
@@ -782,7 +784,7 @@ mod tests {
             log_head_digest,
             control_proof: OrganizationControlProof {
                 proof_kind: OrganizationControlProofKind::ResolvedVerificationMethod,
-                quorum_threshold: None,
+                min_signature_count: None,
                 proofs: vec![proof],
             },
             local_admin_subject_id: request.local_admin_subject_id.clone(),

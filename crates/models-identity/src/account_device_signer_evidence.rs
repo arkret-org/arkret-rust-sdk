@@ -180,7 +180,7 @@ mod tests {
             "service": [{
                 "id": "did:web:station.example#service",
                 "type": "ArkretService",
-                "serviceKind": "station",
+                "service_kind": "station",
                 "serviceEndpoint": "https://station.example/"
             }]
         }))

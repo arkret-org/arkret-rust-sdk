@@ -36,9 +36,9 @@ impl HighRiskAuthorityProof {
         match self {
             Self::RecoveryUnlock(body) => body.proof.validate(),
             Self::DeviceQuorum(body) => {
-                if body.threshold < 2 {
+                if body.min_device_count < 2 {
                     return Err(WireError::Protocol(
-                        "high-risk device quorum threshold is at least two".to_owned(),
+                        "high-risk device quorum min_device_count is at least two".to_owned(),
                     ));
                 }
                 if body.signatures.is_empty() {
@@ -70,7 +70,7 @@ mod tests {
         let proof = payload_proof_value();
         let branches = [
             json!({"kind":"recovery_unlock","recovery_session_id":SESSION_ID,"proof":proof}),
-            json!({"kind":"device_quorum","threshold":2,"signatures":[{"device_id":DEVICE_ID,"proof":proof}]}),
+            json!({"kind":"device_quorum","min_device_count":2,"signatures":[{"device_id":DEVICE_ID,"proof":proof}]}),
             json!({"kind":"trusted_recovery_service","service_id":"ak:did_core:web:recovery.example","recovery_session_id":SESSION_ID,"proof":proof}),
         ];
         for branch in branches {
@@ -130,7 +130,7 @@ mod tests {
     fn device_quorum_branch_enforces_its_threshold_floor() {
         let value = json!({
             "kind": "device_quorum",
-            "threshold": 2,
+            "min_device_count": 2,
             "signatures": [{"device_id": DEVICE_ID, "proof": payload_proof_value()}]
         });
         let parsed: HighRiskAuthorityProof =
@@ -141,8 +141,17 @@ mod tests {
         assert!(parsed.recovery_session_id().is_none());
         assert_eq!(serde_json::to_value(&parsed).unwrap(), value);
 
+        let mut previous_name = value.clone();
+        let count = previous_name
+            .as_object_mut()
+            .unwrap()
+            .remove("min_device_count")
+            .unwrap();
+        previous_name["threshold"] = count;
+        assert!(serde_json::from_value::<HighRiskAuthorityProof>(previous_name).is_err());
+
         let mut below_floor = value.clone();
-        below_floor["threshold"] = json!(1);
+        below_floor["min_device_count"] = json!(1);
         let parsed: HighRiskAuthorityProof =
             serde_json::from_value(below_floor).expect("shape parses");
         assert!(parsed.validate_shape().is_err());

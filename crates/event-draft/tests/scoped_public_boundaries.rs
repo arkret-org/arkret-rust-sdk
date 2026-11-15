@@ -188,7 +188,7 @@ fn media_configuration_and_roster_markers_apply_their_existing_validators() {
             NonEmptyString::new(if s.is_empty() { "ak:invalid" } else { s }).unwrap()
     });
     let call_id = arkret_wire::CallId::from_event_id(&event());
-    let payload:CallStatePayload=serde_json::from_value(json!({"call_id":call_id,"roster_delta":{"op":"join","participant":{"actor_id":actor(),"device_id":"ak:device:01904100-0000-7000-8000-000000000008","focus_id":"valid","participant_id":"ak:rtc_participant:01904100-0000-7000-8000-000000000009","participant_binding":{"expires_at":"2026-11-13T00:00:00.000Z","issuer_kid":"did:web:media.example#key","signature":"placeholder"},"media":{"audio":true,"video":true,"screen":false}}}})).unwrap();
+    let payload:CallStatePayload=serde_json::from_value(json!({"call_id":call_id,"roster_delta":{"operation":"join","participant":{"actor_id":actor(),"device_id":"ak:device:01904100-0000-7000-8000-000000000008","focus_id":"valid","participant_id":"ak:rtc_participant:01904100-0000-7000-8000-000000000009","participant_binding":{"expires_at":"2026-11-13T00:00:00.000Z","issuer_kid":"did:web:media.example#key","signature":"placeholder"},"media":{"audio":true,"video":true,"screen":false}}}})).unwrap();
     for literal in [
         " ".to_owned(),
         "é".to_owned(),

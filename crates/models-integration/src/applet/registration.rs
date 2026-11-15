@@ -323,7 +323,7 @@ pub struct AppletLimits {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_payload_bytes: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub rate_limit_per_minute: Option<u64>,
+    pub max_transaction_count_per_minute: Option<u64>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub extra: XExtensionMap,
 }

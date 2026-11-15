@@ -98,7 +98,7 @@ pub struct QuotaReservation {
     pub window_id: i64,
     pub max_operation_count: u64,
     pub period_ms: i64,
-    pub burst: Option<u64>,
+    pub burst_operation_count: Option<u64>,
     pub verification_ms: i64,
 }
 
@@ -812,7 +812,7 @@ fn canonical_evaluation_class(constraint: &GrantConstraint) -> Option<Evaluation
             (Kind::ScopeLimitation, _)
                 if !constraint.allowed_from_container_refs.is_empty()
                     || !constraint.allowed_to_container_refs.is_empty()
-                    || constraint.wip_limit_override_allowed.is_some() =>
+                    || constraint.active_strand_count_override_allowed.is_some() =>
             {
                 EvaluationClass::RealmState
             }
@@ -1526,7 +1526,10 @@ fn quota_reservation(
     if period_ms == 0 {
         return None;
     }
-    if constraint.burst.is_some_and(|burst| burst == 0) {
+    if constraint
+        .burst_operation_count
+        .is_some_and(|burst_operation_count| burst_operation_count == 0)
+    {
         return None;
     }
     let actor = operation.actor.to_string();
@@ -1553,7 +1556,7 @@ fn quota_reservation(
         window_id: verification_ms.div_euclid(period_ms),
         max_operation_count,
         period_ms,
-        burst: constraint.burst,
+        burst_operation_count: constraint.burst_operation_count,
         verification_ms,
     })
 }

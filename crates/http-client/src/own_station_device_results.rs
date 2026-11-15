@@ -688,10 +688,11 @@ impl OwnStationDeviceClient {
                 || item.metadata.backup_id != item.admission.backup_id
                 || item.metadata.ciphertext_digest != item.admission.ciphertext_digest
                 || item.metadata.device_id != item.admission.device_id
-                || item.metadata.auth_binding.manager_ref != item.admission.manager_ref
-                || item.metadata.auth_binding.recovery_ref != item.admission.recovery_ref
-                || item.metadata.auth_binding.recipient_ref != item.admission.recipient_ref
-                || item.metadata.auth_binding.device_generation != item.admission.device_generation
+                || item.metadata.authorization_binding.manager_ref != item.admission.manager_ref
+                || item.metadata.authorization_binding.recovery_ref != item.admission.recovery_ref
+                || item.metadata.authorization_binding.recipient_ref != item.admission.recipient_ref
+                || item.metadata.authorization_binding.device_generation
+                    != item.admission.device_generation
                 || item.admission.signature.context
                     != arkret_wire::DetachedSignatureContext::RealmActorContentBackupAdmission
                 || item.admission.signature.created_at != item.admission.accepted_at

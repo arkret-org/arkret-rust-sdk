@@ -183,7 +183,7 @@ pub struct KeyBackup {
         skip_serializing_if = "Option::is_none",
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
-    pub auth_binding: Option<crate::RealmActorBackupAuthBinding>,
+    pub authorization_binding: Option<crate::RealmActorBackupAuthorizationBinding>,
     #[serde(default, flatten)]
     pub extra: XExtensionMap,
 }
@@ -229,7 +229,7 @@ impl KeyBackup {
         let native = match &self.actor_id {
             ActorId::Realm { realm_actor_id } => {
                 realm_actor_id.validate()?;
-                let binding = self.auth_binding.as_ref().ok_or_else(|| {
+                let binding = self.authorization_binding.as_ref().ok_or_else(|| {
                     WireError::Protocol(
                         "native backup requires its accepted public auth binding".into(),
                     )
@@ -259,7 +259,7 @@ impl KeyBackup {
                 true
             }
             _ => {
-                if self.auth_binding.is_some()
+                if self.authorization_binding.is_some()
                     || self.encryption.recipient_method
                         == KeyBackupRecipientMethod::RealmActorRecovery
                 {
@@ -386,7 +386,7 @@ impl KeyBackup {
     ) -> Result<()> {
         self.validate()?;
         recipient.validate()?;
-        if self.auth_binding.is_none()
+        if self.authorization_binding.is_none()
             || self.encryption.recipient_key_ref.as_deref()
                 != Some(recipient.key_agreement_ref.as_str())
             || self.encryption.hpke_suite.as_deref() != Some(HPKE_SUITE_X25519_CHACHA20POLY1305_V1)

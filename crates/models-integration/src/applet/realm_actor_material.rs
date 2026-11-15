@@ -507,11 +507,11 @@ impl RealmActorMaterialResponseBody {
         let series = series.ok_or_else(invalid)?;
         if series.series_pointer_version == 0
             || recovery.pending.is_some()
-            || input.auth_binding.recovery_ref != *recovery_ref
+            || input.authorization_binding.recovery_ref != *recovery_ref
             || recovery.content_backup_recipient != input.content_backup_recipient
-            || recovery.content_backup_recipient_ref != input.auth_binding.recipient_ref
-            || series.recipient_ref != input.auth_binding.recipient_ref
-            || series.manager_ref != input.auth_binding.manager_ref
+            || recovery.content_backup_recipient_ref != input.authorization_binding.recipient_ref
+            || series.recipient_ref != input.authorization_binding.recipient_ref
+            || series.manager_ref != input.authorization_binding.manager_ref
             || series.active_series_id != input.active_series_id
         {
             return Err(invalid());

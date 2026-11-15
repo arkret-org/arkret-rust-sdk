@@ -3,9 +3,9 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    ActorId, CommitStreamHead, Cursor, Facet, FilterOp, NullsOrder, RealmId, RelationDirection,
-    RelationKind, Result, SchemaId, SortDirection, SpaceId, ViewId, ViewKind, ViewRenderer,
-    ViewVisibility, WireError,
+    ActorId, CommitStreamHead, Cursor, Facet, FilterOperator, NullsOrder, RealmId,
+    RelationDirection, RelationKind, Result, SchemaId, SortDirection, SpaceId, ViewId, ViewKind,
+    ViewRenderer, ViewVisibility, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -18,19 +18,90 @@ use crate::objects::view::DashboardConfiguration;
 /// Wire boundary: `query.schema.json#/$defs/field_filter`.
 #[serde(deny_unknown_fields)]
 pub struct FieldFilter {
+    #[serde(deserialize_with = "deserialize_filter_field")]
     pub field: String,
-    pub op: FilterOp,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    pub operator: FilterOperator,
+    #[serde(
+        default,
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_value_preserving_null",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub value: Option<Value>,
 }
 
+impl FieldFilter {
+    pub fn validate(&self) -> Result<()> {
+        validate_filter_field(&self.field)
+    }
+}
+
+fn validate_filter_field(field: &str) -> Result<()> {
+    if field.split('.').any(|part| {
+        part.is_empty()
+            || !part
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+    }) {
+        return Err(WireError::Protocol(
+            "invalid query filter field path".into(),
+        ));
+    }
+    Ok(())
+}
+
+fn deserialize_filter_field<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> std::result::Result<String, D::Error> {
+    let field = String::deserialize(deserializer)?;
+    validate_filter_field(&field).map_err(serde::de::Error::custom)?;
+    Ok(field)
+}
+
+fn deserialize_nonempty_filters<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> std::result::Result<Vec<Filter>, D::Error> {
+    let filters = Vec::<Filter>::deserialize(deserializer)?;
+    if filters.is_empty() {
+        return Err(serde::de::Error::custom(
+            "boolean filter requires at least one operand",
+        ));
+    }
+    Ok(filters)
+}
+
+/// Wire boundary: `query.schema.json#/$defs/query_filter`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(untagged)]
+#[serde(untagged, deny_unknown_fields)]
 pub enum Filter {
     Predicate(FieldFilter),
-    And { and: Vec<Filter> },
-    Or { or: Vec<Filter> },
-    Not { not: Box<Filter> },
+    And {
+        #[serde(deserialize_with = "deserialize_nonempty_filters")]
+        and: Vec<Filter>,
+    },
+    Or {
+        #[serde(deserialize_with = "deserialize_nonempty_filters")]
+        or: Vec<Filter>,
+    },
+    Not {
+        not: Box<Filter>,
+    },
+}
+
+impl Filter {
+    pub fn validate(&self) -> Result<()> {
+        match self {
+            Self::Predicate(predicate) => predicate.validate(),
+            Self::And { and: filters } | Self::Or { or: filters } => {
+                if filters.is_empty() {
+                    return Err(WireError::Protocol(
+                        "boolean filter requires at least one operand".into(),
+                    ));
+                }
+                filters.iter().try_for_each(Self::validate)
+            }
+            Self::Not { not } => not.validate(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -299,7 +370,11 @@ impl CollectionConfiguration {
 fn validate_collection_extensions(extra: &BTreeMap<String, Value>) -> Result<()> {
     // views.md sections 3.3 and 3.4 forbid these keys even though the schema
     // permits other extension members in collection and grouping configs.
-    for field in ["page_size", "selection_policy", "wip_limit_enforcement"] {
+    for field in [
+        "page_size",
+        "selection_policy",
+        "active_strand_count_enforcement",
+    ] {
         if extra.contains_key(field) {
             return Err(WireError::Protocol(format!(
                 "schema_violation: View collection configuration must not carry {field}"

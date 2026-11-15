@@ -1481,7 +1481,7 @@ pub struct RateLimitEntry {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_request_count: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub burst: Option<u32>,
+    pub burst_request_count: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_bytes: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

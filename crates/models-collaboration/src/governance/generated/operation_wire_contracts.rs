@@ -2,16 +2,16 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/policy.schema.json
-// sha256=c62cd7a01272cd4527562d61558b1dc8432ceeaada49397498199e87d4e93269
+// sha256=f31a32e76dd6026205c48226af03e5b860c147c87335da0ff60ea481c9755729
 //
 // Input: schemas/common-ids.schema.json
 // sha256=81b18acd21f4382860d5cab2384d9bb78ee5dbc23629752a6cc74ce384186149
 //
 // Input: schemas/event-payload.schema.json
-// sha256=25014dfa0753800eba6d70e87ef3c5464d3ff2b22969282911e7f73672f68947
+// sha256=30f8a7bac2a387091f550a02d6f44c69afc5fde62df0cd0be521f28a963726c0
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=f8598148149e81024ca07d8b02d6f7c48f1dc0672c100b2e8e4103790a652e46
+// sha256=378099dfc0552c94d918067d3fefafa8cc572fc164f01f1a4d741a161c5c7c1a
 
 /// Counterpart: `policy.schema.json#/$defs/policy_rule/properties/resources/items`.
 /// Resource selector from `policy.schema.json#/$defs/policy_rule/properties/resources/items`.

@@ -459,7 +459,7 @@ fn producer_device_evidence() -> ForwardAccountDeviceSignerEvidence {
         "service": [{
             "id": "did:web:station.example#service",
             "type": "ArkretService",
-            "serviceKind": "station",
+            "service_kind": "station",
             "serviceEndpoint": "https://station.example/"
         }]
     }))

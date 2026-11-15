@@ -216,7 +216,7 @@ pub struct RealmStreamWindow {
     pub head_commit_ref: RealmCommitId,
     pub next_position: u64,
     pub limited: bool,
-    pub window_limit: u32,
+    pub max_window_event_count: u32,
     pub complete: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub preview_only: Option<bool>,
@@ -227,8 +227,10 @@ pub struct RealmStreamWindow {
 
 impl RealmStreamWindow {
     pub fn validate(&self) -> Result<()> {
-        if self.window_limit > 100 {
-            return Err(protocol_error("stream window_limit must be <= 100"));
+        if self.max_window_event_count > 100 {
+            return Err(protocol_error(
+                "stream max_window_event_count must be <= 100",
+            ));
         }
         if let Some(basis) = &self.window_start_basis {
             basis.validate()?;

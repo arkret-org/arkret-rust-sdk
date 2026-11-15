@@ -2292,8 +2292,8 @@
       "provides": [
         "ContentBackupRecipientHpkeSuite",
         "RealmActorContentBackupRecipient",
-        "RealmActorBackupAuthBindingKind",
-        "RealmActorBackupAuthBinding",
+        "RealmActorBackupAuthorizationBindingKind",
+        "RealmActorBackupAuthorizationBinding",
         "KeysBackupsIssueUnlockChallengeResponseBody",
         "KeysBackupsListQueryOneOf1Purpose",
         "RealmActorBackupHeadQuery",

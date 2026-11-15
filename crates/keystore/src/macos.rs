@@ -330,16 +330,29 @@ mod tests {
     use super::*;
 
     fn unique_app_id() -> String {
-        format!("arkret.test.{}", uuid_like())
-    }
-
-    fn uuid_like() -> String {
+        use std::sync::atomic::{AtomicU64, Ordering};
         use std::time::{SystemTime, UNIX_EPOCH};
+
+        static NEXT_APP: AtomicU64 = AtomicU64::new(0);
         let nanos = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        format!("{nanos:x}")
+        // SystemTime has coarser resolution than consecutive test calls on
+        // macOS. Distinct stores must never accidentally share a namespace.
+        format!(
+            "arkret.test.{}.{nanos:x}.{}",
+            std::process::id(),
+            NEXT_APP.fetch_add(1, Ordering::Relaxed)
+        )
+    }
+
+    #[test]
+    fn consecutive_app_namespaces_are_unique() {
+        let mut seen = std::collections::HashSet::new();
+        for _ in 0..10_000 {
+            assert!(seen.insert(unique_app_id()));
+        }
     }
 
     #[test]

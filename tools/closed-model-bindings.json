@@ -9,7 +9,7 @@
     "high-risk-authority-proof.schema.json#/$defs/recovery_unlock_proof/properties/kind": "crate::recovery_session::RecoveryUnlockProofKind",
     "high-risk-authority-proof.schema.json#/$defs/device_quorum_proof/properties/kind": "crate::recovery_session::DeviceQuorumProofKind",
     "high-risk-authority-proof.schema.json#/$defs/trusted_recovery_service_proof/properties/kind": "crate::recovery_session::TrustedRecoveryServiceProofKind",
-    "high-risk-authority-proof.schema.json#/$defs/device_quorum_proof/properties/threshold": "u32",
+    "high-risk-authority-proof.schema.json#/$defs/device_quorum_proof/properties/min_device_count": "u32",
     "call-invitation-operations.schema.json#/$defs/media": "crate::call_invitation::CallInvitationMedia",
     "call-invitation-operations.schema.json#/$defs/invitation_proof": "crate::call_invitation::CallInvitationProof",
     "call-invitation-operations.schema.json#/$defs/admission_proof": "crate::call_invitation::CallInvitationAdmissionProof",
@@ -232,7 +232,7 @@
     "current-state.schema.json#/$defs/current_realm_actor_key_backup_active_series": "arkret_models_collaboration::CurrentRealmActorKeyBackupActiveSeries",
     "current-state.schema.json#/$defs/realm_actor_key_backup_active_series_selector": "arkret_models_collaboration::RealmActorKeyBackupActiveSeriesSelector",
     "current-state.schema.json#/$defs/realm_actor_key_backup_active_series_value": "arkret_models_collaboration::RealmActorKeyBackupActiveSeriesValue",
-    "key-backup.schema.json#/$defs/realm_actor_backup_auth_binding": "arkret_models_crypto::RealmActorBackupAuthBinding",
+    "key-backup.schema.json#/$defs/realm_actor_backup_authorization_binding": "arkret_models_crypto::RealmActorBackupAuthorizationBinding",
     "keys-operations.schema.json#/$defs/keys_backups_issue_unlock_challenge_response_body": "arkret_models_crypto::KeysBackupsIssueUnlockChallengeResponseBody",
     "keys-operations.schema.json#/$defs/keys_backups_list_query": "arkret_models_crypto::KeysBackupsListParameters",
     "keys-operations.schema.json#/$defs/keys_backups_list_response_body": "arkret_models_integration::KeysBackupsListResponseBody",
@@ -297,7 +297,7 @@
     "realm-actor.schema.json#/$defs/content_backup_recipient/properties/hpke_suite": "arkret_models_crypto::ContentBackupRecipientHpkeSuite",
     "current-state.schema.json#/$defs/realm_actor_key_backup_active_series_selector/properties/kind": "arkret_models_collaboration::RealmActorKeyBackupActiveSeriesSelectorKind",
     "current-state.schema.json#/$defs/realm_actor_key_backup_active_series_selector/properties/backup_kind": "arkret_models_collaboration::RealmActorKeyBackupActiveSeriesSelectorBackupKind",
-    "key-backup.schema.json#/$defs/realm_actor_backup_auth_binding/properties/kind": "arkret_models_crypto::RealmActorBackupAuthBindingKind",
+    "key-backup.schema.json#/$defs/realm_actor_backup_authorization_binding/properties/kind": "arkret_models_crypto::RealmActorBackupAuthorizationBindingKind",
     "keys-operations.schema.json#/$defs/keys_backups_list_query/oneOf/1/properties/purpose": "arkret_models_crypto::KeysBackupsListQueryOneOf1Purpose",
     "keys-operations.schema.json#/$defs/keys_backups_list_query/oneOf/2/properties/purpose": "arkret_models_crypto::KeysBackupsListQueryOneOf2Purpose",
     "keys-operations.schema.json#/$defs/realm_actor_archive_backup_entry/properties/kind": "arkret_models_integration::RealmActorArchiveBackupEntryKind",
@@ -8153,8 +8153,8 @@
                 "type": "Base64UrlString",
                 "attributes": []
               },
-              "threshold": {
-                "name": "threshold",
+              "min_device_count": {
+                "name": "min_device_count",
                 "visibility": "pub",
                 "type": "u32",
                 "attributes": []
@@ -8355,8 +8355,8 @@
                 "type": "Base64UrlString",
                 "attributes": []
               },
-              "threshold": {
-                "name": "threshold",
+              "min_device_count": {
+                "name": "min_device_count",
                 "visibility": "pub",
                 "type": "u32",
                 "attributes": []
@@ -11513,7 +11513,7 @@
               "/// `account-subscribe-frame.schema.json#/$defs/account_filter`.",
               "///",
               "/// Field declaration order is byte-for-byte the schema `properties` order.",
-              "/// `window_limit` is the per-visible-stream item ceiling of a stream window,",
+              "/// `max_window_event_count` is the per-visible-stream item ceiling of a stream window,",
               "/// never a per-Realm budget. `stream_refs` optionally selects the window's",
               "/// stream set; every entry must belong to a Realm named in `realm_ids`.",
               "#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]",
@@ -11536,8 +11536,8 @@
                   "#[serde(\n        default,\n        deserialize_with = \"arkret_canonical::serde_helpers::deserialize_non_null_optional\",\n        skip_serializing_if = \"Option::is_none\"\n    )]"
                 ]
               },
-              "window_limit": {
-                "name": "window_limit",
+              "max_window_event_count": {
+                "name": "max_window_event_count",
                 "visibility": "pub",
                 "type": "Option<u32>",
                 "attributes": [
@@ -12149,8 +12149,8 @@
                 "type": "bool",
                 "attributes": []
               },
-              "approval_quorum": {
-                "name": "approval_quorum",
+              "min_approver_count": {
+                "name": "min_approver_count",
                 "visibility": "pub",
                 "type": "u64",
                 "attributes": []
@@ -14945,8 +14945,8 @@
                   "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
                 ]
               },
-              "include_member_events": {
-                "name": "include_member_events",
+              "member_events_allowed": {
+                "name": "member_events_allowed",
                 "visibility": "pub",
                 "type": "Option<bool>",
                 "attributes": [
@@ -18638,18 +18638,18 @@
           }
         },
         {
-          "name": "RealmActorBackupAuthBindingKind",
-          "schema": "key-backup.schema.json#/$defs/realm_actor_backup_auth_binding/properties/kind",
+          "name": "RealmActorBackupAuthorizationBindingKind",
+          "schema": "key-backup.schema.json#/$defs/realm_actor_backup_authorization_binding/properties/kind",
           "openapi": true,
           "variant_names": {
             "realm_device": "Value"
           }
         },
         {
-          "name": "RealmActorBackupAuthBinding",
-          "schema": "key-backup.schema.json#/$defs/realm_actor_backup_auth_binding",
+          "name": "RealmActorBackupAuthorizationBinding",
+          "schema": "key-backup.schema.json#/$defs/realm_actor_backup_authorization_binding",
           "rust": {
-            "signature": "pub struct RealmActorBackupAuthBinding",
+            "signature": "pub struct RealmActorBackupAuthorizationBinding",
             "attributes": [
               "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
               "#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]",
@@ -18660,7 +18660,7 @@
               "kind": {
                 "name": "kind",
                 "visibility": "pub",
-                "type": "RealmActorBackupAuthBindingKind",
+                "type": "RealmActorBackupAuthorizationBindingKind",
                 "attributes": []
               },
               "manager_ref": {
@@ -19040,10 +19040,10 @@
                 "type": "RealmActorBackupMetadataEncryption",
                 "attributes": []
               },
-              "auth_binding": {
-                "name": "auth_binding",
+              "authorization_binding": {
+                "name": "authorization_binding",
                 "visibility": "pub",
-                "type": "RealmActorBackupAuthBinding",
+                "type": "RealmActorBackupAuthorizationBinding",
                 "attributes": []
               }
             }
@@ -19550,10 +19550,10 @@
               "#[serde(deny_unknown_fields)]"
             ],
             "members": {
-              "auth_binding": {
-                "name": "auth_binding",
+              "authorization_binding": {
+                "name": "authorization_binding",
                 "visibility": "pub",
-                "type": "RealmActorBackupAuthBinding",
+                "type": "RealmActorBackupAuthorizationBinding",
                 "attributes": []
               },
               "content_backup_recipient": {
@@ -21316,7 +21316,7 @@
   ],
   "retained_binding_reasons": {
     "references": "References bind to existing validated SDK identifier/proof leaves and closed marker types; domain verification remains handwritten.",
-    "threshold": "The existing public Rust threshold remains u32; changing its width is outside a byte-equivalent generation migration. Schema minimum and current policy threshold remain validate_shape/verifier obligations."
+    "min_device_count": "The existing public Rust threshold remains u32; changing its width is outside a byte-equivalent generation migration. Schema minimum and current policy threshold remain validate_shape/verifier obligations."
   },
   "retained_models": [
     {

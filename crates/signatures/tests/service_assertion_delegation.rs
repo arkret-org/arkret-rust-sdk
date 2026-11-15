@@ -61,7 +61,7 @@ fn delegated_assertion_key_is_bound_by_the_station_inception_proof() {
     assert_eq!(method["controller"], prepared.did);
     assert_eq!(method["publicKeyMultibase"], delegated_key);
     assert_eq!(state["service"].as_array().unwrap().len(), 1);
-    assert_eq!(state["service"][0]["serviceKind"], "station");
+    assert_eq!(state["service"][0]["service_kind"], "station");
 
     let mut unsigned = prepared.log_entry.clone();
     let proofs = unsigned.as_object_mut().unwrap().remove("proof").unwrap();

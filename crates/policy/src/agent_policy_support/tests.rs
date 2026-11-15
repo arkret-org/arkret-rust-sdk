@@ -32,7 +32,7 @@ fn requirement() -> ManagementReviewRequirement {
             "ak:did_core:web:admin.example".parse().unwrap(),
             "ak:did_core:web:station.example".parse().unwrap(),
         ))],
-        threshold: 1,
+        min_approver_count: 1,
         max_age_seconds: 60,
     }
 }

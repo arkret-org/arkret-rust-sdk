@@ -5,10 +5,10 @@
 // sha256=61c5e64619b36a92bd52168fefe55f7643dbee653acdca81f37cde5e0398c420
 //
 // Input: schemas/key-backup.schema.json
-// sha256=e9280313666a5fc0055a9f15edaa9e4716369fb362e6a808b64f919a1c8a398d
+// sha256=07597f9b9987a50bcfabacf774c720e49e985eec665ccb1981d2722465a07e2c
 //
 // Input: schemas/keys-operations.schema.json
-// sha256=a3fe4bf71b7e94747a347d41967cff92cf1864653114d6ba5437824ae74de67a
+// sha256=8cafab3f5d4a61e2d9900c88eabf3d707a081f3411ccf0d16a4eb4f081682733
 //
 // Input: schemas/common-ids.schema.json
 // sha256=81b18acd21f4382860d5cab2384d9bb78ee5dbc23629752a6cc74ce384186149
@@ -17,7 +17,7 @@
 // sha256=b367d60aeb13aa9e524c5201cc1857d8ac9defd5c78293f696a4f4c0a5d4450b
 //
 // Input: schemas/account-operations.schema.json
-// sha256=0ae0fec5fd63dca4b9df9293eb71936cf73a3eeeae13b2268dc99699c1ed7607
+// sha256=694f553340eeccd86deab4c0bb637d741e62e4babab325d516ffa30352ceb03d
 //
 // Input: schemas/agent-operations.schema.json
 // sha256=80fba7d397f1c4d067304c83b87dcdacee8db4585991eda985aceb0272890fa1
@@ -26,13 +26,13 @@
 // sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
 //
 // Input: schemas/realm-actor-material.schema.json
-// sha256=fe13177cf262150b299d101c2cf7e364e2f38fc2fbb8dc6a78ae3c45b1816d1b
+// sha256=1c0e4d7bc2303d040259991aa33f767d6fafd434d0cce306ad6ace5f4af25986
 //
 // Input: schemas/key-backup-unlock-proof.schema.json
 // sha256=044d45d62401cc0435f045b5931ce8c7ec54fc2c6901c5d4d2b2f1ffda3028dc
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=f8598148149e81024ca07d8b02d6f7c48f1dc0672c100b2e8e4103790a652e46
+// sha256=378099dfc0552c94d918067d3fefafa8cc572fc164f01f1a4d741a161c5c7c1a
 
 /// Counterpart: `realm-actor.schema.json#/$defs/content_backup_recipient/properties/hpke_suite`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -53,21 +53,22 @@ pub struct RealmActorContentBackupRecipient {
     pub public_key_base64url: String,
 }
 
-/// Counterpart: `key-backup.schema.json#/$defs/realm_actor_backup_auth_binding/properties/kind`.
+/// Counterpart:
+/// `key-backup.schema.json#/$defs/realm_actor_backup_authorization_binding/properties/kind`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub enum RealmActorBackupAuthBindingKind {
+pub enum RealmActorBackupAuthorizationBindingKind {
     #[serde(rename = "realm_device")]
     Value,
 }
 
-/// Counterpart: `key-backup.schema.json#/$defs/realm_actor_backup_auth_binding`.
+/// Counterpart: `key-backup.schema.json#/$defs/realm_actor_backup_authorization_binding`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 #[serde(remote = "Self")]
-pub struct RealmActorBackupAuthBinding {
-    pub kind: RealmActorBackupAuthBindingKind,
+pub struct RealmActorBackupAuthorizationBinding {
+    pub kind: RealmActorBackupAuthorizationBindingKind,
     pub manager_ref: arkret_wire::CommittedEventRef,
     pub recovery_ref: arkret_wire::CommittedEventRef,
     pub recipient_ref: arkret_wire::CommittedEventRef,
@@ -235,7 +236,7 @@ pub struct RealmActorBackupMetadata {
     pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
     pub ciphertext_digest: arkret_wire::Hash,
     pub encryption: RealmActorBackupMetadataEncryption,
-    pub auth_binding: RealmActorBackupAuthBinding,
+    pub authorization_binding: RealmActorBackupAuthorizationBinding,
 }
 
 /// Counterpart:
@@ -396,7 +397,7 @@ pub struct RealmActorContentBackupAdmissionSignatureInput {
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ContentBackupNextPrepareInput {
-    pub auth_binding: RealmActorBackupAuthBinding,
+    pub authorization_binding: RealmActorBackupAuthorizationBinding,
     pub content_backup_recipient: RealmActorContentBackupRecipient,
     pub active_series_id: arkret_wire::BackupSeriesId,
 }

@@ -573,7 +573,7 @@ pub struct PushCounts {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub badge: Option<PushCountIndicator>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub unread_increment: Option<u64>,
+    pub unread_increment_count: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub missed_call: Option<PushCountIndicator>,
 }

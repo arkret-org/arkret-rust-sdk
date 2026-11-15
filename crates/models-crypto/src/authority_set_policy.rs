@@ -46,7 +46,7 @@ pub struct AuthoritySetAuthorizationRule {
     pub issuer_role: AuthoritySetIssuerRole,
     pub allowed_actions: Vec<String>,
     pub issuers: Vec<AuthoritySetAuthorizationIssuer>,
-    pub threshold: u32,
+    pub min_signature_count: u32,
 }
 
 // Field declaration order is byte-for-byte the properties order of
@@ -79,9 +79,11 @@ impl AuthoritySetPolicy {
                     "authority set rule carries 1..=32 issuers".to_owned(),
                 ));
             }
-            if rule.threshold == 0 || rule.threshold as usize > AUTHORITY_SET_RULE_MAX_ISSUERS {
+            if rule.min_signature_count == 0
+                || rule.min_signature_count as usize > AUTHORITY_SET_RULE_MAX_ISSUERS
+            {
                 return Err(WireError::Protocol(
-                    "authority set rule threshold is 1..=32".to_owned(),
+                    "authority set rule min_signature_count is 1..=32".to_owned(),
                 ));
             }
         }
@@ -114,7 +116,7 @@ mod tests {
                 "issuer_role": "identity_recovery",
                 "allowed_actions": ["ak.device.reanchor"],
                 "issuers": [{"verification_method": "did:webvh:z6mkfixture:alice.example#recovery-1"}],
-                "threshold": 1
+                "min_signature_count": 1
             }]
         })
     }
@@ -142,7 +144,7 @@ mod tests {
     #[test]
     fn authorization_rule_threshold_floor_is_enforced() {
         let mut value = policy_value();
-        value["authorization_rules"][0]["threshold"] = json!(0);
+        value["authorization_rules"][0]["min_signature_count"] = json!(0);
         let parsed: AuthoritySetPolicy = serde_json::from_value(value).expect("shape parses");
         assert!(parsed.validate_shape().is_err());
     }

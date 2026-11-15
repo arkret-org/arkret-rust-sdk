@@ -89,7 +89,7 @@ pub enum RecoveryMethod {
         keys: Vec<RecoveryKeyEntry>,
     },
     DeviceQuorum {
-        k: u32,
+        min_device_count: u32,
         member_ids: Vec<DeviceId>,
     },
     TrustedRecoveryService {
@@ -118,15 +118,19 @@ impl RecoveryMethod {
                 }
                 Ok(())
             }
-            Self::DeviceQuorum { k, member_ids } => {
-                if *k < 2 || member_ids.len() < 2 {
+            Self::DeviceQuorum {
+                min_device_count,
+                member_ids,
+            } => {
+                if *min_device_count < 2 || member_ids.len() < 2 {
                     return Err(WireError::Protocol(
-                        "device_quorum requires k>=2 over at least two member devices".to_owned(),
+                        "device_quorum requires min_device_count>=2 over at least two member devices".to_owned(),
                     ));
                 }
-                if *k as usize > member_ids.len() {
+                if *min_device_count as usize > member_ids.len() {
                     return Err(WireError::Protocol(
-                        "device_quorum k must not exceed its member count".to_owned(),
+                        "device_quorum min_device_count must not exceed its member count"
+                            .to_owned(),
                     ));
                 }
                 Ok(())
@@ -514,10 +518,10 @@ mod tests {
     }
 
     #[test]
-    fn device_quorum_threshold_cannot_exceed_its_member_count() {
+    fn device_quorum_min_device_count_cannot_exceed_its_member_count() {
         let method: RecoveryMethod = serde_json::from_value(json!({
             "kind": "device_quorum",
-            "k": 3,
+            "min_device_count": 3,
             "member_ids": [
                 "ak:device:0198ff00-0000-7000-8000-00000000000a",
                 "ak:device:0198ff00-0000-7000-8000-00000000000b"

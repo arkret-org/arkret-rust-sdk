@@ -161,13 +161,13 @@ pub enum AgentPolicyOperation {
 #[serde(deny_unknown_fields)]
 pub struct ManagementReviewRequirement {
     pub approver_actor_ids: Vec<ActorId>,
-    pub threshold: u64,
+    pub min_approver_count: u64,
     pub max_age_seconds: u64,
 }
 impl ManagementReviewRequirement {
     pub fn validate(&self) -> Result<()> {
-        if self.threshold == 0
-            || self.threshold as usize > self.approver_actor_ids.len()
+        if self.min_approver_count == 0
+            || self.min_approver_count as usize > self.approver_actor_ids.len()
             || !(1..=86400).contains(&self.max_age_seconds)
             || self
                 .approver_actor_ids

@@ -101,8 +101,10 @@ impl AppletDiscoveryStatePayload {
 
 impl PolicyActionDocument {
     pub fn validate(&self) -> Result<()> {
-        if self.approval_quorum == 0 {
-            return Err(invalid("policy action approval_quorum must be at least 1"));
+        if self.min_approver_count == 0 {
+            return Err(invalid(
+                "policy action min_approver_count must be at least 1",
+            ));
         }
         if !policy_scope_is_valid(&self.policy_scope) {
             return Err(invalid(
@@ -267,7 +269,7 @@ mod tests {
         let document = json!({
             "action": "ak.realm.configure",
             "approval_required": true,
-            "approval_quorum": 2,
+            "min_approver_count": 2,
             "policy_scope": "ak:realm:AUGIFvQctz4TjQTmvvO4Wdy-xdc5XP2ZnJ5Qpbh4s8Ru"
         });
         let by_policy: PolicyActionStatePayload = serde_json::from_value(json!({
@@ -301,7 +303,7 @@ mod tests {
             "a Realm-local action id stays outside the ak: namespace"
         );
         let mut zero_quorum = by_policy.clone();
-        zero_quorum.value.approval_quorum = 0;
+        zero_quorum.value.min_approver_count = 0;
         assert!(zero_quorum.validate().is_err());
         let mut bad_scope = by_policy;
         bad_scope.value.policy_scope = "realm".to_owned();

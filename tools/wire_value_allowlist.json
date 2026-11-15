@@ -90,7 +90,7 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "closed_dispatch:coland/crates/http/src/routing/events/operations/semantics.rs::validate_typed_payload_shapes:63b473c9c1fdbb7c",
+      "finding": "closed_dispatch:coland/crates/http/src/routing/events/operations/semantics.rs::validate_typed_payload_shapes:9b494af9f6c312f7",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -4813,7 +4813,7 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
-      "finding": "json_authoring:crates/crypto/src/content_history/backup_draft.rs::seal:ee54fccbe4656e7d",
+      "finding": "json_authoring:crates/crypto/src/content_history/backup_draft.rs::seal:50b0de4ebc3959fc",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -4822,7 +4822,8 @@
       "owner_repository": "arkret-rust-sdk",
       "action": "Retain this exact typed signing projection only; validate the canonical carrier before any protocol output or signature use.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "Native draft constructs the registered HPKE envelope, including canonical native AAD and the exact public auth binding; a real signature is inserted, then the result is decoded as KeyBackup and validated before returning. This exact native construction does not accept an arbitrary caller JSON payload."
+      "reason": "Native draft constructs the registered HPKE envelope, including canonical native AAD and the exact public authorization binding; a real signature is inserted, then the result is decoded as KeyBackup and validated before returning. This exact native construction does not accept an arbitrary caller JSON payload.",
+      "adjudication": "manual"
     },
     {
       "finding": "json_authoring:crates/models-collaboration/src/events_payloads/device_identity.rs::realm_device_possession_signature_input:ec412e5e5d9a459f",
@@ -4847,7 +4848,8 @@
       "owner_repository": "arkret-rust-sdk",
       "action": "Retain this exact typed signing projection only; validate the canonical carrier before any protocol output or signature use.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "Private native Service typestate mechanically projects the registered record minus signature_proof.signature; the final signed object is decoded as KeyBackupActiveSeries and validated. No arbitrary Event payload or cross-layer raw carrier is returned."
+      "reason": "Private native Service typestate mechanically projects the registered record minus signature_proof.signature; the final signed object is decoded as KeyBackupActiveSeries and validated. No arbitrary Event payload or cross-layer raw carrier is returned.",
+      "adjudication": "manual"
     },
     {
       "finding": "json_authoring:crates/models-identity/src/account.rs::session_revoke_request_digest:5bbdf458eadc1fa1",
@@ -5418,7 +5420,8 @@
       "owner_repository": "arkret-rust-sdk",
       "action": "Retain this exact typed signing projection only; validate the canonical carrier before any protocol output or signature use.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "After actual HPKE open, complete inventory and keys verification, and the durable import callback, the fixed typed confirmation input receives only its real detached signature and is decoded as the canonical closed confirmation."
+      "reason": "After actual HPKE open, complete inventory and keys verification, and the durable import callback, the fixed typed confirmation input receives only its real detached signature and is decoded as the canonical closed confirmation.",
+      "adjudication": "manual"
     },
     {
       "finding": "json_path_mutation:crates/identity/src/realm_actor_backup_handover.rs::sign_realm_actor_backup_handover_offer:676acfcaeae4bec6",
@@ -5430,7 +5433,8 @@
       "owner_repository": "arkret-rust-sdk",
       "action": "Retain this exact typed signing projection only; validate the canonical carrier before any protocol output or signature use.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "The canonical closed unsigned offer receives only its real detached signature; the result is decoded as the registered closed offer. This is an exact typed signing boundary, not generic JSON authoring."
+      "reason": "The canonical closed unsigned offer receives only its real detached signature; the result is decoded as the registered closed offer. This is an exact typed signing boundary, not generic JSON authoring.",
+      "adjudication": "manual"
     },
     {
       "finding": "json_path_mutation:crates/models-collaboration/src/contact_operations.rs::canonical_signing_bytes_without_signature:fa751b582c4c97b1",
@@ -5453,7 +5457,8 @@
       "owner_repository": "arkret-rust-sdk",
       "action": "Retain this exact typed signing projection only; validate the canonical carrier before any protocol output or signature use.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "The private native Service series typestate inserts only a real Ed25519 signature into its registered signature_proof, then decodes and validates the complete canonical record before returning."
+      "reason": "The private native Service series typestate inserts only a real Ed25519 signature into its registered signature_proof, then decodes and validates the complete canonical record before returning.",
+      "adjudication": "manual"
     },
     {
       "finding": "json_path_mutation:crates/models-collaboration/src/events_payloads/key_backup.rs::signing_payload_bytes:addb37bb3db9e798",
@@ -5465,7 +5470,8 @@
       "owner_repository": "arkret-rust-sdk",
       "action": "Retain this exact typed signing projection only; validate the canonical carrier before any protocol output or signature use.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "Canonical signing projection starts from the authoritative validated typed carrier and removes exactly signature_proof.signature before JCS. The raw value is transcript-local and is never returned as protocol business data."
+      "reason": "Canonical signing projection starts from the authoritative validated typed carrier and removes exactly signature_proof.signature before JCS. The raw value is transcript-local and is never returned as protocol business data.",
+      "adjudication": "manual"
     },
     {
       "finding": "json_path_mutation:crates/models-collaboration/src/events_payloads/redaction.rs::redaction_tombstone_message_value:70bf25f32941bfda",
@@ -5666,7 +5672,8 @@
       "owner_repository": "arkret-rust-sdk",
       "action": "Retain this exact typed signing projection only; validate the canonical carrier before any protocol output or signature use.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "Canonical signing projection starts from the authoritative validated typed carrier and removes exactly signature_proof.signature before JCS. The raw value is transcript-local and is never returned as protocol business data."
+      "reason": "Canonical signing projection starts from the authoritative validated typed carrier and removes exactly signature_proof.signature before JCS. The raw value is transcript-local and is never returned as protocol business data.",
+      "adjudication": "manual"
     },
     {
       "finding": "json_path_mutation:crates/signatures/src/realm_actor_content_backup.rs::sign_realm_actor_content_backup_admission:676acfcaeae4bec6",
@@ -5678,7 +5685,8 @@
       "owner_repository": "arkret-rust-sdk",
       "action": "Retain this exact typed signing projection only; validate the canonical carrier before any protocol output or signature use.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "The closed canonical admission SignatureInput receives only the actual detached Service signature with the registered context and accepted_at binding, then is decoded as the exact admission carrier."
+      "reason": "The closed canonical admission SignatureInput receives only the actual detached Service signature with the registered context and accepted_at binding, then is decoded as the exact admission carrier.",
+      "adjudication": "manual"
     },
     {
       "finding": "json_path_mutation:crates/wire/src/authority_commit.rs::canonical_id_bytes:fa751b582c4c97b1",

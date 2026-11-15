@@ -46,7 +46,7 @@ fn join(commit: RealmCommit, device: &str) -> CallRosterSource {
             .unwrap()
             .to_string(),
         source_commit: commit,
-        value: serde_json::from_value(json!({"op":"join", "participant":{
+        value: serde_json::from_value(json!({"operation":"join", "participant":{
             "actor_id":participant_actor("ak:did_core:web:station.example"), "device_id":device
         }}))
         .unwrap(),
@@ -210,7 +210,7 @@ fn moderation_restore_removes_only_the_exact_full_actor_ban_and_keeps_kick() {
         value: serde_json::from_value(value).unwrap(),
     };
     let removal = |action, device: Option<&str>| {
-        let mut value = json!({"op":"remove_participant","removal":{"actor_id":target,"action":action,"removed_by":"ak:did_core:web:moderator.example","removed_at":"2026-10-15T00:00:00.000Z"}});
+        let mut value = json!({"operation":"remove_participant","removal":{"actor_id":target,"action":action,"removed_by":"ak:did_core:web:moderator.example","removed_at":"2026-10-15T00:00:00.000Z"}});
         if let Some(device) = device {
             value["removal"]["device_id"] = json!(device)
         }
@@ -233,7 +233,7 @@ fn moderation_restore_removes_only_the_exact_full_actor_ban_and_keeps_kick() {
     let restore = |expected| {
         source(
             &restored,
-            json!({"op":"restore_participant","actor_id":target,"restored_by":"ak:did_core:web:moderator.example","restored_at":"2026-10-15T00:00:00.000Z","expected_commit_id":expected}),
+            json!({"operation":"restore_participant","actor_id":target,"restored_by":"ak:did_core:web:moderator.example","restored_at":"2026-10-15T00:00:00.000Z","expected_commit_id":expected}),
         )
     };
     assert!(

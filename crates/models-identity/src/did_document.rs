@@ -1181,7 +1181,7 @@ mod tests {
             "service": [{
                 "id": "did:webvh:z6mkfixture:alice.example#station",
                 "type": "ArkretService",
-                "serviceKind": "station",
+                "service_kind": "station",
                 "serviceEndpoint": "https://principal.example/"
             }],
             "x-vendor": {"preserve": true}
@@ -1259,7 +1259,7 @@ mod tests {
                 "uri": "did:web:alice.example#station",
                 "protocol_names": ["ArkretService"],
                 "endpoint": "https://ps.alice.example/",
-                "extensions": [{"name": "serviceKind", "value": "station"}]
+                "extensions": [{"name": "service_kind", "value": "station"}]
             }],
             "metadata": {"primary_handle": "alice:example.com"},
             "extensions": []
@@ -1268,7 +1268,7 @@ mod tests {
         let digest = normalized_did_document_digest(&document).unwrap();
         assert_eq!(
             digest.as_ref(),
-            "sha256:10b3e107d51b7428103becb9345faf5c250f89832aac173657b16fb3dc0328ee"
+            "sha256:68a4ea500665b1c0cccd8b2d84efc0952751576024c3f574cc8e4622ae517a7e"
         );
 
         document.updated_at = Some(
@@ -1277,6 +1277,26 @@ mod tests {
                 .with_timezone(&Utc),
         );
         assert_eq!(normalized_did_document_digest(&document).unwrap(), digest);
+
+        let mut without_alias = normalized_did_document(&document).unwrap();
+        without_alias
+            .as_object_mut()
+            .unwrap()
+            .remove("also_known_as");
+        // These registered deletion preimages test digest sensitivity. They
+        // are not normalized-document inputs that may omit required members.
+        assert_eq!(
+            arkret_canonical::canonical_sha256(&without_alias).unwrap(),
+            "sha256:d34d2ef57520899cc87f1cc0ad60f3682f4a93d7703e357426d6830d97f73d54"
+        );
+        without_alias["metadata"]
+            .as_object_mut()
+            .unwrap()
+            .remove("primary_handle");
+        assert_eq!(
+            arkret_canonical::canonical_sha256(&without_alias).unwrap(),
+            "sha256:037eb484864b3bafb857255825359908e735c4444de5950a3c3856f18e1da69d"
+        );
     }
 
     #[test]
@@ -1297,7 +1317,7 @@ mod tests {
                 "id": "did:web:alice.example#station",
                 "type": "ArkretService",
                 "serviceEndpoint": "https://ps.alice.example/",
-                "serviceKind": "station"
+                "service_kind": "station"
             }],
             "metadata": {"primary_handle": "alice:example.com"},
             "updated": "2026-08-01T00:00:00Z"
@@ -1305,7 +1325,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             normalized_did_document_digest(&document).unwrap().as_ref(),
-            "sha256:10b3e107d51b7428103becb9345faf5c250f89832aac173657b16fb3dc0328ee"
+            "sha256:68a4ea500665b1c0cccd8b2d84efc0952751576024c3f574cc8e4622ae517a7e"
         );
     }
 
@@ -1326,7 +1346,7 @@ mod tests {
                 "id": "did:web:alice.example#station",
                 "type": "ArkretService",
                 "serviceEndpoint": "https://ps.alice.example/",
-                "serviceKind": "station"
+                "service_kind": "station"
             }],
             "metadata": {"primary_handle": "alice:example.com"},
             "updated": "2026-08-01T00:00:00Z"

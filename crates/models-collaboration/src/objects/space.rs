@@ -237,7 +237,7 @@ impl Space {
                 || self.fields.keys().any(|key| {
                     !matches!(
                         key.as_str(),
-                        "wip_limit" | "wip_limit_enforcement" | "view_id"
+                        "max_active_strand_count" | "active_strand_count_enforcement" | "view_id"
                     )
                 }))
         {
@@ -254,32 +254,32 @@ impl Space {
                 "space labels must contain at most 64 entries of at most 128 bytes".to_owned(),
             ));
         }
-        let wip_limit = self.fields.get("wip_limit");
-        let enforcement = self.fields.get("wip_limit_enforcement");
-        if self.kind != "list" && (wip_limit.is_some() || enforcement.is_some()) {
+        let max_active_strand_count = self.fields.get("max_active_strand_count");
+        let enforcement = self.fields.get("active_strand_count_enforcement");
+        if self.kind != "list" && (max_active_strand_count.is_some() || enforcement.is_some()) {
             return Err(WireError::Protocol(
                 "space WIP policy is only valid for kind=list".to_owned(),
             ));
         }
-        if let Some(limit) = wip_limit {
+        if let Some(limit) = max_active_strand_count {
             let valid = limit
                 .as_u64()
                 .is_some_and(|limit| (1..=100_000).contains(&limit));
             if !valid || enforcement.is_none() {
                 return Err(WireError::Protocol(
-                    "list space wip_limit requires 1..=100000 and wip_limit_enforcement".to_owned(),
+                    "list space max_active_strand_count requires 1..=100000 and active_strand_count_enforcement".to_owned(),
                 ));
             }
         }
         if let Some(enforcement) = enforcement
-            && (wip_limit.is_none()
+            && (max_active_strand_count.is_none()
                 || !matches!(
                     enforcement.as_str(),
                     Some("warn" | "reject" | "require_review")
                 ))
         {
             return Err(WireError::Protocol(
-                "space wip_limit_enforcement requires a registered value and wip_limit".to_owned(),
+                "space active_strand_count_enforcement requires a registered value and max_active_strand_count".to_owned(),
             ));
         }
         Ok(())
@@ -325,7 +325,10 @@ impl SpaceMetadata {
             || self.fields.keys().any(|key| {
                 matches!(
                     key.as_str(),
-                    "rank" | "wip_limit" | "wip_limit_enforcement" | "view_id"
+                    "rank"
+                        | "max_active_strand_count"
+                        | "active_strand_count_enforcement"
+                        | "view_id"
                 )
             })
         {

@@ -4196,8 +4196,8 @@
       "schema": "realm-actor.schema.json#/$defs/content_backup_recipient"
     },
     {
-      "rust_type": "crates/models-crypto/src/generated/realm_actor_content_backup_contracts.rs::RealmActorBackupAuthBinding",
-      "schema": "key-backup.schema.json#/$defs/realm_actor_backup_auth_binding"
+      "rust_type": "crates/models-crypto/src/generated/realm_actor_content_backup_contracts.rs::RealmActorBackupAuthorizationBinding",
+      "schema": "key-backup.schema.json#/$defs/realm_actor_backup_authorization_binding"
     },
     {
       "rust_type": "crates/models-crypto/src/generated/realm_actor_content_backup_contracts.rs::RealmActorBackupHeadQuery",

@@ -232,19 +232,19 @@ impl PublicPrincipalResolution {
 pub struct PrincipalResolutionAuditRequestBody {
     pub account_id: AccountId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub history_depth: Option<u16>,
+    pub max_predecessor_event_count: Option<u16>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub after_resolution_event_ref: Option<EventId>,
 }
 
 /// Closed upper bound on disclosed predecessor resolution Events.
-pub const PRINCIPAL_RESOLUTION_AUDIT_MAX_HISTORY_DEPTH: u16 = 256;
+pub const PRINCIPAL_RESOLUTION_AUDIT_MAX_PREDECESSOR_EVENT_COUNT: u16 = 256;
 
 impl PrincipalResolutionAuditRequestBody {
     pub fn new(account_id: AccountId) -> Self {
         Self {
             account_id,
-            history_depth: None,
+            max_predecessor_event_count: None,
             after_resolution_event_ref: None,
         }
     }
@@ -254,15 +254,16 @@ impl PrincipalResolutionAuditRequestBody {
     /// A depth outside the closed range is `param_invalid`, and a cursor with
     /// depth 0 could never apply because depth 0 discloses no predecessor.
     pub fn validate(&self) -> arkret_wire::Result<()> {
-        let depth = self.history_depth.unwrap_or(0);
-        if depth > PRINCIPAL_RESOLUTION_AUDIT_MAX_HISTORY_DEPTH {
+        let depth = self.max_predecessor_event_count.unwrap_or(0);
+        if depth > PRINCIPAL_RESOLUTION_AUDIT_MAX_PREDECESSOR_EVENT_COUNT {
             return Err(arkret_wire::WireError::Protocol(format!(
-                "principal resolution history_depth exceeds {PRINCIPAL_RESOLUTION_AUDIT_MAX_HISTORY_DEPTH}"
+                "principal resolution max_predecessor_event_count exceeds {PRINCIPAL_RESOLUTION_AUDIT_MAX_PREDECESSOR_EVENT_COUNT}"
             )));
         }
         if self.after_resolution_event_ref.is_some() && depth == 0 {
             return Err(arkret_wire::WireError::Protocol(
-                "after_resolution_event_ref requires history_depth of at least 1".to_owned(),
+                "after_resolution_event_ref requires max_predecessor_event_count of at least 1"
+                    .to_owned(),
             ));
         }
         Ok(())
@@ -680,7 +681,7 @@ impl AuthenticatedServiceResolution {
                     .is_some_and(|types| types.len() == 1 && types[0] == "ArkretService")
                     && entry["extensions"].as_array().is_some_and(|extensions| {
                         extensions.iter().any(|row| {
-                            row["name"] == "serviceKind" && row["value"] == self.service_kind
+                            row["name"] == "service_kind" && row["value"] == self.service_kind
                         })
                     })
             })
