@@ -5,11 +5,10 @@
 //! type, so the identifier impls here and the `arkret-wire` impls for
 //! `AccountId` / `ActorId` / `OpaqueLocalId` cannot be collapsed into a single
 //! module — the orphan rule forbids it. What *is* shared is the boilerplate,
-//! and it lives here: [`diesel_foreign_sql_proxy!`](crate::diesel_foreign_sql_proxy)
-//! and [`impl_text_identifier_sql!`](crate::impl_text_identifier_sql) are
-//! exported at the crate root and generate it for both crates, so the
-//! `foreign_derive` proxy pattern — and its unavoidable dead-code exemption —
-//! is written exactly once.
+//! and it lives here: [`impl_sql_value!`](crate::impl_sql_value) and
+//! [`impl_text_identifier_sql!`](crate::impl_text_identifier_sql) are exported
+//! at the crate root and generate the local trait implementations for both
+//! crates. No foreign-type derive or unused proxy is involved.
 
 use std::error::Error;
 use std::fmt;
@@ -21,23 +20,74 @@ use diesel::sql_types::Text;
 
 use super::{DidCoreId, Hash, WebOrigin};
 
-/// Emit diesel's `AsExpression` / `FromSqlRow` impls for a type whose
-/// definition cannot carry the derives directly.
+/// Implement Diesel expression and row traits for a locally owned value.
 ///
-/// Identifier kinds produced by `declare_special_form_id_kinds!` share one
-/// generated definition, so attaching `#[diesel(sql_type = ...)]` there would
-/// silently give a Postgres mapping to every kind in the group. Diesel's
-/// `foreign_derive` escape hatch instead reads the field type off a local proxy
-/// struct that is never constructed — hence the dead-code exemption, which
-/// belongs here once rather than at each call site.
+/// Generated identifier definitions need selective SQL mappings without adding
+/// derives to every identifier kind. These are the ordinary local-type impls:
+/// owned, borrowed and doubly borrowed expressions, with nullable counterparts.
+/// Diesel's `foreign_derive` is unsuitable here: it also emits smart-pointer
+/// impls intended for Diesel's own primitive types and violates coherence for
+/// downstream local types. Callers can explicitly borrow a `Box`/`Rc`/`Arc`
+/// inner value with `as_ref()` instead; this macro does not claim direct
+/// smart-pointer expression support.
 #[macro_export]
-macro_rules! diesel_foreign_sql_proxy {
-    ($proxy:ident, $identifier:ty, $sql_type:ty) => {
-        #[derive(::diesel::expression::AsExpression, ::diesel::deserialize::FromSqlRow)]
-        #[diesel(foreign_derive)]
-        #[diesel(sql_type = $sql_type)]
-        #[allow(dead_code)]
-        struct $proxy($identifier);
+macro_rules! impl_sql_value {
+    (@expression $value:ty, $sql_type:ty) => {
+        impl ::diesel::expression::AsExpression<$sql_type> for $value {
+            type Expression = ::diesel::internal::derives::as_expression::Bound<$sql_type, Self>;
+
+            fn as_expression(self) -> Self::Expression {
+                ::diesel::internal::derives::as_expression::Bound::new(self)
+            }
+        }
+
+        impl ::diesel::expression::AsExpression<$sql_type> for &$value {
+            type Expression = ::diesel::internal::derives::as_expression::Bound<$sql_type, Self>;
+
+            fn as_expression(self) -> Self::Expression {
+                ::diesel::internal::derives::as_expression::Bound::new(self)
+            }
+        }
+
+        impl ::diesel::expression::AsExpression<$sql_type> for &&$value
+        {
+            type Expression = ::diesel::internal::derives::as_expression::Bound<$sql_type, Self>;
+
+            fn as_expression(self) -> Self::Expression {
+                ::diesel::internal::derives::as_expression::Bound::new(self)
+            }
+        }
+    };
+    ($value:ty, $sql_type:ty) => {
+        $crate::impl_sql_value!(@expression $value, $sql_type);
+        $crate::impl_sql_value!(@expression $value, ::diesel::sql_types::Nullable<$sql_type>);
+
+        impl<__DB> ::diesel::serialize::ToSql<::diesel::sql_types::Nullable<$sql_type>, __DB>
+            for $value
+        where
+            __DB: ::diesel::backend::Backend,
+            Self: ::diesel::serialize::ToSql<$sql_type, __DB>,
+        {
+            fn to_sql<'b>(
+                &'b self,
+                out: &mut ::diesel::serialize::Output<'b, '_, __DB>,
+            ) -> ::diesel::serialize::Result {
+                <Self as ::diesel::serialize::ToSql<$sql_type, __DB>>::to_sql(self, out)
+            }
+        }
+
+        impl<__ST, __DB> ::diesel::deserialize::Queryable<__ST, __DB> for $value
+        where
+            __DB: ::diesel::backend::Backend,
+            __ST: ::diesel::sql_types::SingleValue,
+            Self: ::diesel::deserialize::FromSql<__ST, __DB>,
+        {
+            type Row = Self;
+
+            fn build(row: Self) -> ::diesel::deserialize::Result<Self> {
+                Ok(row)
+            }
+        }
     };
 }
 
@@ -51,7 +101,7 @@ macro_rules! diesel_foreign_sql_proxy {
 ///
 /// This emits only the `ToSql` / `FromSql` pair. A type whose own definition
 /// cannot carry `AsExpression` / `FromSqlRow` needs
-/// [`diesel_foreign_sql_proxy!`](crate::diesel_foreign_sql_proxy) alongside it.
+/// [`impl_sql_value!`](crate::impl_sql_value) alongside it.
 #[macro_export]
 macro_rules! impl_text_identifier_sql {
     ($identifier:ty, $kind:literal) => {
@@ -124,9 +174,9 @@ pub fn parse_text_identifier<T, E>(
 }
 
 // `Hash` comes out of the shared id_type definition, so it takes its diesel
-// expression impls through a proxy.
+// expression and row impls through the selective local implementation macro.
 // `DidCoreId` and `WebOrigin` carry the derives on their own definitions.
-crate::diesel_foreign_sql_proxy!(HashDieselProxy, Hash, ::diesel::sql_types::Text);
+crate::impl_sql_value!(Hash, ::diesel::sql_types::Text);
 
 crate::impl_text_identifier_sql!(Hash, "Hash");
 crate::impl_text_identifier_sql!(WebOrigin, "WebOrigin");
@@ -236,7 +286,13 @@ mod tests {
         assert_text_expression::<WebOrigin>();
         assert_text_expression::<&DidCoreId>();
         assert_text_expression::<&Hash>();
+        assert_text_expression::<&&Hash>();
         assert_text_expression::<&WebOrigin>();
+        assert_nullable_text_expression::<Hash>();
+        assert_nullable_text_expression::<&Hash>();
+        assert_nullable_text_expression::<&&Hash>();
+        assert_nullable_text_expression::<Option<Hash>>();
+        assert_nullable_text_expression::<Option<&Hash>>();
         assert_nullable_text_expression::<DidCoreId>();
         assert_nullable_text_expression::<&DidCoreId>();
         assert_nullable_text_expression::<Option<DidCoreId>>();
@@ -263,6 +319,30 @@ mod tests {
         let select_sql = diesel::debug_query::<Pg, _>(&select).to_string();
         assert!(select_sql.contains("WHERE"));
         assert!(select_sql.contains("$1"));
+    }
+
+    #[test]
+    fn local_hash_expression_preserves_owned_and_nullable_query_bindings() {
+        let hash = Hash::new(format!("sha256:{}", "b".repeat(64))).unwrap();
+        let owned = did_core_rows::table.filter(did_core_rows::hash.eq(hash.clone()));
+        assert!(
+            diesel::debug_query::<Pg, _>(&owned)
+                .to_string()
+                .contains("$1")
+        );
+        let nullable = did_core_rows::table.filter(did_core_rows::hash.nullable().eq(Some(&hash)));
+        assert!(
+            diesel::debug_query::<Pg, _>(&nullable)
+                .to_string()
+                .contains("$1")
+        );
+        let boxed = Box::new(hash);
+        let borrowed = did_core_rows::table.filter(did_core_rows::hash.eq(boxed.as_ref()));
+        assert!(
+            diesel::debug_query::<Pg, _>(&borrowed)
+                .to_string()
+                .contains("$1")
+        );
     }
 
     #[test]

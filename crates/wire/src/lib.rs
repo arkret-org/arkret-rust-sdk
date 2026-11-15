@@ -8,13 +8,6 @@
 // `&'static str`; keep that stable while allowing strict Clippy on the crate.
 #![allow(clippy::redundant_static_lifetimes)]
 
-#[cfg(feature = "diesel")]
-#[allow(
-    unused_extern_crates,
-    reason = "Supported Diesel derive versions differ in whether they reference alloc."
-)]
-extern crate alloc;
-
 use std::collections::{BTreeMap, BTreeSet};
 
 use chrono::{DateTime, Utc};

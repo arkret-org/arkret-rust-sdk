@@ -4,13 +4,6 @@
 //! content hashes, cursors and HLC values. Constructors and Serde decoding both
 //! validate their input so malformed wire identifiers fail at the edge.
 
-#[cfg(feature = "diesel")]
-#[allow(
-    unused_extern_crates,
-    reason = "Supported Diesel derive versions differ in whether they reference alloc."
-)]
-extern crate alloc;
-
 use std::cmp::Ordering;
 use std::fmt;
 use std::str::FromStr;

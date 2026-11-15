@@ -3,7 +3,7 @@
 //!
 //! Diesel's `ToSql` / `FromSql` impls must be written in the crate that defines
 //! the type, so these cannot move into `arkret-identifiers` alongside the
-//! identifier mappings. The boilerplate is shared instead: the proxy and
+//! identifier mappings. The boilerplate is shared instead: the expression/row and
 //! text-column macros come from `arkret_identifiers`, which is why
 //! `OpaqueLocalId` needs no hand-written impls here.
 
@@ -16,16 +16,8 @@ use diesel::sql_types::{Jsonb, Text};
 
 use crate::{AccountId, ActorId, OpaqueLocalId};
 
-arkret_identifiers::diesel_foreign_sql_proxy!(
-    AccountIdDieselProxy,
-    AccountId,
-    ::diesel::sql_types::Text
-);
-arkret_identifiers::diesel_foreign_sql_proxy!(
-    ActorIdDieselProxy,
-    ActorId,
-    ::diesel::sql_types::Jsonb
-);
+arkret_identifiers::impl_sql_value!(AccountId, ::diesel::sql_types::Text);
+arkret_identifiers::impl_sql_value!(ActorId, ::diesel::sql_types::Jsonb);
 
 impl ToSql<Text, Pg> for AccountId {
     fn to_sql<'b>(&'b self, out: &mut Output<'b, '_, Pg>) -> serialize::Result {
@@ -63,11 +55,7 @@ fn parse_actor_json(value: serde_json::Value) -> deserialize::Result<ActorId> {
     serde_json::from_value(value).map_err(|_| "database JSONB is not a valid ActorId".into())
 }
 
-arkret_identifiers::diesel_foreign_sql_proxy!(
-    OpaqueLocalIdDieselProxy,
-    OpaqueLocalId,
-    ::diesel::sql_types::Text
-);
+arkret_identifiers::impl_sql_value!(OpaqueLocalId, ::diesel::sql_types::Text);
 arkret_identifiers::impl_text_identifier_sql!(OpaqueLocalId, "OpaqueLocalId");
 
 #[cfg(test)]
@@ -75,9 +63,18 @@ mod tests {
     use diesel::deserialize::FromSqlRow;
     use diesel::expression::AsExpression;
     use diesel::pg::Pg;
-    use diesel::sql_types::{Nullable, Text};
+    use diesel::prelude::*;
+    use diesel::sql_types::{Jsonb, Nullable, Text};
 
-    use super::OpaqueLocalId;
+    use super::{AccountId, ActorId, OpaqueLocalId};
+
+    diesel::table! {
+        identity_rows (account) {
+            account -> Text,
+            actor -> Jsonb,
+            local_id -> Text,
+        }
+    }
 
     #[test]
     fn structured_identity_adapters_preserve_station_and_stay_closed() {
@@ -122,6 +119,53 @@ mod tests {
     }
 
     #[test]
+    fn structured_identity_expressions_preserve_sql_and_nullable_bindings() {
+        fn assert_text<T: AsExpression<Text> + AsExpression<Nullable<Text>>>() {}
+        fn assert_json<T: AsExpression<Jsonb> + AsExpression<Nullable<Jsonb>>>() {}
+        fn assert_text_row<T: FromSqlRow<Text, Pg>>() {}
+        fn assert_json_row<T: FromSqlRow<Jsonb, Pg>>() {}
+
+        assert_text::<AccountId>();
+        assert_text::<&AccountId>();
+        assert_text::<&&AccountId>();
+        assert_json::<ActorId>();
+        assert_json::<&ActorId>();
+        assert_json::<&&ActorId>();
+        assert_text_row::<AccountId>();
+        assert_json_row::<ActorId>();
+
+        let account = AccountId::new(
+            crate::DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
+            crate::DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+        );
+        let actor = ActorId::account(account.clone());
+        let local = OpaqueLocalId::new("selected-local-value").unwrap();
+        let owned = identity_rows::table
+            .filter(identity_rows::account.eq(account.clone()))
+            .filter(identity_rows::actor.eq(actor.clone()));
+        let sql = diesel::debug_query::<Pg, _>(&owned).to_string();
+        assert!(sql.contains("$1") && sql.contains("$2"));
+        let nullable = identity_rows::table
+            .filter(identity_rows::account.nullable().eq(Some(&account)))
+            .filter(identity_rows::actor.nullable().eq(Some(&actor)));
+        let sql = diesel::debug_query::<Pg, _>(&nullable).to_string();
+        assert!(sql.contains("$1") && sql.contains("$2"));
+
+        // Borrow the local value instead of asking Diesel to derive a foreign
+        // smart-pointer expression impl in this crate.
+        let boxed = Box::new(account);
+        let shared = std::rc::Rc::new(actor);
+        let synchronized = std::sync::Arc::new(local);
+        let insert = diesel::insert_into(identity_rows::table).values((
+            identity_rows::account.eq(boxed.as_ref()),
+            identity_rows::actor.eq(shared.as_ref()),
+            identity_rows::local_id.eq(synchronized.as_ref()),
+        ));
+        let sql = diesel::debug_query::<Pg, _>(&insert).to_string();
+        assert!(sql.contains("$1") && sql.contains("$2") && sql.contains("$3"));
+    }
+
+    #[test]
     fn diesel_text_traits_cover_required_and_optional_values() {
         fn assert_from_sql_row<T: FromSqlRow<Text, Pg>>() {}
         fn assert_nullable_from_sql_row<T: FromSqlRow<Nullable<Text>, Pg>>() {}
@@ -132,8 +176,10 @@ mod tests {
         assert_nullable_from_sql_row::<Option<OpaqueLocalId>>();
         assert_text_expression::<OpaqueLocalId>();
         assert_text_expression::<&OpaqueLocalId>();
+        assert_text_expression::<&&OpaqueLocalId>();
         assert_nullable_text_expression::<OpaqueLocalId>();
         assert_nullable_text_expression::<&OpaqueLocalId>();
+        assert_nullable_text_expression::<&&OpaqueLocalId>();
         assert_nullable_text_expression::<Option<OpaqueLocalId>>();
         assert_nullable_text_expression::<Option<&OpaqueLocalId>>();
     }

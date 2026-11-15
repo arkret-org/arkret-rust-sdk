@@ -23,11 +23,7 @@ fn validate_signature_shape(
 }
 
 fn signing_bytes(domain: &[u8], value: &impl Serialize) -> Result<Vec<u8>> {
-    let mut value = serde_json::to_value(value)?;
-    value
-        .as_object_mut()
-        .and_then(|value| value.remove("signature"))
-        .ok_or_else(|| WireError::Protocol("cleanup signature member missing".into()))?;
+    let value = arkret_canonical::unsigned_value(value, &["signature"])?;
     let mut bytes = domain.to_vec();
     bytes.extend(arkret_canonical::canonical_json_bytes(&value)?);
     Ok(bytes)

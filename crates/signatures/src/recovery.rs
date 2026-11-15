@@ -139,10 +139,7 @@ pub fn verify_recovery_completion(
                 "Recovery C reference differs from its native Commit".into(),
             ));
         }
-        let mut body = serde_json::to_value(commit)?;
-        body.as_object_mut()
-            .ok_or_else(|| Error::Protocol("Commit must be an object".into()))?
-            .remove("signature");
+        let body = arkret_canonical::unsigned_value(commit, &["signature"])?;
         crate::detached_object::verify_detached_object_signature(
             &commit.signature,
             &body,

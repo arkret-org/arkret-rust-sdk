@@ -102,6 +102,19 @@
       "adjudication": "manual"
     },
     {
+      "finding": "closed_dispatch:crates/event-draft/src/content_envelopes.rs::project:227636339fff37d2",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "event-payload.schema.json; content-encryption.schema.json",
+      "spec_pointer": "event-payload.schema.json",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Keep this private encrypted-slot projection after validate_event_payload; decode and validate every selected slot as EncryptedEnvelope or the authoritative typed Patch/location carrier.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The closed EventKind dispatch locates encrypted slots in already validated heterogeneous SDK payloads. It does not expose an independently authorable public kind/data pair; every discovered encrypted value is decoded to its authoritative validated type before use.",
+      "adjudication": "manual"
+    },
+    {
       "finding": "closed_dispatch:crates/event-draft/src/metadata_send_gate.rs::project:df8092fea8c03438",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
@@ -503,72 +516,6 @@
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact-replay evidence is authored by the proof consumer and compared opaquely; operation state neither selects nor reads its internal shape.",
       "adjudication": "manual"
-    },
-    {
-      "finding": "coauth/crates/data/src/recovery_authority.rs::NewRecoveryCompletionGrantIssuance.device_authorization_ref",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Value",
-      "owner_repository": "coauth",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
-    },
-    {
-      "finding": "coauth/crates/data/src/recovery_authority.rs::NewRecoveryCompletionGrantIssuance.new_model_generation_ref",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Value",
-      "owner_repository": "coauth",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
-    },
-    {
-      "finding": "coauth/crates/data/src/recovery_authority.rs::NewRecoveryCompletionGrantIssuance.reanchor_ref",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Value",
-      "owner_repository": "coauth",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
-    },
-    {
-      "finding": "coauth/crates/data/src/recovery_authority.rs::RecoveryCompletionGrantIssuance.device_authorization_ref",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Value",
-      "owner_repository": "coauth",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
-    },
-    {
-      "finding": "coauth/crates/data/src/recovery_authority.rs::RecoveryCompletionGrantIssuance.new_model_generation_ref",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Value",
-      "owner_repository": "coauth",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
-    },
-    {
-      "finding": "coauth/crates/data/src/recovery_authority.rs::RecoveryCompletionGrantIssuance.reanchor_ref",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Value",
-      "owner_repository": "coauth",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
       "finding": "coauth/crates/data/src/storage/accountability.rs::NewAccountabilityGrant.coland_fanout_payload",
@@ -1201,17 +1148,6 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "coland/crates/services/src/identity.rs::AgentSessionState.scope_details",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Value",
-      "owner_repository": "coland",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
-    },
-    {
       "finding": "coland/crates/services/src/identity.rs::DeviceIdentity.payload",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
@@ -1408,21 +1344,6 @@
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
-    },
-    {
-      "path": "coland/crates/storage/src/authority_commit.rs",
-      "symbol": "AccountContentDeliveryInput.agent_session_scope",
-      "data_field": "agent_session_scope",
-      "owner_repository": "coland",
-      "finding": "coland/crates/storage/src/authority_commit.rs::AccountContentDeliveryInput.agent_session_scope",
-      "classification": "independent",
-      "lifecycle": "retained_boundary",
-      "decision": "independent",
-      "authority": "view.schema.json#/$defs/document_morph_view",
-      "adjudication": "manual",
-      "reason": "Process-local storage admission input combining already authenticated session operations and the SDK SignedSessionGrantClaims.scope_details map. AccountContentDeliveryInput has no wire serde representation; it freezes existing verified claim material for the transactional read gate.",
-      "action": "Preserve the SDK root carrier and its schema-open projection item maps; keep native read facts confined to the verified transaction.",
-      "test": "cargo test -p coland-storage-postgres --lib morph_projection_reads::tests; python tools/wire_value_audit.py --check"
     },
     {
       "finding": "coland/crates/storage/src/idempotency.rs::IdempotencyRecord.response_body",
@@ -1707,17 +1628,6 @@
     },
     {
       "finding": "coland/crates/storage/src/records.rs::AccountDataRecord.payload",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Value",
-      "owner_repository": "coland",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
-    },
-    {
-      "finding": "coland/crates/storage/src/records.rs::AgentSessionRecord.scope_details",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -3075,6 +2985,19 @@
       "spec_pointer": "actor-profile.schema.json#/$defs/actor_profile_definition/properties/profile_fields"
     },
     {
+      "finding": "crates/models-identity/src/generated/actor_profile_contracts.rs::PrivateProfileFields.profile_fields",
+      "classification": "open_json",
+      "lifecycle": "retained_boundary",
+      "decision": "open",
+      "authority": "actor-profile.schema.json#/$defs/private_profile_fields/properties/profile_fields",
+      "spec_pointer": "actor-profile.schema.json#/$defs/private_profile_fields/properties/profile_fields",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Preserve the generated map at this exact schema-declared profile extension boundary; do not treat extensions as identity, device, recovery, or capability authority.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The authoritative private_profile_fields.profile_fields resolves to the profile_fields object with additionalProperties:true. Its BTreeMap<String, Value> preserves the declared user-profile extension space and is not a discriminator-selected protocol payload.",
+      "adjudication": "manual"
+    },
+    {
       "finding": "crates/models-identity/src/identity.rs::DidOperationSubmitRequestBody.operation",
       "classification": "open_json",
       "lifecycle": "retained_boundary",
@@ -3604,42 +3527,6 @@
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
-    },
-    {
-      "finding": "crates/wire/src/recovery_authority.rs::IssueRecoveryCompletionGrantResponseBody.issued_session",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "recovery-authority.schema.json#/$defs/issue_recovery_completion_grant_response_body/properties/issued_session",
-      "owner_repository": "arkret-rust-sdk",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic.",
-      "spec_pointer": "recovery-authority.schema.json#/$defs/issue_recovery_completion_grant_response_body/properties/issued_session"
-    },
-    {
-      "finding": "crates/wire/src/recovery_authority.rs::RecoveryCompletionGrantRequestBody.initial_session",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "recovery-authority.schema.json#/$defs/recovery_completion_grant_request_body/properties/initial_session",
-      "owner_repository": "arkret-rust-sdk",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic.",
-      "spec_pointer": "recovery-authority.schema.json#/$defs/recovery_completion_grant_request_body/properties/initial_session"
-    },
-    {
-      "finding": "crates/wire/src/recovery_authority.rs::RecoveryCompletionGrantRequestBody.terminal_receipt",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "recovery-authority.schema.json#/$defs/recovery_completion_grant_request_body/properties/terminal_receipt",
-      "owner_repository": "arkret-rust-sdk",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic.",
-      "spec_pointer": "recovery-authority.schema.json#/$defs/recovery_completion_grant_request_body/properties/terminal_receipt"
     },
     {
       "finding": "crates/wire/src/relation.rs::Relation.fields",
@@ -4938,15 +4825,17 @@
       "reason": "Native draft constructs the registered HPKE envelope, including canonical native AAD and the exact public auth binding; a real signature is inserted, then the result is decoded as KeyBackup and validated before returning. This exact native construction does not accept an arbitrary caller JSON payload."
     },
     {
-      "finding": "json_authoring:crates/models-collaboration/src/events_payloads/device_identity.rs::realm_device_possession_signature_input:cc64d8f4491199a5",
+      "finding": "json_authoring:crates/models-collaboration/src/events_payloads/device_identity.rs::realm_device_possession_signature_input:ec412e5e5d9a459f",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
-      "authority": "arkret-spec protocol schema owning actor_id,device_id",
+      "authority": "event-payload.schema.json; Realm-managed Device possession-proof canonical signature transcript",
+      "spec_pointer": "event-payload.schema.json",
       "owner_repository": "arkret-rust-sdk",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "action": "Keep the finite purpose-separated transcript after Device payload and Realm-managed authorization binding validation, including both scalar expected Commit-ID guards.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
+      "reason": "This exact function builds the registered possession-proof preimage, not a new Event DTO. It validates the typed RealmActor, finite time window, Applet-managed scope and original authorization binding before signing. The new evidence fingerprint reflects binding expected_control_commit_id and expected_device_commit_id after the CAS migration; the obsolete fingerprint must be removed.",
+      "adjudication": "manual"
     },
     {
       "finding": "json_authoring:crates/models-collaboration/src/events_payloads/key_backup.rs::unsigned:532d0626c410a948",
@@ -5120,15 +5009,15 @@
       "adjudication": "manual"
     },
     {
-      "finding": "json_authoring:inkson/src/views/global_search.rs::search_local_with_clock:33cd123dd34bb0e8",
+      "finding": "json_authoring:inkson/src/views/global_search.rs::search_local_with_clock:c48c1cc66b82bc30",
       "classification": "internal_or_fixture",
       "lifecycle": "retained_boundary",
       "decision": "raw",
       "authority": "Inkson IndexSearchView local UI result model",
       "owner_repository": "inkson",
-      "action": "Retain only the exact reviewed local presentation, privacy probe or durable journal identity; never treat it as an independent protocol DTO or current authorization.",
+      "action": "Retain only this local decrypted-index presentation hit after original Event/Commit, current holder, generation, visibility, redaction, blocklist and deadline checks; never treat it as a wire Event or independent current authorization.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "Rows are local decrypted-index presentation hits with existing typed original Event/Commit provenance, after current visibility/privacy/deadline filtering. kind=message is a local result category, not Arkret EventKind. No authoring or network protocol DTO is recreated. The broader clock refactor is not claimed byte-identical, only these two macro bodies and production wall-clock selection.",
+      "reason": "IndexSearchView is explicitly app-local and has no Arkret global plaintext search endpoint. This exact hit contains local message presentation plus the authenticated original actor/covering Commit and actual revised-body source Event/Commit. The updated fingerprint records that additional provenance; kind=message is a UI result category, not EventKind. The final holder/generation/blocklist/deadline recheck still clears stale results, and no raw protocol authoring DTO is introduced.",
       "adjudication": "manual"
     },
     {
@@ -5202,17 +5091,6 @@
       "test": "python tools/wire_value_audit.py --check",
       "reason": "state and metadata are sibling output fields in one historical resolution response; state does not discriminate metadata and both are computed independently from the committed log prefix.",
       "adjudication": "manual"
-    },
-    {
-      "finding": "json_path_mutation:coauth/crates/backend/src/handlers/arkret/session_grant/refresh.rs::refresh_session_grant:2d57b8fcb82364af",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec protocol schema owning signature",
-      "owner_repository": "coauth",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
     },
     {
       "finding": "json_path_mutation:coland/crates/domain/src/reducer/apply_objects/strand.rs::apply_strand_narrative_patch:05fae48127075810",
@@ -5494,6 +5372,32 @@
       "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
     },
     {
+      "finding": "json_path_mutation:crates/crypto/src/content_history/backup_draft.rs::seal:9d88d0f610986d0d",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "key-backup.schema.json; validated HPKE backup signing boundary",
+      "spec_pointer": "key-backup.schema.json",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Retain signature insertion only within the two backup seal implementations; require a 64-byte signer result, decode and validate KeyBackup, and assert its signing payload equals the original canonical preimage.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "Both seal implementations produce a real HPKE envelope from validated typed secret-storage contents and bound AAD, sign its finite canonical preimage, then insert the actual signature. The completed object is immediately decoded to and validated as KeyBackup with a signing-payload equality check; no unsigned public protocol mirror or placeholder signature is introduced.",
+      "adjudication": "manual"
+    },
+    {
+      "finding": "json_path_mutation:crates/crypto/src/content_history/backup_draft.rs::seal:ee6a6069131438c0",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "key-backup.schema.json; typed backup-author selection",
+      "spec_pointer": "key-backup.schema.json",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Confine device_id insertion to the validated AccountDevice author variant before signing; preserve final typed KeyBackup validation and signing-payload equality.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The selected typed backup-author variant determines whether device_id exists in this finite envelope. Caller JSON cannot select arbitrary fields; the complete signed result crosses immediately into the authoritative KeyBackup type.",
+      "adjudication": "manual"
+    },
+    {
       "finding": "json_path_mutation:crates/identity/src/binding_digest.rs::canonical_value:8d8e86b29e3d9e50",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
@@ -5677,6 +5581,45 @@
       "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
     },
     {
+      "finding": "json_path_mutation:crates/models-crypto/src/key_backup_operations.rs::sign_unlock_proof_at:649800bf35bac5e7",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "key-backup-unlock-proof.schema.json; current_device challenge-to-proof signing projection",
+      "spec_pointer": "key-backup-unlock-proof.schema.json",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Insert only the real 64-byte signature into the validated finite challenge projection, then deserialize the completed result as KeyBackupUnlockProof.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The signature preimage has no signature value until the signing callback succeeds. The original typed challenge is validated at the supplied time, original request/backup/time fields remain bound, and the completed current_device proof is decoded through the authoritative validated proof type.",
+      "adjudication": "manual"
+    },
+    {
+      "finding": "json_path_mutation:crates/models-crypto/src/key_backup_operations.rs::sign_unlock_proof_at:7fd3d9cdb74e170a",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "key-backup-unlock-proof.schema.json; current_device proof discriminator and schema projection",
+      "spec_pointer": "key-backup-unlock-proof.schema.json",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Keep the finite schema/kind/backup-kind and unsigned signature-metadata replacement inside sign_unlock_proof_at, bounded by typed challenge validation and typed final proof decoding.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "These field replacements transform an existing validated challenge into its registered current_device secret_storage proof preimage. They do not expose a general object mutation API, omit challenge time binding, or invent a fresh challenge/nonce.",
+      "adjudication": "manual"
+    },
+    {
+      "finding": "json_path_mutation:crates/models-crypto/src/key_backup_operations.rs::sign_unlock_proof_at:986ab36b0d59ca2c",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "key-backup-unlock-proof.schema.json; current_device canonical signing preimage",
+      "spec_pointer": "key-backup-unlock-proof.schema.json",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Remove only challenge transport operation/request_id from the validated typed challenge before constructing and signing the exact proof, retaining the original challenge and authorization fields.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The named challenge-to-proof conversion deliberately excludes its transport operation and request_id, rather than mutating an arbitrary business payload. All remaining fields, including issued/expires coordinates, enter the canonical signature and the result is decoded as KeyBackupUnlockProof.",
+      "adjudication": "manual"
+    },
+    {
       "finding": "json_path_mutation:crates/models-crypto/src/key_backup_operations.rs::signing_payload_bytes:addb37bb3db9e798",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
@@ -5688,28 +5631,30 @@
       "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
     },
     {
-      "finding": "json_path_mutation:crates/models-crypto/src/realm_actor_content_backup.rs::sign_device_unlock_proof:649800bf35bac5e7",
+      "finding": "json_path_mutation:crates/models-crypto/src/realm_actor_content_backup.rs::signed_unlock_value_at:649800bf35bac5e7",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
-      "authority": "key-backup-unlock-proof.schema.json",
+      "authority": "key-backup-unlock-proof.schema.json; RealmActor Device/Manager challenge-to-proof signing projection",
       "spec_pointer": "key-backup-unlock-proof.schema.json",
       "owner_repository": "arkret-rust-sdk",
-      "action": "Retain this exact typed signing projection only; validate the canonical carrier before any protocol output or signature use.",
+      "action": "Keep the real 64-byte signature insertion in the private shared projection; require the two public callers to enforce their challenge kind and decode into RealmActorDeviceKeyBackupUnlockProof or RealmActorManagerKeyBackupUnlockProof.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "The checked native Device challenge is projected to the registered exact Device proof branch, removes challenge-only kind/issued/expires fields, and receives the real 64-byte Ed25519 signature; the final closed typed proof is decoded and validated."
+      "reason": "The refactored private function validates the original finite RealmActor challenge and signs its bound projection. Both Device and Manager callers exit through their authoritative proof type; this exact replacement supersedes the obsolete sign_device_unlock_proof finding rather than admitting a new raw public DTO.",
+      "adjudication": "manual"
     },
     {
-      "finding": "json_path_mutation:crates/models-crypto/src/realm_actor_content_backup.rs::sign_device_unlock_proof:986ab36b0d59ca2c",
+      "finding": "json_path_mutation:crates/models-crypto/src/realm_actor_content_backup.rs::signed_unlock_value_at:986ab36b0d59ca2c",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
-      "authority": "key-backup-unlock-proof.schema.json",
+      "authority": "key-backup-unlock-proof.schema.json; RealmActor Device/Manager canonical signing preimage",
       "spec_pointer": "key-backup-unlock-proof.schema.json",
       "owner_repository": "arkret-rust-sdk",
-      "action": "Retain this exact typed signing projection only; validate the canonical carrier before any protocol output or signature use.",
+      "action": "Remove only operation/request_id in this private validated challenge projection; preserve original scope/source/generation and issued/expires binding through signature verification and typed proof decoding.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "The checked native Device challenge is projected to the registered exact Device proof branch, removes challenge-only kind/issued/expires fields, and receives the real 64-byte Ed25519 signature; the final closed typed proof is decoded and validated."
+      "reason": "This is the shared Device/Manager successor of the old Device-only signing helper. Original challenge timing and authorization source remain signed; no extra permission follows from the JSON transformation, and no unsigned protocol DTO or fake signature is needed.",
+      "adjudication": "manual"
     },
     {
       "finding": "json_path_mutation:crates/models-crypto/src/realm_actor_content_backup.rs::signing_payload_bytes:addb37bb3db9e798",
@@ -6094,6 +6039,19 @@
       "reason": "Process-local NativeReadFact field-path calculation over the already typed SDK document projection and exact accepted source. Removing body/fields builds a metadata authorization fact; reference_fact returns the internal read-gate value with SDK selectors. This helper does not encode a separate protocol DTO.",
       "action": "Preserve the SDK root carrier and its schema-open projection item maps; keep native read facts confined to the verified transaction.",
       "test": "cargo test -p coland-storage-postgres --lib morph_projection_reads::tests; python tools/wire_value_audit.py --check"
+    },
+    {
+      "finding": "paired_api:crates/event-draft/src/content_envelopes.rs::project",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "event-payload.schema.json; content-encryption.schema.json",
+      "spec_pointer": "event-payload.schema.json",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Retain only this private projection input; preserve caller payload validation, finite EventKind dispatch, and authoritative typed encrypted-envelope validation.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "project receives the payload serialized from Event only after validate_event_payload and returns typed EventContentEnvelope values. This internal read projection is a named validated boundary, rather than a second public wire union or unchecked payload authoring API.",
+      "adjudication": "manual"
     },
     {
       "finding": "paired_api:crates/event-draft/src/event_payload.rs::validate_event_payload",
