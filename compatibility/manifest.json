@@ -31,7 +31,7 @@
     },
     "arkret-rust-sdk": {
       "repository": "arkret-org/arkret-rust-sdk",
-      "commit": "973b5659a9640401c2561aa04c09248f0a7bf015",
+      "commit": "7c632681a9d952c4a5ed8a5789d58dececffba7c",
       "checkout_path": "arkret-rust-sdk",
       "roles": [
         "public-models",
@@ -91,7 +91,7 @@
     },
     "cotest": {
       "repository": "arkret-org/cotest",
-      "commit": "c341ee278f72a4cc37483a3dda72842f3bd0c0cf",
+      "commit": "29f6dcbfc248ce58a9b3a4a2942366c0f5c131b1",
       "checkout_path": "cotest",
       "roles": [
         "joint-contract-tests",
