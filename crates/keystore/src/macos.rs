@@ -220,8 +220,9 @@ fn mutation_lock(service: &str) -> Result<std::fs::File> {
 }
 
 fn open_mutation_lock(base: &std::path::Path, uid: u32, service: &str) -> Result<std::fs::File> {
-    use sha2::{Digest, Sha256};
     use std::os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt};
+
+    use sha2::{Digest, Sha256};
     let valid_directory = |path: &std::path::Path| -> Result<()> {
         let metadata = std::fs::symlink_metadata(path).map_err(io_error)?;
         if !path.is_absolute()
@@ -361,8 +362,9 @@ mod tests {
 
 #[cfg(test)]
 mod mutation_lock_tests {
-    use super::*;
     use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
+
+    use super::*;
 
     fn private_scratch() -> std::path::PathBuf {
         let path = std::env::temp_dir().join(format!(

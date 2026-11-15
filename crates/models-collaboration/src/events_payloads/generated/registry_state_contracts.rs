@@ -2,13 +2,13 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/event-payload.schema.json
-// sha256=110f3442df382c602cece0f2f5e0b4f2af3a0374f493911960b3cf6216f99a95
+// sha256=25014dfa0753800eba6d70e87ef3c5464d3ff2b22969282911e7f73672f68947
 //
 // Input: schemas/string-profiles.schema.json
 // sha256=7c7522a769204b050b9711b53c1b911bc660645962ed6c0243f95fae72473f78
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=dc73c01cf2bfb7cc6d4969c8f2f7faa6e44275c4a585ad81f3c94ac408daab8c
+// sha256=f8598148149e81024ca07d8b02d6f7c48f1dc0672c100b2e8e4103790a652e46
 
 /// Counterpart: `event-payload.schema.json#/$defs/resource_discovery_state_value`.
 /// `resource_discovery_state_value`.

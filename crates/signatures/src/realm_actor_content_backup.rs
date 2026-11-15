@@ -394,10 +394,22 @@ mod tests {
         let mut bad = admission.clone();
         bad.device_public_key_base64url = arkret_canonical::base64url_encode([8; 32]);
         assert!(verify_realm_actor_backup_packet(&packet, &bad).is_err());
+        let original_signing_bytes = packet.signing_payload_bytes().unwrap();
+        let original_envelope_digest = arkret_canonical::canonical_sha256(&packet).unwrap();
         let mut bad = packet;
         bad.signature_proof.signature =
             arkret_wire::Base64UrlString::new(arkret_canonical::base64url_encode([0; 64])).unwrap();
-        assert!(verify_realm_actor_backup_packet(&bad, &admission).is_err());
+        assert_eq!(bad.signing_payload_bytes().unwrap(), original_signing_bytes);
+        assert_ne!(
+            arkret_canonical::canonical_sha256(&bad).unwrap(),
+            original_envelope_digest
+        );
+        assert!(
+            verify_realm_actor_backup_packet(&bad, &admission)
+                .unwrap_err()
+                .to_string()
+                .contains("native packet differs from immutable first-PUT admission")
+        );
     }
 
     #[test]

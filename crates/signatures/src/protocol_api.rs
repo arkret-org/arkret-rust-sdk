@@ -39,6 +39,8 @@ pub mod service_identity;
 // coland's `verify_realm_organization_proof_signature`.
 #[cfg(feature = "collaboration")]
 pub mod realm_organization;
+#[cfg(any(feature = "content-backup", feature = "keypackages"))]
+pub mod realm_owner_transfer;
 
 // RFC 7515 detached Ed25519 JWS signer (resolver-free sign half). The verify /
 // DID-resolve / replay-window half lives in `arkret-identity`.

@@ -8,7 +8,7 @@
 // sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
 //
 // Input: schemas/call-recording-artifact.schema.json
-// sha256=0e2e01ff0e3af4c9a7bf2a940441302e1ceccd9e82081336a401d8c252ce0038
+// sha256=9ba1c589fd39b699197ea8accf07745d87868410f39a3194380062a4700ef48f
 //
 // Input: schemas/account-operations.schema.json
 // sha256=0ae0fec5fd63dca4b9df9293eb71936cf73a3eeeae13b2268dc99699c1ed7607
@@ -17,7 +17,7 @@
 // sha256=81b18acd21f4382860d5cab2384d9bb78ee5dbc23629752a6cc74ce384186149
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=dc73c01cf2bfb7cc6d4969c8f2f7faa6e44275c4a585ad81f3c94ac408daab8c
+// sha256=f8598148149e81024ca07d8b02d6f7c48f1dc0672c100b2e8e4103790a652e46
 
 /// Counterpart: `recovery-policy.schema.json#/$defs/recovery_key_entry`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

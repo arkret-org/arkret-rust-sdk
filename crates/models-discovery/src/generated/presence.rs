@@ -11,7 +11,7 @@
 //! sha256=da26ef46bdde72ca1bb3cafe972642d595d75cff14ca03331bd0b1c44dd85e67
 //!
 //! Bindings: tools/closed-model-bindings.json
-//! sha256=dc73c01cf2bfb7cc6d4969c8f2f7faa6e44275c4a585ad81f3c94ac408daab8c
+//! sha256=f8598148149e81024ca07d8b02d6f7c48f1dc0672c100b2e8e4103790a652e46
 
 /// Counterpart: `presence-preference.schema.json#/properties/manual_state`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

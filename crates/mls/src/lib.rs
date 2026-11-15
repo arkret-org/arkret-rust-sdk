@@ -5,6 +5,7 @@
 //! retains only registered content roots for authorized history, separately
 //! from current MLS membership. Network recovery orchestration belongs to callers.
 
+pub mod call_recording;
 mod content_endpoint;
 mod error;
 pub mod exporter_kdf;
@@ -25,10 +26,10 @@ pub use error::MlsError;
 pub(crate) use error::Result;
 pub use exporter_kdf::{
     MLS_HASH_LEN, REACTION_ROUTING_KEY_LEN, RTC_ARTIFACT_KEY_LEN, ReactionRoutingKeyContext,
-    RtcRecordingKeyContext, RtcTranscriptKeyContext, derive_attachment_content_key,
-    derive_reaction_routing_key, derive_reaction_routing_root, derive_rtc_recording_key,
-    derive_rtc_transcript_key, expand_with_label, expand_with_registered_label,
-    export_registered_secret, mls_exporter_from_secret,
+    RtcTranscriptKeyContext, derive_attachment_content_key, derive_reaction_routing_key,
+    derive_reaction_routing_root, derive_rtc_recording_key, derive_rtc_transcript_key,
+    expand_with_label, expand_with_registered_label, export_registered_secret,
+    mls_exporter_from_secret,
 };
 pub use governance_binding::*;
 pub use group::*;

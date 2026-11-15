@@ -46,6 +46,8 @@
 //! let did: arkret::Did = "did:webvh:z6mkfixture:alice.example";
 //! ```
 
+#[cfg(all(feature = "mls", feature = "client", feature = "blob-aead"))]
+pub mod call_recording;
 pub mod contact_authorization;
 mod content_backup_source;
 mod keypackage_claim_receipt;

@@ -37,6 +37,13 @@ pub fn sign_device_projection_attestation(
             "device projection attestation is not a positive validity window".to_owned(),
         ));
     }
+    if core.owner_transfer_acceptance_intent_digest.is_some()
+        && core.expires_at - core.attested_at > chrono::Duration::seconds(30)
+    {
+        return Err(arkret_wire::WireError::Protocol(
+            "owner transfer current observation exceeds thirty seconds".into(),
+        ));
+    }
     if core.attested_at < core.authorization_window.not_before
         || core
             .authorization_window
@@ -85,6 +92,14 @@ pub fn verify_device_projection_attestation(
     now: DateTime<Utc>,
 ) -> arkret_wire::Result<()> {
     let core = &attestation.attestation;
+    if core.owner_transfer_acceptance_intent_digest.is_some()
+        && (core.attested_at > now
+            || core.expires_at - core.attested_at > chrono::Duration::seconds(30))
+    {
+        return Err(arkret_wire::WireError::Protocol(
+            "owner transfer current observation is future or exceeds thirty seconds".into(),
+        ));
+    }
     let controller = proof_controller(&attestation.proof.verification_method)?;
     if controller != core.account_id.station_id {
         return Err(arkret_wire::WireError::Protocol(
@@ -284,6 +299,15 @@ pub fn authenticate_device_projection_for_caching(
     station_key: &VerifyingKey,
     observed_at: DateTime<Utc>,
 ) -> arkret_wire::Result<VerifiedDeviceProjection> {
+    if attestation
+        .attestation
+        .owner_transfer_acceptance_intent_digest
+        .is_some()
+    {
+        return Err(arkret_wire::WireError::Protocol(
+            "finite owner transfer evidence is not an ordinary publication cache".into(),
+        ));
+    }
     if observed_at < attestation.attestation.attested_at {
         return Err(arkret_wire::WireError::Protocol(
             "device evidence predates its attestation".to_owned(),
@@ -360,6 +384,7 @@ mod tests {
             },
             attested_at,
             expires_at: attested_at + chrono::Duration::minutes(10),
+            owner_transfer_acceptance_intent_digest: None,
         }
     }
 
@@ -568,5 +593,52 @@ mod tests {
             verify_device_projection_attestation(&signed, &key.verifying_key(), core.attested_at)
                 .is_err()
         );
+    }
+
+    #[test]
+    fn finite_owner_observation_binds_its_intent_and_never_becomes_an_ordinary_cache() {
+        let key = SigningKey::from_bytes(&[31; 32]);
+        let mut core = core();
+        let original =
+            sign_device_projection_attestation(core.clone(), verification_method(), &key).unwrap();
+        let old: serde_json::Value =
+            serde_json::from_slice(&original.proof_signing_bytes().unwrap()).unwrap();
+        assert!(old.get("owner_transfer_acceptance_intent_digest").is_none());
+        core.expires_at = core.attested_at + chrono::Duration::seconds(30);
+        core.owner_transfer_acceptance_intent_digest =
+            Some(arkret_wire::Hash::new(format!("sha256:{}", "ab".repeat(32))).unwrap());
+        let signed =
+            sign_device_projection_attestation(core.clone(), verification_method(), &key).unwrap();
+        verify_device_projection_attestation(&signed, &key.verifying_key(), core.attested_at)
+            .unwrap();
+        assert!(
+            verify_device_projection_attestation(
+                &signed,
+                &key.verifying_key(),
+                core.attested_at - chrono::Duration::milliseconds(1)
+            )
+            .is_err()
+        );
+        assert!(
+            verify_device_projection_attestation(&signed, &key.verifying_key(), core.expires_at)
+                .is_err()
+        );
+        assert!(
+            authenticate_device_projection_for_caching(
+                &signed,
+                &key.verifying_key(),
+                core.attested_at
+            )
+            .is_err()
+        );
+        let mut changed = signed;
+        changed.attestation.owner_transfer_acceptance_intent_digest =
+            Some(arkret_wire::Hash::new(format!("sha256:{}", "12".repeat(32))).unwrap());
+        assert!(
+            verify_device_projection_attestation(&changed, &key.verifying_key(), core.attested_at)
+                .is_err()
+        );
+        core.expires_at += chrono::Duration::milliseconds(1);
+        assert!(sign_device_projection_attestation(core, verification_method(), &key).is_err());
     }
 }

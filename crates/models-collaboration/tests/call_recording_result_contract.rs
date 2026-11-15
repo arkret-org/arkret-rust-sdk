@@ -35,13 +35,16 @@ fn artifact() -> Value {
         "realm_id":realm, "call_id":call, "recording_id":"recording-1",
         "recording_start_event_id":start,
         "blob_ref":format!("ak:blob:sha256:{}", "0".repeat(64)),
-        "size_bytes":1, "duration_ms":1, "media_type":"audio/ogg",
+        "size_bytes":17, "duration_ms":1, "media_type":"audio/ogg",
         "encryption":{
-            "encryption_algorithm":"mls_exporter_aead_xchacha20poly1305",
+            "encryption_algorithm":"mls_exporter_aead_xchacha20poly1305_stream",
             "exporter_label":"ak.rtc-recording-key/v1",
             "context":{"realm_id":realm,"call_id":call,"focus_id":"focus-1",
                 "recording_id":"recording-1","media_service_id":"ak:did_core:web:media.example",
-                "recording_start_event_id":start}
+                "recording_start_event_id":start},
+            "key_ref":{"algorithm":"MLS","group_state_ref":event_id(8)},
+            "nonce_prefix":arkret_canonical::base64url_encode([0u8;19]),
+            "segment_bytes":1024
         },
         "retention":{"retention_expires_at":"2026-12-14T00:00:00.000Z","consent_confirmed":true},
         "produced_by":"ak:did_core:web:media.example",
@@ -121,6 +124,7 @@ fn equal_outer_mirrors_nulls_and_second_digest_are_rejected() {
         ("failure_reason_code", json!("x_capture_failed")),
         ("failure_message", json!("capture failed")),
         ("unknown", json!(true)),
+        ("key_ref", artifact()["encryption"]["key_ref"].clone()),
     ] {
         for mirror in [mirror, Value::Null] {
             let mut value = ready();
@@ -302,22 +306,16 @@ fn stopped_transcript_distinguishes_absence_from_explicit_null() {
 }
 
 #[test]
-fn all_recording_algorithms_preserve_the_canonical_wire_spelling() {
-    for algorithm in [
+fn recording_has_one_stream_algorithm_and_rejects_retired_variants() {
+    let value = ready();
+    assert!(schema_accepts(&value));
+    let payload: CallStatePayload = serde_json::from_value(value.clone()).unwrap();
+    payload.validate().unwrap();
+    assert_eq!(serde_json::to_value(payload).unwrap(), value);
+    for invalid in [
         "mls_exporter_aead_xchacha20poly1305",
         "mls_exporter_aead_aes_256_gcm",
-        "mls_exporter_aead_xchacha20poly1305_stream",
         "mls_exporter_aead_aes_256_gcm_stream",
-    ] {
-        let mut value = ready();
-        value["recording_transition"]["capture_metadata"]["artifact"]["encryption"]["encryption_algorithm"] =
-            json!(algorithm);
-        assert!(schema_accepts(&value));
-        let payload: CallStatePayload = serde_json::from_value(value.clone()).unwrap();
-        payload.validate().unwrap();
-        assert_eq!(serde_json::to_value(payload).unwrap(), value);
-    }
-    for invalid in [
         "mls_exporter_aead_aes256_gcm",
         "mls_exporter_aead_aes256_gcm_stream",
     ] {
@@ -327,4 +325,114 @@ fn all_recording_algorithms_preserve_the_canonical_wire_spelling() {
         assert!(!schema_accepts(&value));
         assert!(!sdk_accepts(value));
     }
+}
+
+#[test]
+fn recording_start_and_pending_freeze_q_but_transcript_cannot_borrow_it() {
+    use arkret_models_collaboration::events_payloads::call::CallRecordingStartPayload;
+    let q = artifact()["encryption"]["key_ref"].clone();
+    let mut start = json!({"call_id":call_id(2),"recording_id":"recording-1",
+        "recording_agent_id":"ak:did_core:web:media.example","capture_kind":"recording",
+        "mode":"audio","visible_notice":true,"capture_metadata":{"key_ref":q,"retention":artifact()["retention"]}});
+    let valid: CallRecordingStartPayload = serde_json::from_value(start.clone()).unwrap();
+    valid.validate().unwrap();
+    let encryption = serde_json::from_value::<CallRecordingArtifact>(artifact())
+        .unwrap()
+        .encryption;
+    encryption
+        .validate_start_binding(&event_id(3), &valid)
+        .unwrap();
+    start["capture_metadata"]
+        .as_object_mut()
+        .unwrap()
+        .remove("key_ref");
+    assert!(serde_json::from_value::<CallRecordingStartPayload>(start.clone()).is_err());
+    start["capture_metadata"]["key_ref"] = Value::Null;
+    assert!(serde_json::from_value::<CallRecordingStartPayload>(start.clone()).is_err());
+    start["capture_kind"] = json!("transcript");
+    start["capture_metadata"]
+        .as_object_mut()
+        .unwrap()
+        .remove("key_ref");
+    serde_json::from_value::<CallRecordingStartPayload>(start.clone())
+        .unwrap()
+        .validate()
+        .unwrap();
+    start["capture_metadata"]["key_ref"] = q.clone();
+    assert!(serde_json::from_value::<CallRecordingStartPayload>(start).is_err());
+    let pending = json!({"status":"pending","details":{"key_ref":q,
+        "recording_start_event_id":event_id(3),"retention":artifact()["retention"]}});
+    serde_json::from_value::<CallRecordingArtifactCurrentValue>(pending.clone())
+        .unwrap()
+        .validate(&call_id(2), &"recording-1".parse().unwrap())
+        .unwrap();
+    let mut missing = pending;
+    missing["details"]
+        .as_object_mut()
+        .unwrap()
+        .remove("key_ref");
+    assert!(
+        serde_json::from_value::<CallRecordingArtifactCurrentValue>(missing)
+            .unwrap()
+            .validate(&call_id(2), &"recording-1".parse().unwrap())
+            .is_err()
+    );
+}
+
+#[test]
+fn key_ref_raw_spelling_prefix_and_ciphertext_geometry_are_not_relaxed() {
+    use arkret_models_collaboration::events_payloads::call::{
+        CallRecordingStartPayload, recording_stream_geometry,
+    };
+    let mut start: CallRecordingStartPayload = serde_json::from_value(json!({
+        "call_id":call_id(2),"recording_id":"recording-1","recording_agent_id":"ak:did_core:web:media.example",
+        "capture_kind":"recording","mode":"audio","visible_notice":true,
+        "capture_metadata":{"key_ref":artifact()["encryption"]["key_ref"],"retention":artifact()["retention"]}
+    })).unwrap();
+    let encryption = serde_json::from_value::<CallRecordingArtifact>(artifact())
+        .unwrap()
+        .encryption;
+    let event = start
+        .capture_metadata
+        .key_ref
+        .as_ref()
+        .unwrap()
+        .group_state_ref
+        .event_id()
+        .unwrap();
+    let digest = event.event_digest();
+    start.capture_metadata.key_ref =
+        Some(serde_json::from_value(json!({"algorithm":"MLS","group_state_ref":digest})).unwrap());
+    assert_eq!(
+        start
+            .capture_metadata
+            .key_ref
+            .as_ref()
+            .unwrap()
+            .group_state_ref
+            .event_id()
+            .unwrap(),
+        event
+    );
+    assert!(
+        encryption
+            .validate_start_binding(&event_id(3), &start)
+            .is_err()
+    );
+    for invalid in [
+        "AA",
+        "AAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    ] {
+        let mut value = ready();
+        value["recording_transition"]["capture_metadata"]["artifact"]["encryption"]["nonce_prefix"] =
+            json!(invalid);
+        assert!(!sdk_accepts(value));
+    }
+    for size in [0, 15, 1041, 1056, u64::MAX] {
+        assert!(recording_stream_geometry(size, 1024).is_err());
+    }
+    assert_eq!(recording_stream_geometry(16, 1024).unwrap(), (0, 1));
+    assert_eq!(recording_stream_geometry(1040, 1024).unwrap(), (1024, 1));
+    assert_eq!(recording_stream_geometry(1057, 1024).unwrap(), (1025, 2));
 }

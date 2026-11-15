@@ -68,16 +68,9 @@ pub fn build_realm_owner_transfer_intent(
             "schema_violation: invalid Realm owner transfer payload".to_owned(),
         ));
     }
-    let acceptance = serde_json::to_value(&payload.successor_acceptance)?;
-    if match acceptance {
-        serde_json::Value::String(value) => value.is_empty(),
-        serde_json::Value::Object(value) => value.is_empty(),
-        _ => true,
-    } {
-        return Err(WireError::Protocol(
-            "schema_violation: successor_acceptance must be non-empty".to_owned(),
-        ));
-    }
+    payload
+        .acceptance_intent(&scope_ref, &actor_id)?
+        .validate_acceptance(&payload.successor_acceptance)?;
     TypedEventDraft::<event_spec::RealmOwnerTransfer>::new(scope_ref, actor_id, payload)
         .map_err(|error| WireError::Protocol(error.to_string()))?
         .into_intent(created_at)

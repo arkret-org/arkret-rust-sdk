@@ -135,6 +135,8 @@ pub enum DetachedSignatureContext {
     RealmAuthorityCurrentAssertion,
     #[serde(rename = "ak.realm_snapshot_signature.v1")]
     RealmSnapshot,
+    #[serde(rename = "ak.realm_owner_transfer_acceptance_signature.v1")]
+    RealmOwnerTransferAcceptance,
     #[serde(rename = "ak.mls_welcome_delivery_signature.v1")]
     MlsWelcomeDelivery,
     #[serde(rename = "ak.realm_actor_creation_signature.v1")]
@@ -161,6 +163,9 @@ impl DetachedSignatureContext {
     /// one context can never verify under another.
     pub fn as_wire_str(self) -> &'static str {
         match self {
+            Self::RealmOwnerTransferAcceptance => {
+                crate::DomainSeparationId::REALM_OWNER_TRANSFER_ACCEPTANCE_SIGNATURE_V1
+            }
             Self::RealmActorContentBackupAdmission => {
                 "ak.realm_actor_content_backup_admission_signature.v1"
             }
@@ -203,12 +208,13 @@ impl DetachedSignatureContext {
     }
 
     /// Every context the closed enum admits, in declaration order.
-    pub const ALL: [Self; 14] = [
+    pub const ALL: [Self; 15] = [
         Self::RealmCommit,
         Self::RealmAuthorityHandoffOld,
         Self::RealmAuthorityHandoffNewAcceptance,
         Self::RealmAuthorityCurrentAssertion,
         Self::RealmSnapshot,
+        Self::RealmOwnerTransferAcceptance,
         Self::MlsWelcomeDelivery,
         Self::RealmActorCreation,
         Self::RealmActorControlAcceptance,

@@ -2,7 +2,7 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/keys-operations.schema.json
-// sha256=cb5763958ff30cf36945f339522fd69f0bc9b2150fad93ccace6d230acb70537
+// sha256=a3fe4bf71b7e94747a347d41967cff92cf1864653114d6ba5437824ae74de67a
 //
 // Input: schemas/authorization-operations.schema.json
 // sha256=b367d60aeb13aa9e524c5201cc1857d8ac9defd5c78293f696a4f4c0a5d4450b
@@ -20,7 +20,7 @@
 // sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=dc73c01cf2bfb7cc6d4969c8f2f7faa6e44275c4a585ad81f3c94ac408daab8c
+// sha256=f8598148149e81024ca07d8b02d6f7c48f1dc0672c100b2e8e4103790a652e46
 
 /// Counterpart: `keys-operations.schema.json#/$defs/backup_active_series_state`.
 /// `keys-operations.schema.json#/$defs/backup_active_series_state`.

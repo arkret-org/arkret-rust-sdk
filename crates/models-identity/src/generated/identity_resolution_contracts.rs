@@ -5,7 +5,7 @@
 // sha256=fc7a8a96b196876b8ff58ef3f414a046b7ffebdd8cc825008e916da5d759a9f0
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=dc73c01cf2bfb7cc6d4969c8f2f7faa6e44275c4a585ad81f3c94ac408daab8c
+// sha256=f8598148149e81024ca07d8b02d6f7c48f1dc0672c100b2e8e4103790a652e46
 
 /// Counterpart: `identity-resolution.schema.json#/$defs/service_route_projection`.
 /// Derived route projection of one verified service DID state.

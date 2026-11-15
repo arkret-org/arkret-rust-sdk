@@ -2,13 +2,13 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/keys-operations.schema.json
-// sha256=cb5763958ff30cf36945f339522fd69f0bc9b2150fad93ccace6d230acb70537
+// sha256=a3fe4bf71b7e94747a347d41967cff92cf1864653114d6ba5437824ae74de67a
 //
 // Input: schemas/account-operations.schema.json
 // sha256=0ae0fec5fd63dca4b9df9293eb71936cf73a3eeeae13b2268dc99699c1ed7607
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=dc73c01cf2bfb7cc6d4969c8f2f7faa6e44275c4a585ad81f3c94ac408daab8c
+// sha256=f8598148149e81024ca07d8b02d6f7c48f1dc0672c100b2e8e4103790a652e46
 
 /// Counterpart:
 /// `keys-operations.schema.json#/$defs/device_projection_attestation_core/properties/
@@ -53,6 +53,9 @@ pub struct DeviceProjectionAttestationCore {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub authorization_window: DeviceAuthorizationWindow,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
+    pub owner_transfer_acceptance_intent_digest: Option<Hash>,
 }
 
 /// Counterpart: `keys-operations.schema.json#/$defs/verified_device_projection`.

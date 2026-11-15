@@ -3504,7 +3504,7 @@
               "successor_acceptance": {
                 "name": "successor_acceptance",
                 "visibility": "pub",
-                "type": "SignatureMaterial",
+                "type": "DetachedObjectSignature",
                 "attributes": []
               }
             }
@@ -6241,6 +6241,14 @@
                 "type": "DateTime<Utc>",
                 "attributes": [
                   "#[serde(with = \"arkret_canonical::serde_helpers::canonical_timestamp\")]"
+                ]
+              },
+              "owner_transfer_acceptance_intent_digest": {
+                "name": "owner_transfer_acceptance_intent_digest",
+                "visibility": "pub",
+                "type": "Option<Hash>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
                 ]
               }
             }
@@ -21186,6 +21194,122 @@
         {
           "name": "ParticipationScope",
           "schema": "principal-operations.schema.json#/$defs/participation_scope"
+        }
+      ]
+    },
+    {
+      "output": "crates/models-crypto/src/generated/realm_owner_transfer_contracts.rs",
+      "inline": true,
+      "types": [
+        {
+          "name": "RealmOwnerTransferPatch",
+          "schema": "event-payload.schema.json#/$defs/realm_owner_transfer_payload/properties/patch",
+          "rust": {
+            "signature": "pub struct RealmOwnerTransferPatch",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "controller_actor_id": {
+                "name": "controller_actor_id",
+                "visibility": "pub",
+                "type": "ActorId",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "RealmOwnerTransferUnsignedPayload",
+          "schema": "event-payload.schema.json#/$defs/realm_owner_transfer_acceptance_transcript/properties/payload_without_successor_acceptance",
+          "rust": {
+            "signature": "pub struct RealmOwnerTransferUnsignedPayload",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "realm_id": {
+                "name": "realm_id",
+                "visibility": "pub",
+                "type": "RealmId",
+                "attributes": []
+              },
+              "expected_state_digest": {
+                "name": "expected_state_digest",
+                "visibility": "pub",
+                "type": "Hash",
+                "attributes": []
+              },
+              "patch": {
+                "name": "patch",
+                "visibility": "pub",
+                "type": "RealmOwnerTransferPatch",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "RealmOwnerTransferAcceptanceIntent",
+          "schema": "event-payload.schema.json#/$defs/realm_owner_transfer_acceptance_transcript",
+          "rust": {
+            "signature": "pub struct RealmOwnerTransferAcceptanceIntent",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "scope_ref": {
+                "name": "scope_ref",
+                "visibility": "pub",
+                "type": "ScopeRef",
+                "attributes": []
+              },
+              "actor_id": {
+                "name": "actor_id",
+                "visibility": "pub",
+                "type": "ActorId",
+                "attributes": []
+              },
+              "payload_without_successor_acceptance": {
+                "name": "payload_without_successor_acceptance",
+                "visibility": "pub",
+                "type": "RealmOwnerTransferUnsignedPayload",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "RealmOwnerTransferAcceptance",
+          "schema": "keys-operations.schema.json#/$defs/peer_keys_query_request_body/properties/owner_transfer_acceptance",
+          "rust": {
+            "signature": "pub struct RealmOwnerTransferAcceptance",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "intent": {
+                "name": "intent",
+                "visibility": "pub",
+                "type": "RealmOwnerTransferAcceptanceIntent",
+                "attributes": []
+              },
+              "acceptance": {
+                "name": "acceptance",
+                "visibility": "pub",
+                "type": "DetachedObjectSignature",
+                "attributes": []
+              }
+            }
+          }
         }
       ]
     }

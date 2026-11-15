@@ -21,7 +21,9 @@
 //! Restored roots grant history decryption without restoring MLS membership.
 
 use arkret_canonical::canonical::canonical_json_bytes;
-use arkret_models_collaboration::events_payloads::call::CallRecordingId;
+use arkret_models_collaboration::events_payloads::call::{
+    CallRecordingEncryptionContext, CallRecordingId,
+};
 use arkret_models_crypto::{AttachmentContentKeyContext, ContentRootContext};
 use arkret_wire::{
     CallId, DidCoreId, EventId, ExporterLabelDescriptor, ExporterLabelId, RealmId, ReasonCode,
@@ -178,23 +180,9 @@ pub fn export_registered_secret(
     Ok(key)
 }
 
-/// Exporter `Context` for `ak.rtc-recording-key/v1`.
-///
-/// Field order is the registry `context_fields` order; the canonical JSON
-/// serializer sorts members, so the bytes are stable either way.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-pub struct RtcRecordingKeyContext {
-    pub realm_id: RealmId,
-    pub call_id: CallId,
-    pub focus_id: String,
-    pub recording_id: CallRecordingId,
-    pub media_service_id: DidCoreId,
-    pub recording_start_event_id: EventId,
-}
-
 /// Exporter `Context` for `ak.rtc-transcript-key/v1`.
 ///
-/// Identical in shape to [`RtcRecordingKeyContext`] except for the terminal
+/// Identical in shape to [`CallRecordingEncryptionContext`] except for the terminal
 /// event coordinate. They are separate types on purpose: the registry forbids
 /// reuse between the two labels, and a shared context type would let a caller
 /// derive both keys from one value and lose that separation by accident.
@@ -220,7 +208,7 @@ fn ensure_focus_bound(focus_id: &str) -> Result<()> {
 /// Derive the 32-byte encryption key for one call recording artifact.
 pub fn derive_rtc_recording_key(
     group: &ArkretMlsGroup,
-    context: &RtcRecordingKeyContext,
+    context: &CallRecordingEncryptionContext,
 ) -> Result<Zeroizing<Vec<u8>>> {
     ensure_focus_bound(&context.focus_id)?;
     let bytes = canonical_json_bytes(context)?;
@@ -552,7 +540,7 @@ mod tests {
 
     #[test]
     fn recording_context_serializes_exactly_the_registered_fields() {
-        let context = RtcRecordingKeyContext {
+        let context = CallRecordingEncryptionContext {
             realm_id: realm(),
             call_id: call(),
             focus_id: "focus-1".to_owned(),
@@ -607,7 +595,7 @@ mod tests {
             "ak:focus:invalid".into(),
             "🦀".repeat(257),
         ] {
-            let recording = RtcRecordingKeyContext {
+            let recording = CallRecordingEncryptionContext {
                 realm_id: realm(),
                 call_id: call(),
                 focus_id: literal.clone(),

@@ -210,7 +210,7 @@ impl DeviceProjectionAttestation {
         let payload_digest = Hash::new(arkret_canonical::canonical_sha256(
             &serde_json::json!({"attestation": core}),
         )?)?;
-        arkret_canonical::canonical_json_bytes(&serde_json::json!({
+        let mut binding = serde_json::json!({
             "context": DEVICE_PROJECTION_ATTESTATION_CONTEXT,
             "payload_digest": payload_digest,
             "account_id": core.account_id,
@@ -224,8 +224,12 @@ impl DeviceProjectionAttestation {
             "expires_at": arkret_canonical::format_timestamp_canonical(core.expires_at),
             "verification_method": self.proof.verification_method,
             "created_at": arkret_canonical::format_timestamp_canonical(self.proof.created_at),
-        }))
-        .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))
+        });
+        if let Some(digest) = &core.owner_transfer_acceptance_intent_digest {
+            binding["owner_transfer_acceptance_intent_digest"] = serde_json::to_value(digest)?;
+        }
+        arkret_canonical::canonical_json_bytes(&binding)
+            .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))
     }
 }
 
@@ -357,6 +361,11 @@ impl PeerDeviceKeyView {
     ) -> arkret_wire::Result<DeviceKeyView> {
         self.validate_attestation_binding(account_id, device_id)?;
         let core = &self.device_projection_attestation.attestation;
+        if core.owner_transfer_acceptance_intent_digest.is_some() {
+            return Err(arkret_wire::WireError::Protocol(
+                "finite owner transfer source cannot be projected as an ordinary client directory row".into(),
+            ));
+        }
         Ok(DeviceKeyView {
             signer_evidence_ref: self.signer_evidence_ref.clone(),
             algorithms: self.algorithms.clone(),
@@ -529,6 +538,7 @@ pub enum PeerKeysQueryPurpose {
     E2eeMessageEncryption,
     MlsGroupAdmission,
     CallMedia,
+    RealmOwnerTransferAcceptance,
 }
 
 /// Closed relationship the requesting Station asserts. The destination
@@ -579,6 +589,13 @@ pub struct PeerKeysQueryRequestBody {
         serialize_with = "arkret_wire::serialize_identity_entries"
     )]
     pub device_keys: Vec<QueryAccountDeviceSelector>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub owner_transfer_acceptance:
+        Option<crate::realm_owner_transfer::RealmOwnerTransferAcceptance>,
 }
 
 impl PeerKeysQueryRequestBody {
@@ -596,6 +613,32 @@ impl PeerKeysQueryRequestBody {
         validate_device_key_selectors(&self.device_keys)?;
         for selector in &self.device_keys {
             selector.account_id.validate()?;
+        }
+        match (&self.purpose, &self.owner_transfer_acceptance) {
+            (PeerKeysQueryPurpose::RealmOwnerTransferAcceptance, Some(source)) => {
+                source.validate()?;
+                let device = source.intent.successor_device(&source.acceptance)?;
+                if requester != source.intent.actor_id
+                    || self.requester_account_id.is_none()
+                    || !matches!(&self.relationship_basis,
+                        PeerKeysRelationshipBasis::RealmMembership {realm_id}
+                        if realm_id==&source.intent.payload_without_successor_acceptance.realm_id)
+                    || self.device_keys.len() != 1
+                    || self.device_keys[0].account_id != *source.intent.successor_account()?
+                    || self.device_keys[0].device_ids.as_slice() != [device]
+                {
+                    return Err(arkret_wire::WireError::Protocol(
+                        "owner transfer key lookup does not bind its exact author/Realm/successor Device".into(),
+                    ));
+                }
+            }
+            (PeerKeysQueryPurpose::RealmOwnerTransferAcceptance, None) | (_, Some(_)) => {
+                return Err(arkret_wire::WireError::Protocol(
+                    "finite owner transfer source is required only for its registered purpose"
+                        .into(),
+                ));
+            }
+            _ => {}
         }
         validate_keys_query_bytes(self, true)
     }
@@ -710,6 +753,33 @@ impl PeerKeysQueryResponseBody {
                 code: arkret_wire::ErrorCode::StateMismatch,
                 message: "peer keys query result carries an unselected account".to_owned(),
             });
+        }
+        let expected_intent_digest = request
+            .owner_transfer_acceptance
+            .as_ref()
+            .map(|source| source.intent.digest())
+            .transpose()?;
+        for account in &self.device_keys {
+            for (device_id, row) in &account.device_keys {
+                let core = &row.device_projection_attestation.attestation;
+                if core.owner_transfer_acceptance_intent_digest != expected_intent_digest {
+                    return Err(arkret_wire::WireError::Protocol(
+                        "peer key row does not bind its requested finite purpose".into(),
+                    ));
+                }
+                if expected_intent_digest.is_some()
+                    && (core.account_id != account.account_id
+                        || &core.device_id != device_id
+                        || !request.device_keys.iter().any(|selection| {
+                            selection.account_id == account.account_id
+                                && selection.device_ids.contains(device_id)
+                        }))
+                {
+                    return Err(arkret_wire::WireError::Protocol(
+                        "owner transfer peer row is not the exact selected Account/Device".into(),
+                    ));
+                }
+            }
         }
         Ok(())
     }
@@ -1225,6 +1295,7 @@ mod peer_keys_query_tests {
                 ),
                 2,
             )],
+            owner_transfer_acceptance: None,
         }
     }
 

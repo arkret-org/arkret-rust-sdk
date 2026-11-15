@@ -2,7 +2,7 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/keys-operations.schema.json
-// sha256=cb5763958ff30cf36945f339522fd69f0bc9b2150fad93ccace6d230acb70537
+// sha256=a3fe4bf71b7e94747a347d41967cff92cf1864653114d6ba5437824ae74de67a
 //
 // Input: schemas/authorization-operations.schema.json
 // sha256=b367d60aeb13aa9e524c5201cc1857d8ac9defd5c78293f696a4f4c0a5d4450b
@@ -11,10 +11,10 @@
 // sha256=fe13177cf262150b299d101c2cf7e364e2f38fc2fbb8dc6a78ae3c45b1816d1b
 //
 // Input: schemas/authority-commit-operations.schema.json
-// sha256=6bef07d53d1913f15c07d1ed66dedd91ce9525637c441df84fa51fbed1266b12
+// sha256=daf5a35366c0dd0943777a9c3c67e6f2947243c92c7199e684c8f17fdd732234
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=dc73c01cf2bfb7cc6d4969c8f2f7faa6e44275c4a585ad81f3c94ac408daab8c
+// sha256=f8598148149e81024ca07d8b02d6f7c48f1dc0672c100b2e8e4103790a652e46
 
 /// Counterpart: `keys-operations.schema.json#/$defs/keys_backups_list_response_body`.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]

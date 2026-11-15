@@ -37,6 +37,8 @@ fn original_device_pair() -> AppletCommittedEvent {
             authorization_window: core.authorization_window,
             attested_at: core.attested_at,
             expires_at: core.expires_at,
+
+            owner_transfer_acceptance_intent_digest: None,
         },
         source.proof.verification_method,
         &key,

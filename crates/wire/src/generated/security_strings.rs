@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/proof-context-registry.json;
-//! sha256=4f5133e2b6cbdbda52da0346f8ea57dff2acd5427dba9f8d1e5ed5464ac67847 Input: registry/
+//! sha256=eb896e62be9423756c4ce62c4dcbb068306a897dd9e2771e453b98ac1599b893 Input: registry/
 //! exporter-label-registry.json;
 //! sha256=99383803ea8d87be955f9d8785d46c20bd98348e59739c73af31505ab76f3391 Input: registry/
 //! digest-suite-registry.json;
@@ -17,7 +17,7 @@
 //! aead-profile-registry.json;
 //! sha256=273e1225d568d3d4c39fe2f19c2397b96dfc3e256b6ec1b5b852b43c16550343
 //! Entries: proof_contexts=35, exporter_labels=10, digest_suites=3, signature_algorithms=4,
-//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=2, domain_separations=48, aead_profiles=2
+//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=2, domain_separations=49, aead_profiles=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(usize)]
@@ -338,6 +338,7 @@ pub enum DomainSeparationId {
     RealmAuthorityHandoffNewAcceptanceSignatureV1,
     RealmAuthorityHandoffOldSignatureV1,
     RealmCommitSignatureV1,
+    RealmOwnerTransferAcceptanceSignatureV1,
     RealmSnapshotSignatureV1,
     WebsocketAuthV1,
 }
@@ -390,6 +391,7 @@ impl DomainSeparationId {
         Self::RealmAuthorityHandoffNewAcceptanceSignatureV1,
         Self::RealmAuthorityHandoffOldSignatureV1,
         Self::RealmCommitSignatureV1,
+        Self::RealmOwnerTransferAcceptanceSignatureV1,
         Self::RealmSnapshotSignatureV1,
         Self::WebsocketAuthV1,
     ];
@@ -468,6 +470,8 @@ impl DomainSeparationId {
     pub const REALM_AUTHORITY_HANDOFF_OLD_SIGNATURE_V1: &'static str =
         "ak.realm_authority_handoff_old_signature.v1";
     pub const REALM_COMMIT_SIGNATURE_V1: &'static str = "ak.realm_commit_signature.v1";
+    pub const REALM_OWNER_TRANSFER_ACCEPTANCE_SIGNATURE_V1: &'static str =
+        "ak.realm_owner_transfer_acceptance_signature.v1";
     pub const REALM_SNAPSHOT_SIGNATURE_V1: &'static str = "ak.realm_snapshot_signature.v1";
     pub const WEBSOCKET_AUTH_V1: &'static str = "ak.websocket_auth.v1";
 
@@ -549,6 +553,9 @@ impl DomainSeparationId {
                 Self::REALM_AUTHORITY_HANDOFF_OLD_SIGNATURE_V1
             }
             Self::RealmCommitSignatureV1 => Self::REALM_COMMIT_SIGNATURE_V1,
+            Self::RealmOwnerTransferAcceptanceSignatureV1 => {
+                Self::REALM_OWNER_TRANSFER_ACCEPTANCE_SIGNATURE_V1
+            }
             Self::RealmSnapshotSignatureV1 => Self::REALM_SNAPSHOT_SIGNATURE_V1,
             Self::WebsocketAuthV1 => Self::WEBSOCKET_AUTH_V1,
         }
@@ -642,6 +649,9 @@ impl DomainSeparationId {
                 Some(Self::RealmAuthorityHandoffOldSignatureV1)
             }
             Self::REALM_COMMIT_SIGNATURE_V1 => Some(Self::RealmCommitSignatureV1),
+            Self::REALM_OWNER_TRANSFER_ACCEPTANCE_SIGNATURE_V1 => {
+                Some(Self::RealmOwnerTransferAcceptanceSignatureV1)
+            }
             Self::REALM_SNAPSHOT_SIGNATURE_V1 => Some(Self::RealmSnapshotSignatureV1),
             Self::WEBSOCKET_AUTH_V1 => Some(Self::WebsocketAuthV1),
             _ => None,
@@ -980,6 +990,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "device_status",
             "attested_at",
             "expires_at",
+            "owner_transfer_acceptance_intent_digest",
             "verification_method",
             "created_at",
         ],

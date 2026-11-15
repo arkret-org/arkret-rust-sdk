@@ -1011,6 +1011,12 @@ pub struct PeerAuthorityForwardEventRequestBody {
     pub producer_device_evidence: Option<ForwardAccountDeviceSignerEvidence>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub producer_agent_evidence: Option<AgentProducerEvidence>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub successor_device_evidence: Option<arkret_models_identity::AccountDeviceSignerEvidence>,
 }
 
 impl PeerAuthorityForwardEventRequestBody {
@@ -1019,6 +1025,7 @@ impl PeerAuthorityForwardEventRequestBody {
     pub fn is_native_pcr_candidate(&self) -> bool {
         self.producer_device_evidence.is_none()
             && self.producer_agent_evidence.is_none()
+            && self.successor_device_evidence.is_none()
             && self.event_submission.event.kind != EventKind::RealmCreate
             && arkret_wire::requirements_for(arkret_wire::ProfileId::PRINCIPAL_CONTROL_REALM_V1)
                 .and_then(|profile| profile.realm_event_kind_allowlist)
@@ -1037,6 +1044,7 @@ impl PeerAuthorityForwardEventRequestBody {
             content_backup_sources,
             producer_device_evidence: None,
             producer_agent_evidence: Some(producer_agent_evidence),
+            successor_device_evidence: None,
         };
         request.validate()?;
         Ok(request)
@@ -1058,6 +1066,25 @@ impl PeerAuthorityForwardEventRequestBody {
             content_backup_sources,
             producer_device_evidence,
             producer_agent_evidence: None,
+            successor_device_evidence: None,
+        };
+        request.validate()?;
+        Ok(request)
+    }
+
+    pub fn new_owner_transfer(
+        event_submission: EventAdmissionSubmission,
+        producer_device_evidence: ForwardAccountDeviceSignerEvidence,
+        successor_device_evidence: arkret_models_identity::AccountDeviceSignerEvidence,
+    ) -> Result<Self> {
+        let request = Self {
+            branch: AuthorityForwardBranch::AuthorityForward,
+            event_submission,
+            mls_group_state_material: None,
+            content_backup_sources: None,
+            producer_device_evidence: Some(producer_device_evidence),
+            producer_agent_evidence: None,
+            successor_device_evidence: Some(successor_device_evidence),
         };
         request.validate()?;
         Ok(request)
@@ -1065,6 +1092,28 @@ impl PeerAuthorityForwardEventRequestBody {
 
     pub fn validate(&self) -> Result<()> {
         self.event_submission.validate()?;
+        match (
+            &self.event_submission.event.kind,
+            &self.successor_device_evidence,
+        ) {
+            (EventKind::RealmOwnerTransfer, Some(evidence)) => {
+                let event = &self.event_submission.event;
+                let payload: crate::events_payloads::realm::RealmOwnerTransferPayload =
+                    serde_json::from_value(serde_json::Value::Object(
+                        event.payload.clone().into_iter().collect(),
+                    ))?;
+                evidence.validate_owner_transfer_binding(
+                    &payload.acceptance_intent(&event.scope_ref, &event.actor_id)?,
+                    &payload.successor_acceptance,
+                )?;
+            }
+            (EventKind::RealmOwnerTransfer, None) | (_, Some(_)) => {
+                return Err(WireError::Protocol(
+                    "successor Device evidence is required only for owner transfer".into(),
+                ));
+            }
+            _ => {}
+        }
         crate::content_history::validate_backup_source_candidates(
             &[&self.event_submission.event],
             self.content_backup_sources.as_deref(),
@@ -2084,6 +2133,14 @@ impl AuthorityRealmAuthorityHandoffRequestBody {
 
 /// The canonical peer body excludes only the evidence that signs this digest.
 pub fn authority_forward_body_digest<T: Serialize>(body: &T) -> Result<Hash> {
+    Ok(Hash::new(arkret_canonical::sha256_digest(
+        authority_forward_business_bytes(body)?,
+    ))?)
+}
+
+/// Exact stable business bytes for retry binding. HTTP authentication always
+/// covers the original complete body, including all transport evidence.
+pub fn authority_forward_business_bytes<T: Serialize>(body: &T) -> Result<Vec<u8>> {
     let mut unsigned = serde_json::to_value(body)?;
     unsigned
         .as_object_mut()
@@ -2093,7 +2150,11 @@ pub fn authority_forward_body_digest<T: Serialize>(body: &T) -> Result<Hash> {
         .as_object_mut()
         .expect("validated object")
         .remove("atomic_producer_evidence");
-    Ok(Hash::new(arkret_canonical::canonical_sha256(&unsigned)?)?)
+    unsigned
+        .as_object_mut()
+        .expect("validated object")
+        .remove("successor_device_evidence");
+    Ok(arkret_canonical::canonical_json_bytes(&unsigned)?)
 }
 
 /// New admission is distinct from decoding an exact legacy accepted original.

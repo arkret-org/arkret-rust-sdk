@@ -116,6 +116,8 @@ fn core(station: &Station) -> DeviceProjectionAttestationCore {
         },
         attested_at,
         expires_at: attested_at + Duration::minutes(5),
+
+        owner_transfer_acceptance_intent_digest: None,
     }
 }
 
@@ -136,6 +138,8 @@ fn body_digest_for_event(event: &Event) -> arkret_wire::Hash {
         content_backup_sources: None,
         producer_device_evidence: None,
         producer_agent_evidence: None,
+
+        successor_device_evidence: None,
     })
     .unwrap()
 }
@@ -270,6 +274,102 @@ fn human_event(station: &Station) -> Event {
 
 fn now(station: &Station) -> DateTime<Utc> {
     station.registered_at + Duration::minutes(1)
+}
+
+#[test]
+fn successor_source_uses_real_service_history_and_the_original_commit_window() {
+    use arkret_identity::account_device_signer_evidence::verify_owner_transfer_successor_evidence;
+    use arkret_models_crypto::realm_owner_transfer::{
+        RealmOwnerTransferAcceptanceIntent, RealmOwnerTransferPatch,
+        RealmOwnerTransferUnsignedPayload,
+    };
+    let c = station(144, "successor.example");
+    let a = station(145, "author.example");
+    let realm = RealmId::from_event_id(&EventId::from_digest(DigestSuite::Sha256, [146; 32]));
+    let intent = RealmOwnerTransferAcceptanceIntent {
+        scope_ref: ScopeRef::Realm {
+            realm_id: realm.clone(),
+        },
+        actor_id: ActorId::account(account(&a)),
+        payload_without_successor_acceptance: RealmOwnerTransferUnsignedPayload {
+            realm_id: realm,
+            expected_state_digest: arkret_wire::Hash::new(format!("sha256:{}", "17".repeat(32)))
+                .unwrap(),
+            patch: RealmOwnerTransferPatch {
+                controller_actor_id: ActorId::account(account(&c)),
+            },
+        },
+    };
+    let signature = arkret_signatures::realm_owner_transfer::sign_realm_owner_transfer_acceptance(
+        &intent,
+        DidUrl::new(format!("{PRINCIPAL_DID}#{DEVICE}")).unwrap(),
+        c.registered_at + Duration::seconds(1),
+        &SigningKey::from_bytes(&DEVICE_SEED),
+    )
+    .unwrap();
+    let mut core = core(&c);
+    core.expires_at = core.attested_at + Duration::seconds(30);
+    core.owner_transfer_acceptance_intent_digest = Some(intent.digest().unwrap());
+    let evidence = AccountDeviceSignerEvidence {
+        device_projection_attestation: sign_device_projection_attestation(
+            core.clone(),
+            c.method.clone(),
+            &c.signing_key,
+        )
+        .unwrap(),
+        service_resolution: c.service_resolution.clone(),
+    };
+    let commit_at = core.attested_at + Duration::seconds(1);
+    verify_owner_transfer_successor_evidence(&evidence, &intent, &signature, commit_at).unwrap();
+    assert!(
+        verify_owner_transfer_successor_evidence(
+            &evidence,
+            &intent,
+            &signature,
+            core.attested_at - Duration::milliseconds(1)
+        )
+        .is_err()
+    );
+    assert!(
+        verify_owner_transfer_successor_evidence(&evidence, &intent, &signature, core.expires_at)
+            .is_err()
+    );
+    // A historical audit at its actual original Commit is valid even when
+    // today's new-admission observation would have expired.
+    verify_owner_transfer_successor_evidence(&evidence, &intent, &signature, commit_at).unwrap();
+    let mut changed = evidence.clone();
+    changed
+        .device_projection_attestation
+        .attestation
+        .owner_transfer_acceptance_intent_digest = None;
+    assert!(
+        verify_owner_transfer_successor_evidence(&changed, &intent, &signature, commit_at).is_err()
+    );
+    let mut changed = evidence.clone();
+    changed.service_resolution = a.service_resolution;
+    assert!(
+        verify_owner_transfer_successor_evidence(&changed, &intent, &signature, commit_at).is_err()
+    );
+    let wrong = arkret_signatures::realm_owner_transfer::sign_realm_owner_transfer_acceptance(
+        &intent,
+        signature.verification_method.clone(),
+        signature.created_at,
+        &SigningKey::from_bytes(&[147; 32]),
+    )
+    .unwrap();
+    assert!(
+        verify_owner_transfer_successor_evidence(&evidence, &intent, &wrong, commit_at).is_err()
+    );
+    let mut changed = evidence;
+    let mut other = core;
+    other.expires_at += Duration::milliseconds(1);
+    // Shape permits raw decoded candidates, but C and G both enforce 30s.
+    let mut raw = serde_json::to_value(&changed.device_projection_attestation).unwrap();
+    raw["attestation"] = serde_json::to_value(other).unwrap();
+    changed.device_projection_attestation = serde_json::from_value(raw).unwrap();
+    assert!(
+        verify_owner_transfer_successor_evidence(&changed, &intent, &signature, commit_at).is_err()
+    );
 }
 
 fn rejection(
@@ -716,6 +816,8 @@ fn forward_original_source_fact_is_not_the_target_and_binds_destination_and_body
         content_backup_sources: None,
         producer_device_evidence: Some(evidence),
         producer_agent_evidence: None,
+
+        successor_device_evidence: None,
     };
     let actual_body_digest = authority_forward_body_digest(&body).unwrap();
     let actual_evidence = evidence_with(&station, |core| {

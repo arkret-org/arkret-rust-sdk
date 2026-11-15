@@ -13,6 +13,30 @@ use serde::{Deserialize, Serialize};
 use crate::AuthenticatedServiceResolution;
 
 impl AccountDeviceSignerEvidence {
+    /// Byte-local finite binding only. This is neither a verified C signature
+    /// nor a current Device verdict; authority consumers must verify both.
+    pub fn validate_owner_transfer_binding(
+        &self,
+        intent: &arkret_models_crypto::realm_owner_transfer::RealmOwnerTransferAcceptanceIntent,
+        acceptance: &arkret_wire::DetachedObjectSignature,
+    ) -> arkret_wire::Result<()> {
+        intent.validate_acceptance(acceptance)?;
+        let device = intent.successor_device(acceptance)?;
+        self.validate_binding(intent.successor_account()?, &device)?;
+        if self
+            .device_projection_attestation
+            .attestation
+            .owner_transfer_acceptance_intent_digest
+            .as_ref()
+            != Some(&intent.digest()?)
+        {
+            return Err(WireError::Protocol(
+                "successor Device source is not bound to this owner-transfer intent".into(),
+            ));
+        }
+        Ok(())
+    }
+
     /// Check only byte-local bindings. The caller separately verifies the
     /// method-native Service history, assertion relationship and signature.
     pub fn validate_binding(
@@ -193,6 +217,7 @@ mod tests {
                     },
                     attested_at: at,
                     expires_at: at + chrono::Duration::minutes(5),
+                    owner_transfer_acceptance_intent_digest: None,
                 },
                 proof: ProtocolSignature {
                     verification_method: DidUrl::new("did:web:station.example#signing-1").unwrap(),

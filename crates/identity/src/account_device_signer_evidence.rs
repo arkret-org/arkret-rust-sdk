@@ -73,6 +73,74 @@ pub fn verify_current_account_device_signer_evidence(
     Ok(())
 }
 
+/// Verify the original C wrapper and B signature at one exact instant.
+///
+/// First acceptance calls this for both the signed Commit time and the final
+/// actual clock. Historical audit calls it at the original Commit time, never
+/// at today's cache deadline. Realm membership and known terminal state are
+/// independent native accepting-cut obligations, not facts invented here.
+pub fn verify_owner_transfer_successor_evidence(
+    evidence: &AccountDeviceSignerEvidence,
+    intent: &arkret_models_crypto::realm_owner_transfer::RealmOwnerTransferAcceptanceIntent,
+    acceptance: &arkret_wire::DetachedObjectSignature,
+    at: DateTime<Utc>,
+) -> Result<()> {
+    evidence
+        .validate_owner_transfer_binding(intent, acceptance)
+        .map_err(|error| rejected(ErrorCode::SignatureInvalid, error.to_string()))?;
+    let device = intent
+        .successor_device(acceptance)
+        .map_err(|error| rejected(ErrorCode::SignatureInvalid, error.to_string()))?;
+    let account = intent
+        .successor_account()
+        .map_err(|error| rejected(ErrorCode::SignatureInvalid, error.to_string()))?;
+    verify_historical_account_device_signer_evidence(evidence, account, &device)?;
+    let core = &evidence.device_projection_attestation.attestation;
+    if core.device_status != arkret_models_crypto::DeviceStatus::Active {
+        return Err(rejected(
+            ErrorCode::DeviceRevoked,
+            "successor Device is not active",
+        ));
+    }
+    if core.attested_at > at
+        || at >= core.expires_at
+        || core.expires_at - core.attested_at > chrono::Duration::seconds(30)
+        || at < core.authorization_window.not_before
+        || core
+            .authorization_window
+            .expires_at
+            .is_some_and(|expiry| at >= expiry)
+        || acceptance.created_at < core.authorization_window.not_before
+        || core
+            .authorization_window
+            .expires_at
+            .is_some_and(|expiry| acceptance.created_at >= expiry)
+    {
+        return Err(rejected(
+            ErrorCode::DeviceUnauthorized,
+            "owner-transfer source does not cover the exact acceptance instant and original signature",
+        ));
+    }
+    let value = core
+        .device_signing_key_did
+        .as_str()
+        .strip_prefix("did:key:")
+        .ok_or_else(|| {
+            rejected(
+                ErrorCode::SignatureInvalid,
+                "successor Device key is not did:key",
+            )
+        })?;
+    arkret_signatures::realm_owner_transfer::verify_realm_owner_transfer_acceptance(
+        intent,
+        acceptance,
+        &PublicKeyMaterial::Ed25519Multibase {
+            value: value.to_owned(),
+        },
+    )
+    .map_err(|error| rejected(ErrorCode::SignatureInvalid, error.to_string()))
+}
+
 fn rejected(code: ErrorCode, message: impl Into<String>) -> IdentityError {
     IdentityError::Wire(WireError::ProtocolCode {
         code,

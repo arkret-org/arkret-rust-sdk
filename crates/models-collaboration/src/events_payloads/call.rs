@@ -1,5 +1,6 @@
 //! Call-state and call-participant payloads.
 
+use arkret_models_crypto::EncryptedAttachmentKeyRef;
 use arkret_wire::{ActorId, CurrentRevision, DidCoreId, ExporterLabelId, SchemaId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -307,7 +308,7 @@ impl<'de> Deserialize<'de> for VisibleCaptureNotice {
 
 /// Typed payload for `ak.call.recording.start`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(try_from = "CallRecordingStartPayloadWire")]
 pub struct CallRecordingStartPayload {
     pub call_id: CallId,
     pub recording_id: CallRecordingId,
@@ -318,9 +319,41 @@ pub struct CallRecordingStartPayload {
     pub capture_metadata: RecordingStartMetadata,
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CallRecordingStartPayloadWire {
+    call_id: CallId,
+    recording_id: CallRecordingId,
+    recording_agent_id: DidCoreId,
+    capture_kind: RecordingCaptureKind,
+    mode: RecordingMode,
+    visible_notice: VisibleCaptureNotice,
+    capture_metadata: RecordingStartMetadata,
+}
+
+impl TryFrom<CallRecordingStartPayloadWire> for CallRecordingStartPayload {
+    type Error = &'static str;
+
+    fn try_from(value: CallRecordingStartPayloadWire) -> std::result::Result<Self, Self::Error> {
+        let payload = Self {
+            call_id: value.call_id,
+            recording_id: value.recording_id,
+            recording_agent_id: value.recording_agent_id,
+            capture_kind: value.capture_kind,
+            mode: value.mode,
+            visible_notice: value.visible_notice,
+            capture_metadata: value.capture_metadata,
+        };
+        payload.validate()?;
+        Ok(payload)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct RecordingStartMetadata {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub key_ref: Option<EncryptedAttachmentKeyRef>,
     pub retention: CallRecordingRetention,
 }
 
@@ -332,6 +365,11 @@ impl<'de> Deserialize<'de> for RecordingStartMetadata {
         #[derive(Deserialize)]
         #[serde(deny_unknown_fields)]
         struct Wire {
+            #[serde(
+                default,
+                deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+            )]
+            key_ref: Option<EncryptedAttachmentKeyRef>,
             retention: CallRecordingRetention,
         }
 
@@ -342,6 +380,7 @@ impl<'de> Deserialize<'de> for RecordingStartMetadata {
             ));
         }
         Ok(Self {
+            key_ref: wire.key_ref,
             retention: wire.retention,
         })
     }
@@ -352,6 +391,11 @@ impl CallRecordingStartPayload {
         if self.capture_metadata.retention.consent_confirmed != Some(true) {
             return Err(ReasonCode::RECORDING_CONSENT_REQUIRED);
         }
+        if self.capture_metadata.key_ref.is_some()
+            != (self.capture_kind == RecordingCaptureKind::Recording)
+        {
+            return Err(ErrorCode::SCHEMA_VIOLATION);
+        }
         Ok(())
     }
 }
@@ -359,12 +403,13 @@ impl CallRecordingStartPayload {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CallRecordingEncryptionAlgorithm {
-    MlsExporterAeadXchacha20poly1305,
-    #[serde(rename = "mls_exporter_aead_aes_256_gcm")]
-    MlsExporterAeadAes256Gcm,
     MlsExporterAeadXchacha20poly1305Stream,
-    #[serde(rename = "mls_exporter_aead_aes_256_gcm_stream")]
-    MlsExporterAeadAes256GcmStream,
+}
+
+impl CallRecordingEncryptionAlgorithm {
+    pub const fn as_str(self) -> &'static str {
+        "mls_exporter_aead_xchacha20poly1305_stream"
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -401,8 +446,141 @@ pub struct CallRecordingEncryptionContext {
 #[serde(deny_unknown_fields)]
 pub struct CallRecordingEncryption {
     pub encryption_algorithm: CallRecordingEncryptionAlgorithm,
+    #[serde(deserialize_with = "deserialize_recording_exporter_label")]
     pub exporter_label: String,
     pub context: CallRecordingEncryptionContext,
+    pub key_ref: EncryptedAttachmentKeyRef,
+    #[serde(deserialize_with = "deserialize_recording_nonce_prefix")]
+    pub nonce_prefix: Base64UrlString,
+    #[serde(deserialize_with = "deserialize_recording_segment_bytes")]
+    pub segment_bytes: u32,
+}
+
+fn deserialize_recording_exporter_label<'de, D: serde::Deserializer<'de>>(
+    d: D,
+) -> std::result::Result<String, D::Error> {
+    let value = String::deserialize(d)?;
+    if value != ExporterLabelId::RTC_RECORDING_KEY_V1 {
+        return Err(serde::de::Error::custom(
+            "recording exporter label mismatch",
+        ));
+    }
+    Ok(value)
+}
+
+fn deserialize_recording_nonce_prefix<'de, D: serde::Deserializer<'de>>(
+    d: D,
+) -> std::result::Result<Base64UrlString, D::Error> {
+    let value = Base64UrlString::deserialize(d)?;
+    validate_recording_nonce_prefix(&value).map_err(serde::de::Error::custom)?;
+    Ok(value)
+}
+
+fn deserialize_recording_segment_bytes<'de, D: serde::Deserializer<'de>>(
+    d: D,
+) -> std::result::Result<u32, D::Error> {
+    let value = u32::deserialize(d)?;
+    if !(arkret_models_crypto::MIN_SEGMENT_SIZE..=arkret_models_crypto::MAX_SEGMENT_SIZE)
+        .contains(&value)
+    {
+        return Err(serde::de::Error::custom(
+            "recording segment_bytes outside STREAM bounds",
+        ));
+    }
+    Ok(value)
+}
+
+pub fn validate_recording_nonce_prefix(value: &Base64UrlString) -> Result<[u8; 19]> {
+    let bytes = arkret_canonical::base64url_decode(value.as_str())
+        .map_err(|e| WireError::Protocol(e.to_string()))?;
+    if arkret_canonical::base64url_encode(&bytes) != value.as_str() {
+        return Err(WireError::Protocol(
+            "recording nonce_prefix is not canonical".into(),
+        ));
+    }
+    bytes
+        .try_into()
+        .map_err(|_| WireError::Protocol("recording nonce_prefix must encode 19 octets".into()))
+}
+
+pub fn validate_recording_media_type(value: &str) -> Result<()> {
+    let valid_token = |token: &str| {
+        !token.is_empty()
+            && token.bytes().all(|byte| {
+                byte.is_ascii_lowercase()
+                    || byte.is_ascii_digit()
+                    || matches!(byte, b'.' | b'+' | b'-')
+            })
+    };
+    if !value
+        .split_once('/')
+        .is_some_and(|(kind, subtype)| valid_token(kind) && valid_token(subtype))
+    {
+        return schema_violation(
+            "recording media_type must be the registered lower-case MIME token",
+        );
+    }
+    Ok(())
+}
+
+/// Invert stored ciphertext B=P+16*max(1,ceil(P/L)) before allocating.
+/// These two derived coordinates are local values, never wire mirrors.
+pub fn recording_stream_geometry(ciphertext_bytes: u64, segment_bytes: u32) -> Result<(u64, u32)> {
+    use arkret_models_crypto::{MAX_SEGMENT_COUNT, MAX_SEGMENT_SIZE, MIN_SEGMENT_SIZE};
+    if !(MIN_SEGMENT_SIZE..=MAX_SEGMENT_SIZE).contains(&segment_bytes) || ciphertext_bytes < 16 {
+        return schema_violation("invalid recording ciphertext or segment length");
+    }
+    let width = u64::from(segment_bytes) + 16;
+    let count = ciphertext_bytes.div_ceil(width);
+    if count > u64::from(MAX_SEGMENT_COUNT) {
+        return schema_violation("recording segment count exceeds STREAM bounds");
+    }
+    let plaintext = ciphertext_bytes
+        .checked_sub(
+            count
+                .checked_mul(16)
+                .ok_or_else(|| WireError::Protocol("recording tag length overflow".into()))?,
+        )
+        .ok_or_else(|| WireError::Protocol("recording ciphertext length gap".into()))?;
+    if plaintext.div_ceil(u64::from(segment_bytes)).max(1) != count {
+        return schema_violation("noncanonical recording ciphertext length gap");
+    }
+    Ok((plaintext, count as u32))
+}
+
+impl CallRecordingEncryption {
+    pub fn validate(&self) -> Result<()> {
+        if self.exporter_label != ExporterLabelId::RTC_RECORDING_KEY_V1 {
+            return schema_violation("recording exporter label mismatch");
+        }
+        validate_recording_nonce_prefix(&self.nonce_prefix)?;
+        recording_stream_geometry(16, self.segment_bytes)?;
+        validate_bounded_non_typed_identifier(&self.context.focus_id, 256)
+            .map_err(|e| WireError::Protocol(e.into()))?;
+        self.key_ref.group_state_ref.event_id()?;
+        Ok(())
+    }
+
+    pub fn validate_start_binding(
+        &self,
+        start_id: &EventId,
+        start: &CallRecordingStartPayload,
+    ) -> Result<()> {
+        start
+            .validate()
+            .map_err(|e| WireError::Protocol(e.into()))?;
+        self.validate()?;
+        if start.capture_kind != RecordingCaptureKind::Recording
+            || start.capture_metadata.key_ref.as_ref() != Some(&self.key_ref)
+            || self.context.recording_start_event_id != *start_id
+            || self.context.call_id != start.call_id
+            || self.context.recording_id != start.recording_id
+            || self.context.media_service_id != start.recording_agent_id
+        {
+            return schema_violation("recording encryption differs from original signed Start");
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -450,16 +628,14 @@ impl CallRecordingArtifact {
                 schemaid_call_recording_artifact_v1 = SchemaId::CALL_RECORDING_ARTIFACT_V1
             ));
         }
+        self.encryption.validate()?;
+        recording_stream_geometry(self.size_bytes, self.encryption.segment_bytes)?;
         if !self.blob_ref.as_str().starts_with("ak:blob:") {
             return recording_artifact_pipeline_bypassed(
                 "recording artifact blob_ref must be a Arkret blob reference",
             );
         }
-        if self.media_type.trim().is_empty() || !self.media_type.contains('/') {
-            return schema_violation(
-                "recording artifact media_type must be type/constraint_subkind",
-            );
-        }
+        validate_recording_media_type(&self.media_type)?;
         if self.encryption.exporter_label != ExporterLabelId::RTC_RECORDING_KEY_V1 {
             return recording_artifact_pipeline_bypassed(format!(
                 "recording artifact exporter_label must be {exporterlabelid_rtc_recording_key_v1}",
@@ -500,6 +676,12 @@ impl CallRecordingArtifact {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CallRecordingMetadata {
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub key_ref: Option<EncryptedAttachmentKeyRef>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
@@ -579,7 +761,8 @@ impl CallRecordingMetadata {
         let Some(artifact) = &self.artifact else {
             return Err(ErrorCode::SCHEMA_VIOLATION);
         };
-        if self.content_digest.is_some()
+        if self.key_ref.is_some()
+            || self.content_digest.is_some()
             || self.duration_ms.is_some()
             || self.media_type.is_some()
             || self.retention_policy_id.is_some()
@@ -672,7 +855,8 @@ impl CallRecordingArtifactCurrentValue {
                 self.details.validate_ready_artifact(call_id, recording_id)
             }
             CallCaptureResultStatus::Pending => {
-                if self.details.recording_start_event_id.is_none()
+                if self.details.key_ref.is_none()
+                    || self.details.recording_start_event_id.is_none()
                     || self.details.artifact.is_some()
                     || self.details.recording_stop_event_id.is_some()
                     || self.details.failure_reason_code.is_some()
@@ -692,7 +876,8 @@ impl CallRecordingArtifactCurrentValue {
                 Ok(())
             }
             CallCaptureResultStatus::Failed => {
-                if self.details.recording_stop_event_id.is_none()
+                if self.details.key_ref.is_some()
+                    || self.details.recording_stop_event_id.is_none()
                     || self.details.artifact.is_some()
                     || self
                         .details
@@ -959,7 +1144,9 @@ impl CallStatePayload {
                     .capture_metadata
                     .as_ref()
                     .ok_or(ErrorCode::SCHEMA_VIOLATION)?;
-                if capture_metadata.recording_stop_event_id.is_none() {
+                if capture_metadata.key_ref.is_some()
+                    || capture_metadata.recording_stop_event_id.is_none()
+                {
                     return Err(ErrorCode::SCHEMA_VIOLATION);
                 }
                 if capture_metadata.artifact.is_some()
@@ -975,7 +1162,9 @@ impl CallStatePayload {
             _ if transition
                 .capture_metadata
                 .as_ref()
-                .is_some_and(|metadata| metadata.artifact.is_some()) =>
+                .is_some_and(|metadata| {
+                    metadata.key_ref.is_some() || metadata.artifact.is_some()
+                }) =>
             {
                 Err(ErrorCode::SCHEMA_VIOLATION)
             }

@@ -4422,6 +4422,22 @@
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/generated/call_contracts.rs::CallTranscriptArtifactCurrentValue",
       "schema": "current-state.schema.json#/$defs/current_call_transcript_artifact/properties/value"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/realm_owner_transfer_contracts.rs::RealmOwnerTransferPatch",
+      "schema": "event-payload.schema.json#/$defs/realm_owner_transfer_payload/properties/patch"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/realm_owner_transfer_contracts.rs::RealmOwnerTransferUnsignedPayload",
+      "schema": "event-payload.schema.json#/$defs/realm_owner_transfer_acceptance_transcript/properties/payload_without_successor_acceptance"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/realm_owner_transfer_contracts.rs::RealmOwnerTransferAcceptanceIntent",
+      "schema": "event-payload.schema.json#/$defs/realm_owner_transfer_acceptance_transcript"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/generated/realm_owner_transfer_contracts.rs::RealmOwnerTransferAcceptance",
+      "schema": "keys-operations.schema.json#/$defs/peer_keys_query_request_body/properties/owner_transfer_acceptance"
     }
   ],
   "exemptions": [

@@ -21,14 +21,32 @@ pub struct RealmGovernanceStationChangePayload {
     pub new_governance_station_id: DidCoreId,
 }
 
-/// Patch carried by `ak.realm.owner.transfer`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmOwnerTransferPatch {
-    pub controller_actor_id: ActorId,
-}
+pub use arkret_models_crypto::realm_owner_transfer::RealmOwnerTransferPatch;
 
 impl RealmOwnerTransferPayload {
+    /// The successor signs before the enclosing Event and its ID exist.
+    pub fn acceptance_intent(
+        &self,
+        scope_ref: &ScopeRef,
+        actor_id: &ActorId,
+    ) -> Result<arkret_models_crypto::realm_owner_transfer::RealmOwnerTransferAcceptanceIntent>
+    {
+        use arkret_models_crypto::realm_owner_transfer::{
+            RealmOwnerTransferAcceptanceIntent, RealmOwnerTransferUnsignedPayload,
+        };
+        let intent = RealmOwnerTransferAcceptanceIntent {
+            scope_ref: scope_ref.clone(),
+            actor_id: actor_id.clone(),
+            payload_without_successor_acceptance: RealmOwnerTransferUnsignedPayload {
+                realm_id: self.realm_id.clone(),
+                expected_state_digest: self.expected_state_digest.clone(),
+                patch: self.patch.clone(),
+            },
+        };
+        intent.validate()?;
+        Ok(intent)
+    }
+
     pub fn successor_controller_epoch(current: u64) -> Result<u64> {
         const JSON_SAFE_INTEGER_MAX: u64 = 9_007_199_254_740_991;
         current

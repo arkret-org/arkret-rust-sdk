@@ -24,7 +24,7 @@ account-data = ["dep:chacha20poly1305", "dep:getrandom", "dep:hkdf"]
 # Encrypted attachment codec (`blob_aead` module): `ak.blob.stream_aead.v1`
 # XChaCha20-Poly1305 streaming AEAD. Other schemes fail closed.
 # Pulls in the AEAD stack only when enabled.
-blob-aead = ["dep:chacha20poly1305", "dep:getrandom", "dep:arkret-models-collaboration", "dep:subtle"]
+blob-aead = ["dep:chacha20poly1305", "dep:getrandom", "dep:arkret-models-collaboration", "dep:subtle", "dep:zeroize"]
 # SFrame media frame-key / recording-key derivation (`sframe` module): the
 # `MlsExporterSource` trait + fixed-label context builders over canonical JSON.
 # Only needs zeroize for the returned key material; the MLS exporter impl lives

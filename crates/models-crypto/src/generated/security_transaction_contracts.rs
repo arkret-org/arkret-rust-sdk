@@ -8,7 +8,7 @@
 // sha256=36d2c5ee8b220fadbf7ac0844341f433f4194d7cebb6d588693b551c6a71aaa3
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=dc73c01cf2bfb7cc6d4969c8f2f7faa6e44275c4a585ad81f3c94ac408daab8c
+// sha256=f8598148149e81024ca07d8b02d6f7c48f1dc0672c100b2e8e4103790a652e46
 
 /// Counterpart: `recovery-receipt.schema.json#/properties/recovery_unit`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

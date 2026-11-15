@@ -111,6 +111,8 @@ fn core(station: &Station) -> DeviceProjectionAttestationCore {
         },
         attested_at,
         expires_at: attested_at + Duration::minutes(5),
+
+        owner_transfer_acceptance_intent_digest: None,
     }
 }
 

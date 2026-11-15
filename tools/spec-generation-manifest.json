@@ -2520,6 +2520,24 @@
         "ParticipationBits",
         "ParticipationScope"
       ]
+    },
+    {
+      "generator": "closed-models",
+      "outputs": [
+        "crates/models-crypto/src/generated/realm_owner_transfer_contracts.rs"
+      ],
+      "owner": "arkret-models-crypto",
+      "mode": "closed-schema-model",
+      "artifacts": [
+        "schemas/event-payload.schema.json",
+        "schemas/keys-operations.schema.json"
+      ],
+      "provides": [
+        "RealmOwnerTransferPatch",
+        "RealmOwnerTransferUnsignedPayload",
+        "RealmOwnerTransferAcceptanceIntent",
+        "RealmOwnerTransferAcceptance"
+      ]
     }
   ]
 }

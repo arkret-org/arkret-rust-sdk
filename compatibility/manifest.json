@@ -1,7 +1,7 @@
 {
   "$schema": "./manifest.schema.json",
   "train": {
-    "id": "arkret-joint-full-20261113",
+    "id": "arkret-protocol-rationality-0191",
     "merge_order": [
       "savfox",
       "arkret-spec",
@@ -21,7 +21,7 @@
   "repositories": {
     "arkret-spec": {
       "repository": "arkret-org/arkret-spec",
-      "commit": "a4942f743b752e689a9a980bb2c62db8d646948c",
+      "commit": "4e46718f83a4fcbedc12ef7409bc68743ec41dc9",
       "checkout_path": "arkret-spec",
       "roles": [
         "normative-artifacts",

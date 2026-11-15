@@ -20,7 +20,7 @@
 // sha256=0ae0fec5fd63dca4b9df9293eb71936cf73a3eeeae13b2268dc99699c1ed7607
 //
 // Input: schemas/current-state.schema.json
-// sha256=7df2b471b4cf8fdd16049ce20e07129c8669d5de08f2bd80e1ecd0d142162973
+// sha256=d39b10f29f0643de97ab3055fb768a3b0a5b0f2eeb7bf3b2f8f9dd85c70b5c03
 //
 // Input: schemas/agent-sidecar-exchange-control.schema.json
 // sha256=0c1ecd7521ba0c11819ccefe10ce224c13cd432e2da463bf1cb2548132603b38
@@ -29,7 +29,7 @@
 // sha256=6652f814405afb672ebc20ca69bdd58f47a3847606d5f5b890b3306b5949d947
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=dc73c01cf2bfb7cc6d4969c8f2f7faa6e44275c4a585ad81f3c94ac408daab8c
+// sha256=f8598148149e81024ca07d8b02d6f7c48f1dc0672c100b2e8e4103790a652e46
 
 /// Counterpart: `agent-sidecar-view-state.schema.json`.
 /// Controller-private encrypted account-data plaintext for one hosted Sidecar

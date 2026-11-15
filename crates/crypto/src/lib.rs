@@ -18,6 +18,8 @@ pub mod aead_nonce;
 pub mod backup;
 #[cfg(feature = "blob-aead")]
 pub mod blob_aead;
+#[cfg(feature = "blob-aead")]
+pub mod call_recording;
 #[cfg(feature = "content-history")]
 pub mod content_history;
 #[cfg(feature = "blob-aead")]

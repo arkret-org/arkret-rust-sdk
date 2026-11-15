@@ -2,25 +2,25 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/call-recording-artifact.schema.json
-// sha256=0e2e01ff0e3af4c9a7bf2a940441302e1ceccd9e82081336a401d8c252ce0038
+// sha256=9ba1c589fd39b699197ea8accf07745d87868410f39a3194380062a4700ef48f
 //
 // Input: schemas/blob-operations.schema.json
 // sha256=22ea9fba9b25f14681d440a87a556beed4b74611057513e66a5178d01fdfa094
 //
 // Input: schemas/event-payload.schema.json
-// sha256=110f3442df382c602cece0f2f5e0b4f2af3a0374f493911960b3cf6216f99a95
+// sha256=25014dfa0753800eba6d70e87ef3c5464d3ff2b22969282911e7f73672f68947
 //
 // Input: schemas/account-operations.schema.json
 // sha256=0ae0fec5fd63dca4b9df9293eb71936cf73a3eeeae13b2268dc99699c1ed7607
 //
 // Input: schemas/current-state.schema.json
-// sha256=7df2b471b4cf8fdd16049ce20e07129c8669d5de08f2bd80e1ecd0d142162973
+// sha256=d39b10f29f0643de97ab3055fb768a3b0a5b0f2eeb7bf3b2f8f9dd85c70b5c03
 //
 // Input: schemas/../registry/contract-registry.json
-// sha256=20c973fcbc386b8d1148783837c9977134d1dab586d4fff11b57a69091a820e3
+// sha256=32b45bae8c2f8f58d1648060f497dffb23cb48e6978b05f55bcdf02386ab34b9
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=dc73c01cf2bfb7cc6d4969c8f2f7faa6e44275c4a585ad81f3c94ac408daab8c
+// sha256=f8598148149e81024ca07d8b02d6f7c48f1dc0672c100b2e8e4103790a652e46
 
 /// Counterpart: `call-recording-artifact.schema.json`.
 /// Counterpart for `spec/v1/artifacts/schemas/call-recording-artifact.schema.json`.

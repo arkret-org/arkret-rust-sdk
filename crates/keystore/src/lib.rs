@@ -38,8 +38,8 @@
 //! File and Windows stores serialize every mutation with their stable vault lock.
 //! macOS uses a private per-user stable OS file lock shared by all SDK writers in
 //! one Keychain service; the system account home is resolved independently of HOME and
-//! TMPDIR, outside temporary-file cleanup. Linux holds a namespaced D-Bus lease on the actual Secret Service
-//! connection. Process exit releases the OS lock or lease. Direct external writers
+//! TMPDIR, outside temporary-file cleanup. Linux holds a namespaced D-Bus lease on the actual
+//! Secret Service connection. Process exit releases the OS lock or lease. Direct external writers
 //! must not mutate the macOS or Linux namespace concurrently; ambiguous Secret
 //! Service items fail closed. Custom import-only backends default to typed
 //! `Unsupported` for first creation and compare exchange, without emulating them
