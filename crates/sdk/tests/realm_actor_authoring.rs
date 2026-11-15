@@ -914,3 +914,124 @@ fn private_current_material_requires_exact_original_source_coordinates() {
         assert!(wrong.validate().is_err(), "{field}");
     }
 }
+
+#[test]
+fn private_current_writer_accepts_only_the_exact_native_series_writer() {
+    // The positive Event is the unchanged, signed official KAT original.
+    // Mutations below test this pure writer/selector check, not a claim that
+    // mutated signatures or first admissions remain cryptographically valid.
+    let fixture = arkret_schema_conformance::spec_json_artifact(
+        "fixtures/realm-actor-content-backup-fixture.json",
+    )
+    .unwrap();
+    let event: Event = serde_json::from_value(
+        fixture["archive_inventory"]["entries"][2]["source"]["event"].clone(),
+    )
+    .unwrap();
+    let selector: CurrentSelector =
+        serde_json::from_value(fixture["native_current"]["selector"].clone()).unwrap();
+    let CurrentSelector::RealmActorKeyBackupActiveSeries {
+        actor_id,
+        effective_scope,
+        backup_kind,
+    } = &selector
+    else {
+        panic!("official native series selector required");
+    };
+    assert!(matches!(event.actor_id, ActorId::Service { .. }));
+    assert_eq!(event.kind, EventKind::KeyBackupActiveSeries);
+    assert_eq!(*backup_kind, RealmActorBackupKind::SecretStorage);
+    assert_ne!(
+        &event.actor_id, actor_id,
+        "the Service writer is not the Realm actor subject"
+    );
+    validate_realm_actor_current_writer(&selector, &event).unwrap();
+
+    let mut other_actor = actor_id.as_realm_actor_id().unwrap().clone();
+    let (other_candidate, _) = candidate();
+    other_actor.principal_id = other_candidate
+        .actor_id
+        .as_realm_actor_id()
+        .unwrap()
+        .principal_id
+        .clone();
+    assert_ne!(&other_actor, actor_id.as_realm_actor_id().unwrap());
+    let other_actor = ActorId::Realm {
+        realm_actor_id: other_actor,
+    };
+    let wrong_actor = CurrentSelector::RealmActorKeyBackupActiveSeries {
+        actor_id: other_actor.clone(),
+        effective_scope: effective_scope.clone(),
+        backup_kind: *backup_kind,
+    };
+    assert!(validate_realm_actor_current_writer(&wrong_actor, &event).is_err());
+    let wrong_scope = CurrentSelector::RealmActorKeyBackupActiveSeries {
+        actor_id: actor_id.clone(),
+        effective_scope: ScopeRef::Circle {
+            realm_id: event.realm_id.clone(),
+            circle_id: CircleId::from_event_id(&EventId::from_digest(
+                DigestSuite::Sha256,
+                [92; 32],
+            )),
+        },
+        backup_kind: *backup_kind,
+    };
+    assert!(validate_realm_actor_current_writer(&wrong_scope, &event).is_err());
+    let mut wrong = event.clone();
+    wrong.payload.insert("actor_id".into(), json!(other_actor));
+    assert!(validate_realm_actor_current_writer(&selector, &wrong).is_err());
+    let mut wrong = event.clone();
+    wrong.scope_ref = effective_scope.clone();
+    assert!(validate_realm_actor_current_writer(&selector, &wrong).is_err());
+    let mut wrong = event.clone();
+    wrong.realm_id = RealmId::from_event_id(&EventId::from_digest(DigestSuite::Sha256, [93; 32]));
+    assert!(validate_realm_actor_current_writer(&selector, &wrong).is_err());
+    let mut wrong = event.clone();
+    wrong.kind = EventKind::RealmActorRecoverySet;
+    assert!(validate_realm_actor_current_writer(&selector, &wrong).is_err());
+    let unrelated = CurrentSelector::RealmActorRecovery {
+        actor_id: actor_id.clone(),
+    };
+    assert!(validate_realm_actor_current_writer(&unrelated, &event).is_err());
+
+    let account = ActorId::account(AccountId::new(
+        DidCoreId::new("ak:did_core:web:account.example").unwrap(),
+        DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+    ));
+    for non_service in [actor_id.clone(), account] {
+        let mut wrong = event.clone();
+        wrong.actor_id = non_service;
+        assert!(validate_realm_actor_current_writer(&selector, &wrong).is_err());
+    }
+    let mut wrong = event.clone();
+    wrong.executed_by = Some(event.actor_id.clone());
+    assert!(validate_realm_actor_current_writer(&selector, &wrong).is_err());
+    let mut wrong = event.clone();
+    wrong.authorization_ref = Some(GrantId::from_event_id(&event.event_id).into());
+    assert!(validate_realm_actor_current_writer(&selector, &wrong).is_err());
+
+    for field in [
+        "effective_scope",
+        "manager_ref",
+        "recovery_ref",
+        "recipient_ref",
+    ] {
+        let mut wrong = event.clone();
+        wrong.payload.remove(field);
+        assert!(
+            validate_realm_actor_current_writer(&selector, &wrong).is_err(),
+            "missing {field}"
+        );
+    }
+    let mut wrong = event;
+    wrong
+        .payload
+        .insert("backup_kind".into(), json!("unsupported"));
+    assert!(validate_realm_actor_current_writer(&selector, &wrong).is_err());
+    let mut wrong_selector = fixture["native_current"]["selector"].clone();
+    wrong_selector["backup_kind"] = json!("unsupported");
+    assert!(
+        serde_json::from_value::<CurrentSelector>(wrong_selector).is_err(),
+        "the closed selector has only the registered secret_storage class"
+    );
+}
