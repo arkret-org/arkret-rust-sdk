@@ -474,7 +474,7 @@ pub fn realm_actor_content_backup_recipient_from_document(
     }
     let recipient = arkret_models_crypto::RealmActorContentBackupRecipient {
         key_agreement_ref: key_agreement_ref.clone(),
-        hpke_suite: arkret_models_crypto::RealmActorContentBackupRecipientHpkeSuite::AkHpkeX25519AeadChacha20poly1305V1,
+        hpke_suite: arkret_models_crypto::ContentBackupRecipientHpkeSuite::AkHpkeX25519AeadChacha20poly1305V1,
         public_key_base64url: arkret_canonical::base64url_encode(&bytes[2..]),
     };
     validate_realm_actor_content_backup_recipient(document, &recipient)?;

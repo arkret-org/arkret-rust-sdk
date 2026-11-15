@@ -796,21 +796,6 @@ pub fn digest_bytes(suite: DigestSuite, bytes: impl AsRef<[u8]>) -> [u8; 32] {
     }
 }
 
-/// Compute one raw digest without forcing callers to concatenate domain-
-/// separated inputs into an intermediate buffer.
-pub fn digest_bytes_from_slices(suite: DigestSuite, parts: &[&[u8]]) -> [u8; 32] {
-    match suite {
-        DigestSuite::Sha256 => sha256_bytes_from_slices(parts),
-        DigestSuite::Blake3 => {
-            let mut hasher = blake3::Hasher::new();
-            for part in parts {
-                hasher.update(part);
-            }
-            *hasher.finalize().as_bytes()
-        }
-    }
-}
-
 pub fn digest(suite: DigestSuite, bytes: impl AsRef<[u8]>) -> String {
     format!("{}:{}", suite.as_str(), digest_hex(suite, bytes.as_ref()))
 }

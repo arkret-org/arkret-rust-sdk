@@ -248,9 +248,6 @@ pub use arkret_models_collaboration::{
 };
 pub use arkret_models_crypto::artifacts_keys::*;
 pub use arkret_models_crypto::authority_set_policy::*;
-pub use arkret_models_crypto::content_history::{
-    RealmActorContentBackupRecipient, RealmActorContentBackupRecipientHpkeSuite,
-};
 pub use arkret_models_crypto::encrypted_attachment::*;
 pub use arkret_models_crypto::encrypted_envelope::{
     EncryptedPayload, EventContentPreEncryptionHeader, EventContentRoutingContext,
@@ -274,6 +271,9 @@ pub use arkret_models_crypto::mls_records::{
 };
 pub use arkret_models_crypto::protected_payload::{
     MlsEncryptedPayload, MlsPayloadType, PlainPayload, ProtectedPayload,
+};
+pub use arkret_models_crypto::realm_actor_content_backup::{
+    ContentBackupRecipientHpkeSuite, RealmActorContentBackupRecipient,
 };
 pub use arkret_models_crypto::recovery_policy::*;
 pub use arkret_models_crypto::recovery_session::*;
