@@ -630,7 +630,7 @@ pub fn validate_realm_actor_current_writer(
     use arkret_wire::{EventKind as K, RealmActorStatusGate, ScopeRef};
     let actor = realm_actor_selector_subject(selector).ok_or_else(invalid)?;
     let subject = actor.as_realm_actor_id().ok_or_else(invalid)?;
-    let target = if event.kind == K::RealmActorCreate {
+    let target = if matches!(event.kind, K::RealmActorCreate | K::KeyBackupActiveSeries) {
         event.payload.get("actor_id")
     } else {
         event.payload.get("target_actor_id")
@@ -702,6 +702,29 @@ pub fn validate_realm_actor_current_writer(
         }
         CurrentSelector::RealmActorProfile { .. } => {
             matches!(event.kind, K::ProfileCreate | K::ProfileUpdate)
+        }
+        CurrentSelector::RealmActorKeyBackupActiveSeries {
+            effective_scope,
+            backup_kind,
+            ..
+        } => {
+            if event.kind != K::KeyBackupActiveSeries
+                || !matches!(event.actor_id, ActorId::Service { .. })
+                || event.executed_by.is_some()
+                || event.authorization_ref.is_some()
+            {
+                false
+            } else {
+                // Deserialize reuses the one native record validator. This
+                // checks the writer's selector, not today's business authority;
+                // accepted source/signatures/current gates remain independent.
+                let record: arkret_models_collaboration::events_payloads::KeyBackupActiveSeries =
+                    serde_json::from_value(serde_json::to_value(&event.payload)?)?;
+                record.actor_id == *actor
+                    && record.effective_scope.as_ref() == Some(effective_scope)
+                    && *backup_kind == arkret_wire::RealmActorBackupKind::SecretStorage
+                    && record.backup_kind == arkret_models_crypto::BackupKind::SecretStorage
+            }
         }
         _ => false,
     };
