@@ -502,7 +502,7 @@ pub fn key_commitment_value(
 /// is fixed before the envelope is sealed; `KeyBackup::validate` re-checks that
 /// the top-level `device_id`, when present, names this same device.
 #[derive(Clone, Debug)]
-pub struct KeyBackupAuthBinding {
+pub struct KeyBackupAuthorizationBinding {
     pub device_id: DeviceId,
     pub verification_method: DidUrl,
     pub signature_algorithm: KeyBackupSignatureAlgorithm,
@@ -699,7 +699,7 @@ pub fn build_key_backup_envelope(
     subdomain: &str,
     kek: &VaultKek,
     items: Vec<SecretStorageSecret>,
-    auth: &KeyBackupAuthBinding,
+    auth: &KeyBackupAuthorizationBinding,
     sign: KeyBackupSignFn<'_>,
 ) -> Result<KeyBackup> {
     build_key_backup_envelope_with_extensions(
@@ -732,7 +732,7 @@ pub fn build_key_backup_envelope_with_extensions(
     aead_aad_extensions: XExtensionMap,
     kek: &VaultKek,
     items: Vec<SecretStorageSecret>,
-    auth: &KeyBackupAuthBinding,
+    auth: &KeyBackupAuthorizationBinding,
     sign: KeyBackupSignFn<'_>,
     source_commit_ref: Option<KeyBackupSourceCommitRef>,
 ) -> Result<KeyBackup> {
@@ -775,7 +775,7 @@ pub fn build_key_backup_successor_envelope(
     backup_version: &str,
     kek: &VaultKek,
     items: Vec<SecretStorageSecret>,
-    auth: &KeyBackupAuthBinding,
+    auth: &KeyBackupAuthorizationBinding,
     sign: KeyBackupSignFn<'_>,
     source_commit_ref: Option<KeyBackupSourceCommitRef>,
 ) -> Result<KeyBackup> {
@@ -839,7 +839,7 @@ fn build_key_backup_envelope_in_series(
     aead_aad_extensions: XExtensionMap,
     kek: &VaultKek,
     items: Vec<SecretStorageSecret>,
-    auth: &KeyBackupAuthBinding,
+    auth: &KeyBackupAuthorizationBinding,
     sign: KeyBackupSignFn<'_>,
     series_id: BackupSeriesId,
     series_sequence: u64,
@@ -1091,8 +1091,8 @@ mod tests {
         ))
     }
 
-    fn auth() -> KeyBackupAuthBinding {
-        KeyBackupAuthBinding {
+    fn auth() -> KeyBackupAuthorizationBinding {
+        KeyBackupAuthorizationBinding {
             device_id: DEVICE.parse().unwrap(),
             verification_method: DidUrl::new("did:web:station.example#device-1").unwrap(),
             signature_algorithm: KeyBackupSignatureAlgorithm::Ed25519,

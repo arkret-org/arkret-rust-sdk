@@ -1,0 +1,121 @@
+{
+  "generated_by": "tools/regenerate-independent-wire-kats.py",
+  "source_fixture_sha256": "e10ae0d0be2bdcce5c279a7f789e26fd8505ff54f36d7c253cf5f214b7e5956a",
+  "cases": {
+    "device": {
+      "challenge": {
+        "challenge_id": "AAAAAAAAAAAAAAAAAAAAAA",
+        "challenge": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "operation": "ak.self.keys.backups.command.unlock.v1",
+        "backup_id": "ak:backup:019a0000-0000-7000-8000-000000000011",
+        "audience": "https://station.example",
+        "service_id": "ak:did_core:webvh:Qmeb5RhmwTxUYLrj1N7TPi3b7K3GP2UFJWLQP5iGXGM14d",
+        "request_id": "BBBBBBBBBBBBBBBBBBBBBB",
+        "issued_at": "2026-11-14T12:00:00.000Z",
+        "expires_at": "2026-11-14T12:05:00.000Z",
+        "series_id": "ak:backup_series:019a0000-0000-7000-8000-000000000011",
+        "ciphertext_digest": "sha256:ff44008f37fcf463ae1e74c4ee1194cf31b6b95dd02c50d70e3f123dcee688af",
+        "kind": "realm_actor_device",
+        "purpose": "series_predecessor",
+        "realm_actor_id": {
+          "realm_id": "ak:realm:AZpLtDWqLwif2S5xSb7wlduelIs-C6Xy4fBkEFM7DyRx",
+          "principal_id": "ak:did_core:webvh:QmNeYrZsfRc7rMmasMWDoLP2hSbzSK2pf867qHFc8mmcNC"
+        },
+        "effective_scope": {
+          "kind": "realm",
+          "realm_id": "ak:realm:AZpLtDWqLwif2S5xSb7wlduelIs-C6Xy4fBkEFM7DyRx"
+        },
+        "manager_ref": {
+          "event_id": "ak:event:ATyvglTQEFwT_LkbjOOxvGkMGXXpthJbNExAkGgQf0nj",
+          "commit_id": "ak:realm_commit:AXKepb87o37UTFqisxYWNkp-4YUL3S2at1qVblemn6k5",
+          "stream_ref": {
+            "kind": "realm_control",
+            "realm_id": "ak:realm:AZpLtDWqLwif2S5xSb7wlduelIs-C6Xy4fBkEFM7DyRx"
+          },
+          "stream_position": 0
+        },
+        "recovery_ref": {
+          "event_id": "ak:event:ATyvglTQEFwT_LkbjOOxvGkMGXXpthJbNExAkGgQf0nj",
+          "commit_id": "ak:realm_commit:AXKepb87o37UTFqisxYWNkp-4YUL3S2at1qVblemn6k5",
+          "stream_ref": {
+            "kind": "realm_control",
+            "realm_id": "ak:realm:AZpLtDWqLwif2S5xSb7wlduelIs-C6Xy4fBkEFM7DyRx"
+          },
+          "stream_position": 0
+        },
+        "recipient_ref": {
+          "event_id": "ak:event:ATyvglTQEFwT_LkbjOOxvGkMGXXpthJbNExAkGgQf0nj",
+          "commit_id": "ak:realm_commit:AXKepb87o37UTFqisxYWNkp-4YUL3S2at1qVblemn6k5",
+          "stream_ref": {
+            "kind": "realm_control",
+            "realm_id": "ak:realm:AZpLtDWqLwif2S5xSb7wlduelIs-C6Xy4fBkEFM7DyRx"
+          },
+          "stream_position": 0
+        },
+        "envelope_digest": "sha256:c94a940a8fa7a78869cac913fe1ad108be275b894e3b69490b121c934766d623",
+        "requesting_device_id": "ak:device:019a0000-0000-7000-8000-000000000011",
+        "device_authorize_event_id": "ak:event:ARSmMtMMSg-I87Ty7BhZL0cT8ZW28NGmBgIRgrIUrcB9",
+        "device_generation": 1
+      },
+      "preimage_utf8": "{\"audience\":\"https://station.example\",\"backup_id\":\"ak:backup:019a0000-0000-7000-8000-000000000011\",\"backup_kind\":\"secret_storage\",\"challenge\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\",\"challenge_id\":\"AAAAAAAAAAAAAAAAAAAAAA\",\"ciphertext_digest\":\"sha256:ff44008f37fcf463ae1e74c4ee1194cf31b6b95dd02c50d70e3f123dcee688af\",\"device_authorize_event_id\":\"ak:event:ARSmMtMMSg-I87Ty7BhZL0cT8ZW28NGmBgIRgrIUrcB9\",\"device_generation\":1,\"effective_scope\":{\"kind\":\"realm\",\"realm_id\":\"ak:realm:AZpLtDWqLwif2S5xSb7wlduelIs-C6Xy4fBkEFM7DyRx\"},\"envelope_digest\":\"sha256:c94a940a8fa7a78869cac913fe1ad108be275b894e3b69490b121c934766d623\",\"expires_at\":\"2026-11-14T12:05:00.000Z\",\"issued_at\":\"2026-11-14T12:00:00.000Z\",\"kind\":\"realm_actor_device\",\"manager_ref\":{\"commit_id\":\"ak:realm_commit:AXKepb87o37UTFqisxYWNkp-4YUL3S2at1qVblemn6k5\",\"event_id\":\"ak:event:ATyvglTQEFwT_LkbjOOxvGkMGXXpthJbNExAkGgQf0nj\",\"stream_position\":0,\"stream_ref\":{\"kind\":\"realm_control\",\"realm_id\":\"ak:realm:AZpLtDWqLwif2S5xSb7wlduelIs-C6Xy4fBkEFM7DyRx\"}},\"purpose\":\"series_predecessor\",\"realm_actor_id\":{\"principal_id\":\"ak:did_core:webvh:QmNeYrZsfRc7rMmasMWDoLP2hSbzSK2pf867qHFc8mmcNC\",\"realm_id\":\"ak:realm:AZpLtDWqLwif2S5xSb7wlduelIs-C6Xy4fBkEFM7DyRx\"},\"recipient_ref\":{\"commit_id\":\"ak:realm_commit:AXKepb87o37UTFqisxYWNkp-4YUL3S2at1qVblemn6k5\",\"event_id\":\"ak:event:ATyvglTQEFwT_LkbjOOxvGkMGXXpthJbNExAkGgQf0nj\",\"stream_position\":0,\"stream_ref\":{\"kind\":\"realm_control\",\"realm_id\":\"ak:realm:AZpLtDWqLwif2S5xSb7wlduelIs-C6Xy4fBkEFM7DyRx\"}},\"recovery_ref\":{\"commit_id\":\"ak:realm_commit:AXKepb87o37UTFqisxYWNkp-4YUL3S2at1qVblemn6k5\",\"event_id\":\"ak:event:ATyvglTQEFwT_LkbjOOxvGkMGXXpthJbNExAkGgQf0nj\",\"stream_position\":0,\"stream_ref\":{\"kind\":\"realm_control\",\"realm_id\":\"ak:realm:AZpLtDWqLwif2S5xSb7wlduelIs-C6Xy4fBkEFM7DyRx\"}},\"requesting_device_id\":\"ak:device:019a0000-0000-7000-8000-000000000011\",\"schema\":\"ak.schema.key_backup_unlock_proof.v1\",\"series_id\":\"ak:backup_series:019a0000-0000-7000-8000-000000000011\",\"service_id\":\"ak:did_core:webvh:Qmeb5RhmwTxUYLrj1N7TPi3b7K3GP2UFJWLQP5iGXGM14d\",\"signature_proof\":{\"signature_algorithm\":\"Ed25519\",\"verification_method\":\"did:webvh:QmNeYrZsfRc7rMmasMWDoLP2hSbzSK2pf867qHFc8mmcNC:applet.example:actors:bot#ak:device:019a0000-0000-7000-8000-000000000011\"}}",
+      "transcript_digest": "sha256:f3e9f4a3a5f0aa89cffe9b8c5a071e55b2ea817e8bf6306a4af88b08566d7b26",
+      "signature": "5krDGumVDeR-gZfJXiT4rMkY9M8ZYmX2gYPAS2uudEzfVKOEkz6pkZYp_z4PsoyCohfLS2ZvmQgh4xQTNJxBCA"
+    },
+    "manager": {
+      "challenge": {
+        "challenge_id": "AAAAAAAAAAAAAAAAAAAAAA",
+        "challenge": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "operation": "ak.self.keys.backups.command.unlock.v1",
+        "backup_id": "ak:backup:019a0000-0000-7000-8000-000000000011",
+        "audience": "https://station.example",
+        "service_id": "ak:did_core:webvh:Qmeb5RhmwTxUYLrj1N7TPi3b7K3GP2UFJWLQP5iGXGM14d",
+        "request_id": "BBBBBBBBBBBBBBBBBBBBBB",
+        "issued_at": "2026-11-14T12:00:00.000Z",
+        "expires_at": "2026-11-14T12:05:00.000Z",
+        "series_id": "ak:backup_series:019a0000-0000-7000-8000-000000000011",
+        "ciphertext_digest": "sha256:ff44008f37fcf463ae1e74c4ee1194cf31b6b95dd02c50d70e3f123dcee688af",
+        "kind": "realm_actor_manager",
+        "purpose": "archive_recovery",
+        "realm_actor_id": {
+          "realm_id": "ak:realm:AZpLtDWqLwif2S5xSb7wlduelIs-C6Xy4fBkEFM7DyRx",
+          "principal_id": "ak:did_core:webvh:QmNeYrZsfRc7rMmasMWDoLP2hSbzSK2pf867qHFc8mmcNC"
+        },
+        "effective_scope": {
+          "kind": "realm",
+          "realm_id": "ak:realm:AZpLtDWqLwif2S5xSb7wlduelIs-C6Xy4fBkEFM7DyRx"
+        },
+        "manager_ref": {
+          "event_id": "ak:event:ATyvglTQEFwT_LkbjOOxvGkMGXXpthJbNExAkGgQf0nj",
+          "commit_id": "ak:realm_commit:AXKepb87o37UTFqisxYWNkp-4YUL3S2at1qVblemn6k5",
+          "stream_ref": {
+            "kind": "realm_control",
+            "realm_id": "ak:realm:AZpLtDWqLwif2S5xSb7wlduelIs-C6Xy4fBkEFM7DyRx"
+          },
+          "stream_position": 0
+        },
+        "recovery_ref": {
+          "event_id": "ak:event:ATyvglTQEFwT_LkbjOOxvGkMGXXpthJbNExAkGgQf0nj",
+          "commit_id": "ak:realm_commit:AXKepb87o37UTFqisxYWNkp-4YUL3S2at1qVblemn6k5",
+          "stream_ref": {
+            "kind": "realm_control",
+            "realm_id": "ak:realm:AZpLtDWqLwif2S5xSb7wlduelIs-C6Xy4fBkEFM7DyRx"
+          },
+          "stream_position": 0
+        },
+        "recipient_ref": {
+          "event_id": "ak:event:ATyvglTQEFwT_LkbjOOxvGkMGXXpthJbNExAkGgQf0nj",
+          "commit_id": "ak:realm_commit:AXKepb87o37UTFqisxYWNkp-4YUL3S2at1qVblemn6k5",
+          "stream_ref": {
+            "kind": "realm_control",
+            "realm_id": "ak:realm:AZpLtDWqLwif2S5xSb7wlduelIs-C6Xy4fBkEFM7DyRx"
+          },
+          "stream_position": 0
+        },
+        "envelope_digest": "sha256:c94a940a8fa7a78869cac913fe1ad108be275b894e3b69490b121c934766d623"
+      },
+      "preimage_utf8": "{\"audience\":\"https://station.example\",\"backup_id\":\"ak:backup:019a0000-0000-7000-8000-000000000011\",\"backup_kind\":\"secret_storage\",\"challenge\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\",\"challenge_id\":\"AAAAAAAAAAAAAAAAAAAAAA\",\"ciphertext_digest\":\"sha256:ff44008f37fcf463ae1e74c4ee1194cf31b6b95dd02c50d70e3f123dcee688af\",\"effective_scope\":{\"kind\":\"realm\",\"realm_id\":\"ak:realm:AZpLtDWqLwif2S5xSb7wlduelIs-C6Xy4fBkEFM7DyRx\"},\"envelope_digest\":\"sha256:c94a940a8fa7a78869cac913fe1ad108be275b894e3b69490b121c934766d623\",\"expires_at\":\"2026-11-14T12:05:00.000Z\",\"issued_at\":\"2026-11-14T12:00:00.000Z\",\"kind\":\"realm_actor_manager\",\"manager_ref\":{\"commit_id\":\"ak:realm_commit:AXKepb87o37UTFqisxYWNkp-4YUL3S2at1qVblemn6k5\",\"event_id\":\"ak:event:ATyvglTQEFwT_LkbjOOxvGkMGXXpthJbNExAkGgQf0nj\",\"stream_position\":0,\"stream_ref\":{\"kind\":\"realm_control\",\"realm_id\":\"ak:realm:AZpLtDWqLwif2S5xSb7wlduelIs-C6Xy4fBkEFM7DyRx\"}},\"purpose\":\"archive_recovery\",\"realm_actor_id\":{\"principal_id\":\"ak:did_core:webvh:QmNeYrZsfRc7rMmasMWDoLP2hSbzSK2pf867qHFc8mmcNC\",\"realm_id\":\"ak:realm:AZpLtDWqLwif2S5xSb7wlduelIs-C6Xy4fBkEFM7DyRx\"},\"recipient_ref\":{\"commit_id\":\"ak:realm_commit:AXKepb87o37UTFqisxYWNkp-4YUL3S2at1qVblemn6k5\",\"event_id\":\"ak:event:ATyvglTQEFwT_LkbjOOxvGkMGXXpthJbNExAkGgQf0nj\",\"stream_position\":0,\"stream_ref\":{\"kind\":\"realm_control\",\"realm_id\":\"ak:realm:AZpLtDWqLwif2S5xSb7wlduelIs-C6Xy4fBkEFM7DyRx\"}},\"recovery_ref\":{\"commit_id\":\"ak:realm_commit:AXKepb87o37UTFqisxYWNkp-4YUL3S2at1qVblemn6k5\",\"event_id\":\"ak:event:ATyvglTQEFwT_LkbjOOxvGkMGXXpthJbNExAkGgQf0nj\",\"stream_position\":0,\"stream_ref\":{\"kind\":\"realm_control\",\"realm_id\":\"ak:realm:AZpLtDWqLwif2S5xSb7wlduelIs-C6Xy4fBkEFM7DyRx\"}},\"schema\":\"ak.schema.key_backup_unlock_proof.v1\",\"series_id\":\"ak:backup_series:019a0000-0000-7000-8000-000000000011\",\"service_id\":\"ak:did_core:webvh:Qmeb5RhmwTxUYLrj1N7TPi3b7K3GP2UFJWLQP5iGXGM14d\",\"signature_proof\":{\"signature_algorithm\":\"Ed25519\",\"verification_method\":\"did:web:manager.example#signing-1\"}}",
+      "transcript_digest": "sha256:f9d85636722b60c215ebb869a5955a5ef5aaecd7c618b96fb66545e41e6a9ad4",
+      "signature": "ezyJQKd2T7poq8hpUOcH9nmhcdauHwnx6EmnTPM7UATHHVdJIyC4sThUlmDuSQjv4dmpsLMxJdig8DLlu8EMCg"
+    }
+  }
+}

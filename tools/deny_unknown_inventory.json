@@ -1,13 +1,13 @@
 {
   "summary": {
-    "total": 1627,
+    "total": 1628,
     "by_classification": {
       "A": 7,
-      "B": 1015,
+      "B": 1016,
       "needs_review": 605
     },
     "by_openness": {
-      "closed": 1022,
+      "closed": 1023,
       "unresolved": 602,
       "unspecified": 3
     },
@@ -18,7 +18,7 @@
       "identifiers": 1,
       "identity": 13,
       "mls": 29,
-      "models-collaboration": 886,
+      "models-collaboration": 887,
       "models-crypto": 212,
       "models-discovery": 13,
       "models-identity": 170,
@@ -10652,10 +10652,23 @@
       "flatten_extra": false
     },
     {
+      "rust_type": "crates/models-collaboration/src/objects/queries.rs::Filter",
+      "crate": "models-collaboration",
+      "file": "crates/models-collaboration/src/objects/queries.rs",
+      "line": 74,
+      "kind": "enum",
+      "value_kind": "Filter",
+      "spec_pointer": "query.schema.json#/$defs/query_filter",
+      "schema_openness": "closed",
+      "classification": "B",
+      "cfg_gated": false,
+      "flatten_extra": false
+    },
+    {
       "rust_type": "crates/models-collaboration/src/objects/queries.rs::RelationQuery",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/objects/queries.rs",
-      "line": 37,
+      "line": 108,
       "kind": "struct",
       "value_kind": "RelationQuery",
       "spec_pointer": "query.schema.json#/$defs/relation_query",
@@ -10668,7 +10681,7 @@
       "rust_type": "crates/models-collaboration/src/objects/queries.rs::View",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/objects/queries.rs",
-      "line": 98,
+      "line": 169,
       "kind": "struct",
       "value_kind": "View",
       "spec_pointer": null,

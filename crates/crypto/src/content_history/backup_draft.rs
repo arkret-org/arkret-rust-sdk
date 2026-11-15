@@ -10,14 +10,14 @@ use arkret_wire::{ActorId, BackupId, BackupSeriesId, DidUrl, EventId, Hash, Sche
 use serde_json::{Value, json};
 use zeroize::Zeroizing;
 
-use crate::backup::{KeyBackupAuthBinding, VaultBinding};
+use crate::backup::{KeyBackupAuthorizationBinding, VaultBinding};
 use crate::{Error, Result};
 
 /// An unsigned local selector, never a wire proof or a claim of native authority.
 #[derive(Clone, Debug)]
 pub enum ContentRootBackupAuthor {
     Device {
-        binding: KeyBackupAuthBinding,
+        binding: KeyBackupAuthorizationBinding,
         source: KeyBackupSourceCommitRef,
     },
     Agent {
@@ -53,7 +53,7 @@ pub struct RealmActorContentRootBackupDraft {
     pub backup_id: BackupId,
     pub realm_actor_id: arkret_wire::RealmActorId,
     pub created_at: chrono::DateTime<chrono::Utc>,
-    pub author: KeyBackupAuthBinding,
+    pub author: KeyBackupAuthorizationBinding,
     pub prepare_input: arkret_models_crypto::ContentBackupNextPrepareInput,
     pub domain_separation: KeyBackupDomainSeparation,
     pub series_sequence: u64,
@@ -374,7 +374,7 @@ mod native_tests {
             backup_id: original.backup_id.clone(),
             realm_actor_id: original.actor_id.as_realm_actor_id().unwrap().clone(),
             created_at: original.created_at,
-            author: KeyBackupAuthBinding {
+            author: KeyBackupAuthorizationBinding {
                 device_id: original.signature_proof.device_id.clone().unwrap(),
                 verification_method: original.signature_proof.verification_method.clone(),
                 signature_algorithm: original.signature_proof.signature_algorithm,
@@ -414,6 +414,18 @@ mod native_tests {
         );
         assert!(backup.recovery_policy_ref.is_none());
         assert!(backup.source_commit_ref.is_none());
+        let aad: Value =
+            serde_json::from_slice(&crate::backup::key_backup_aead_aad(&backup).unwrap()).unwrap();
+        assert!(aad.get("authorization_binding").is_some());
+        assert!(aad.get("auth_binding").is_none());
+        let mut previous_name = serde_json::to_value(&backup).unwrap();
+        let binding = previous_name
+            .as_object_mut()
+            .unwrap()
+            .remove("authorization_binding")
+            .unwrap();
+        previous_name["auth_binding"] = binding;
+        assert!(serde_json::from_value::<KeyBackup>(previous_name).is_err());
         let mut bad = backup;
         bad.authorization_binding
             .as_mut()
@@ -479,7 +491,7 @@ mod native_tests {
                 (
                     original.actor_id.clone(),
                     ContentRootBackupAuthor::Device {
-                        binding: KeyBackupAuthBinding {
+                        binding: KeyBackupAuthorizationBinding {
                             device_id: original.signature_proof.device_id.clone().unwrap(),
                             verification_method: method,
                             signature_algorithm: original.signature_proof.signature_algorithm,

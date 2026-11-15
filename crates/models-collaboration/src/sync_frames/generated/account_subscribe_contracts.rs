@@ -5,14 +5,14 @@
 // sha256=ba4f9b067a14c0f6a204ce7687fb39e115823811a98c15438e533e2094139809
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=90f259bd716207902389b280d1d0c8278879933d308c4bc9e070c1ed3bafacd7
+// sha256=378099dfc0552c94d918067d3fefafa8cc572fc164f01f1a4d741a161c5c7c1a
 
 /// Counterpart: `account-subscribe-frame.schema.json#/$defs/account_filter`.
 /// The Account subscribe filter,
 /// `account-subscribe-frame.schema.json#/$defs/account_filter`.
 ///
 /// Field declaration order is byte-for-byte the schema `properties` order.
-/// `window_limit` is the per-visible-stream item ceiling of a stream window,
+/// `max_window_event_count` is the per-visible-stream item ceiling of a stream window,
 /// never a per-Realm budget. `stream_refs` optionally selects the window's
 /// stream set; every entry must belong to a Realm named in `realm_ids`.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]

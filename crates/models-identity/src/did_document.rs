@@ -1277,6 +1277,26 @@ mod tests {
                 .with_timezone(&Utc),
         );
         assert_eq!(normalized_did_document_digest(&document).unwrap(), digest);
+
+        let mut without_alias = normalized_did_document(&document).unwrap();
+        without_alias
+            .as_object_mut()
+            .unwrap()
+            .remove("also_known_as");
+        // These registered deletion preimages test digest sensitivity. They
+        // are not normalized-document inputs that may omit required members.
+        assert_eq!(
+            arkret_canonical::canonical_sha256(&without_alias).unwrap(),
+            "sha256:d34d2ef57520899cc87f1cc0ad60f3682f4a93d7703e357426d6830d97f73d54"
+        );
+        without_alias["metadata"]
+            .as_object_mut()
+            .unwrap()
+            .remove("primary_handle");
+        assert_eq!(
+            arkret_canonical::canonical_sha256(&without_alias).unwrap(),
+            "sha256:037eb484864b3bafb857255825359908e735c4444de5950a3c3856f18e1da69d"
+        );
     }
 
     #[test]

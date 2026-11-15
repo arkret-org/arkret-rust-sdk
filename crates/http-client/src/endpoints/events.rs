@@ -755,6 +755,52 @@ mod tests {
         );
     }
 
+    #[test]
+    fn repeated_actor_query_preserves_each_complete_identity_as_jcs() {
+        let actor = |station: &str| {
+            ActorId::account(arkret_wire::AccountId::new(
+                "ak:did_core:web:alice.example".parse().unwrap(),
+                station.parse().unwrap(),
+            ))
+        };
+        let first = actor("ak:did_core:web:first.example");
+        let second = actor("ak:did_core:web:second.example");
+        let options = CommittedEventSubscribeOptions::new()
+            .actor(first.clone())
+            .actor(second.clone());
+        let request = client()
+            .committed_event_subscribe_request(&options)
+            .unwrap()
+            .build()
+            .unwrap();
+        let actors: Vec<_> = request
+            .url()
+            .query_pairs()
+            .filter(|(name, _)| name == "actor_ids")
+            .map(|(_, value)| value.into_owned())
+            .collect();
+        assert_eq!(
+            actors,
+            vec![
+                String::from_utf8(arkret_canonical::canonical_json_bytes(&first).unwrap()).unwrap(),
+                String::from_utf8(arkret_canonical::canonical_json_bytes(&second).unwrap())
+                    .unwrap(),
+            ]
+        );
+        assert!(request.url().query().unwrap().contains("%7B"));
+        assert_ne!(actors[0], actors[1]);
+        for (encoded, expected) in actors.iter().zip([first.clone(), second]) {
+            assert_eq!(serde_json::from_str::<ActorId>(encoded).unwrap(), expected);
+        }
+        assert!(
+            CommittedEventSubscribeOptions::new()
+                .actor(first.clone())
+                .actor(first)
+                .validate()
+                .is_err()
+        );
+    }
+
     #[tokio::test]
     async fn stream_tail_limit_is_bounded() {
         // The bound is checked before the request is built, so an

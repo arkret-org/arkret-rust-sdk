@@ -9,7 +9,7 @@ impl SpaceCreatePayload {
     }
 
     /// Serialize the create payload, first re-checking the Space invariants
-    /// (`kind` / `title` non-empty, bounded `labels`, `fields.wip_limit`).
+    /// (`kind` / `title` non-empty, bounded `labels`, `fields.max_active_strand_count`).
     pub fn to_value(&self) -> Result<Value> {
         self.object.validate()?;
         serde_json::to_value(self)

@@ -37,9 +37,9 @@ pub const ACCOUNT_SYNC_MAX_KIND_FILTERS: usize = 64;
 /// Default Realm-list page size when the request does not name one.
 pub const ACCOUNT_SYNC_DEFAULT_LIST_LIMIT: u32 = 20;
 /// Default per-visible-stream `filter.max_window_event_count` when the filter omits it.
-pub const ACCOUNT_SYNC_DEFAULT_WINDOW_LIMIT: u32 = 20;
+pub const ACCOUNT_SYNC_DEFAULT_MAX_WINDOW_EVENT_COUNT: u32 = 20;
 /// Protocol ceiling on `filter.max_window_event_count`.
-pub const ACCOUNT_SYNC_MAX_WINDOW_LIMIT: u32 = 100;
+pub const ACCOUNT_SYNC_MAX_WINDOW_EVENT_COUNT: u32 = 100;
 
 pub(crate) fn protocol_error(message: impl Into<String>) -> WireError {
     WireError::Protocol(message.into())

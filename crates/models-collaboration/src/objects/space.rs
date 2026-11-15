@@ -254,14 +254,14 @@ impl Space {
                 "space labels must contain at most 64 entries of at most 128 bytes".to_owned(),
             ));
         }
-        let wip_limit = self.fields.get("max_active_strand_count");
+        let max_active_strand_count = self.fields.get("max_active_strand_count");
         let enforcement = self.fields.get("active_strand_count_enforcement");
-        if self.kind != "list" && (wip_limit.is_some() || enforcement.is_some()) {
+        if self.kind != "list" && (max_active_strand_count.is_some() || enforcement.is_some()) {
             return Err(WireError::Protocol(
                 "space WIP policy is only valid for kind=list".to_owned(),
             ));
         }
-        if let Some(limit) = wip_limit {
+        if let Some(limit) = max_active_strand_count {
             let valid = limit
                 .as_u64()
                 .is_some_and(|limit| (1..=100_000).contains(&limit));
@@ -272,7 +272,7 @@ impl Space {
             }
         }
         if let Some(enforcement) = enforcement
-            && (wip_limit.is_none()
+            && (max_active_strand_count.is_none()
                 || !matches!(
                     enforcement.as_str(),
                     Some("warn" | "reject" | "require_review")

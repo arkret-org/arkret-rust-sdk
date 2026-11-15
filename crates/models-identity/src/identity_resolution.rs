@@ -246,7 +246,7 @@ pub struct PrincipalResolutionAuditRequestBody {
 }
 
 /// Closed upper bound on disclosed predecessor resolution Events.
-pub const PRINCIPAL_RESOLUTION_AUDIT_MAX_HISTORY_DEPTH: u16 = 256;
+pub const PRINCIPAL_RESOLUTION_AUDIT_MAX_PREDECESSOR_EVENT_COUNT: u16 = 256;
 
 impl PrincipalResolutionAuditRequestBody {
     pub fn new(account_id: AccountId) -> Self {
@@ -263,9 +263,9 @@ impl PrincipalResolutionAuditRequestBody {
     /// depth 0 could never apply because depth 0 discloses no predecessor.
     pub fn validate(&self) -> arkret_wire::Result<()> {
         let depth = self.max_predecessor_event_count.unwrap_or(0);
-        if depth > PRINCIPAL_RESOLUTION_AUDIT_MAX_HISTORY_DEPTH {
+        if depth > PRINCIPAL_RESOLUTION_AUDIT_MAX_PREDECESSOR_EVENT_COUNT {
             return Err(arkret_wire::WireError::Protocol(format!(
-                "principal resolution max_predecessor_event_count exceeds {PRINCIPAL_RESOLUTION_AUDIT_MAX_HISTORY_DEPTH}"
+                "principal resolution max_predecessor_event_count exceeds {PRINCIPAL_RESOLUTION_AUDIT_MAX_PREDECESSOR_EVENT_COUNT}"
             )));
         }
         if self.after_resolution_event_ref.is_some() && depth == 0 {

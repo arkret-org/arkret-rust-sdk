@@ -4,7 +4,7 @@
 //! writer authority, recipient-policy acceptance or physical storage.
 
 use arkret_canonical::base64url_decode;
-use arkret_crypto::backup::KeyBackupAuthBinding;
+use arkret_crypto::backup::KeyBackupAuthorizationBinding;
 use arkret_crypto::content_history::{
     ContentRootBackupAuthor, ContentRootBackupDraft, content_root_backup_info,
     open_content_root_backup,
@@ -59,7 +59,7 @@ fn fixture() -> Fixture {
         created_at: envelope.created_at,
         expires_at: envelope.expires_at.flatten(),
         author: ContentRootBackupAuthor::Device {
-            binding: KeyBackupAuthBinding {
+            binding: KeyBackupAuthorizationBinding {
                 device_id: envelope.signature_proof.device_id.unwrap(),
                 verification_method: envelope.signature_proof.verification_method,
                 signature_algorithm: envelope.signature_proof.signature_algorithm,

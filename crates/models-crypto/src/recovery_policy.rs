@@ -518,7 +518,7 @@ mod tests {
     }
 
     #[test]
-    fn device_quorum_threshold_cannot_exceed_its_member_count() {
+    fn device_quorum_min_device_count_cannot_exceed_its_member_count() {
         let method: RecoveryMethod = serde_json::from_value(json!({
             "kind": "device_quorum",
             "min_device_count": 3,

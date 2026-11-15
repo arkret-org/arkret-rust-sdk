@@ -10687,7 +10687,7 @@
       "authority": "key-backup.schema.json",
       "action": "Retain this exact typed signing projection only; validate the canonical carrier before any protocol output or signature use.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "Native draft constructs the registered HPKE envelope, including canonical native AAD and the exact public auth binding; a real signature is inserted, then the result is decoded as KeyBackup and validated before returning. This exact native construction does not accept an arbitrary caller JSON payload.",
+      "reason": "Native draft constructs the registered HPKE envelope, including canonical native AAD and the exact public authorization binding; a real signature is inserted, then the result is decoded as KeyBackup and validated before returning. This exact native construction does not accept an arbitrary caller JSON payload.",
       "evidence": "json!({\"backup_id\":self.backup_id,\"actor_id\":actor_id,\"device_id\":self.author.device_id, \"backup_kind\":BackupKind::SecretStorage,\"backup_version\":\"kb_content_roots\", \"created_at\":arkret_canonical::format_timestamp_canonical(self.created_at), \"encryption\":{\"recipient_method\":\"r..."
     },
     {

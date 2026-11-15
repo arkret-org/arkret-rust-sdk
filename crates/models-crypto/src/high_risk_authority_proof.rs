@@ -38,7 +38,7 @@ impl HighRiskAuthorityProof {
             Self::DeviceQuorum(body) => {
                 if body.min_device_count < 2 {
                     return Err(WireError::Protocol(
-                        "high-risk device quorum threshold is at least two".to_owned(),
+                        "high-risk device quorum min_device_count is at least two".to_owned(),
                     ));
                 }
                 if body.signatures.is_empty() {
@@ -140,6 +140,15 @@ mod tests {
             .expect("schema floor is one signature");
         assert!(parsed.recovery_session_id().is_none());
         assert_eq!(serde_json::to_value(&parsed).unwrap(), value);
+
+        let mut previous_name = value.clone();
+        let count = previous_name
+            .as_object_mut()
+            .unwrap()
+            .remove("min_device_count")
+            .unwrap();
+        previous_name["threshold"] = count;
+        assert!(serde_json::from_value::<HighRiskAuthorityProof>(previous_name).is_err());
 
         let mut below_floor = value.clone();
         below_floor["min_device_count"] = json!(1);

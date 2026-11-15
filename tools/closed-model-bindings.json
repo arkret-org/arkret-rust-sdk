@@ -9,7 +9,7 @@
     "high-risk-authority-proof.schema.json#/$defs/recovery_unlock_proof/properties/kind": "crate::recovery_session::RecoveryUnlockProofKind",
     "high-risk-authority-proof.schema.json#/$defs/device_quorum_proof/properties/kind": "crate::recovery_session::DeviceQuorumProofKind",
     "high-risk-authority-proof.schema.json#/$defs/trusted_recovery_service_proof/properties/kind": "crate::recovery_session::TrustedRecoveryServiceProofKind",
-    "high-risk-authority-proof.schema.json#/$defs/device_quorum_proof/properties/threshold": "u32",
+    "high-risk-authority-proof.schema.json#/$defs/device_quorum_proof/properties/min_device_count": "u32",
     "call-invitation-operations.schema.json#/$defs/media": "crate::call_invitation::CallInvitationMedia",
     "call-invitation-operations.schema.json#/$defs/invitation_proof": "crate::call_invitation::CallInvitationProof",
     "call-invitation-operations.schema.json#/$defs/admission_proof": "crate::call_invitation::CallInvitationAdmissionProof",
@@ -11513,7 +11513,7 @@
               "/// `account-subscribe-frame.schema.json#/$defs/account_filter`.",
               "///",
               "/// Field declaration order is byte-for-byte the schema `properties` order.",
-              "/// `window_limit` is the per-visible-stream item ceiling of a stream window,",
+              "/// `max_window_event_count` is the per-visible-stream item ceiling of a stream window,",
               "/// never a per-Realm budget. `stream_refs` optionally selects the window's",
               "/// stream set; every entry must belong to a Realm named in `realm_ids`.",
               "#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]",
@@ -21316,7 +21316,7 @@
   ],
   "retained_binding_reasons": {
     "references": "References bind to existing validated SDK identifier/proof leaves and closed marker types; domain verification remains handwritten.",
-    "threshold": "The existing public Rust threshold remains u32; changing its width is outside a byte-equivalent generation migration. Schema minimum and current policy threshold remain validate_shape/verifier obligations."
+    "min_device_count": "The existing public Rust threshold remains u32; changing its width is outside a byte-equivalent generation migration. Schema minimum and current policy threshold remain validate_shape/verifier obligations."
   },
   "retained_models": [
     {

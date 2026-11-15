@@ -236,22 +236,29 @@ mod tests {
     fn native_single_challenge_device_and_manager_proofs_match_independent_ed_goldens() {
         use ed25519_dalek::Signer as _;
         let fixture = fixture();
+        let goldens: serde_json::Value = serde_json::from_str(include_str!(
+            "../tests/fixtures/native-backup-unlock-kat.json"
+        ))
+        .unwrap();
         for manager in [false, true] {
             let challenge = native_challenge(manager);
-            let (seed, method, expected_hash, expected_signature) = if manager {
+            let golden = &goldens["cases"][if manager { "manager" } else { "device" }];
+            assert_eq!(
+                serde_json::to_value(&challenge).unwrap(),
+                golden["challenge"]
+            );
+            let expected_hash = golden["transcript_digest"].as_str().unwrap();
+            let expected_signature = golden["signature"].as_str().unwrap();
+            let (seed, method) = if manager {
                 (
                     &fixture["test_material"]["manager_seed_hex"],
-                    // The manager's own method, not the admission-signing governor's key.
+                    // Use the manager's own original method, not the admission governor's.
                     &fixture["active_series"]["signature_proof"]["verification_method"],
-                    "sha256:f9d85636722b60c215ebb869a5955a5ef5aaecd7c618b96fb66545e41e6a9ad4",
-                    "ezyJQKd2T7poq8hpUOcH9nmhcdauHwnx6EmnTPM7UATHHVdJIyC4sThUlmDuSQjv4dmpsLMxJdig8DLlu8EMCg",
                 )
             } else {
                 (
                     &fixture["test_material"]["device_seed_hex"],
                     &fixture["native_packet"]["signature_proof"]["verification_method"],
-                    "sha256:f3e9f4a3a5f0aa89cffe9b8c5a071e55b2ea817e8bf6306a4af88b08566d7b26",
-                    "5krDGumVDeR-gZfJXiT4rMkY9M8ZYmX2gYPAS2uudEzfVKOEkz6pkZYp_z4PsoyCohfLS2ZvmQgh4xQTNJxBCA",
                 )
             };
             let seed = seed.as_str().unwrap();
@@ -271,6 +278,10 @@ mod tests {
                 verify_realm_actor_manager_unlock_proof(&proof, &challenge, &method, &public)
                     .unwrap();
                 assert_eq!(
+                    proof.signing_payload_bytes().unwrap(),
+                    golden["preimage_utf8"].as_str().unwrap().as_bytes()
+                );
+                assert_eq!(
                     arkret_canonical::canonical::sha256_digest(
                         proof.signing_payload_bytes().unwrap()
                     ),
@@ -283,6 +294,10 @@ mod tests {
                     .unwrap();
                 verify_realm_actor_device_unlock_proof(&proof, &challenge, &method, &public)
                     .unwrap();
+                assert_eq!(
+                    proof.signing_payload_bytes().unwrap(),
+                    golden["preimage_utf8"].as_str().unwrap().as_bytes()
+                );
                 assert_eq!(
                     arkret_canonical::canonical::sha256_digest(
                         proof.signing_payload_bytes().unwrap()

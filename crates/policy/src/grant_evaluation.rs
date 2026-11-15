@@ -98,7 +98,7 @@ pub struct QuotaReservation {
     pub window_id: i64,
     pub max_operation_count: u64,
     pub period_ms: i64,
-    pub burst: Option<u64>,
+    pub burst_operation_count: Option<u64>,
     pub verification_ms: i64,
 }
 
@@ -1528,7 +1528,7 @@ fn quota_reservation(
     }
     if constraint
         .burst_operation_count
-        .is_some_and(|burst| burst == 0)
+        .is_some_and(|burst_operation_count| burst_operation_count == 0)
     {
         return None;
     }
@@ -1556,7 +1556,7 @@ fn quota_reservation(
         window_id: verification_ms.div_euclid(period_ms),
         max_operation_count,
         period_ms,
-        burst: constraint.burst_operation_count,
+        burst_operation_count: constraint.burst_operation_count,
         verification_ms,
     })
 }
