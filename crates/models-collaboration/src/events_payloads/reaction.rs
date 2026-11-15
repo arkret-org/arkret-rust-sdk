@@ -7,16 +7,23 @@ use crate::internal_prelude::*;
 struct ReactionPayloadWire {
     target_ref: ObjectRef,
     key: String,
-    #[serde(default)]
+    #[serde(
+        default,
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     annotation: Option<String>,
-    #[serde(default)]
+    #[serde(
+        default,
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     encrypted_payload: Option<EncryptedEnvelope>,
 }
 
 impl ReactionPayload {
     /// The schema bounds: a formal `object_ref` target, a 1..=128 character
     /// key, an annotation of at most 2048 characters, and no outer annotation
-    /// beside an `encrypted_payload`.
+    /// beside an `encrypted_payload`. Encrypted routing metadata must bind
+    /// the same key and Message create Event as the outer payload.
     pub fn validate(&self) -> Result<()> {
         if !is_object_ref(&self.target_ref) {
             return Err(WireError::Protocol(
@@ -41,6 +48,24 @@ impl ReactionPayload {
             return Err(WireError::Protocol(
                 "an encrypted reaction carries its annotation inside encrypted_payload".to_owned(),
             ));
+        }
+        if let Some(envelope) = &self.encrypted_payload {
+            envelope.validate()?;
+            let routing = envelope
+                .encryption_context
+                .routing_context()
+                .ok_or_else(|| {
+                    WireError::Protocol(
+                        "an encrypted reaction requires its routing context".to_owned(),
+                    )
+                })?;
+            let message = MessageId::new(self.target_ref.as_str())?;
+            if self.key != routing.routing_tag || message.event_id() != routing.target_ref {
+                return Err(WireError::Protocol(
+                    "encrypted reaction routing metadata differs from its outer key or target"
+                        .to_owned(),
+                ));
+            }
         }
         Ok(())
     }
