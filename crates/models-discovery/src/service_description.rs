@@ -743,6 +743,20 @@ mod tests {
     }
 
     #[test]
+    fn http_burst_request_count_rejects_null_without_closing_custom_extensions() {
+        let empty: RateLimitEntry = serde_json::from_value(json!({})).unwrap();
+        assert_eq!(empty.burst_request_count, None);
+        let value = json!({"burst_request_count":0,"custom_hint":true});
+        let entry: RateLimitEntry = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(serde_json::to_value(entry).unwrap(), value);
+        assert!(
+            serde_json::from_value::<RateLimitEntry>(json!({"burst_request_count":null})).is_err()
+        );
+        let unrelated: RateLimitEntry = serde_json::from_value(json!({"burst":7})).unwrap();
+        assert_eq!(unrelated.burst_request_count, None);
+    }
+
+    #[test]
     fn directory_resource_kind_tokens_are_closed_and_round_trip() {
         let tokens = ["realm"];
         assert_eq!(
@@ -1480,8 +1494,12 @@ pub struct RateLimitEntry {
     pub window_seconds: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_request_count: Option<u32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub burst: Option<u32>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub burst_request_count: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_bytes: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

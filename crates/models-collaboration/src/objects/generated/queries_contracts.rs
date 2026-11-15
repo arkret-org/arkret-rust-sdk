@@ -2,10 +2,10 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/view.schema.json
-// sha256=51e8a31f953b8264d697a0d93cadeaece23bb59ff1ae3b0bc01471351d168d33
+// sha256=f12bcf942493ff8c43f45bfdc5a3140d62ff1de8a3ae827cb72d696eaa7e5d3a
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=f8598148149e81024ca07d8b02d6f7c48f1dc0672c100b2e8e4103790a652e46
+// sha256=90f259bd716207902389b280d1d0c8278879933d308c4bc9e070c1ed3bafacd7
 
 /// Counterpart: `view.schema.json#/$defs/sort_specification`.
 /// Counterpart for `spec/v1/artifacts/schemas/view.schema.json#/$defs/sort_specification`.

@@ -2,10 +2,10 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/applet-authority-material.schema.json
-// sha256=5bb72c3387ae9b80e121b309ef918785949ec7fec69d14d064720dc7de976713
+// sha256=c7a083aa62c18c4cf306e26c13bf43f0f5d95620a4ee5a9f2f8e56e288189c78
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=f8598148149e81024ca07d8b02d6f7c48f1dc0672c100b2e8e4103790a652e46
+// sha256=90f259bd716207902389b280d1d0c8278879933d308c4bc9e070c1ed3bafacd7
 
 /// Counterpart:
 /// `applet-authority-material.schema.json#/$defs/applet_authority_material_request_body`.

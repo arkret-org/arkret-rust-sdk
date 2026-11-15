@@ -2,7 +2,7 @@
 //! Generator: tools/generate-closed-models.py
 //!
 //! Input: schemas/high-risk-authority-proof.schema.json
-//! sha256=4acda127c256d66797a837628cc785a36d2bb23f197e263e2f385e5d83db2a54
+//! sha256=6d932f6f09136f8e1f0abba560eb99392ba91396e3213f2c79a1bcd98b1fe239
 //!
 //! Input: schemas/event-envelope.schema.json
 //! sha256=37c9298b9ba476c817c0dde83346e286f423426dcc536a596cbc09f0078f3397
@@ -11,7 +11,7 @@
 //! sha256=81b18acd21f4382860d5cab2384d9bb78ee5dbc23629752a6cc74ce384186149
 //!
 //! Bindings: tools/closed-model-bindings.json
-//! sha256=f8598148149e81024ca07d8b02d6f7c48f1dc0672c100b2e8e4103790a652e46
+//! sha256=90f259bd716207902389b280d1d0c8278879933d308c4bc9e070c1ed3bafacd7
 
 /// Counterpart: `high-risk-authority-proof.schema.json#/$defs/recovery_unlock_proof`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -38,7 +38,7 @@ pub struct HighRiskDeviceQuorumSignature {
 #[serde(deny_unknown_fields)]
 pub struct HighRiskDeviceQuorumProofBody {
     pub kind: crate::recovery_session::DeviceQuorumProofKind,
-    pub threshold: u32,
+    pub min_device_count: u64,
     pub signatures: Vec<HighRiskDeviceQuorumSignature>,
 }
 

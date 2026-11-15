@@ -122,8 +122,10 @@ impl AccountFilter {
                 ));
             }
         }
-        if self.window_limit.is_some_and(|limit| limit > 100) {
-            return Err(protocol_error("filter.window_limit must be <= 100"));
+        if self.max_window_event_count.is_some_and(|limit| limit > 100) {
+            return Err(protocol_error(
+                "filter.max_window_event_count must be <= 100",
+            ));
         }
         Ok(())
     }

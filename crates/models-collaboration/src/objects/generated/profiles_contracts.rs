@@ -14,10 +14,10 @@
 // sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
 //
 // Input: schemas/policy.schema.json
-// sha256=c62cd7a01272cd4527562d61558b1dc8432ceeaada49397498199e87d4e93269
+// sha256=f31a32e76dd6026205c48226af03e5b860c147c87335da0ff60ea481c9755729
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=f8598148149e81024ca07d8b02d6f7c48f1dc0672c100b2e8e4103790a652e46
+// sha256=90f259bd716207902389b280d1d0c8278879933d308c4bc9e070c1ed3bafacd7
 
 /// Counterpart: `identity-link.schema.json`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

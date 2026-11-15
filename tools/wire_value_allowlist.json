@@ -90,7 +90,7 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "closed_dispatch:coland/crates/http/src/routing/events/operations/semantics.rs::validate_typed_payload_shapes:63b473c9c1fdbb7c",
+      "finding": "closed_dispatch:coland/crates/http/src/routing/events/operations/semantics.rs::validate_typed_payload_shapes:9b494af9f6c312f7",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -4813,7 +4813,7 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
-      "finding": "json_authoring:crates/crypto/src/content_history/backup_draft.rs::seal:ee54fccbe4656e7d",
+      "finding": "json_authoring:crates/crypto/src/content_history/backup_draft.rs::seal:50b0de4ebc3959fc",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",

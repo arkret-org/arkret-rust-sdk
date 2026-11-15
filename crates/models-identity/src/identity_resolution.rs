@@ -227,13 +227,21 @@ impl PublicPrincipalResolution {
 /// transaction and becomes current holder; no second audit authorization path
 /// or caller-declared intent exists.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(remote = "Self", deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct PrincipalResolutionAuditRequestBody {
     pub account_id: AccountId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub history_depth: Option<u16>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub max_predecessor_event_count: Option<u16>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub after_resolution_event_ref: Option<EventId>,
 }
 
@@ -244,7 +252,7 @@ impl PrincipalResolutionAuditRequestBody {
     pub fn new(account_id: AccountId) -> Self {
         Self {
             account_id,
-            history_depth: None,
+            max_predecessor_event_count: None,
             after_resolution_event_ref: None,
         }
     }
@@ -254,18 +262,34 @@ impl PrincipalResolutionAuditRequestBody {
     /// A depth outside the closed range is `param_invalid`, and a cursor with
     /// depth 0 could never apply because depth 0 discloses no predecessor.
     pub fn validate(&self) -> arkret_wire::Result<()> {
-        let depth = self.history_depth.unwrap_or(0);
+        let depth = self.max_predecessor_event_count.unwrap_or(0);
         if depth > PRINCIPAL_RESOLUTION_AUDIT_MAX_HISTORY_DEPTH {
             return Err(arkret_wire::WireError::Protocol(format!(
-                "principal resolution history_depth exceeds {PRINCIPAL_RESOLUTION_AUDIT_MAX_HISTORY_DEPTH}"
+                "principal resolution max_predecessor_event_count exceeds {PRINCIPAL_RESOLUTION_AUDIT_MAX_HISTORY_DEPTH}"
             )));
         }
         if self.after_resolution_event_ref.is_some() && depth == 0 {
             return Err(arkret_wire::WireError::Protocol(
-                "after_resolution_event_ref requires history_depth of at least 1".to_owned(),
+                "after_resolution_event_ref requires max_predecessor_event_count of at least 1"
+                    .to_owned(),
             ));
         }
         Ok(())
+    }
+}
+
+impl Serialize for PrincipalResolutionAuditRequestBody {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.validate().map_err(serde::ser::Error::custom)?;
+        PrincipalResolutionAuditRequestBody::serialize(self, serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for PrincipalResolutionAuditRequestBody {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = PrincipalResolutionAuditRequestBody::deserialize(deserializer)?;
+        value.validate().map_err(serde::de::Error::custom)?;
+        Ok(value)
     }
 }
 
@@ -680,7 +704,7 @@ impl AuthenticatedServiceResolution {
                     .is_some_and(|types| types.len() == 1 && types[0] == "ArkretService")
                     && entry["extensions"].as_array().is_some_and(|extensions| {
                         extensions.iter().any(|row| {
-                            row["name"] == "serviceKind" && row["value"] == self.service_kind
+                            row["name"] == "service_kind" && row["value"] == self.service_kind
                         })
                     })
             })

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/error-code-registry.json;
-//! sha256=04aef63465e22b101b9c571cd81f048a9d933b605982b7e0938241ff3513d51c
+//! sha256=ed6f316b287008a6fda34fc5b2812550f606c3a52ec74481c722868ff4e5072d
 //! Entries: error_codes=157, reserved_not_emitted=92
 
 use serde::{Deserialize, Serialize};
@@ -1768,7 +1768,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "proof_kind=governance_quorum but fewer than quorum_threshold distinct valid governance signatures were supplied, or two signatures resolve to the same verification method. JSON Schema cannot compare the array length against the declared threshold, so the receiver enforces it and fails closed rather than accepting a partial quorum.",
+        description: "proof_kind=governance_quorum but fewer than min_signature_count distinct valid governance signatures were supplied, or two signatures resolve to the same verification method. JSON Schema cannot compare the array length against the declared threshold, so the receiver enforces it and fails closed rather than accepting a partial quorum.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::OrganizationRegistrationRevoked,

@@ -2,7 +2,7 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/recovery-policy.schema.json
-// sha256=64ee8fa0a54cb044195141e91cfb8989320d304f2ebef750eaa857ef712a4b05
+// sha256=b047ddf80f2b3f99d8c53a8a6e1dbfff6406cfce76c1e3afdae4ec6ae1d7677e
 //
 // Input: schemas/time.schema.json
 // sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
@@ -11,13 +11,13 @@
 // sha256=9ba1c589fd39b699197ea8accf07745d87868410f39a3194380062a4700ef48f
 //
 // Input: schemas/account-operations.schema.json
-// sha256=0ae0fec5fd63dca4b9df9293eb71936cf73a3eeeae13b2268dc99699c1ed7607
+// sha256=694f553340eeccd86deab4c0bb637d741e62e4babab325d516ffa30352ceb03d
 //
 // Input: schemas/common-ids.schema.json
 // sha256=81b18acd21f4382860d5cab2384d9bb78ee5dbc23629752a6cc74ce384186149
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=f8598148149e81024ca07d8b02d6f7c48f1dc0672c100b2e8e4103790a652e46
+// sha256=90f259bd716207902389b280d1d0c8278879933d308c4bc9e070c1ed3bafacd7
 
 /// Counterpart: `recovery-policy.schema.json#/$defs/recovery_key_entry`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

@@ -56,3 +56,33 @@ fn realm_join_rule_and_discovery_have_only_formal_author_fields() {
         }
     }
 }
+
+#[test]
+fn member_count_hysteresis_counts_match_the_exact_formal_boundaries() {
+    use arkret_models_collaboration::governance::realm_lifecycle::MemberCountHysteresis;
+    for value in [
+        json!({"absolute_count":2}),
+        json!({"ratio_basis_points":1000}),
+        json!({"ratio_basis_points":10000}),
+    ] {
+        let count: MemberCountHysteresis = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(serde_json::to_value(count).unwrap(), value);
+    }
+    for value in [
+        json!({}),
+        json!({"absolute_count":null}),
+        json!({"absolute_count":0}),
+        json!({"absolute_count":1}),
+        json!({"ratio_basis_points":null}),
+        json!({"ratio_basis_points":999}),
+        json!({"ratio_basis_points":10001}),
+        json!({"absolute":2}),
+    ] {
+        assert!(serde_json::from_value::<MemberCountHysteresis>(value).is_err());
+    }
+    let invalid = MemberCountHysteresis {
+        absolute_count: Some(1),
+        ratio_basis_points: None,
+    };
+    assert!(serde_json::to_value(invalid).is_err());
+}

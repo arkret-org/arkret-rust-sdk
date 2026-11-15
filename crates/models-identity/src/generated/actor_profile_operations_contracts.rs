@@ -5,7 +5,7 @@
 // sha256=ea5683d043e1d8daa86a2c6e710e642ad219efbac44e79fbca16367a987f2da6
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=f8598148149e81024ca07d8b02d6f7c48f1dc0672c100b2e8e4103790a652e46
+// sha256=90f259bd716207902389b280d1d0c8278879933d308c4bc9e070c1ed3bafacd7
 
 /// Counterpart: `actor-profile-operations.schema.json#/$defs/account_status_projection`.
 /// `actor-profile-operations.schema.json#/$defs/account_status_projection`.

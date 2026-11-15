@@ -63,7 +63,7 @@ fn original_device_pair() -> AppletCommittedEvent {
     let document: DidDocument = serde_json::from_value(json!({
         "id":did, "verificationMethod":[],
         "service":[{"id":format!("{controller}#service"),"type":"ArkretService",
-            "serviceKind":"station","serviceEndpoint":"https://station.example/"}]
+            "service_kind":"station","serviceEndpoint":"https://station.example/"}]
     }))
     .unwrap();
     // Metadata shape for the codec's Station binding only. A receiver must

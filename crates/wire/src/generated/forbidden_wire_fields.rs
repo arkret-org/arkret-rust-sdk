@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/forbidden-wire-fields.json;
-//! sha256=f8acc2f5023affd7ec13d8ddf6ebc53d58ced524f7257abd773f17f33c6bca51
+//! sha256=f11706793284e04493185fbcedad64454b19770dd29da6c4caf17a06f9b7337b
 //! Entries: forbidden_wire_fields=238
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -2227,10 +2227,10 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
     },
     ForbiddenWireFieldDescriptor {
         id: "or-set",
-        context: "crdt_authority-ordered projection_enum",
+        context: "crdt_authority_ordered_projection_enum",
         rejection_level: "hard_reject",
         selectors: &[ForbiddenWireSelector {
-            document_kind: "authority-ordered projection_kind_value",
+            document_kind: "authority_ordered_projection_kind_value",
             schema_ref: "*",
             instance_pointer: "",
             match_scope: "descendants",
@@ -2241,10 +2241,10 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
     },
     ForbiddenWireFieldDescriptor {
         id: "ordered-log",
-        context: "crdt_authority-ordered projection_enum",
+        context: "crdt_authority_ordered_projection_enum",
         rejection_level: "hard_reject",
         selectors: &[ForbiddenWireSelector {
-            document_kind: "authority-ordered projection_kind_value",
+            document_kind: "authority_ordered_projection_kind_value",
             schema_ref: "*",
             instance_pointer: "",
             match_scope: "descendants",

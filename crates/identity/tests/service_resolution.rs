@@ -188,7 +188,7 @@ fn missing_native_history_wrong_role_and_endpoint_tampering_are_rejected() {
 }
 fn web_resolution(endpoint: &str) -> AuthenticatedServiceResolution {
     let did = Did::new("did:web:station.example").unwrap();
-    let document:DidDocument=serde_json::from_value(json!({"id":did,"verificationMethod":[],"service":[{"id":format!("{did}#service"),"type":"ArkretService","serviceKind":"station","serviceEndpoint":endpoint}]})).unwrap();
+    let document:DidDocument=serde_json::from_value(json!({"id":did,"verificationMethod":[],"service":[{"id":format!("{did}#service"),"type":"ArkretService","service_kind":"station","serviceEndpoint":endpoint}]})).unwrap();
     let digest = arkret_models_identity::normalized_did_document_digest(&document).unwrap();
     let version = format!(
         "synthetic-jcs-sha256:{}",

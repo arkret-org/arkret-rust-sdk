@@ -459,7 +459,7 @@ fn producer_device_evidence() -> ForwardAccountDeviceSignerEvidence {
         "service": [{
             "id": "did:web:station.example#service",
             "type": "ArkretService",
-            "serviceKind": "station",
+            "service_kind": "station",
             "serviceEndpoint": "https://station.example/"
         }]
     }))
@@ -1268,4 +1268,43 @@ fn hex_to_bytes(value: &str) -> Vec<u8> {
         .iter()
         .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).unwrap(), 16).unwrap())
         .collect()
+}
+
+#[test]
+fn service_terminal_grant_fact_binds_realm_governance_and_circle_effect() {
+    let fixture = arkret_schema_conformance::spec_json_artifact(
+        "fixtures/applet-management-source-fixture.json",
+    )
+    .unwrap();
+    let source = &fixture["governance_delivery_kats"]["source_rows"][1];
+    let full = arkret_wire::CommittedEventFullView {
+        event: serde_json::from_value(source["event"].clone()).unwrap(),
+        commit: serde_json::from_value(source["commit"].clone()).unwrap(),
+    };
+    let fact: arkret_models_collaboration::authority_commit::ServiceHistoricalSignerFact =
+        serde_json::from_value(source["producer_signer_fact"].clone()).unwrap();
+    assert!(matches!(
+        fact.key.effective_scope,
+        arkret_wire::ScopeRef::Circle { .. }
+    ));
+    assert_eq!(
+        full.event.scope_ref,
+        arkret_wire::ScopeRef::realm(full.event.realm_id.clone())
+    );
+    fact.validate_commit_binding(&full, arkret_canonical::DigestSuite::Sha256)
+        .unwrap();
+    let mut foreign = fact;
+    foreign.key.effective_scope = arkret_wire::ScopeRef::Realm {
+        realm_id: arkret_wire::RealmId::from_event_id(&EventId::from_digest(
+            arkret_canonical::DigestSuite::Sha256,
+            [91; 32],
+        )),
+    };
+    assert!(
+        foreign
+            .validate_event_binding(&full.event, arkret_canonical::DigestSuite::Sha256)
+            .is_err()
+    );
+    // The actual native installation/issuer/once-effect qualification remains
+    // outside this model's structural committed-fact check.
 }

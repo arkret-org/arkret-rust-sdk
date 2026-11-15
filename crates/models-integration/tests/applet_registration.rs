@@ -1031,3 +1031,33 @@ fn package_identity_is_checked_before_digest_or_signature_without_requiring_exis
         }
     }
 }
+
+#[test]
+fn advertised_applet_limits_keep_zero_counts_nonzero_bytes_and_non_null_omission() {
+    use arkret_models_integration::AppletLimits;
+    assert_eq!(
+        serde_json::to_value(AppletLimits::default()).unwrap(),
+        json!({})
+    );
+    let value = json!({"max_transaction_event_count":0,"max_payload_bytes":1,"max_transaction_count_per_minute":0});
+    let limits: AppletLimits = serde_json::from_value(value.clone()).unwrap();
+    assert_eq!(serde_json::to_value(limits).unwrap(), value);
+    for field in [
+        "max_transaction_event_count",
+        "max_payload_bytes",
+        "max_transaction_count_per_minute",
+    ] {
+        for member in [Value::Null, json!(-1), json!(1.5), json!("1")] {
+            let mut invalid = json!({});
+            invalid[field] = member;
+            assert!(serde_json::from_value::<AppletLimits>(invalid).is_err());
+        }
+    }
+    assert!(serde_json::from_value::<AppletLimits>(json!({"max_payload_bytes":0})).is_err());
+    assert!(serde_json::from_value::<AppletLimits>(json!({"rate_limit_per_minute":1})).is_err());
+    let invalid = AppletLimits {
+        max_payload_bytes: Some(0),
+        ..AppletLimits::default()
+    };
+    assert!(serde_json::to_value(invalid).is_err());
+}

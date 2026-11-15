@@ -5,7 +5,7 @@
 // sha256=ae721190eb5b882241bc9b1579213be18c0ed0317540f9b82371c493e10c7739
 //
 // Input: schemas/event-payload.schema.json
-// sha256=25014dfa0753800eba6d70e87ef3c5464d3ff2b22969282911e7f73672f68947
+// sha256=30f8a7bac2a387091f550a02d6f44c69afc5fde62df0cd0be521f28a963726c0
 //
 // Input: schemas/common-ids.schema.json
 // sha256=81b18acd21f4382860d5cab2384d9bb78ee5dbc23629752a6cc74ce384186149
@@ -17,19 +17,19 @@
 // sha256=734acbd160b1f7cf05a971cfc53a81a83990704c8e3d144c8fd7796767b57394
 //
 // Input: schemas/authority-commit-operations.schema.json
-// sha256=daf5a35366c0dd0943777a9c3c67e6f2947243c92c7199e684c8f17fdd732234
+// sha256=bd2b6dbd26bb3fafddd4c373baa6618fe6c4fb692a03b3e96046b619cf79cf18
 //
 // Input: schemas/time.schema.json
 // sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
 //
 // Input: schemas/key-backup.schema.json
-// sha256=e9280313666a5fc0055a9f15edaa9e4716369fb362e6a808b64f919a1c8a398d
+// sha256=07597f9b9987a50bcfabacf774c720e49e985eec665ccb1981d2722465a07e2c
 //
 // Input: schemas/keypackage-operations.schema.json
 // sha256=c6d3efc76c853e71ee4cbf6eda707cd0e89139e85441d3616fadfeda84f0ad41
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=f8598148149e81024ca07d8b02d6f7c48f1dc0672c100b2e8e4103790a652e46
+// sha256=90f259bd716207902389b280d1d0c8278879933d308c4bc9e070c1ed3bafacd7
 
 /// Counterpart: `content-encryption.schema.json#/$defs/root_context`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

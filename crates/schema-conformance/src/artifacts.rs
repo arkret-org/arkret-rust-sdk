@@ -1217,7 +1217,7 @@ mod tests {
         let action_value = serde_json::json!({
             "action":"ak.message.send",
             "approval_required":true,
-            "approval_quorum":1,
+            "min_approver_count":1,
             "policy_scope":"did:web:example.com"
         });
         for (schema_id, selector, value) in [

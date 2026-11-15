@@ -2,22 +2,22 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/applet-edge-operations.schema.json
-// sha256=6525f40d905ca955f9b9f3d70ad9e92aa2f4402e289fea537e31c947acaeac84
+// sha256=27410177d0d3ee8bc769f7682cd898ad0a6fcb7af3842fbb8e3bcd779a35aa30
 //
 // Input: schemas/string-profiles.schema.json
 // sha256=7c7522a769204b050b9711b53c1b911bc660645962ed6c0243f95fae72473f78
 //
 // Input: schemas/account-operations.schema.json
-// sha256=0ae0fec5fd63dca4b9df9293eb71936cf73a3eeeae13b2268dc99699c1ed7607
+// sha256=694f553340eeccd86deab4c0bb637d741e62e4babab325d516ffa30352ceb03d
 //
 // Input: schemas/applet-install-authoring.schema.json
-// sha256=1583623ed73fa124b97721b286c9174962d3a05c4ee3853bc1bc79bee1b33995
+// sha256=f94822f77f1bfecc07cacb63ba4e65a132fa5423401721fba8559573dc2746a2
 //
 // Input: schemas/applet-install-plan.schema.json
 // sha256=34b87fd503f5bf7cd3cecd25e2f9be91817fc612502419b5c5d1df85ed2ccccf
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=f8598148149e81024ca07d8b02d6f7c48f1dc0672c100b2e8e4103790a652e46
+// sha256=90f259bd716207902389b280d1d0c8278879933d308c4bc9e070c1ed3bafacd7
 
 /// Counterpart: `applet-edge-operations.schema.json#/$defs/field_definition`.
 /// Counterpart for

@@ -2,13 +2,13 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/event-payload.schema.json
-// sha256=25014dfa0753800eba6d70e87ef3c5464d3ff2b22969282911e7f73672f68947
+// sha256=30f8a7bac2a387091f550a02d6f44c69afc5fde62df0cd0be521f28a963726c0
 //
 // Input: schemas/string-profiles.schema.json
 // sha256=7c7522a769204b050b9711b53c1b911bc660645962ed6c0243f95fae72473f78
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=f8598148149e81024ca07d8b02d6f7c48f1dc0672c100b2e8e4103790a652e46
+// sha256=90f259bd716207902389b280d1d0c8278879933d308c4bc9e070c1ed3bafacd7
 
 /// Counterpart: `event-payload.schema.json#/$defs/resource_discovery_state_value`.
 /// `resource_discovery_state_value`.
@@ -39,7 +39,7 @@ pub struct AppletDiscoveryStatePayload {
 pub struct PolicyActionDocument {
     pub action: arkret_wire::PolicyActionName,
     pub approval_required: bool,
-    pub approval_quorum: u64,
+    pub min_approver_count: u64,
     pub policy_scope: String,
 }
 

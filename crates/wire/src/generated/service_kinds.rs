@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/service-kind-registry.json;
-//! sha256=0e3342ee886863a685e3e788fea5d7fb85b2a82f3e1dfa73418f7e96e3ee0f8d Entries: active=15
+//! sha256=5b38cb95f9ba617d05b8d2a53fb1780253f723f16ecf2936c9dcd3a43aae0479 Entries: active=15
 
 use serde::{Deserialize, Serialize};
 

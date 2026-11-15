@@ -1181,7 +1181,7 @@ mod tests {
             "service": [{
                 "id": "did:webvh:z6mkfixture:alice.example#station",
                 "type": "ArkretService",
-                "serviceKind": "station",
+                "service_kind": "station",
                 "serviceEndpoint": "https://principal.example/"
             }],
             "x-vendor": {"preserve": true}
@@ -1259,7 +1259,7 @@ mod tests {
                 "uri": "did:web:alice.example#station",
                 "protocol_names": ["ArkretService"],
                 "endpoint": "https://ps.alice.example/",
-                "extensions": [{"name": "serviceKind", "value": "station"}]
+                "extensions": [{"name": "service_kind", "value": "station"}]
             }],
             "metadata": {"primary_handle": "alice:example.com"},
             "extensions": []
@@ -1268,7 +1268,7 @@ mod tests {
         let digest = normalized_did_document_digest(&document).unwrap();
         assert_eq!(
             digest.as_ref(),
-            "sha256:10b3e107d51b7428103becb9345faf5c250f89832aac173657b16fb3dc0328ee"
+            "sha256:68a4ea500665b1c0cccd8b2d84efc0952751576024c3f574cc8e4622ae517a7e"
         );
 
         document.updated_at = Some(
@@ -1297,7 +1297,7 @@ mod tests {
                 "id": "did:web:alice.example#station",
                 "type": "ArkretService",
                 "serviceEndpoint": "https://ps.alice.example/",
-                "serviceKind": "station"
+                "service_kind": "station"
             }],
             "metadata": {"primary_handle": "alice:example.com"},
             "updated": "2026-08-01T00:00:00Z"
@@ -1305,7 +1305,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             normalized_did_document_digest(&document).unwrap().as_ref(),
-            "sha256:10b3e107d51b7428103becb9345faf5c250f89832aac173657b16fb3dc0328ee"
+            "sha256:68a4ea500665b1c0cccd8b2d84efc0952751576024c3f574cc8e4622ae517a7e"
         );
     }
 
@@ -1326,7 +1326,7 @@ mod tests {
                 "id": "did:web:alice.example#station",
                 "type": "ArkretService",
                 "serviceEndpoint": "https://ps.alice.example/",
-                "serviceKind": "station"
+                "service_kind": "station"
             }],
             "metadata": {"primary_handle": "alice:example.com"},
             "updated": "2026-08-01T00:00:00Z"

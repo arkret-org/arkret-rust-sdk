@@ -122,3 +122,96 @@ fn native_service_route_is_exact_and_rejects_changed_identity_document_and_histo
     }
     assert!(verify(&history, &fixture.service_id).is_err());
 }
+
+#[test]
+fn station_fixture_retains_the_original_service_inception_bytes() {
+    use rand_core::SeedableRng as _;
+
+    let endpoint = "https://fixture-station.example/".parse().unwrap();
+    let at = "2026-10-14T00:00:00.000Z".parse().unwrap();
+    let fixture =
+        ServiceIdentityFixture::webvh(&endpoint, 33, [33; 32], "signing-1", at, at).unwrap();
+    let mut rng = rand_chacha::ChaCha20Rng::seed_from_u64(33);
+    let expected = arkret_signatures::webvh::prepare_service_inception_with_did_key_seed(
+        &mut rng,
+        &arkret_signatures::webvh::ServiceInceptionInput {
+            principal_endpoint: &endpoint,
+            local_id: "service",
+            also_known_as: &[],
+            version_created_at: at,
+            did_key_fragment: Some("signing-1"),
+        },
+        &[33; 32],
+    )
+    .unwrap();
+    assert_eq!(fixture.history.entries, vec![expected.log_entry.clone()]);
+    assert_eq!(fixture.history.did.as_str(), expected.did);
+    assert_eq!(fixture.verification_method.as_str(), expected.did_key_id);
+    assert_eq!(fixture.resolution.service_kind, "station");
+}
+
+#[test]
+fn applet_service_fixture_verifies_native_history_and_rejects_role_relabeling() {
+    let endpoint = "https://fixture-applet.example/".parse().unwrap();
+    let at = "2026-10-14T00:00:00.000Z".parse().unwrap();
+    let fixture = ServiceIdentityFixture::webvh_applet_service(
+        &endpoint,
+        34,
+        [34; 32],
+        "applet-signing",
+        at,
+        at,
+    )
+    .unwrap();
+    let verify = |resolution: &arkret_models_identity::AuthenticatedServiceResolution| -> anyhow::Result<()> {
+        arkret_identity::verify_authenticated_service_resolution_history(
+            resolution,
+            &fixture.service_id,
+            at,
+        )?;
+        resolution.projection()?;
+        Ok(())
+    };
+    verify(&fixture.resolution).unwrap();
+    assert_eq!(fixture.resolution.service_kind, "applet_service");
+    assert_eq!(
+        fixture.history.entries[0]["state"]["service"][0]["service_kind"],
+        "applet_service"
+    );
+    assert_eq!(
+        fixture.resolution.normalized_did_document.raw_properties["service"][0]["service_kind"],
+        "applet_service"
+    );
+    assert!(
+        fixture.history.entries[0]["state"]["service"][0]
+            .get("serviceKind")
+            .is_none()
+    );
+    let station =
+        ServiceIdentityFixture::webvh(&endpoint, 34, [34; 32], "applet-signing", at, at).unwrap();
+    assert_ne!(fixture.history.did, station.history.did);
+    assert_ne!(fixture.history.entries, station.history.entries);
+    let mut relabeled_applet = fixture.resolution.clone();
+    relabeled_applet.service_kind = "station".into();
+    assert!(verify(&relabeled_applet).is_err());
+    let mut relabeled_station = station.resolution.clone();
+    relabeled_station.service_kind = "applet_service".into();
+    arkret_identity::verify_authenticated_service_resolution_history(
+        &relabeled_station,
+        &station.service_id,
+        at,
+    )
+    .unwrap();
+    assert!(relabeled_station.projection().is_err());
+    let mut changed_history = fixture.resolution.clone();
+    if let arkret_models_identity::ResolutionMethodHistoryEvidence::WebvhLog {
+        log_entries, ..
+    } = &mut changed_history.method_history_evidence
+    {
+        // No SCID, entry hash or update-key proof is regenerated for this mutation.
+        log_entries[0]["state"]["service"][0]["service_kind"] = "station".into();
+    } else {
+        panic!("fixture must carry native history")
+    }
+    assert!(verify(&changed_history).is_err());
+}

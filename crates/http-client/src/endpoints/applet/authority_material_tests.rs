@@ -22,6 +22,16 @@ fn fixture() -> (
     AppletAuthorityMaterialRequestBody,
     AppletAuthorityMaterialResponseBody,
 ) {
+    fixture_with_circle(None)
+}
+
+fn fixture_with_circle(
+    circle: Option<arkret_wire::CircleId>,
+) -> (
+    AppletId,
+    AppletAuthorityMaterialRequestBody,
+    AppletAuthorityMaterialResponseBody,
+) {
     let now: DateTime<Utc> = "2026-10-21T01:00:00.000Z".parse().unwrap();
     let applet: AppletId = "ak:applet:01964137-0000-7000-8000-000000000081"
         .parse()
@@ -34,6 +44,13 @@ fn fixture() -> (
     let scope = ScopeRef::Realm {
         realm_id: realm.clone(),
     };
+    let effect_scope = circle.map_or_else(
+        || scope.clone(),
+        |circle_id| ScopeRef::Circle {
+            realm_id: realm.clone(),
+            circle_id,
+        },
+    );
     let root = EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [31; 32]);
     let method = arkret_wire::DidUrl::new("did:web:applet.example#admin").unwrap();
     let signer = arkret_test_kit::seeded_signer("did:web:applet.example".parse().unwrap(), method);
@@ -59,16 +76,20 @@ fn fixture() -> (
         None,
     )
     .unwrap();
+    let mut resources = vec![effect_scope.clone()];
+    if matches!(effect_scope, ScopeRef::Circle { .. }) {
+        resources.push(scope.clone());
+    }
     let body = json!({
         "schema":"ak.schema.capability.v1","realm_id":realm,"issuer_id":service,"subject":service,
-        "actions":["ak.message.create"],"resources":[{"kind":"realm","realm_id":realm}],
+        "actions":["ak.message.create"],"resources":resources,
         "constraints":[GrantConstraint::applet_authority(applet.clone(), service.clone(), format!("sha256:{}","4".repeat(64)).parse().unwrap())],
         "issued_at":arkret_canonical::format_timestamp_canonical(now),
         "issuer_authority_refs":[{"kind":"realm_root","realm_id":realm,"authority_event_ref":root,"authority_generation":"0"}],
     });
     let grant = SignedEventFixtureBuilder::new(
         "ak.capability.grant",
-        scope.clone(),
+        scope,
         service,
         json!({"grant":body}),
     )
@@ -116,7 +137,7 @@ fn fixture() -> (
     let outcome = AppletAuthorityMaterialResponseBody {
         applet_id: applet.clone(),
         service_id: "ak:did_core:web:applet.example".parse().unwrap(),
-        effective_scope: scope.clone(),
+        effective_scope: effect_scope.clone(),
         registration: AppletCommittedEvent {
             event: registration,
             commit: registration_commit,
@@ -137,7 +158,7 @@ fn fixture() -> (
     (
         applet,
         AppletAuthorityMaterialRequestBody {
-            effective_scope: scope,
+            effective_scope: effect_scope,
             grant_ids: vec![id],
         },
         outcome,
@@ -211,4 +232,64 @@ fn active_binding_keeps_same_scope_cut_and_service_but_can_renew_the_historical_
         *service_id = "ak:did_core:web:other.example".parse().unwrap();
     }
     assert!(outcome.validate_for_request(&applet, &request).is_err());
+}
+
+#[test]
+fn circle_material_keeps_realm_governance_and_independent_exact_resources() {
+    let circle = arkret_wire::CircleId::from_event_id(&EventId::from_digest(
+        arkret_canonical::DigestSuite::Sha256,
+        [83; 32],
+    ));
+    let (applet, request, outcome) = fixture_with_circle(Some(circle));
+    outcome.validate_for_request(&applet, &request).unwrap();
+    assert_eq!(
+        outcome.grant_events[0].event.payload["grant"]["resources"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+    let governance = ScopeRef::realm(request.effective_scope.realm_id().clone());
+    for original in &outcome.grant_events {
+        assert_eq!(original.event.scope_ref, governance);
+        assert_eq!(
+            original.commit.stream_ref,
+            arkret_wire::CommitStreamRef::Realm {
+                realm_id: request.effective_scope.realm_id().clone(),
+            }
+        );
+    }
+    let mut different_scope = request.clone();
+    different_scope.effective_scope = ScopeRef::Circle {
+        realm_id: request.effective_scope.realm_id().clone(),
+        circle_id: arkret_wire::CircleId::from_event_id(&EventId::from_digest(
+            arkret_canonical::DigestSuite::Sha256,
+            [89; 32],
+        )),
+    };
+    let mut different_response_scope = outcome.clone();
+    different_response_scope.effective_scope = different_scope.effective_scope.clone();
+    assert!(
+        different_response_scope
+            .validate_for_request(&applet, &different_scope)
+            .is_err(),
+        "response/request scope equality cannot replace the original signed grant resource"
+    );
+    let mut wrong_source = outcome;
+    if let ExactCurrentStateReadResponseBody::Present {
+        current_state: ExactCurrentState::CapabilityGrant(row),
+        effective_stream_head,
+        ..
+    } = &mut wrong_source.current_states[0]
+    {
+        let stream =
+            arkret_wire::CommitStreamRef::from_scope(&request.effective_scope, None).unwrap();
+        row.source_stream_ref = stream.clone();
+        effective_stream_head.stream_ref = stream;
+    }
+    assert!(
+        wrong_source
+            .validate_for_request(&applet, &request)
+            .is_err()
+    );
 }

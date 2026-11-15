@@ -2,19 +2,19 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/keys-operations.schema.json
-// sha256=a3fe4bf71b7e94747a347d41967cff92cf1864653114d6ba5437824ae74de67a
+// sha256=8cafab3f5d4a61e2d9900c88eabf3d707a081f3411ccf0d16a4eb4f081682733
 //
 // Input: schemas/authorization-operations.schema.json
 // sha256=b367d60aeb13aa9e524c5201cc1857d8ac9defd5c78293f696a4f4c0a5d4450b
 //
 // Input: schemas/realm-actor-material.schema.json
-// sha256=fe13177cf262150b299d101c2cf7e364e2f38fc2fbb8dc6a78ae3c45b1816d1b
+// sha256=1c0e4d7bc2303d040259991aa33f767d6fafd434d0cce306ad6ace5f4af25986
 //
 // Input: schemas/authority-commit-operations.schema.json
-// sha256=daf5a35366c0dd0943777a9c3c67e6f2947243c92c7199e684c8f17fdd732234
+// sha256=bd2b6dbd26bb3fafddd4c373baa6618fe6c4fb692a03b3e96046b619cf79cf18
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=f8598148149e81024ca07d8b02d6f7c48f1dc0672c100b2e8e4103790a652e46
+// sha256=90f259bd716207902389b280d1d0c8278879933d308c4bc9e070c1ed3bafacd7
 
 /// Counterpart: `keys-operations.schema.json#/$defs/keys_backups_list_response_body`.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]

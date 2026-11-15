@@ -218,7 +218,7 @@ fn validate_plaintext(
                 }
             }
             RealmActorArchiveInventoryEntry::Backup(entry) => {
-                let binding = entry.backup.auth_binding.as_ref().ok_or_else(|| {
+                let binding = entry.backup.authorization_binding.as_ref().ok_or_else(|| {
                     invalid("archive backup lacks its original native recipient binding")
                 })?;
                 let recipient = keys

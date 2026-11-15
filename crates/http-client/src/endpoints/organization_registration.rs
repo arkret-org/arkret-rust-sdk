@@ -305,7 +305,7 @@ mod tests {
             requested_scopes: receipt.delegated_scopes.clone(),
             control_proof: OrganizationControlProof {
                 proof_kind: OrganizationControlProofKind::ResolvedVerificationMethod,
-                quorum_threshold: None,
+                min_signature_count: None,
                 proofs: vec![receipt.proof.clone()],
             },
             handle_attestation: None,

@@ -117,9 +117,11 @@ impl RealmActorContentRootBackupDraft {
             recipient_key_ref: Some(recipient.key_agreement_ref.to_string()),
             aead_aad_extensions: self.domain_separation.aead_aad_extensions.clone(),
         };
-        let aad =
-            crate::backup::native_key_backup_aead_aad(&binding, &self.prepare_input.auth_binding)
-                .map_err(|e| Error::Protocol(e.to_string()))?;
+        let aad = crate::backup::native_key_backup_aead_aad(
+            &binding,
+            &self.prepare_input.authorization_binding,
+        )
+        .map_err(|e| Error::Protocol(e.to_string()))?;
         let info = canonical_json_bytes(&json!({"backup_id":self.backup_id,"series_id":series_id,
             "series_sequence":self.series_sequence,"actor_id":actor_id,"backup_kind":BackupKind::SecretStorage,
             "backup_version":"kb_content_roots","created_at":arkret_canonical::format_timestamp_canonical(self.created_at)}))?;
@@ -135,7 +137,7 @@ impl RealmActorContentRootBackupDraft {
                 "aead":{"name":"chacha20_poly1305","enc":base64url_encode(&sealed[..32])}},
             "domain_separation":self.domain_separation,"contents":contents,
             "ciphertext":base64url_encode(&sealed[32..]),"ciphertext_digest":arkret_canonical::sha256_digest(&sealed[32..]),
-            "series_id":series_id,"series_sequence":self.series_sequence,"auth_binding":self.prepare_input.auth_binding,
+            "series_id":series_id,"series_sequence":self.series_sequence,"authorization_binding":self.prepare_input.authorization_binding,
             "signature_proof":{"device_id":self.author.device_id,"verification_method":self.author.verification_method,
                 "signature_algorithm":"Ed25519","device_authorize_event_id":self.author.device_authorize_event_id}});
         if let Some((id, digest)) = self.supersedes {
@@ -383,7 +385,7 @@ mod native_tests {
                     .unwrap(),
             },
             prepare_input: arkret_models_crypto::ContentBackupNextPrepareInput {
-                auth_binding: original.auth_binding.clone().unwrap(),
+                authorization_binding: original.authorization_binding.clone().unwrap(),
                 content_backup_recipient: serde_json::from_value(f["recipient"].clone()).unwrap(),
                 active_series_id: original.series_id.clone(),
             },
@@ -413,7 +415,10 @@ mod native_tests {
         assert!(backup.recovery_policy_ref.is_none());
         assert!(backup.source_commit_ref.is_none());
         let mut bad = backup;
-        bad.auth_binding.as_mut().unwrap().device_generation += 1;
+        bad.authorization_binding
+            .as_mut()
+            .unwrap()
+            .device_generation += 1;
         assert!(
             super::super::open_content_root_backup(&bad, &private, |bytes, proof| {
                 arkret_signatures::proof::verify_ed25519_raw_transcript_signature(

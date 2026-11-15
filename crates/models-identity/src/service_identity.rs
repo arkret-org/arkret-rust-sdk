@@ -235,6 +235,7 @@ pub struct ServiceDidEndpoint {
     pub id: String,
     #[serde(rename = "type")]
     pub endpoint_type: String,
+    #[serde(rename = "service_kind")]
     pub service_kind: ServiceKind,
     pub service_endpoint: CanonicalServiceUrl,
 }

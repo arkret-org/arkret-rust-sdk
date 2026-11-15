@@ -31,7 +31,7 @@ macro_rules! checked_native_serde {
 }
 checked_native_serde!(
     RealmActorContentBackupRecipient,
-    RealmActorBackupAuthBinding,
+    RealmActorBackupAuthorizationBinding,
     RealmActorBackupIssueUnlockChallengeRequestBody,
     RealmActorDeviceKeyBackupUnlockProof,
     RealmActorManagerKeyBackupUnlockProof
@@ -147,7 +147,7 @@ pub fn validate_native_archive_recipient_public_key(encoded: &str) -> Result<[u8
     Ok(public)
 }
 
-impl RealmActorBackupAuthBinding {
+impl RealmActorBackupAuthorizationBinding {
     pub fn validate(&self) -> Result<()> {
         if self.device_generation == 0 {
             return Err(WireError::Protocol(
@@ -160,7 +160,7 @@ impl RealmActorBackupAuthBinding {
 
 impl ContentBackupNextPrepareInput {
     pub fn validate(&self) -> Result<()> {
-        self.auth_binding.validate()?;
+        self.authorization_binding.validate()?;
         self.content_backup_recipient.validate()
     }
 }

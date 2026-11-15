@@ -263,7 +263,7 @@ fn route_document(did: &str, key: &SigningKey) -> DidDocument {
             "id": format!("{did}#station"),
             "type": "ArkretService",
             "serviceEndpoint": "https://station-b.example/",
-            "serviceKind": "station",
+            "service_kind": "station",
         }],
     }))
     .unwrap()

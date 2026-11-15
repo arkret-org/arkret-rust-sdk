@@ -2,19 +2,19 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/recovery-session.schema.json
-// sha256=553f9ed3ce51c56142695ef99144b660792fc608ca6aa9de33e208a07f260f94
+// sha256=27dc4a0a1f21f50b71870454cd5968623d9f96f0d1b6c7458cee69f90ddd9b2c
 //
 // Input: schemas/account-operations.schema.json
-// sha256=0ae0fec5fd63dca4b9df9293eb71936cf73a3eeeae13b2268dc99699c1ed7607
+// sha256=694f553340eeccd86deab4c0bb637d741e62e4babab325d516ffa30352ceb03d
 //
 // Input: schemas/recovery-policy.schema.json
-// sha256=64ee8fa0a54cb044195141e91cfb8989320d304f2ebef750eaa857ef712a4b05
+// sha256=b047ddf80f2b3f99d8c53a8a6e1dbfff6406cfce76c1e3afdae4ec6ae1d7677e
 //
 // Input: schemas/recovery-authority.schema.json
 // sha256=cb347374d3fde68e8881b5db85a7866c2732d81ccf83e609d9f0114d138d62cf
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=f8598148149e81024ca07d8b02d6f7c48f1dc0672c100b2e8e4103790a652e46
+// sha256=90f259bd716207902389b280d1d0c8278879933d308c4bc9e070c1ed3bafacd7
 
 /// Counterpart: `recovery-session.schema.json#/$defs/proof_summary`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -104,7 +104,7 @@ pub struct RecoveryUnlockProofBodyWithSignature {
 pub struct DeviceQuorumProofBodyWithSignatures {
     pub kind: DeviceQuorumProofKind,
     pub challenge: Base64UrlString,
-    pub threshold: u32,
+    pub min_device_count: u32,
     pub signatures: Vec<DeviceQuorumSignature>,
 }
 
@@ -163,7 +163,7 @@ pub struct RecoveryUnlockProofBody {
 pub struct DeviceQuorumProofBody {
     pub kind: DeviceQuorumProofKind,
     pub challenge: Base64UrlString,
-    pub threshold: u32,
+    pub min_device_count: u32,
     pub signatures: Vec<DeviceQuorumSignatureBody>,
 }
 

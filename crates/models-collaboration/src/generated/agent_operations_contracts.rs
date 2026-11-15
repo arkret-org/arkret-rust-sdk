@@ -14,19 +14,19 @@
 // sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
 //
 // Input: schemas/account-operations.schema.json
-// sha256=0ae0fec5fd63dca4b9df9293eb71936cf73a3eeeae13b2268dc99699c1ed7607
+// sha256=694f553340eeccd86deab4c0bb637d741e62e4babab325d516ffa30352ceb03d
 //
 // Input: schemas/authenticated-signer-resolution-evidence.schema.json
 // sha256=8503a7d8aa20534b337f7ef622a6828cd89b4910c342ba52d76c6033b80cb38d
 //
 // Input: schemas/service-operation-dtos.schema.json
-// sha256=ea8656aa662fbc6c156db58266ed98a416d60254ecf5c9b166da2cdd0a3b976a
+// sha256=82c5f11f9fa36d98b43744ed61b4e37de0a13f8ea468b80f5d05fdeb5ffd6876
 //
 // Input: schemas/event-payload.schema.json
-// sha256=25014dfa0753800eba6d70e87ef3c5464d3ff2b22969282911e7f73672f68947
+// sha256=30f8a7bac2a387091f550a02d6f44c69afc5fde62df0cd0be521f28a963726c0
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=f8598148149e81024ca07d8b02d6f7c48f1dc0672c100b2e8e4103790a652e46
+// sha256=90f259bd716207902389b280d1d0c8278879933d308c4bc9e070c1ed3bafacd7
 
 /// Counterpart: `agent-operations.schema.json#/$defs/agent_projection`.
 /// Read projection of one Agent.

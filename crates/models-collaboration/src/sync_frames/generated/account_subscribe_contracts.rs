@@ -2,10 +2,10 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/account-subscribe-frame.schema.json
-// sha256=e72c1581070cdccaaf655cfe2e2f77c3cb9018ecdea930f8cbf15e2c31958172
+// sha256=ba4f9b067a14c0f6a204ce7687fb39e115823811a98c15438e533e2094139809
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=f8598148149e81024ca07d8b02d6f7c48f1dc0672c100b2e8e4103790a652e46
+// sha256=90f259bd716207902389b280d1d0c8278879933d308c4bc9e070c1ed3bafacd7
 
 /// Counterpart: `account-subscribe-frame.schema.json#/$defs/account_filter`.
 /// The Account subscribe filter,
@@ -35,7 +35,7 @@ pub struct AccountFilter {
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional",
         skip_serializing_if = "Option::is_none"
     )]
-    pub window_limit: Option<u32>,
+    pub max_window_event_count: Option<u32>,
     #[serde(
         default,
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional",

@@ -990,7 +990,7 @@ fn realm_sync_entry_field_order_matches_the_schema() {
                 "head_commit_ref": COMMIT_A,
                 "next_position": 1,
                 "limited": false,
-                "window_limit": 20,
+                "max_window_event_count": 20,
                 "complete": true,
                 "e2ee_epoch": null,
             }))
@@ -1301,7 +1301,7 @@ fn websocket_account_open_parameters_keep_the_wait_for_branch_order() {
     let parameters = WebSocketAccountOpenParameters {
         after: Some("ak:cursor:abc".to_owned()),
         catchup: Some(true),
-        filter: Some(serde_json::from_value(json!({"window_limit": 20})).unwrap()),
+        filter: Some(serde_json::from_value(json!({"max_window_event_count": 20})).unwrap()),
         wait_for: Some("ak:cursor:def".to_owned()),
         realm_list_parameters: Some(serde_json::from_value(json!({"limit": 20})).unwrap()),
         replace_filter: Some(true),
@@ -1345,7 +1345,7 @@ fn full_account_filter() -> Value {
             {"kind": "realm", "realm_id": REALM_A},
             {"kind": "circle", "realm_id": REALM_B, "circle_id": CIRCLE_B},
         ],
-        "window_limit": 100,
+        "max_window_event_count": 100,
         "lazy_load_members": false,
         "include_redundant_members": true,
     })
@@ -1366,7 +1366,7 @@ fn account_filter_is_the_formal_schema_object_in_declaration_order() {
         let bounded: AccountFilter = round_trip(
             ACCOUNT_FRAME,
             "#/$defs/account_filter",
-            json!({"window_limit": limit}),
+            json!({"max_window_event_count": limit}),
         );
         bounded.validate().unwrap();
     }
@@ -1383,13 +1383,23 @@ fn account_filter_rejects_retired_and_out_of_bound_members_on_both_sides() {
         value
     };
     let mut retired = full_account_filter();
-    retired.as_object_mut().unwrap().remove("window_limit");
+    retired
+        .as_object_mut()
+        .unwrap()
+        .remove("max_window_event_count");
     retired["timeline_limit"] = json!(20);
     let negatives = [
         ("retired timeline_limit", retired),
         ("bare timeline_limit", json!({"timeline_limit": 20})),
-        ("window_limit above 100", with("window_limit", json!(101))),
-        ("negative window_limit", with("window_limit", json!(-1))),
+        ("retired window_limit", json!({"window_limit": 20})),
+        (
+            "max_window_event_count above 100",
+            with("max_window_event_count", json!(101)),
+        ),
+        (
+            "negative max_window_event_count",
+            with("max_window_event_count", json!(-1)),
+        ),
         (
             "duplicate stream_refs",
             with(
@@ -1443,7 +1453,10 @@ fn account_filter_rejects_retired_and_out_of_bound_members_on_both_sides() {
         ),
         ("null realm_ids", with("realm_ids", Value::Null)),
         ("null stream_refs", with("stream_refs", Value::Null)),
-        ("null window_limit", with("window_limit", Value::Null)),
+        (
+            "null max_window_event_count",
+            with("max_window_event_count", Value::Null),
+        ),
     ];
     for (case, value) in negatives {
         reject_fragment(ACCOUNT_FRAME, "#/$defs/account_filter", &value);

@@ -19,7 +19,7 @@ use crate::objects::view::DashboardConfiguration;
 #[serde(deny_unknown_fields)]
 pub struct FieldFilter {
     pub field: String,
-    pub op: FilterOp,
+    pub operator: FilterOp,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub value: Option<Value>,
 }
@@ -299,7 +299,11 @@ impl CollectionConfiguration {
 fn validate_collection_extensions(extra: &BTreeMap<String, Value>) -> Result<()> {
     // views.md sections 3.3 and 3.4 forbid these keys even though the schema
     // permits other extension members in collection and grouping configs.
-    for field in ["page_size", "selection_policy", "wip_limit_enforcement"] {
+    for field in [
+        "page_size",
+        "selection_policy",
+        "active_strand_count_enforcement",
+    ] {
         if extra.contains_key(field) {
             return Err(WireError::Protocol(format!(
                 "schema_violation: View collection configuration must not carry {field}"

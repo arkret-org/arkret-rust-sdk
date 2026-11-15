@@ -567,7 +567,7 @@ fn vault_binding_from_envelope(envelope: &KeyBackup) -> Result<VaultBinding> {
 /// the closed `x_*` extension map may add members.
 pub fn key_backup_aead_aad(envelope: &KeyBackup) -> Result<Vec<u8>> {
     let binding = vault_binding_from_envelope(envelope)?;
-    match &envelope.auth_binding {
+    match &envelope.authorization_binding {
         Some(auth) => native_key_backup_aead_aad(&binding, auth),
         None => binding.aad(),
     }
@@ -576,7 +576,7 @@ pub fn key_backup_aead_aad(envelope: &KeyBackup) -> Result<Vec<u8>> {
 /// Native AAD adds the exact public accepted binding to the unchanged v1 base.
 pub fn native_key_backup_aead_aad(
     binding: &VaultBinding,
-    auth: &arkret_models_crypto::RealmActorBackupAuthBinding,
+    auth: &arkret_models_crypto::RealmActorBackupAuthorizationBinding,
 ) -> Result<Vec<u8>> {
     auth.validate()
         .map_err(|e| KeyBackupError::Canonical(e.to_string()))?;
@@ -585,7 +585,7 @@ pub fn native_key_backup_aead_aad(
     aad.as_object_mut()
         .ok_or_else(|| KeyBackupError::Canonical("invalid native backup AAD".into()))?
         .insert(
-            "auth_binding".into(),
+            "authorization_binding".into(),
             serde_json::to_value(auth).map_err(|e| KeyBackupError::Canonical(e.to_string()))?,
         );
     canonical_json_bytes(&aad).map_err(|e| KeyBackupError::Canonical(e.to_string()))
@@ -992,7 +992,7 @@ fn build_key_backup_envelope_in_series(
         recovery_policy_ref: None,
         custodian_actor_id: None,
         custody_authorization_ref: None,
-        auth_binding: None,
+        authorization_binding: None,
         extra: XExtensionMap::default(),
     };
 

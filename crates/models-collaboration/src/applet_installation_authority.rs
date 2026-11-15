@@ -168,6 +168,7 @@ impl AppletInstallationAuthority {
             || registration.executed_by.is_some()
             || grant.executed_by.is_some()
             || registration.scope_ref != arkret_wire::ScopeRef::realm(registration.realm_id.clone())
+            || grant.scope_ref != arkret_wire::ScopeRef::realm(grant.realm_id.clone())
             || registration.realm_id != grant.realm_id
             || registration.actor_id.fixed_route_service_id().is_none()
             || registration.actor_id.fixed_route_service_id()
@@ -309,7 +310,12 @@ impl AppletAuthorityMaterialResponseBody {
         for original in &self.grant_events {
             let id = arkret_wire::GrantId::from_event_id(&original.event.event_id);
             if original.event.kind != EventKind::CapabilityGrant
-                || original.event.scope_ref != request.effective_scope
+                || original.event.scope_ref
+                    != arkret_wire::ScopeRef::realm(request.effective_scope.realm_id().clone())
+                || original.commit.stream_ref
+                    != (arkret_wire::CommitStreamRef::Realm {
+                        realm_id: request.effective_scope.realm_id().clone(),
+                    })
                 || !request.grant_ids.contains(&id)
                 || originals.insert(id, original).is_some()
             {
@@ -382,6 +388,17 @@ impl AppletAuthorityMaterialResponseBody {
                 serde_json::from_value(serde_json::to_value(&original.event.payload)?)?;
             if payload.grant.realm_id.is_none() {
                 payload.grant.realm_id = request.effective_scope.realm_id_opt().cloned();
+            }
+            if !payload
+                .grant
+                .resources
+                .iter()
+                .any(|resource| resource.is_exact_scope(&request.effective_scope))
+            {
+                return Err(WireError::Protocol(
+                    "Applet material grant resources differ from its exact installation effect scope"
+                        .into(),
+                ));
             }
             let current_original = CapabilityGrantCreateBody {
                 schema: row.value.schema.clone(),
@@ -517,7 +534,9 @@ fn validate_present_current_states_for_scope(
         .realm_id_opt()
         .ok_or_else(|| WireError::Protocol("Applet material scope has no Realm".into()))?;
     let mut generation = None;
-    let grant_stream = arkret_wire::CommitStreamRef::from_scope(scope, None)?;
+    let grant_stream = arkret_wire::CommitStreamRef::Realm {
+        realm_id: realm.clone(),
+    };
     let mut heads: Vec<&arkret_wire::CommitStreamHead> = Vec::new();
     for result in results {
         let ExactCurrentStateReadResponseBody::Present {
@@ -531,6 +550,7 @@ fn validate_present_current_states_for_scope(
         };
         if realm_id != realm
             || generation.is_some_and(|expected| expected != *governance_generation)
+            || effective_stream_head.stream_ref != grant_stream
         {
             return Err(WireError::Protocol(
                 "Applet material current results differ from the scope Realm or governing cut"
@@ -820,7 +840,8 @@ mod authority_material_current_tests {
     }
 
     #[test]
-    fn grant_material_requires_the_exact_scope_stream_without_owned_agent_gate() {
+    fn grant_material_keeps_realm_governance_for_realm_and_circle_effects_without_owned_agent_gate()
+    {
         let artifacts = arkret_schema_conformance::default_spec_artifacts_dir().unwrap();
         let fixture: Value = serde_json::from_slice(
             &std::fs::read(artifacts.join("fixtures/agent-participation-fixture.json")).unwrap(),
@@ -838,7 +859,7 @@ mod authority_material_current_tests {
             [81; 32],
         ));
         grant["id"] = json!(grant_id);
-        grant["authority_depth"] = json!(0);
+        grant["authority_depth"] = json!(1);
         grant["issuer_authority_refs"] = json!([{
             "kind":"realm_root", "realm_id":grant["realm_id"], "authority_generation":"0",
             "authority_event_ref":arkret_wire::EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [80; 32])
@@ -875,25 +896,58 @@ mod authority_material_current_tests {
                 [83; 32],
             )),
         };
-        assert!(
-            validate_present_current_states_for_scope(
-                &circle_scope,
-                &decode(&json!([value])).unwrap()
-            )
-            .is_err()
-        );
+        // The effect scope can be Circle, while the accepted Grant current and
+        // its covering head remain on the same Realm governance stream.
         let mut circle_value = value.clone();
-        let circle_stream = arkret_wire::CommitStreamRef::from_scope(&circle_scope, None).unwrap();
-        circle_value["current_state"]["source_stream_ref"] = json!(circle_stream);
-        circle_value["effective_stream_head"]["stream_ref"] = json!(circle_stream);
+        let arkret_wire::ScopeRef::Circle {
+            realm_id,
+            circle_id,
+        } = &circle_scope
+        else {
+            unreachable!("Circle effect scope constructed above")
+        };
+        circle_value["current_state"]["value"]["resources"] =
+            json!([arkret_wire::WireResourceSelector::circle(
+                realm_id.clone(),
+                circle_id.clone()
+            )]);
         validate_present_current_states_for_scope(
             &circle_scope,
             &decode(&json!([circle_value.clone()])).unwrap(),
         )
         .unwrap();
+        let circle_stream = arkret_wire::CommitStreamRef::from_scope(&circle_scope, None).unwrap();
+        let mut wrong_source = circle_value.clone();
+        wrong_source["current_state"]["source_stream_ref"] = json!(circle_stream);
         assert!(
             validate_present_current_states_for_scope(
-                &scope,
+                &circle_scope,
+                &decode(&json!([wrong_source])).unwrap()
+            )
+            .is_err()
+        );
+        let mut wrong_cover = circle_value.clone();
+        wrong_cover["current_state"]["source_stream_ref"] = json!(circle_stream);
+        wrong_cover["effective_stream_head"]["stream_ref"] = json!(circle_stream);
+        for requested_scope in [&scope, &circle_scope] {
+            assert!(
+                validate_present_current_states_for_scope(
+                    requested_scope,
+                    &decode(&json!([wrong_cover.clone()])).unwrap()
+                )
+                .is_err()
+            );
+        }
+        let foreign_scope = arkret_wire::ScopeRef::Circle {
+            realm_id: arkret_wire::RealmId::from_event_id(&arkret_wire::EventId::from_digest(
+                arkret_canonical::DigestSuite::Sha256,
+                [85; 32],
+            )),
+            circle_id: circle_id.clone(),
+        };
+        assert!(
+            validate_present_current_states_for_scope(
+                &foreign_scope,
                 &decode(&json!([circle_value])).unwrap()
             )
             .is_err()

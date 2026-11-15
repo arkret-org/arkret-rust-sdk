@@ -159,7 +159,7 @@ pub fn verify_realm_actor_backup_packet(
         &admission.effective_scope,
     )?;
     let auth = packet
-        .auth_binding
+        .authorization_binding
         .as_ref()
         .ok_or_else(|| Error::Protocol("packet lacks native binding".into()))?;
     let context = packet
@@ -241,16 +241,17 @@ mod tests {
             let (seed, method, expected_hash, expected_signature) = if manager {
                 (
                     &fixture["test_material"]["manager_seed_hex"],
-                    &fixture["native_put_response"]["admission"]["signature"]["verification_method"],
-                    "sha256:b17946a2e80724faec233bba7979c173fb12572bf73b063aaf54823583a3aad2",
-                    "lxDom3Lgreyiuw8C7K5zzdIhDSPxKDAbNET3Vd_wrjugyQrqgw3ZI0Esi3oQ5whJI8uHF21HTGZrV3Xj7yBPAQ",
+                    // The manager's own method, not the admission-signing governor's key.
+                    &fixture["active_series"]["signature_proof"]["verification_method"],
+                    "sha256:f9d85636722b60c215ebb869a5955a5ef5aaecd7c618b96fb66545e41e6a9ad4",
+                    "ezyJQKd2T7poq8hpUOcH9nmhcdauHwnx6EmnTPM7UATHHVdJIyC4sThUlmDuSQjv4dmpsLMxJdig8DLlu8EMCg",
                 )
             } else {
                 (
                     &fixture["test_material"]["device_seed_hex"],
                     &fixture["native_packet"]["signature_proof"]["verification_method"],
-                    "sha256:cf7d7e00f839f09a63bb9c12a7ad78ef0feb683f9fc85b8b2507b4732d4be8f4",
-                    "qh8eXp0oS759EedTCHKiBG3NRR2I51gwDmkVYeZTLq5nGlvU4Hq2oNgUYmO00BgCc8YiheelKd3ZjCCAHGB_AA",
+                    "sha256:f3e9f4a3a5f0aa89cffe9b8c5a071e55b2ea817e8bf6306a4af88b08566d7b26",
+                    "5krDGumVDeR-gZfJXiT4rMkY9M8ZYmX2gYPAS2uudEzfVKOEkz6pkZYp_z4PsoyCohfLS2ZvmQgh4xQTNJxBCA",
                 )
             };
             let seed = seed.as_str().unwrap();

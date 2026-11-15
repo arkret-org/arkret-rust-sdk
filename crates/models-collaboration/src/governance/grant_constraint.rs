@@ -448,8 +448,12 @@ pub struct GrantConstraint {
     pub allowed_from_container_refs: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub allowed_to_container_refs: Vec<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub wip_limit_override_allowed: Option<bool>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub active_strand_count_override_allowed: Option<bool>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub allowed_tracks: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -488,8 +492,12 @@ pub struct GrantConstraint {
     pub max_operation_count: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub period: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub burst: Option<u64>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub burst_operation_count: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub constraint_scope: Option<GrantConstraintScope>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -609,7 +617,7 @@ impl GrantConstraint {
             allowed_relation_kinds: Vec::new(),
             allowed_from_container_refs: Vec::new(),
             allowed_to_container_refs: Vec::new(),
-            wip_limit_override_allowed: None,
+            active_strand_count_override_allowed: None,
             allowed_tracks: Vec::new(),
             denied_tracks: Vec::new(),
             blob_presign_scope: None,
@@ -629,7 +637,7 @@ impl GrantConstraint {
             max_artifact_bytes: None,
             max_operation_count: None,
             period: None,
-            burst: None,
+            burst_operation_count: None,
             constraint_scope: None,
             max_resource_count: None,
             resource_kind: None,
@@ -920,6 +928,33 @@ impl CapabilityGrant {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn renamed_quota_and_permission_members_are_non_null_without_private_defaults() {
+        let rate = serde_json::json!({
+            "constraint_kind":"quota", "constraint_subkind":"rate", "effect":"allow",
+            "max_operation_count":1, "period":"PT1H", "constraint_scope":"per_actor",
+            "burst_operation_count":0
+        });
+        let constraint: GrantConstraint = serde_json::from_value(rate.clone()).unwrap();
+        assert_eq!(constraint.burst_operation_count, Some(0));
+        let permission = serde_json::json!({
+            "constraint_kind":"scope_limitation", "effect":"allow",
+            "active_strand_count_override_allowed":false
+        });
+        let constraint: GrantConstraint = serde_json::from_value(permission.clone()).unwrap();
+        assert_eq!(constraint.active_strand_count_override_allowed, Some(false));
+        for (field, mut value) in [
+            ("burst_operation_count", rate),
+            ("active_strand_count_override_allowed", permission),
+        ] {
+            value[field] = Value::Null;
+            assert!(
+                serde_json::from_value::<GrantConstraint>(value).is_err(),
+                "{field}"
+            );
+        }
+    }
 
     #[test]
     fn executable_approval_threshold_uses_the_eligible_roster() {

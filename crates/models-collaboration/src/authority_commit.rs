@@ -179,6 +179,18 @@ impl ServiceHistoricalSignerFact {
                     || event.payload.get("creation_scope")
                         != Some(&serde_json::to_value(&self.key.effective_scope)?)
                     || self.key.effective_scope.realm_id_opt() != Some(&event.realm_id)
+            } else if matches!(
+                event.kind,
+                EventKind::CapabilityGrant | EventKind::CapabilityRevoke
+            ) && event.executed_by.is_none()
+            {
+                self.validate_finite_service_governance_shape(event)?;
+                event.scope_ref != arkret_wire::ScopeRef::realm(event.realm_id.clone())
+                    || !matches!(
+                        self.key.effective_scope,
+                        arkret_wire::ScopeRef::Realm { .. } | arkret_wire::ScopeRef::Circle { .. }
+                    )
+                    || self.key.effective_scope.realm_id_opt() != Some(&event.realm_id)
             } else {
                 event.scope_ref != self.key.effective_scope
             }
@@ -194,6 +206,45 @@ impl ServiceHistoricalSignerFact {
         }
         Ok(())
     }
+    /// Byte-local shape only. Accepted parent/child provenance, installation
+    /// instance and the original issuer cleanup role remain native admission
+    /// checks; this does not grant the Service a general governance action.
+    fn validate_finite_service_governance_shape(&self, event: &Event) -> Result<()> {
+        match event.kind {
+            EventKind::CapabilityGrant => {
+                let payload: crate::events_payloads::capability::CapabilityGrantPayload =
+                    serde_json::from_value(serde_json::to_value(&event.payload)?)?;
+                payload.validate_identifiers()?;
+                if payload.grant.issuer_id != self.actor
+                    || payload
+                        .grant
+                        .realm_id
+                        .as_ref()
+                        .is_some_and(|realm| realm != &event.realm_id)
+                    || !matches!(
+                        &payload.grant.subject,
+                        crate::governance::grant_constraint::CapabilitySubject::Actor(
+                            ActorId::Realm { realm_actor_id }
+                        ) if realm_actor_id.realm_id == event.realm_id
+                    )
+                {
+                    return Err(WireError::Protocol(
+                        "Service governance Grant must retain its exact issuer and Realm actor subject"
+                            .into(),
+                    ));
+                }
+            }
+            EventKind::CapabilityRevoke => {
+                let _: crate::events_payloads::capability::CapabilityRevokePayload =
+                    serde_json::from_value(serde_json::to_value(&event.payload)?)?;
+            }
+            _ => {
+                unreachable!("only the two finite Service governance kinds enter this shape check")
+            }
+        }
+        Ok(())
+    }
+
     pub fn validate_commit_binding(
         &self,
         full: &arkret_wire::CommittedEventFullView,

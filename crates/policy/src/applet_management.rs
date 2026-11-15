@@ -339,7 +339,7 @@ mod tests {
         ));
         let requirement = |age| ManagementReviewRequirement {
             approver_actor_ids: vec![approver.clone()],
-            threshold: 1,
+            min_approver_count: 1,
             max_age_seconds: age,
         };
         let resources = [PolicyResourceSelector {
@@ -475,7 +475,7 @@ mod tests {
         review.default_operations = Some(vec![arkret_wire::ManagementOperation::Join]);
         review.default_review_requirement = Some(ManagementReviewRequirement {
             approver_actor_ids: vec![requester.clone()],
-            threshold: 1,
+            min_approver_count: 1,
             max_age_seconds: 300,
         });
         review.rules[0].applet_operations = Some(vec![AppletPolicyOperation::MapGhost]);

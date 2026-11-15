@@ -230,7 +230,7 @@ impl RecoverySessionProof {
 
     pub fn validate_shape(&self) -> Result<()> {
         if let Self::DeviceQuorum(body) = self
-            && (body.threshold < 2 || body.signatures.len() < 2)
+            && (body.min_device_count < 2 || body.signatures.len() < 2)
         {
             return Err(WireError::Protocol(
                 "device quorum recovery proof carries at least two signatures".to_owned(),
@@ -356,7 +356,7 @@ mod tests {
                     "issuers": [{
                         "verification_method": fixtures::RECOVERY_METHOD_URL
                     }],
-                    "threshold": 1
+                    "min_signature_count": 1
                 }]
             },
             "allowed_actions": ["ak.device.reanchor"]
@@ -561,7 +561,7 @@ mod tests {
         let proof: RecoverySessionProof = serde_json::from_value(json!({
             "kind": "device_quorum",
             "challenge": CHALLENGE,
-            "threshold": 2,
+            "min_device_count": 2,
             "signatures": [
                 {
                     "device_id": DEVICE_ID,
@@ -583,7 +583,7 @@ mod tests {
         let single: RecoverySessionProof = serde_json::from_value(json!({
             "kind": "device_quorum",
             "challenge": CHALLENGE,
-            "threshold": 2,
+            "min_device_count": 2,
             "signatures": [{
                 "device_id": DEVICE_ID,
                 "verification_method": fixtures::RECOVERY_METHOD_URL,
