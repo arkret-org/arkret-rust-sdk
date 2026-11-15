@@ -134,22 +134,30 @@ fn fixture() -> (
     (group, current, genesis, request, response)
 }
 
-fn start(q: &EventId, id: &EventId) -> (CallRecordingStartPayload, CallRecordingEncryptionContext) {
+fn start(q: &EventId) -> (Event, CallRecordingStartPayload) {
     let payload: CallRecordingStartPayload = serde_json::from_value(json!({
         "call_id":arkret_wire::CallId::from_event_id(&event_id(4)),"recording_id":"segment-1",
         "recording_agent_id":"ak:did_core:web:media.example","capture_kind":"recording","mode":"audio","visible_notice":true,
         "capture_metadata":{"key_ref":{"algorithm":"MLS","group_state_ref":q},
             "retention":{"consent_confirmed":true,"retention_expires_at":"2027-11-15T00:00:00.000Z"}}
     })).unwrap();
-    let context = CallRecordingEncryptionContext {
-        realm_id: realm(),
-        call_id: payload.call_id.clone(),
-        focus_id: "focus-1".into(),
-        recording_id: payload.recording_id.clone(),
-        media_service_id: payload.recording_agent_id.clone(),
-        recording_start_event_id: id.clone(),
-    };
-    (payload, context)
+    let event = arkret_wire::test_support::raw_event_for_actor_at(
+        EventKind::CallRecordingStart.as_str(),
+        scope(),
+        actor(),
+        serde_json::to_value(&payload).unwrap(),
+        "2026-11-15T00:00:00.000Z".parse().unwrap(),
+    )
+    .unwrap();
+    (event, payload)
+}
+
+fn parameters() -> RecordingStreamParameters {
+    RecordingStreamParameters {
+        segment_bytes: 1024,
+        media_type: "audio/ogg".into(),
+        digest_suite: DigestSuite::Sha256,
+    }
 }
 
 fn artifact(
@@ -202,7 +210,7 @@ fn real_group_context_material_and_current_coordinates_must_all_match() {
             "axis {axis}"
         );
     }
-    let mut wrong = response.clone();
+    let mut wrong = response;
     wrong.group_info_base64url = Base64UrlString::new(base64url_encode(b"not RFC 9420")).unwrap();
     assert!(
         InstalledRecordingEpoch::verify_installed_material(
@@ -225,17 +233,14 @@ fn actual_epoch_install_fences_old_writer_and_old_tail_can_finish_afterwards() {
     let fence = RecordingEpochFence::new(&source);
     let original_group =
         ArkretMlsGroup::restore_from_state_record(&group.export_state_record().unwrap()).unwrap();
-    let (initial_start, context) = start(&genesis.event.event_id, &event_id(5));
+    let (initial_start_event, initial_start) = start(&genesis.event.event_id);
     let mut old = fence
         .begin_recording(
             &group,
             &source,
-            &event_id(5),
-            &initial_start,
-            context,
-            1024,
-            "audio/ogg".into(),
-            DigestSuite::Sha256,
+            &initial_start_event,
+            "focus-1".into(),
+            parameters(),
         )
         .unwrap();
     old.push_to(b"old epoch tail", |_| Ok(())).unwrap();
@@ -306,7 +311,13 @@ fn actual_epoch_install_fences_old_writer_and_old_tail_can_finish_afterwards() {
     let artifact = artifact(&output, &initial_start);
     assert!(
         source
-            .decrypt_recording(&group, &event_id(5), &initial_start, &artifact, &frozen)
+            .decrypt_recording(
+                &group,
+                &initial_start_event.event_id,
+                &initial_start,
+                &artifact,
+                &frozen
+            )
             .is_err()
     );
     assert_ne!(
@@ -322,7 +333,7 @@ fn actual_epoch_install_fences_old_writer_and_old_tail_can_finish_afterwards() {
         &**source
             .decrypt_recording(
                 &original_group,
-                &event_id(5),
+                &initial_start_event.event_id,
                 &initial_start,
                 &artifact,
                 &frozen
@@ -333,6 +344,19 @@ fn actual_epoch_install_fences_old_writer_and_old_tail_can_finish_afterwards() {
     assert!(
         fence
             .with_media_delivery(&group, &source, || Ok(()))
+            .is_err()
+    );
+    let mut wrong_context = artifact;
+    wrong_context.encryption.context.recording_id = "another-segment".parse().unwrap();
+    assert!(
+        source
+            .decrypt_recording(
+                &original_group,
+                &initial_start_event.event_id,
+                &initial_start,
+                &wrong_context,
+                &frozen,
+            )
             .is_err()
     );
     let (next_request, next_response) = material(&group, event_id(6), info, tree);
@@ -353,17 +377,14 @@ fn actual_epoch_install_fences_old_writer_and_old_tail_can_finish_afterwards() {
     fence
         .with_media_delivery(&group, &new_source, || Ok(()))
         .unwrap();
-    let (next_start, context) = start(&event_id(6), &event_id(7));
+    let (next_start, _) = start(&event_id(6));
     let mut writer = fence
         .begin_recording(
             &group,
             &new_source,
-            &event_id(7),
             &next_start,
-            context,
-            1024,
-            "audio/ogg".into(),
-            DigestSuite::Sha256,
+            "focus-1".into(),
+            parameters(),
         )
         .unwrap();
     writer.push_to(b"new segment", |_| Ok(())).unwrap();
@@ -384,24 +405,32 @@ fn failed_install_does_not_reenable_old_writer_or_accept_a_different_start_q() {
     )
     .unwrap();
     let fence = RecordingEpochFence::new(&source);
-    let (mut start, context) = start(&event_id(2), &event_id(5));
-    start.capture_metadata.key_ref = Some(
-        serde_json::from_value(json!({"algorithm":"MLS","group_state_ref":event_id(7)})).unwrap(),
-    );
+    let (start, _) = start(&event_id(7));
     assert!(
         fence
-            .begin_recording(
-                &group,
-                &source,
-                &event_id(5),
-                &start,
-                context,
-                1024,
-                "audio/ogg".into(),
-                DigestSuite::Sha256
-            )
+            .begin_recording(&group, &source, &start, "focus-1".into(), parameters(),)
             .is_err()
     );
+    let (valid_start, _) = self::start(&genesis.event.event_id);
+    for axis in 0..3 {
+        let mut wrong = valid_start.clone();
+        match axis {
+            0 => wrong.kind = EventKind::CallCreate,
+            1 => {
+                wrong.scope_ref = ScopeRef::Realm {
+                    realm_id: RealmId::from_event_id(&event_id(10)),
+                }
+            }
+            2 => wrong.event_id = event_id(11),
+            _ => unreachable!(),
+        }
+        assert!(
+            fence
+                .begin_recording(&group, &source, &wrong, "focus-1".into(), parameters())
+                .is_err(),
+            "original Start axis {axis}"
+        );
+    }
     assert!(
         fence
             .with_epoch_install::<()>(|| Err(protocol("actual install failed")))

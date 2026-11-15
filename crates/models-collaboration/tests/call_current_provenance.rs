@@ -90,12 +90,10 @@ fn complete_roster_replaces_join_and_retains_empty_last_source() {
         },
     };
     assert!(
-        CallRosterCurrentValue::apply_delta(Some(&roster), leave(first.commit_id.clone()), None)
-            .is_err()
+        CallRosterCurrentValue::apply_delta(Some(&roster), leave(first.commit_id), None).is_err()
     );
     let roster =
-        CallRosterCurrentValue::apply_delta(Some(&roster), leave(second.commit_id.clone()), None)
-            .unwrap();
+        CallRosterCurrentValue::apply_delta(Some(&roster), leave(second.commit_id), None).unwrap();
     assert!(roster.entries.is_empty());
     assert_eq!(roster.last_source.source_commit, left);
     roster
@@ -186,7 +184,7 @@ fn roster_keeps_same_principal_at_different_stations_separate() {
             value: CallRosterDelta::Leave {
                 actor_id: participant_actor("ak:did_core:web:station.example"),
                 device_id: "ak:device:01964137-0000-7000-8000-000000000001".into(),
-                expected_commit_id: second.commit_id.clone(),
+                expected_commit_id: second.commit_id,
             },
         },
         None,
@@ -239,8 +237,7 @@ fn moderation_restore_removes_only_the_exact_full_actor_ban_and_keeps_kick() {
         )
     };
     assert!(
-        CallModerationCurrentValue::apply_delta(Some(&current), restore(first.commit_id.clone()))
-            .is_err()
+        CallModerationCurrentValue::apply_delta(Some(&current), restore(first.commit_id)).is_err()
     );
     let current =
         CallModerationCurrentValue::apply_delta(Some(&current), restore(second.commit_id.clone()))

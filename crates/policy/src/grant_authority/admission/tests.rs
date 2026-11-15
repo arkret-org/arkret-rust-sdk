@@ -207,7 +207,7 @@ fn native_creation_order_and_single_root_are_required() {
         );
     }
     assert!(validate(&body, &[(&p, &commit(5, 1, at(0)))], &accepting, 3_600_000).is_err());
-    let mut wrong = p.clone();
+    let mut wrong = p;
     wrong.authority_root_ref = AuthorityRootRef::RealmRoot {
         realm_id: realm(),
         authority_event_ref: EventId::from_digest(DigestSuite::Sha256, [99; 32]),
@@ -501,7 +501,7 @@ fn accepted_profile_source_keeps_current_without_reissuing_its_approval() {
         .unwrap_err(),
         AuthorityError::Coverage
     );
-    let mut closed = p.clone();
+    let mut closed = p;
     closed.status = CapabilityGrantStatus::Revoked;
     assert_eq!(
         current_sources(&closed, action, &resource(8), &grants, at(20), |_| true).unwrap_err(),

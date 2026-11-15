@@ -239,7 +239,7 @@ fn a_new_head_cannot_install_an_older_row_or_change_a_known_revision() {
             )
             .is_err()
     );
-    let mut altered = previous.clone();
+    let mut altered = previous;
     altered["value"] = json!({"entries":[]});
     assert!(
         current(&altered)

@@ -570,12 +570,12 @@ impl SessionGrantScope {
                 "Agent scope track or data label violates its canonical grammar",
             ));
         }
-        if let Some(strands) = &self.constraints.allowed_strand_ids {
-            if strands != &self.strand_ids || !unique(strands) {
-                return Err(invalid(
-                    "Agent strand constraint differs from the resource ceiling",
-                ));
-            }
+        if let Some(strands) = &self.constraints.allowed_strand_ids
+            && (strands != &self.strand_ids || !unique(strands))
+        {
+            return Err(invalid(
+                "Agent strand constraint differs from the resource ceiling",
+            ));
         }
         if let Some(entries) = &self.participations {
             let mut scopes = std::collections::BTreeSet::new();

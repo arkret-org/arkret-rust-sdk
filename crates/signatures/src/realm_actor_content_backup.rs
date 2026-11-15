@@ -271,7 +271,7 @@ mod tests {
                     .unwrap();
                 assert_eq!(
                     arkret_canonical::canonical::sha256_digest(
-                        &proof.signing_payload_bytes().unwrap()
+                        proof.signing_payload_bytes().unwrap()
                     ),
                     expected_hash
                 );
@@ -284,7 +284,7 @@ mod tests {
                     .unwrap();
                 assert_eq!(
                     arkret_canonical::canonical::sha256_digest(
-                        &proof.signing_payload_bytes().unwrap()
+                        proof.signing_payload_bytes().unwrap()
                     ),
                     expected_hash
                 );
@@ -363,7 +363,7 @@ mod tests {
         };
         verify_current_device_backup_unlock_proof(&proof, &challenge, &method, &public).unwrap();
         assert_eq!(
-            arkret_canonical::canonical::sha256_digest(&proof.signing_payload_bytes().unwrap()),
+            arkret_canonical::canonical::sha256_digest(proof.signing_payload_bytes().unwrap()),
             "sha256:d99f49c31c6a4c9e2170b2b84208f6ef6e6b67aff8019543b789cfabf3d39c95"
         );
         assert_eq!(

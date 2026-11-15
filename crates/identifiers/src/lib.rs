@@ -4,6 +4,13 @@
 //! content hashes, cursors and HLC values. Constructors and Serde decoding both
 //! validate their input so malformed wire identifiers fail at the edge.
 
+#[cfg(feature = "diesel")]
+#[allow(
+    unused_extern_crates,
+    reason = "Supported Diesel derive versions differ in whether they reference alloc."
+)]
+extern crate alloc;
+
 use std::cmp::Ordering;
 use std::fmt;
 use std::str::FromStr;
@@ -998,10 +1005,13 @@ impl AccountStatusRecordId {
 id_type!(
     /// Stable capture-segment handle shared by recording and transcript selectors.
     CallRecordingId,
-    |value: &str| !value.is_empty()
-        && value.len() <= 128
-        && value.bytes().all(|byte| byte.is_ascii_alphanumeric()
-            || matches!(byte, b'.' | b'_' | b'-'))
+    |value: &str| {
+        !value.is_empty()
+            && value.len() <= 128
+            && value
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-'))
+    }
 );
 
 id_type!(SessionGrantId, |value: &str| is_strict_typed_id(

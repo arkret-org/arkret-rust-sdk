@@ -100,6 +100,12 @@ fn vault_lock(directory: &Path, kind: &str, app: &str) -> PathBuf {
     }
 }
 
+fn wait_for_go() {
+    let mut signal = String::new();
+    std::io::stdin().read_line(&mut signal).unwrap();
+    assert_eq!(signal.trim(), "GO");
+}
+
 #[test]
 #[ignore = "spawned only by exact-byte CAS process tests"]
 fn cas_worker() {
@@ -125,13 +131,38 @@ fn cas_worker() {
     };
     println!("READY");
     std::io::stdout().flush().unwrap();
-    let mut signal = String::new();
-    std::io::stdin().read_line(&mut signal).unwrap();
-    assert_eq!(signal.trim(), "GO");
+    wait_for_go();
     assert_ne!(
         mode, "lock",
         "lock worker must be killed, not released normally"
     );
+    if mode == "mutations" {
+        for round in 0..4 {
+            let updated = format!("child-update-{round}");
+            store.store(ID, updated.as_bytes()).unwrap();
+            println!("UPDATED {round}");
+            std::io::stdout().flush().unwrap();
+            wait_for_go();
+
+            store.delete(ID).unwrap();
+            println!("DELETED {round}");
+            std::io::stdout().flush().unwrap();
+            wait_for_go();
+
+            let recreated = format!("child-recreated-{round}");
+            assert_eq!(
+                store
+                    .create_if_absent(ID, recreated.as_bytes())
+                    .unwrap()
+                    .as_slice(),
+                recreated.as_bytes()
+            );
+            println!("CREATED {round}");
+            std::io::stdout().flush().unwrap();
+            wait_for_go();
+        }
+        return;
+    }
     let accepted = store
         .compare_exchange(ID, Some(b"initial"), candidate.as_bytes())
         .unwrap();
@@ -252,6 +283,67 @@ fn dpapi_process_crash_releases_stable_mutation_lock() {
 #[test]
 fn keychain_processes_compare_full_committed_bytes() {
     cross_process("macos");
+}
+
+#[cfg(all(target_os = "macos", feature = "keystore-macos"))]
+#[test]
+fn keychain_parent_observes_child_update_delete_and_recreate() {
+    let (app, directory) = scratch("macos-record-lifetime");
+    let original = open_store("macos", &directory.0.join("vault"), &app);
+    // Exercise ordinary store's first-add path as well as the CAS first-add
+    // path in keychain_processes_compare_full_committed_bytes. Neither may
+    // retain an item reference whose record UID another process invalidates.
+    original.store(ID, b"initial").unwrap();
+    assert_eq!(original.load(ID).unwrap().as_slice(), b"initial");
+    let reopened = open_store("macos", &directory.0.join("vault"), &app);
+    let mut child = worker(&directory.0, "macos", &app, "churn", "mutations");
+    let mut output = ready(&mut child);
+    let mut previous = b"initial".to_vec();
+    for round in 0..4 {
+        for phase in ["UPDATED", "DELETED", "CREATED"] {
+            child.stdin.as_mut().unwrap().write_all(b"GO\n").unwrap();
+            let mut marker = String::new();
+            assert!(output.read_line(&mut marker).unwrap() > 0);
+            assert_eq!(marker.trim(), format!("{phase} {round}"));
+            // The child is blocked on stdin after the completed native call.
+            // There is no timer, retry or notification/run-loop grace period.
+            match phase {
+                "UPDATED" => {
+                    let updated = format!("child-update-{round}").into_bytes();
+                    assert_eq!(original.load(ID).unwrap().as_slice(), updated);
+                    assert_eq!(reopened.load(ID).unwrap().as_slice(), updated);
+                    assert!(original.list().unwrap().iter().any(|id| id == ID));
+                    assert!(
+                        !reopened
+                            .compare_exchange(ID, Some(&previous), b"stale")
+                            .unwrap()
+                    );
+                }
+                "DELETED" => {
+                    assert!(original.load(ID).unwrap_err().is_not_found());
+                    assert!(reopened.load(ID).unwrap_err().is_not_found());
+                    assert!(!original.list().unwrap().iter().any(|id| id == ID));
+                }
+                "CREATED" => {
+                    previous = format!("child-recreated-{round}").into_bytes();
+                    assert_eq!(original.load(ID).unwrap().as_slice(), previous);
+                    assert_eq!(reopened.load(ID).unwrap().as_slice(), previous);
+                    assert_eq!(
+                        original
+                            .create_if_absent(ID, b"must-not-replace")
+                            .unwrap()
+                            .as_slice(),
+                        previous
+                    );
+                }
+                _ => unreachable!(),
+            }
+        }
+    }
+    child.stdin.take().unwrap().write_all(b"GO\n").unwrap();
+    assert!(child.wait().unwrap().success());
+    assert_eq!(reopened.load(ID).unwrap().as_slice(), previous);
+    reopened.delete(ID).unwrap();
 }
 #[cfg(all(target_os = "linux", feature = "keystore-linux"))]
 #[test]

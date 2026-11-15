@@ -18,7 +18,7 @@ pub fn sign_recovery_receipt(receipt: &mut RecoveryReceipt, key: &SigningKey) ->
     let signature = key.sign(&receipt.signature_transcript_bytes()?);
     receipt.signature_proof.signature =
         arkret_wire::Base64UrlString::new(arkret_canonical::base64url_encode(signature.to_bytes()))
-            .map_err(|error| Error::Protocol(error.to_string()))?;
+            .map_err(|error| Error::Protocol(error.to_owned()))?;
     Ok(())
 }
 

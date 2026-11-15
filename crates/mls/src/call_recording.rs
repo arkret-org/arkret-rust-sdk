@@ -16,10 +16,18 @@ use arkret_models_collaboration::mls_group_state_material::{
 };
 use arkret_models_crypto::{EncryptedAttachmentKeyRef, MlsCommitPayload};
 use arkret_wire::{
-    CommittedEventFullView, EventId, EventKind, MlsGroupId, MlsGroupValue, ScopeRef,
+    CommittedEventFullView, Event, EventId, EventKind, MlsGroupId, MlsGroupValue, ScopeRef,
 };
 
 use crate::{ArkretMlsGroup, MlsError as Error, MlsPublicGroupTracker, Result};
+
+/// Local codec choices, independent of the original signed Start fields.
+/// This is not a wire descriptor and carries no authority or MLS source claim.
+pub struct RecordingStreamParameters {
+    pub segment_bytes: u32,
+    pub media_type: String,
+    pub digest_suite: DigestSuite,
+}
 
 /// A private-field local capability for exact installed MLS material. It proves
 /// RFC state equality, not authority acceptance by itself. The facade combines
@@ -323,16 +331,26 @@ impl RecordingEpochFence {
         &self,
         group: &ArkretMlsGroup,
         source: &InstalledRecordingEpoch,
-        start_event_id: &EventId,
-        start: &CallRecordingStartPayload,
-        context: CallRecordingEncryptionContext,
-        segment_bytes: u32,
-        media_type: String,
-        suite: DigestSuite,
+        start_event: &Event,
+        focus_id: String,
+        parameters: RecordingStreamParameters,
     ) -> Result<FencedRecordingWriter> {
         let state = self.lock()?;
         source.require_installed(group)?;
-        start.validate().map_err(|error| protocol(error))?;
+        if start_event.kind != EventKind::CallRecordingStart
+            || start_event.scope_ref != source.scope
+            || source.scope.realm_id_opt() != Some(&start_event.realm_id)
+        {
+            return Err(protocol(
+                "recording Start has another kind or effective scope",
+            ));
+        }
+        start_event.verify_event_id_matches_content_with_digest_suite(
+            start_event.realm_id.digest_suite_code().digest_suite(),
+        )?;
+        let start: CallRecordingStartPayload =
+            serde_json::from_value(serde_json::to_value(&start_event.payload)?)?;
+        start.validate().map_err(protocol)?;
         let key_ref = start
             .capture_metadata
             .key_ref
@@ -342,12 +360,21 @@ impl RecordingEpochFence {
         if !state.enabled
             || &state.latest != source
             || start.capture_kind != RecordingCaptureKind::Recording
-            || source.scope.realm_id_opt() != Some(&context.realm_id)
         {
             return Err(protocol(
                 "recording Start differs from enabled original source",
             ));
         }
+        // The focus is a separate accepted Call-source input, not an MLS
+        // property. Every other Context member comes from the original Event.
+        let context = CallRecordingEncryptionContext {
+            realm_id: start_event.realm_id.clone(),
+            call_id: start.call_id.clone(),
+            focus_id,
+            recording_id: start.recording_id.clone(),
+            media_service_id: start.recording_agent_id.clone(),
+            recording_start_event_id: start_event.event_id.clone(),
+        };
         let exported = crate::exporter_kdf::derive_rtc_recording_key(group, &context)?;
         let key = zeroize::Zeroizing::new(
             <[u8; 32]>::try_from(exported.as_slice())
@@ -357,13 +384,13 @@ impl RecordingEpochFence {
             *key,
             context,
             key_ref.clone(),
-            segment_bytes,
-            media_type,
-            suite,
+            parameters.segment_bytes,
+            parameters.media_type,
+            parameters.digest_suite,
         )?;
         encoder
             .encryption()
-            .validate_start_binding(start_event_id, start)?;
+            .validate_start_binding(&start_event.event_id, &start)?;
         Ok(FencedRecordingWriter {
             fence: self.clone(),
             generation: state.generation,

@@ -191,11 +191,11 @@ impl RecordingStreamEncoder {
             return Err(Error::Protocol("recording attempt is poisoned".into()));
         }
         while !plaintext.is_empty() {
-            if self.pending.len() == self.encryption.segment_bytes as usize {
-                if let Err(error) = self.emit_segment(false, &mut emit) {
-                    self.failed = true;
-                    return Err(error);
-                }
+            if self.pending.len() == self.encryption.segment_bytes as usize
+                && let Err(error) = self.emit_segment(false, &mut emit)
+            {
+                self.failed = true;
+                return Err(error);
             }
             let take = plaintext
                 .len()

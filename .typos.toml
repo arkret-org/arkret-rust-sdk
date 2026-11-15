@@ -2,6 +2,8 @@
 extend-ignore-re = [
     # Content-addressed protocol fixture IDs and digest known-answer vectors.
     "ak:[a-z_]+:[A-Za-z0-9_-]{43}",
+    # Exact content-addressed component names in the generated OpenAPI bundle.
+    "arkret_v1_[0-9a-f]{64}",
     "PfgyVkXhI1H9x4sv9t1SYQ-_HMqFNm0iiOtE_s_cODU",
     # base 58 strings with spaces every four chars.
     # this would also match regular sentence parts with eight or more words of

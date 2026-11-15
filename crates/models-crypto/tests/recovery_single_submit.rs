@@ -33,7 +33,7 @@ fn recovery_create_is_one_closed_receipt_and_response_replays_it_exactly() {
             .collect::<Vec<_>>(),
         vec!["kind", "recovery_receipt"]
     );
-    let mut old = body.clone();
+    let mut old = body;
     old["prepared_plan"] = json!({});
     assert!(serde_json::from_value::<RecoveryTransactionCreateRequestBody>(old).is_err());
     let mut changed = completed;

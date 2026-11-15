@@ -64,7 +64,7 @@ pub enum HistoryContentSelection {
     Attachment {
         content_path: String,
         descriptor: EncryptedAttachment,
-        parent: Option<EventContentEnvelope>,
+        parent: Option<Box<EventContentEnvelope>>,
     },
 }
 
@@ -203,7 +203,7 @@ pub fn select_history_content(
             return Ok(HistoryContentSelection::Attachment {
                 content_path: content_path.to_owned(),
                 descriptor,
-                parent: Some(slot),
+                parent: Some(Box::new(slot)),
             });
         }
     }
@@ -277,11 +277,11 @@ pub fn event_plain_content_blocks(original: &Event) -> Result<Vec<(String, Conte
         if encrypted.iter().any(|slot| slot.content_path == path) {
             continue;
         }
-        if path.starts_with("/payload") {
-            if let Some(block) = original_plain_block(original, &path, value)? {
-                output.push((path, block));
-                continue;
-            }
+        if path.starts_with("/payload")
+            && let Some(block) = original_plain_block(original, &path, value)?
+        {
+            output.push((path, block));
+            continue;
         }
         match value {
             serde_json::Value::Object(map) => {

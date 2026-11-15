@@ -5,10 +5,7 @@ use arkret_http_client::own_station_results::BoundOwnStationResponse;
 use arkret_identity::{VerifiedProducerEvent, VerifiedRealmCommit};
 use arkret_mls::ArkretMlsGroup;
 use arkret_mls::call_recording::{
-    FencedRecordingWriter, InstalledRecordingEpoch, RecordingEpochFence,
-};
-use arkret_models_collaboration::events_payloads::call::{
-    CallRecordingEncryptionContext, CallRecordingStartPayload,
+    FencedRecordingWriter, InstalledRecordingEpoch, RecordingEpochFence, RecordingStreamParameters,
 };
 use arkret_models_collaboration::mls_group_state_material::{
     MlsGroupStateMaterialResponseBody, MlsMemberGroupStateMaterialReadRequestBody,
@@ -17,8 +14,6 @@ use arkret_wire::{
     CommittedEventFullView, CurrentSelector, CurrentState, EventKind, MlsGroupValue, RealmId,
     RealmStateSnapshot, WireError,
 };
-
-use crate::DigestSuite;
 
 /// No deserializer or unchecked constructor. A wire MlsGroupValue or an arbitrary
 /// key_ref cannot be promoted to this local authority capability.
@@ -128,41 +123,29 @@ impl BoundRecordingSource {
 
     /// Start must be the actual accepted, signed original. Its raw Q is frozen
     /// unchanged into the encoder's descriptor; equivalent ref spellings cannot
-    /// replace it. Capture permission/Service provenance remain native gates.
+    /// replace it. The caller separately supplies the accepted Call focus;
+    /// it is not encoded by Start or proved by MLS membership. Capture
+    /// permission, focus and Service provenance remain native gates.
     pub fn begin_recording(
         &self,
         group: &ArkretMlsGroup,
         fence: &RecordingEpochFence,
         start_producer: &VerifiedProducerEvent,
         start_commit: &VerifiedRealmCommit,
-        context: CallRecordingEncryptionContext,
-        segment_bytes: u32,
-        media_type: String,
-        suite: DigestSuite,
+        focus_id: String,
+        parameters: RecordingStreamParameters,
     ) -> Result<FencedRecordingWriter, WireError> {
         let installed = self.installed_epoch()?;
         let start = joined_original(start_producer, start_commit)?;
         if start.event.kind != EventKind::CallRecordingStart
             || &start.event.scope_ref != installed.effective_scope()
-            || start.event.realm_id != context.realm_id
         {
             return Err(protocol(
                 "recording writer requires original accepted Start in the same effective scope",
             ));
         }
-        let payload: CallRecordingStartPayload =
-            serde_json::from_value(serde_json::to_value(&start.event.payload)?)?;
         fence
-            .begin_recording(
-                group,
-                installed,
-                &start.event.event_id,
-                &payload,
-                context,
-                segment_bytes,
-                media_type,
-                suite,
-            )
+            .begin_recording(group, installed, &start.event, focus_id, parameters)
             .map_err(protocol)
     }
 }

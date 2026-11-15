@@ -428,7 +428,7 @@ fn delegated_current_candidates_keep_the_same_local_temporal_tolerance() {
         GrantConstraint::authority_control(0, false),
     ];
     let rows = BTreeMap::from([
-        (parent.id.clone(), parent.clone()),
+        (parent.id.clone(), parent),
         (child.id.clone(), child.clone()),
     ]);
     let target = WireResourceSelector::realm(realm());

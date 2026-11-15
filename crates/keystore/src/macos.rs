@@ -15,9 +15,8 @@
 //!   is swallowed.
 
 use security_framework::base::Error as SfError;
-use security_framework::passwords::{
-    delete_generic_password, get_generic_password, set_generic_password,
-};
+use security_framework::os::macos::keychain::SecKeychain;
+use security_framework::passwords::{delete_generic_password, get_generic_password};
 
 use crate::contract::{KeyBytes, Result, service_name, validate_id};
 use crate::{KeyStore, KeyStoreError};
@@ -67,35 +66,72 @@ impl MacOsKeychainKeyStore {
     }
 
     fn map_sf<T>(res: std::result::Result<T, SfError>) -> std::result::Result<T, KeyStoreError> {
-        res.map_err(|err| KeyStoreError::backend(format!("keychain: {err}")))
+        res.map_err(|err| KeyStoreError::backend(format!("keychain ({}): {err}", err.code())))
+    }
+
+    // Caller holds the service lock. Do not recursively acquire a second file
+    // description's lock from create_if_absent or compare_exchange.
+    fn load_unlocked(&self, id: &str) -> Result<KeyBytes> {
+        match get_generic_password(&self.service, id) {
+            Ok(bytes) => Ok(KeyBytes::new(bytes)),
+            Err(err) if is_not_found(&err) => Err(KeyStoreError::not_found(id)),
+            Err(err) => Self::map_sf(Err(err)),
+        }
+    }
+
+    fn store_unlocked(&self, id: &str, key: &[u8]) -> Result<()> {
+        use security_framework::item::{ItemClass, ItemSearchOptions, Reference, SearchResult};
+
+        // security-framework 3.7's cross-platform set_generic_password passes
+        // a result pointer to SecItemAdd without releasing the returned object.
+        // The macOS default result is a retained SecKeychainItemRef: leaking it
+        // pins a cached record UID which another process's update invalidates.
+        // Request only an RAII-owned item reference, not the old plaintext,
+        // and pass no result pointer when adding. Keep the same login-keychain
+        // service/account namespace and propagate every error except NotFound.
+        let mut search = ItemSearchOptions::new();
+        search.class(ItemClass::generic_password());
+        search.service(&self.service);
+        search.account(id);
+        search.limit(2_i64);
+        search.load_refs(true);
+        match search.search() {
+            Ok(mut results) => match (results.pop(), results.is_empty()) {
+                (Some(SearchResult::Ref(Reference::KeychainItem(mut item))), true) => {
+                    Self::map_sf(item.set_password(key))
+                }
+                _ => Err(KeyStoreError::backend(
+                    "keychain item reference is unavailable",
+                )),
+            },
+            Err(err) if is_not_found(&err) => {
+                let keychain = Self::map_sf(SecKeychain::default())?;
+                Self::map_sf(keychain.add_generic_password(&self.service, id, key))
+            }
+            Err(err) => Self::map_sf(Err(err)),
+        }
     }
 }
 
 impl KeyStore for MacOsKeychainKeyStore {
     fn load(&self, id: &str) -> Result<KeyBytes> {
         validate_id(id)?;
-        match get_generic_password(&self.service, id) {
-            Ok(bytes) => Ok(KeyBytes::new(bytes)),
-            Err(err) if is_not_found(&err) => Err(KeyStoreError::not_found(id)),
-            Err(err) => Err(KeyStoreError::backend(format!("keychain: {err}"))),
-        }
+        self.with_mutation_lock(|| self.load_unlocked(id))
     }
 
     fn store(&self, id: &str, key: &[u8]) -> Result<()> {
         validate_id(id)?;
-        self.with_mutation_lock(|| Self::map_sf(set_generic_password(&self.service, id, key)))
+        self.with_mutation_lock(|| self.store_unlocked(id, key))
     }
 
     fn create_if_absent(&self, id: &str, key: &[u8]) -> Result<KeyBytes> {
-        use security_framework::os::macos::keychain::SecKeychain;
-
         validate_id(id)?;
         self.with_mutation_lock(|| {
             let keychain = Self::map_sf(SecKeychain::default())?;
             match keychain.add_generic_password(&self.service, id, key) {
-                Ok(()) => self.load(id),
+                Ok(()) => self.load_unlocked(id),
                 // errSecDuplicateItem: another creator won; never update that item.
-                Err(error) if error.code() == -25299 => self.load(id),
+                Err(error) if error.code() == -25299 => self.load_unlocked(id),
                 Err(error) => Self::map_sf(Err(error)),
             }
         })
@@ -109,7 +145,7 @@ impl KeyStore for MacOsKeychainKeyStore {
     ) -> Result<bool> {
         validate_id(id)?;
         self.with_mutation_lock(|| {
-            let existing = match self.load(id) {
+            let existing = match self.load_unlocked(id) {
                 Ok(bytes) => Some(bytes),
                 Err(error) if error.is_not_found() => None,
                 Err(error) => return Err(error),
@@ -117,47 +153,49 @@ impl KeyStore for MacOsKeychainKeyStore {
             if existing.as_ref().map(KeyBytes::as_slice) != expected {
                 return Ok(false);
             }
-            Self::map_sf(set_generic_password(&self.service, id, replacement))?;
+            self.store_unlocked(id, replacement)?;
             Ok(true)
         })
     }
 
     fn list(&self) -> Result<Vec<String>> {
-        // Use SecItemCopyMatching via security-framework's item module.
-        // We request `load_attributes(true)` so each result is a `Dict`
-        // containing the `acct` (account / our key id) attribute.
-        use security_framework::item::{ItemClass, ItemSearchOptions};
+        self.with_mutation_lock(|| {
+            // Use SecItemCopyMatching via security-framework's item module.
+            // We request `load_attributes(true)` so each result is a `Dict`
+            // containing the `acct` (account / our key id) attribute.
+            use security_framework::item::{ItemClass, ItemSearchOptions};
 
-        let mut search = ItemSearchOptions::new();
-        search.class(ItemClass::generic_password());
-        search.service(&self.service);
-        // `i64::MAX` would overflow the underlying CFNumber; use a high
-        // but bounded ceiling. Real keystores never approach this.
-        search.limit(i64::from(i32::MAX));
-        search.load_attributes(true);
+            let mut search = ItemSearchOptions::new();
+            search.class(ItemClass::generic_password());
+            search.service(&self.service);
+            // `i64::MAX` would overflow the underlying CFNumber; use a high
+            // but bounded ceiling. Real keystores never approach this.
+            search.limit(i64::from(i32::MAX));
+            search.load_attributes(true);
 
-        let results = match search.search() {
-            Ok(results) => results,
-            Err(err) if is_not_found(&err) => return Ok(Vec::new()),
-            Err(err) => {
-                return Err(KeyStoreError::backend(format!("keychain enum: {err}")));
+            let results = match search.search() {
+                Ok(results) => results,
+                Err(err) if is_not_found(&err) => return Ok(Vec::new()),
+                Err(err) => {
+                    return Err(KeyStoreError::backend(format!("keychain enum: {err}")));
+                }
+            };
+
+            let mut ids = Vec::new();
+            for result in results {
+                // `simplify_dict()` returns the loaded attribute dict as a
+                // `HashMap<String, String>`. The "acct" attribute holds our
+                // caller-supplied key id.
+                if let Some(attrs) = result.simplify_dict()
+                    && let Some(account) = attrs.get("acct")
+                {
+                    ids.push(account.clone());
+                }
             }
-        };
-
-        let mut ids = Vec::new();
-        for result in results {
-            // `simplify_dict()` returns the loaded attribute dict as a
-            // `HashMap<String, String>`. The "acct" attribute holds our
-            // caller-supplied key id.
-            if let Some(attrs) = result.simplify_dict()
-                && let Some(account) = attrs.get("acct")
-            {
-                ids.push(account.clone());
-            }
-        }
-        ids.sort();
-        ids.dedup();
-        Ok(ids)
+            ids.sort();
+            ids.dedup();
+            Ok(ids)
+        })
     }
 
     fn delete(&self, id: &str) -> Result<()> {
@@ -176,7 +214,7 @@ fn io_error(error: std::io::Error) -> KeyStoreError {
 
 // Resolve the system account's actual home, not caller-controlled HOME/TMPDIR.
 // The private directory is persistent: system temporary-file cleanup cannot
-// replace a live lock inode. Every SDK mutation in a service uses this lock.
+// replace a live lock inode. Every SDK access in a service uses this lock.
 fn mutation_lock(service: &str) -> Result<std::fs::File> {
     use std::os::unix::ffi::OsStringExt;
     // SAFETY: getuid has no inputs and no ownership/lifetime requirements.
