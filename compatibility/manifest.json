@@ -58,7 +58,7 @@
     },
     "coauth": {
       "repository": "arkret-org/coauth",
-      "commit": "3079db149a44684503d5e740d14df69fbf3571f0",
+      "commit": "c7b37228f2c1e787ce7ca7b87d6862f68bf2719c",
       "checkout_path": "coauth",
       "roles": [
         "identity-producer",
@@ -83,7 +83,7 @@
     },
     "inkson": {
       "repository": "arkret-org/inkson",
-      "commit": "19957d54ee1e7d5657f13a5aea828169035ee352",
+      "commit": "fc79bd7a90e2695ecdbf95146462cd0b31891b3b",
       "checkout_path": "inkson",
       "roles": [
         "application-consumer"
