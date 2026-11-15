@@ -73,9 +73,9 @@ fn recursive_boolean_filters_are_closed_and_preserve_null_predicates() {
     let predicate = json!({"field":"metadata.status","operator":"eq","value":null});
     for value in [
         predicate.clone(),
-        json!({"and":[predicate.clone()]}),
-        json!({"or":[{"not":predicate.clone()}]}),
-        json!({"not":{"and":[predicate.clone(),{"field":"kind","operator":"exists"}]}}),
+        json!({"and":[predicate]}),
+        json!({"or":[{"not":predicate}]}),
+        json!({"not":{"and":[predicate,{"field":"kind","operator":"exists"}]}}),
     ] {
         let filter: Filter = serde_json::from_value(value.clone()).unwrap();
         filter.validate().unwrap();
@@ -87,9 +87,9 @@ fn recursive_boolean_filters_are_closed_and_preserve_null_predicates() {
     for value in [
         previous.clone(),
         dual.clone(),
-        json!({"and":[predicate.clone()],"op":"eq"}),
-        json!({"and":[predicate.clone()],"operator":"eq"}),
-        json!({"and":[predicate.clone()],"or":[predicate.clone()]}),
+        json!({"and":[predicate],"op":"eq"}),
+        json!({"and":[predicate],"operator":"eq"}),
+        json!({"and":[predicate],"or":[predicate]}),
         json!({"and":[previous]}),
         json!({"or":[{"not":dual}]}),
         json!({"and":[]}),
