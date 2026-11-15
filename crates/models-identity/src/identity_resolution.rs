@@ -227,13 +227,21 @@ impl PublicPrincipalResolution {
 /// transaction and becomes current holder; no second audit authorization path
 /// or caller-declared intent exists.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(remote = "Self", deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct PrincipalResolutionAuditRequestBody {
     pub account_id: AccountId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub max_predecessor_event_count: Option<u16>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub after_resolution_event_ref: Option<EventId>,
 }
 
@@ -267,6 +275,21 @@ impl PrincipalResolutionAuditRequestBody {
             ));
         }
         Ok(())
+    }
+}
+
+impl Serialize for PrincipalResolutionAuditRequestBody {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.validate().map_err(serde::ser::Error::custom)?;
+        PrincipalResolutionAuditRequestBody::serialize(self, serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for PrincipalResolutionAuditRequestBody {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = PrincipalResolutionAuditRequestBody::deserialize(deserializer)?;
+        value.validate().map_err(serde::de::Error::custom)?;
+        Ok(value)
     }
 }
 

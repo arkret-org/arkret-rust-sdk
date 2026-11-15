@@ -2,7 +2,7 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/applet-authority-material.schema.json
-// sha256=5bb72c3387ae9b80e121b309ef918785949ec7fec69d14d064720dc7de976713
+// sha256=c7a083aa62c18c4cf306e26c13bf43f0f5d95620a4ee5a9f2f8e56e288189c78
 //
 // Bindings: tools/closed-model-bindings.json
 // sha256=378099dfc0552c94d918067d3fefafa8cc572fc164f01f1a4d741a161c5c7c1a

@@ -2,7 +2,7 @@
 //! Generator: tools/spec-codegen
 //! Input: registry/operations-error-mapping.json;
 //! sha256=63d5d2efdb6529344bf4ecf228bbdfc7a4c39d2173b01f8115559d6d23c4c72d Input: registry/
-//! contract-registry.json; sha256=3e224778841b5a71e40961e6d5b1663afd2014476bc5d527366611d2591cc1c6
+//! contract-registry.json; sha256=3a75e9f9cbaf7a02abd04bfe97f220e3cf91a05f41d7255374d3911b00894054
 //! Input: registry/error-code-registry.json;
 //! sha256=ed6f316b287008a6fda34fc5b2812550f606c3a52ec74481c722868ff4e5072d Entries: operations=221
 

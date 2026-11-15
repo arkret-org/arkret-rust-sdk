@@ -7,7 +7,7 @@ use arkret_identity::{
 use arkret_models_identity::{
     AuthenticatedServiceResolution, DidMethodUri, IdentityLogListResponseBody,
 };
-use arkret_wire::{Did, DidCoreId, DidUrl, ProtocolSignature};
+use arkret_wire::{Did, DidCoreId, DidUrl, ProtocolSignature, ServiceKind};
 use chrono::{DateTime, Utc};
 use ed25519_dalek::SigningKey;
 use rand_core::SeedableRng as _;
@@ -30,18 +30,71 @@ impl ServiceIdentityFixture {
         inception_at: DateTime<Utc>,
         observed_at: DateTime<Utc>,
     ) -> Result<Self> {
+        Self::webvh_for_kind(
+            endpoint,
+            rng_seed,
+            signing_seed,
+            fragment,
+            inception_at,
+            observed_at,
+            ServiceKind::Station,
+        )
+    }
+
+    /// Build an AppletService from its real signed inception, without relabeling a Station.
+    pub fn webvh_applet_service(
+        endpoint: &url::Url,
+        rng_seed: u64,
+        signing_seed: [u8; 32],
+        fragment: &str,
+        inception_at: DateTime<Utc>,
+        observed_at: DateTime<Utc>,
+    ) -> Result<Self> {
+        Self::webvh_for_kind(
+            endpoint,
+            rng_seed,
+            signing_seed,
+            fragment,
+            inception_at,
+            observed_at,
+            ServiceKind::AppletService,
+        )
+    }
+
+    fn webvh_for_kind(
+        endpoint: &url::Url,
+        rng_seed: u64,
+        signing_seed: [u8; 32],
+        fragment: &str,
+        inception_at: DateTime<Utc>,
+        observed_at: DateTime<Utc>,
+        service_kind: ServiceKind,
+    ) -> Result<Self> {
         let mut rng = rand_chacha::ChaCha20Rng::seed_from_u64(rng_seed);
-        let prepared = arkret_signatures::webvh::prepare_service_inception_with_did_key_seed(
-            &mut rng,
-            &arkret_signatures::webvh::ServiceInceptionInput {
-                principal_endpoint: endpoint,
-                local_id: "service",
-                also_known_as: &[],
-                version_created_at: inception_at,
-                did_key_fragment: Some(fragment),
-            },
-            &signing_seed,
-        )?;
+        let input = arkret_signatures::webvh::ServiceInceptionInput {
+            principal_endpoint: endpoint,
+            local_id: "service",
+            also_known_as: &[],
+            version_created_at: inception_at,
+            did_key_fragment: Some(fragment),
+        };
+        let prepared = match service_kind {
+            ServiceKind::Station => {
+                arkret_signatures::webvh::prepare_service_inception_with_did_key_seed(
+                    &mut rng,
+                    &input,
+                    &signing_seed,
+                )?
+            }
+            ServiceKind::AppletService => {
+                arkret_signatures::webvh::prepare_applet_service_inception_with_did_key_seed(
+                    &mut rng,
+                    &input,
+                    &signing_seed,
+                )?
+            }
+            _ => anyhow::bail!("fixture only constructs Station or AppletService identities"),
+        };
         let did = Did::new(prepared.did.clone())?;
         let service_id = arkret_wire::project_did_to_core_id(&did)?;
         let mut resolver = DidWebvhResolver::new();
@@ -63,7 +116,7 @@ impl ServiceIdentityFixture {
         )?;
         let resolution = arkret_identity::build_authenticated_webvh_service_resolution(
             service_id.clone(),
-            "station".into(),
+            service_kind.to_string(),
             resolver.resolve_did(&did)?.document,
             vec![prepared.log_entry.clone()],
             vec![],

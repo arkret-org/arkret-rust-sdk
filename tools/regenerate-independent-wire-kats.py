@@ -101,7 +101,7 @@ def native_backup_unlock(_data):
                              device_authorize_event_id=admission['device_authorize_ref']['event_id'],
                              device_generation=admission['device_generation'])
         proof = {key: value for key, value in challenge.items() if key not in ('operation', 'request_id')}
-        method = (admission['signature']['verification_method'] if manager
+        method = (fixture['active_series']['signature_proof']['verification_method'] if manager
                   else fixture['native_packet']['signature_proof']['verification_method'])
         proof.update(schema='ak.schema.key_backup_unlock_proof.v1', backup_kind='secret_storage',
                      signature_proof={'verification_method': method, 'signature_algorithm': 'Ed25519'})

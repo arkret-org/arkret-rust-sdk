@@ -2047,7 +2047,7 @@ pub fn prepare_service_inception<R: Rng + ?Sized>(
     rng: &mut R,
     input: &ServiceInceptionInput<'_>,
 ) -> Result<PreparedInception, WebvhInceptionError> {
-    prepare_service_inception_internal(rng, input, None)
+    prepare_service_inception_internal(rng, input, ServiceKind::Station, None)
 }
 
 /// Prepare a service WebVH inception whose DID assertion key is supplied by
@@ -2063,7 +2063,20 @@ pub fn prepare_service_inception_with_did_key_seed<R: Rng + ?Sized>(
     input: &ServiceInceptionInput<'_>,
     did_key_seed: &[u8; SECRET_KEY_LENGTH],
 ) -> Result<PreparedInception, WebvhInceptionError> {
-    prepare_service_inception_internal(rng, input, Some(did_key_seed))
+    prepare_service_inception_internal(rng, input, ServiceKind::Station, Some(did_key_seed))
+}
+
+/// Prepare an AppletService WebVH inception with a supplied durable assertion key.
+///
+/// The AppletService role enters the original DID document before SCID derivation,
+/// version hashing and the update-key proof. This self-mint does not create a
+/// ServiceRegistrationKey or expand the registration operation's allowed roles.
+pub fn prepare_applet_service_inception_with_did_key_seed<R: Rng + ?Sized>(
+    rng: &mut R,
+    input: &ServiceInceptionInput<'_>,
+    did_key_seed: &[u8; SECRET_KEY_LENGTH],
+) -> Result<PreparedInception, WebvhInceptionError> {
+    prepare_service_inception_internal(rng, input, ServiceKind::AppletService, Some(did_key_seed))
 }
 
 pub fn prepare_service_registration_inception<R: Rng + ?Sized>(
@@ -2117,6 +2130,7 @@ fn prepare_service_registration_inception_internal<R: Rng + ?Sized>(
 fn prepare_service_inception_internal<R: Rng + ?Sized>(
     rng: &mut R,
     input: &ServiceInceptionInput<'_>,
+    service_kind: ServiceKind,
     supplied_did_key_seed: Option<&[u8; SECRET_KEY_LENGTH]>,
 ) -> Result<PreparedInception, WebvhInceptionError> {
     let public_base_url = CanonicalServiceUrl::canonicalize(input.principal_endpoint.as_str())
@@ -2125,7 +2139,7 @@ fn prepare_service_inception_internal<R: Rng + ?Sized>(
         rng,
         input.principal_endpoint,
         &public_base_url,
-        ServiceKind::Station,
+        service_kind,
         input.local_id,
         input.also_known_as,
         input.version_created_at,
@@ -3091,6 +3105,7 @@ mod historical_verification_tests {
         for service in [
             json!({"id":format!("{did}#coland"),"type":"ArkretStation", "serviceEndpoint":"https://station.example/"}),
             json!({"id":format!("{did}#coland"),"type":"ArkretService", "serviceEndpoint":"https://station.example/"}),
+            json!({"id":format!("{did}#coland"),"type":"ArkretService", "serviceKind":"station", "serviceEndpoint":"https://station.example/"}),
             json!({"id":format!("{did}#coland"),"type":"ArkretService", "service_kind":"identity_registry", "serviceEndpoint":"https://station.example/"}),
             json!({"id":format!("{did}#coland"),"type":"ArkretService", "service_kind":"station", "serviceEndpoint":"https://station.example/?query=1"}),
         ] {

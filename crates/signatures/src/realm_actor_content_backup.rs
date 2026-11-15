@@ -252,7 +252,8 @@ mod tests {
             let (seed, method) = if manager {
                 (
                     &fixture["test_material"]["manager_seed_hex"],
-                    &fixture["native_put_response"]["admission"]["signature"]["verification_method"],
+                    // Use the manager's own original method, not the admission governor's.
+                    &fixture["active_series"]["signature_proof"]["verification_method"],
                 )
             } else {
                 (

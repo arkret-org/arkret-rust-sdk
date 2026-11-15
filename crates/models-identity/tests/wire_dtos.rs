@@ -88,3 +88,36 @@ fn service_registration_receipt_uses_the_spec_field_and_typed_id() {
     ));
     assert!(serde_json::from_value::<ServiceRegistrationReceipt>(invalid_id).is_err());
 }
+
+#[test]
+fn principal_audit_predecessor_count_keeps_non_null_closed_bounds() {
+    use arkret_models_identity::PrincipalResolutionAuditRequestBody;
+    let account = serde_json::json!({"principal_id":"ak:did_core:web:alice.example","station_id":"ak:did_core:web:station.example"});
+    let omitted: PrincipalResolutionAuditRequestBody =
+        serde_json::from_value(serde_json::json!({"account_id":account})).unwrap();
+    assert!(
+        serde_json::to_value(omitted)
+            .unwrap()
+            .get("max_predecessor_event_count")
+            .is_none()
+    );
+    for count in [0, 256] {
+        let request: PrincipalResolutionAuditRequestBody = serde_json::from_value(
+            serde_json::json!({"account_id":account,"max_predecessor_event_count":count}),
+        )
+        .unwrap();
+        request.validate().unwrap();
+    }
+    for count in [
+        serde_json::Value::Null,
+        serde_json::json!(-1),
+        serde_json::json!(257),
+    ] {
+        assert!(
+            serde_json::from_value::<PrincipalResolutionAuditRequestBody>(
+                serde_json::json!({"account_id":account,"max_predecessor_event_count":count})
+            )
+            .is_err()
+        );
+    }
+}

@@ -84,12 +84,56 @@ pub enum MemberCountMode {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(remote = "Self", deny_unknown_fields)]
 pub struct MemberCountHysteresis {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub absolute_count: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub ratio_basis_points: Option<u16>,
+}
+
+impl MemberCountHysteresis {
+    pub fn validate(&self) -> Result<()> {
+        if (self.absolute_count.is_none() && self.ratio_basis_points.is_none())
+            || self.absolute_count.is_some_and(|count| count < 2)
+            || self
+                .ratio_basis_points
+                .is_some_and(|ratio| !(1000..=10000).contains(&ratio))
+        {
+            return Err(WireError::Protocol(
+                "member count hysteresis requires absolute_count >= 2 or ratio_basis_points in 1000..=10000".into(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl Serialize for MemberCountHysteresis {
+    fn serialize<S: serde::Serializer>(
+        &self,
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error> {
+        self.validate().map_err(serde::ser::Error::custom)?;
+        MemberCountHysteresis::serialize(self, serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for MemberCountHysteresis {
+    fn deserialize<D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> std::result::Result<Self, D::Error> {
+        let value = MemberCountHysteresis::deserialize(deserializer)?;
+        value.validate().map_err(serde::de::Error::custom)?;
+        Ok(value)
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

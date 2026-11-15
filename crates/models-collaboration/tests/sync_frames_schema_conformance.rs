@@ -1391,6 +1391,7 @@ fn account_filter_rejects_retired_and_out_of_bound_members_on_both_sides() {
     let negatives = [
         ("retired timeline_limit", retired),
         ("bare timeline_limit", json!({"timeline_limit": 20})),
+        ("retired window_limit", json!({"window_limit": 20})),
         (
             "max_window_event_count above 100",
             with("max_window_event_count", json!(101)),

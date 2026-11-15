@@ -568,14 +568,59 @@ pub struct AcknowledgementResponseBody {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(remote = "Self", deny_unknown_fields)]
 pub struct PushCounts {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub badge: Option<PushCountIndicator>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub unread_increment_count: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub missed_call: Option<PushCountIndicator>,
+}
+
+impl PushCounts {
+    pub fn validate(&self) -> WireResult<()> {
+        if self.unread_increment_count.is_some_and(|count| count > 99) {
+            return Err(WireError::Protocol(
+                "unread_increment_count must be 0..=99".into(),
+            ));
+        }
+        for indicator in [&self.badge, &self.missed_call].into_iter().flatten() {
+            if let PushCountIndicator::Bucket(bucket) = indicator
+                && !is_valid_push_count_bucket(bucket)
+            {
+                return Err(WireError::Protocol("invalid push count bucket".into()));
+            }
+        }
+        Ok(())
+    }
+}
+
+impl Serialize for PushCounts {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.validate().map_err(serde::ser::Error::custom)?;
+        PushCounts::serialize(self, serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for PushCounts {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = PushCounts::deserialize(deserializer)?;
+        value.validate().map_err(serde::de::Error::custom)?;
+        Ok(value)
+    }
 }
 
 /// Privacy-preserving absolute-count indicator used by blind push payloads.
@@ -1048,6 +1093,36 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+
+    #[test]
+    fn unread_increment_count_is_non_null_bounded_and_omission_stays_empty() {
+        assert_eq!(
+            serde_json::to_value(PushCounts::default()).unwrap(),
+            json!({})
+        );
+        for count in [0, 99] {
+            let value = json!({"unread_increment_count":count});
+            let counts: PushCounts = serde_json::from_value(value.clone()).unwrap();
+            assert_eq!(serde_json::to_value(counts).unwrap(), value);
+        }
+        for count in [json!(null), json!(-1), json!(100), json!(1.5), json!("1")] {
+            assert!(
+                serde_json::from_value::<PushCounts>(json!({"unread_increment_count":count}))
+                    .is_err()
+            );
+        }
+        for field in ["badge", "missed_call"] {
+            let mut invalid = json!({});
+            invalid[field] = Value::Null;
+            assert!(serde_json::from_value::<PushCounts>(invalid).is_err());
+        }
+        assert!(serde_json::from_value::<PushCounts>(json!({"unread_increment":1})).is_err());
+        let invalid = PushCounts {
+            unread_increment_count: Some(100),
+            ..PushCounts::default()
+        };
+        assert!(serde_json::to_value(invalid).is_err());
+    }
 
     fn valid_request() -> PushNotifyRequestBody {
         PushNotifyRequestBody {

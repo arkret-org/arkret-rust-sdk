@@ -29,9 +29,39 @@ pub enum OrganizationControlProofKind {
 #[serde(deny_unknown_fields)]
 pub struct OrganizationControlProof {
     pub proof_kind: OrganizationControlProofKind,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_control_min_signature_count",
+        serialize_with = "serialize_control_min_signature_count"
+    )]
     pub min_signature_count: Option<u64>,
     pub proofs: Vec<PayloadProof>,
+}
+
+fn deserialize_control_min_signature_count<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> std::result::Result<Option<u64>, D::Error> {
+    let value: Option<u64> =
+        arkret_canonical::serde_helpers::deserialize_non_null_optional(deserializer)?;
+    if value.is_some_and(|count| count < 2) {
+        return Err(serde::de::Error::custom(
+            "min_signature_count must be at least two",
+        ));
+    }
+    Ok(value)
+}
+
+fn serialize_control_min_signature_count<S: serde::Serializer>(
+    value: &Option<u64>,
+    serializer: S,
+) -> std::result::Result<S::Ok, S::Error> {
+    if value.is_some_and(|count| count < 2) {
+        return Err(serde::ser::Error::custom(
+            "min_signature_count must be at least two",
+        ));
+    }
+    value.serialize(serializer)
 }
 
 impl OrganizationControlProof {
@@ -682,6 +712,34 @@ mod tests {
             proof_purpose: None,
             jws: "eyJhbGciOiJFZDI1NTE5In0..fixture".to_owned(),
         }
+    }
+
+    #[test]
+    fn organization_min_signature_count_has_non_null_schema_bounds_and_real_count_validation() {
+        let at = "2026-10-21T00:00:00.000Z".parse().unwrap();
+        let first = DidUrl::new("did:web:organization.example#control-one").unwrap();
+        let second = DidUrl::new("did:web:organization.example#control-two").unwrap();
+        let proof = OrganizationControlProof {
+            proof_kind: OrganizationControlProofKind::GovernanceQuorum,
+            min_signature_count: Some(2),
+            proofs: vec![payload_proof(at, &first), payload_proof(at, &second)],
+        };
+        proof.validate().unwrap();
+        let original = serde_json::to_value(&proof).unwrap();
+        for count in [
+            serde_json::Value::Null,
+            serde_json::json!(0),
+            serde_json::json!(1),
+        ] {
+            let mut value = original.clone();
+            value["min_signature_count"] = count;
+            assert!(serde_json::from_value::<OrganizationControlProof>(value).is_err());
+        }
+        let mut too_few = proof;
+        too_few.proofs.pop();
+        assert!(too_few.validate().is_err());
+        too_few.min_signature_count = Some(1);
+        assert!(serde_json::to_value(too_few).is_err());
     }
 
     #[test]

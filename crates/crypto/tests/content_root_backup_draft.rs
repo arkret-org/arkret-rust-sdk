@@ -195,3 +195,73 @@ fn short_signature_and_agent_without_custody_cannot_form_an_envelope() {
             .is_err()
     );
 }
+
+#[test]
+fn native_packet_authorization_binding_rejects_the_old_wire_and_aad_member() {
+    let f = spec_json_artifact("fixtures/realm-actor-content-backup-fixture.json").unwrap();
+    let packet: KeyBackup = serde_json::from_value(f["native_packet"].clone()).unwrap();
+    let private = hex::decode(f["test_material"]["archive_private_hex"].as_str().unwrap()).unwrap();
+    let public = arkret_signatures::PublicKeyMaterial::Ed25519Raw {
+        bytes: base64url_decode(
+            f["test_material"]["device_public_base64url"]
+                .as_str()
+                .unwrap(),
+        )
+        .unwrap(),
+    };
+    let original = open_content_root_backup(&packet, &private, |bytes, proof| {
+        arkret_signatures::proof::verify_ed25519_raw_transcript_signature(
+            bytes,
+            proof.signature.as_str(),
+            &public,
+        )
+        .map_err(|error| arkret_crypto::Error::Protocol(error.to_string()))
+    })
+    .unwrap();
+    let wire = serde_json::to_value(&packet).unwrap();
+    assert!(wire.get("authorization_binding").is_some());
+    assert!(wire.get("auth_binding").is_none());
+    let mut retired_wire = wire.clone();
+    let binding = retired_wire
+        .as_object_mut()
+        .unwrap()
+        .remove("authorization_binding")
+        .unwrap();
+    retired_wire["auth_binding"] = binding.clone();
+    assert!(serde_json::from_value::<KeyBackup>(retired_wire).is_err());
+    let mut duplicate_wire = wire.clone();
+    duplicate_wire["auth_binding"] = binding;
+    assert!(serde_json::from_value::<KeyBackup>(duplicate_wire).is_err());
+    let mut null_wire = wire;
+    null_wire["authorization_binding"] = serde_json::Value::Null;
+    assert!(serde_json::from_value::<KeyBackup>(null_wire).is_err());
+
+    let aad = arkret_crypto::backup::key_backup_aead_aad(&packet).unwrap();
+    assert_eq!(hex::encode(&aad), f["kat"]["aad_hex"].as_str().unwrap());
+    let mut retired_aad: serde_json::Value = serde_json::from_slice(&aad).unwrap();
+    let binding = retired_aad
+        .as_object_mut()
+        .unwrap()
+        .remove("authorization_binding")
+        .unwrap();
+    assert!(retired_aad.get("auth_binding").is_none());
+    retired_aad["auth_binding"] = binding;
+    let retired_aad = arkret_canonical::canonical_json_bytes(&retired_aad).unwrap();
+    let mut sealed =
+        base64url_decode(packet.encryption.aead.enc.as_ref().unwrap().as_str()).unwrap();
+    sealed.extend_from_slice(&base64url_decode(packet.ciphertext.as_str()).unwrap());
+    let sealed = arkret_canonical::base64url_encode(sealed);
+    let info = content_root_backup_info(&packet).unwrap();
+    let opened =
+        arkret_crypto::hpke::open_x25519_chacha20poly1305(&private, &sealed, &info, &aad).unwrap();
+    let opened: KeyBackupPlaintext = serde_json::from_slice(&opened).unwrap();
+    assert_eq!(
+        serde_json::to_value(opened).unwrap(),
+        serde_json::to_value(original).unwrap()
+    );
+    assert!(
+        arkret_crypto::hpke::open_x25519_chacha20poly1305(&private, &sealed, &info, &retired_aad,)
+            .is_err(),
+        "renaming only the fixed AAD member cannot authenticate the same ciphertext"
+    );
+}

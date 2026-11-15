@@ -17,7 +17,7 @@
 // sha256=72b3aa5374e048b1fd8bf165fcb91f6bc06d12d8d6542d44d2845089bd3a5e7c
 //
 // Input: schemas/../registry/contract-registry.json
-// sha256=3e224778841b5a71e40961e6d5b1663afd2014476bc5d527366611d2591cc1c6
+// sha256=3a75e9f9cbaf7a02abd04bfe97f220e3cf91a05f41d7255374d3911b00894054
 //
 // Bindings: tools/closed-model-bindings.json
 // sha256=378099dfc0552c94d918067d3fefafa8cc572fc164f01f1a4d741a161c5c7c1a

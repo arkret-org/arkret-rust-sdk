@@ -317,15 +317,58 @@ pub struct AppletEndpointPolicy {
 /// (`applet-package.schema.json#/$defs/limits`). All members are optional.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(remote = "Self")]
 pub struct AppletLimits {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub max_transaction_event_count: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub max_payload_bytes: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub max_transaction_count_per_minute: Option<u64>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub extra: XExtensionMap,
+}
+
+impl AppletLimits {
+    pub fn validate(&self) -> Result<()> {
+        if self.max_payload_bytes == Some(0) {
+            return Err(WireError::Protocol(
+                "Applet max_payload_bytes must be at least one".into(),
+            ));
+        }
+        validate_applet_extension_fields("limits", &self.extra)?;
+        Ok(())
+    }
+}
+
+impl Serialize for AppletLimits {
+    fn serialize<S: serde::Serializer>(
+        &self,
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error> {
+        self.validate().map_err(serde::ser::Error::custom)?;
+        AppletLimits::serialize(self, serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for AppletLimits {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> std::result::Result<Self, D::Error> {
+        let value = AppletLimits::deserialize(deserializer)?;
+        value.validate().map_err(serde::de::Error::custom)?;
+        Ok(value)
+    }
 }
 
 /// Ghost Actor support and accountability template
@@ -1452,7 +1495,7 @@ impl AppletPackage {
         for endpoint in &self.endpoint_policy.endpoints {
             validate_applet_extension_fields("endpoint_policy.endpoints", &endpoint.extra)?;
         }
-        validate_applet_extension_fields("limits", &self.limits.extra)?;
+        self.limits.validate()?;
         validate_applet_extension_fields("ghost_policy", &self.ghost_policy.extra)?;
         validate_applet_extension_fields("delegation_policy", &self.delegation_policy.extra)?;
         validate_applet_extension_fields("e2ee_policy", &self.e2ee_policy.extensions)?;
