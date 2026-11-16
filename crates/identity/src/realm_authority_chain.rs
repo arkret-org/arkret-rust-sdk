@@ -423,6 +423,23 @@ impl VerifiedRealmAuthority {
         })
     }
 
+    /// Match an artifact's explicit generation and its own issuing window.
+    /// A Station returning in a later generation cannot lend that new window
+    /// to a proof which still names an earlier generation.
+    #[must_use]
+    pub fn authorizes_generation_issuer_at(
+        &self,
+        issuer: &DidCoreId,
+        generation: u64,
+        issued_at: DateTime<Utc>,
+    ) -> bool {
+        self.generations.get(&generation).is_some_and(|authority| {
+            &authority.service_id == issuer
+                && issued_at >= authority.effective_from
+                && authority.frozen_at.is_none_or(|end| issued_at <= end)
+        })
+    }
+
     /// Match an exact current authority reference without accepting an unverified route hint.
     pub fn binds_current_authority(
         &self,

@@ -14,6 +14,7 @@ pub use realm_actor_material::*;
 pub mod agent_authority_evidence;
 pub mod authority_history;
 pub mod contact_producer_identity;
+pub mod content_scope_cleanup;
 mod error;
 // DID-P0-B01/B02/B03: verified DID binding value object, its store contract and
 // the resolver-free / authority verifier split (`did-usage-and-verification.md`

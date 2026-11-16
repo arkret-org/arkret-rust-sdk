@@ -239,7 +239,7 @@ fn push_gateway_fixture_binds_role_before_scid_and_preserves_registration_limits
         &[35; 32],
     )
     .unwrap();
-    assert_eq!(fixture.history.entries, vec![expected.log_entry]);
+    assert_eq!(fixture.history.entries, vec![expected.log_entry.clone()]);
     assert_eq!(fixture.history.did.as_str(), expected.did);
     assert_eq!(fixture.verification_method.as_str(), expected.did_key_id);
     assert_eq!(fixture.resolution.service_kind, "push_gateway");

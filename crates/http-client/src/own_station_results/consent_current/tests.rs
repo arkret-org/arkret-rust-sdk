@@ -90,6 +90,9 @@ fn client_at(
 }
 
 fn genesis(station: &ServiceIdentityFixture, human: bool) -> CommittedEventFullView {
+    if !human {
+        return organization_genesis(station).0;
+    }
     let account = holder(station);
     let did = "did:web:holder.example".parse().unwrap();
     let method = arkret_wire::DidUrl::new(
@@ -97,7 +100,7 @@ fn genesis(station: &ServiceIdentityFixture, human: bool) -> CommittedEventFullV
     )
     .unwrap();
     let signer = arkret_test_kit::seeded_signer(did, method);
-    let mut event = SignedEventFixtureBuilder::new(
+    let event = SignedEventFixtureBuilder::new(
         "ak.realm.create",
         ScopeRef::RealmGenesis,
         ActorId::account(account),
@@ -107,36 +110,13 @@ fn genesis(station: &ServiceIdentityFixture, human: bool) -> CommittedEventFullV
     .with_created_at(now() - Duration::minutes(1))
     .build_unsigned()
     .unwrap();
-    let event = if human {
-        arkret_test_kit::sign_verifiable_event(
-            event,
-            &signer,
-            arkret_canonical::DigestSuite::Sha256,
-        )
-        .unwrap()
-        .expect_verifiable()
-    } else {
-        event.executed_by = Some(ActorId::service(station.service_id.clone()));
-        event.authorization_ref = Some(
-            arkret_wire::GrantId::from_event_id(&EventId::from_digest(
-                arkret_canonical::DigestSuite::Sha256,
-                [67; 32],
-            ))
-            .into(),
-        );
-        let service_signer = arkret_test_kit::seeded_signer_for_seed(
-            station.signing_key.to_bytes(),
-            station.resolution.normalized_did_document.id.clone(),
-            station.verification_method.clone(),
-        );
-        arkret_test_kit::sign_verifiable_event(
-            event,
-            &service_signer,
-            arkret_canonical::DigestSuite::Sha256,
-        )
-        .unwrap()
-        .expect_verifiable()
-    };
+    let event = arkret_test_kit::sign_verifiable_event(
+        event,
+        &signer,
+        arkret_canonical::DigestSuite::Sha256,
+    )
+    .unwrap()
+    .expect_verifiable();
     let commit = signed_commit(
         &station.verification_method,
         &station.signing_key,
@@ -148,6 +128,162 @@ fn genesis(station: &ServiceIdentityFixture, human: bool) -> CommittedEventFullV
     )
     .unwrap();
     CommittedEventFullView { event, commit }
+}
+
+/// A pure, genuinely signed Org inception/finite vote/Service producer closure.
+/// It establishes no live native admission or Organization shared session.
+fn organization_genesis(
+    station: &ServiceIdentityFixture,
+) -> (
+    CommittedEventFullView,
+    arkret_models_collaboration::authority_commit::OrganizationGenesisSignerFact,
+) {
+    use arkret_models_collaboration::authority_commit::{
+        AuthorityForwardBranch, PeerAuthorityForwardEventRequestBody,
+    };
+    use arkret_models_collaboration::events_payloads::realm::{RealmGenesis, RealmPurpose};
+    use arkret_signatures::Ed25519DetachedJwsSigner;
+    use arkret_wire::{
+        ApprovalContext, ApprovalSignature, ApprovalSignatureInput, ApprovalSignatureProof,
+        ApprovalSignatureProofKind, ApprovalTarget, CapabilityActionId, Did, DidUrl,
+        EventAdmissionSubmission, GenesisSalt, ServiceOperationId,
+    };
+
+    let at = now() - Duration::minutes(1);
+    let control = ed25519_dalek::SigningKey::from_bytes(&[103; 32]);
+    let next_root = ed25519_dalek::SigningKey::from_bytes(&[102; 32]);
+    let next_multibase =
+        arkret_canonical::ed25519_pubkey_to_did_key_multibase(next_root.verifying_key().as_bytes());
+    let org = arkret_signatures::webvh::prepare_organization_inception(
+        &arkret_signatures::webvh::OrganizationInceptionInput {
+            provider_endpoint: &url::Url::parse("https://organization-consent.example/").unwrap(),
+            local_id: "organization",
+            version_created_at: at - Duration::days(1),
+            root_seed: &[101; 32],
+            next_root_public_key_multibase: &next_multibase,
+            control_public_key: &control.verifying_key().to_bytes(),
+        },
+    )
+    .unwrap();
+    let org_did = Did::new(&org.did).unwrap();
+    let account = AccountId::new(
+        arkret_wire::project_did_to_core_id(&org_did).unwrap(),
+        station.service_id.clone(),
+    );
+    let object = RealmGenesis::new(
+        RealmPurpose::PrincipalControl,
+        GenesisSalt::new(arkret_canonical::base64url_encode([104; 32])).unwrap(),
+        "ak:trust_domain:organization-consent".parse().unwrap(),
+        arkret_wire::SecurityClass::HighAssurance,
+        station.service_id.clone(),
+        arkret_wire::JoinRule::Closed,
+        arkret_wire::HistoryAccess::SinceJoin,
+        arkret_wire::Discoverability::Secret,
+        None,
+        Some(arkret_models_identity::ResolutionCommitment {
+            did: org_did.clone(),
+            method_history_head: arkret_canonical::canonical_sha256(&org.log_entry).unwrap(),
+            version_id: org.log_entry["versionId"].as_str().unwrap().to_owned(),
+        }),
+    )
+    .unwrap();
+    let mut event = SignedEventFixtureBuilder::new(
+        "ak.realm.create",
+        ScopeRef::RealmGenesis,
+        ActorId::account(account),
+        json!({"object": object}),
+    )
+    .with_created_at(at)
+    .build_unsigned()
+    .unwrap();
+    let control_method = DidUrl::new(format!("{org_did}#organization-control")).unwrap();
+    event.executed_by = Some(ActorId::service(station.service_id.clone()));
+    event.authorization_ref = Some(control_method.clone().into());
+    let producer = arkret_test_kit::seeded_signer_for_seed(
+        station.signing_key.to_bytes(),
+        station.resolution.normalized_did_document.id.clone(),
+        station.verification_method.clone(),
+    );
+    let event = arkret_test_kit::sign_verifiable_event(
+        event,
+        &producer,
+        arkret_canonical::DigestSuite::Sha256,
+    )
+    .unwrap()
+    .expect_verifiable();
+    let mut approval = ApprovalSignature {
+        input: ApprovalSignatureInput {
+            approval_context: ApprovalContext::RealmGovernance {},
+            approval_target: ApprovalTarget::Event {
+                event_id: event.event_id.clone(),
+            },
+            request_canonical_digest: arkret_wire::Hash::new(
+                arkret_canonical::canonical_sha256(&event).unwrap(),
+            )
+            .unwrap(),
+            operation: ServiceOperationId::PEER_EVENTS_COMMAND_SUBMIT_V1.into(),
+            action: CapabilityActionId::RealmCreate,
+            realm_id: event.realm_id.clone(),
+            initiating_actor_id: event.actor_id.clone(),
+            approver_did: org_did,
+            approved_at: at,
+            nonce: arkret_canonical::base64url_encode([105; 32]),
+        },
+        proof: ApprovalSignatureProof {
+            kind: ApprovalSignatureProofKind::DetachedJws,
+            verification_method: control_method,
+            jws: String::new(),
+        },
+    };
+    approval.proof.jws = Ed25519DetachedJwsSigner::from_seed(
+        control.to_bytes(),
+        approval.proof.verification_method.as_str(),
+    )
+    .sign_detached_jws(
+        &arkret_signatures::approval_signature::approval_signature_signing_bytes(&approval)
+            .unwrap(),
+    );
+    let mut submission = EventAdmissionSubmission::new(event.clone());
+    submission.approval_signatures = Some(vec![approval]);
+    let request = PeerAuthorityForwardEventRequestBody {
+        branch: AuthorityForwardBranch::AuthorityForward,
+        event_submission: submission,
+        mls_group_state_material: None,
+        content_backup_sources: None,
+        producer_device_evidence: None,
+        producer_agent_evidence: None,
+        successor_device_evidence: None,
+    };
+    let (_, fact) =
+        arkret_identity::organization_pcr_genesis::verify_organization_pcr_genesis_source(
+            &request,
+            &station.service_id,
+            std::slice::from_ref(&org.log_entry),
+            &[],
+            Some(&station.resolution),
+            at,
+        )
+        .unwrap();
+    let commit = signed_commit(
+        &station.verification_method,
+        &station.signing_key,
+        &event,
+        0,
+        None,
+        event.event_id.clone(),
+        Some(fact.digest().unwrap()),
+    )
+    .unwrap();
+    let full = CommittedEventFullView { event, commit };
+    arkret_identity::organization_pcr_genesis::verify_organization_genesis_signer_fact(
+        &full, &fact,
+    )
+    .unwrap();
+    assert_eq!(
+        full.commit.producer_signer_fact_digest.as_ref(),
+        Some(&fact.digest().unwrap())
+    );
+    (full, fact)
 }
 
 fn request(station: &ServiceIdentityFixture) -> ConsentCurrentReadRequestBody {
@@ -376,8 +512,9 @@ fn consent_production_verifier_rejects_bad_proof_nonce_method_key_pcr_and_genera
     );
 }
 
-fn verified_nonhuman(station: &ServiceIdentityFixture) -> VerifiedRealmAuthority {
-    let full = genesis(station, false);
+fn verified_nonhuman(station: &ServiceIdentityFixture) -> (VerifiedRealmAuthority, AccountId) {
+    let (full, fact) = organization_genesis(station);
+    let account = full.event.actor_id.as_account_id().unwrap().clone();
     let realm = full.event.realm_id.clone();
     let head = CommitStreamHead {
         stream_ref: full.commit.stream_ref.clone(),
@@ -407,7 +544,7 @@ fn verified_nonhuman(station: &ServiceIdentityFixture) -> VerifiedRealmAuthority
         realm_id: realm,
         genesis_event: full.event,
         genesis_commit: full.commit,
-        producer_signer_fact: None,
+        producer_signer_fact: Some(serde_json::to_value(fact).unwrap()),
         authority_transitions: vec![],
         current_generation: 0,
         current_service_id: station.service_id.clone(),
@@ -422,18 +559,33 @@ fn verified_nonhuman(station: &ServiceIdentityFixture) -> VerifiedRealmAuthority
             bytes: station.signing_key.verifying_key().to_bytes().to_vec(),
         },
     );
-    arkret_identity::verify_realm_authority_bundle(
+    let verified = arkret_identity::verify_realm_authority_bundle(
         &bundle,
-        &RealmAuthorityFreshness::new(now(), nonce),
+        &RealmAuthorityFreshness::new(now(), nonce.clone()),
         &keys,
     )
-    .unwrap()
+    .unwrap();
+    assert!(matches!(
+        GenesisGovernance::from_genesis(&bundle.genesis_event).unwrap(),
+        GenesisGovernance::Organization,
+    ));
+    let mut missing = bundle.clone();
+    missing.producer_signer_fact = None;
+    assert!(
+        arkret_identity::verify_realm_authority_bundle(
+            &missing,
+            &RealmAuthorityFreshness::new(now(), nonce),
+            &keys,
+        )
+        .is_err()
+    );
+    (verified, account)
 }
 
 #[test]
 fn nonhuman_consent_uses_verified_authority_and_retains_current_assertion_deadline() {
     let station = station_fixture(81);
-    let verified = verified_nonhuman(&station);
+    let (verified, organization) = verified_nonhuman(&station);
     let mut authority =
         ConsentCurrentReadAuthority::from_verified_realm(&verified, &station.resolution).unwrap();
     assert!(
@@ -444,7 +596,11 @@ fn nonhuman_consent_uses_verified_authority_and_retains_current_assertion_deadli
         )
         .is_err()
     );
-    let request = request(&station);
+    let mut request = request(&station);
+    request.holder_account_id = organization.clone();
+    request.peer =
+        serde_json::from_value(json!({"kind":"actor","actor_id":ActorId::account(organization)}))
+            .unwrap();
     let signed = outcome(
         &station,
         &request,

@@ -17,10 +17,10 @@
 // sha256=72b3aa5374e048b1fd8bf165fcb91f6bc06d12d8d6542d44d2845089bd3a5e7c
 //
 // Input: schemas/../registry/contract-registry.json
-// sha256=b66361888e355ed45b753d10a0edb55a8b2bb54f42d10b6fa8419c6099567a12
+// sha256=e026fde7f2edfe398101242bcaf3ff3451fa186519fd8428e729d8f9585ad55e
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=3bfe22afd0deee9b00a0fd4b2c1e2c7eee318ee6752681d944e4cc4b38492100
+// sha256=7d1fdb47ec4baf0bbf7ecbf1969f8fff785140d5d15b0d6fadc690db7bbd4a62
 
 /// Counterpart: `call-recording-artifact.schema.json`.
 /// Counterpart for `spec/v1/artifacts/schemas/call-recording-artifact.schema.json`.

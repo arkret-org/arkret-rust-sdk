@@ -1336,6 +1336,28 @@ fn organization_bootstrap_reuses_the_existing_forward_without_a_human_descriptor
     parsed.validate().unwrap();
     assert!(parsed.is_organization_pcr_genesis_candidate());
     assert!(!parsed.is_native_pcr_candidate());
+    // The shared decoder enforces the same local PCR shape without turning
+    // byte-local authoring into submission/proof or Organization admission.
+    for name in [
+        "organization_governed_pcr_genesis_derives_a_distinct_realm",
+        "principal_control_realm_id_is_event_derived_and_nonzero_nibble_rejected",
+    ] {
+        let mut unsigned = case(name);
+        unsigned.as_object_mut().unwrap().remove("producer_proof");
+        let decoded: arkret_wire::Event = serde_json::from_value(unsigned.clone()).unwrap();
+        assert!(decoded.producer_proof.is_none());
+        assert_eq!(serde_json::to_value(decoded).unwrap(), unsigned);
+    }
+    for field in ["executed_by", "authorization_ref"] {
+        let mut orphaned = request["event_submission"]["event"].clone();
+        orphaned.as_object_mut().unwrap().remove(field);
+        assert!(serde_json::from_value::<arkret_wire::Event>(orphaned).is_err());
+    }
+    for original in [&organization, &human] {
+        let mut explicit_null = original.clone();
+        explicit_null["payload"]["object"]["founding_device_descriptor"] = Value::Null;
+        assert!(serde_json::from_value::<arkret_wire::Event>(explicit_null).is_err());
+    }
     let mut no_executor_evidence = request.clone();
     no_executor_evidence
         .as_object_mut()

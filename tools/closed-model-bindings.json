@@ -5205,7 +5205,7 @@
                 "visibility": "pub",
                 "type": "Option<Option<RealmCommitId>>",
                 "attributes": [
-                  "#[serde(\n        default,\n        skip_serializing_if = \"Option::is_none\",\n        deserialize_with = \"arkret_canonical::serde_helpers::deserialize_non_null_optional\"\n    )]"
+                  "#[serde(\n        default,\n        skip_serializing_if = \"Option::is_none\",\n        deserialize_with = \"arkret_canonical::serde_helpers::deserialize_optional_value_preserving_null\"\n    )]"
                 ]
               },
               "value": {
@@ -7236,9 +7236,9 @@
               "policy_event_ref": {
                 "name": "policy_event_ref",
                 "visibility": "pub",
-                "type": "Option<CommittedEventRef>",
+                "type": "Option<Option<EventId>>",
                 "attributes": [
-                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\", deserialize_with = \"arkret_canonical::serde_helpers::deserialize_optional_value_preserving_null\")]"
                 ]
               }
             }

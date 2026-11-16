@@ -8,10 +8,10 @@
 // sha256=6531a160938267207388e432e7bc92aa1b888635d08be9ab7b70e9d0585ffa96
 //
 // Input: schemas/authority-commit-operations.schema.json
-// sha256=2789613c1d3362a3138c4fb7739a14ca4dd5155f49ab9969e94e7b7f2c1a3e6c
+// sha256=87d27218a735fe1af4a515abe3553dd93ef2af14665de64103fc6c8a36fc9f47
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=3bfe22afd0deee9b00a0fd4b2c1e2c7eee318ee6752681d944e4cc4b38492100
+// sha256=7d1fdb47ec4baf0bbf7ecbf1969f8fff785140d5d15b0d6fadc690db7bbd4a62
 
 /// Counterpart: `invite-delivery.schema.json`.
 /// Strong cell value for the `ak.account.invite_delivery` account-data key

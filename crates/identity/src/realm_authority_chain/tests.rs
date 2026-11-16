@@ -214,11 +214,31 @@ fn commit_for_realm(
 /// domains, so the sealing helper takes both keys at once and there is no way
 /// for a caller of this fixture to accidentally reuse one domain twice.
 fn seal_handoff(
+    handoff: RealmAuthorityHandoff,
+    old_context: DetachedSignatureContext,
+    new_context: DetachedSignatureContext,
+    old_key: &SigningKey,
+    new_key: &SigningKey,
+) -> RealmAuthorityHandoff {
+    seal_handoff_for_stations(
+        handoff,
+        old_context,
+        new_context,
+        old_key,
+        new_key,
+        STATION_A,
+        STATION_B,
+    )
+}
+
+fn seal_handoff_for_stations(
     mut handoff: RealmAuthorityHandoff,
     old_context: DetachedSignatureContext,
     new_context: DetachedSignatureContext,
     old_key: &SigningKey,
     new_key: &SigningKey,
+    station_a: &str,
+    station_b: &str,
 ) -> RealmAuthorityHandoff {
     let unsigned = canonical::unsigned_value(
         &handoff,
@@ -231,7 +251,7 @@ fn seal_handoff(
     handoff.old_authority_signature = sign_detached_object(
         &unsigned,
         old_context,
-        method(STATION_A),
+        method(station_a),
         issued_at(),
         old_key,
     )
@@ -239,7 +259,7 @@ fn seal_handoff(
     handoff.new_authority_acceptance_signature = sign_detached_object(
         &unsigned,
         new_context,
-        method(STATION_B),
+        method(station_b),
         issued_at(),
         new_key,
     )
@@ -295,19 +315,33 @@ fn chain() -> Chain {
 }
 
 fn chain_with_purpose(purpose: &str) -> Chain {
+    chain_with_station_sources(
+        purpose,
+        STATION_A,
+        STATION_B,
+        route_record(STATION_B, &signing_key(0xB2)),
+    )
+}
+
+fn chain_with_station_sources(
+    purpose: &str,
+    station_a: &str,
+    station_b: &str,
+    current_route_record: serde_json::Value,
+) -> Chain {
     let key_a = signing_key(0xA1);
     let key_b = signing_key(0xB2);
 
     let mut genesis_event = event(EventKind::RealmCreate, 0);
     genesis_event.payload = serde_json::from_value(json!({"object": {
-        "purpose": purpose, "governance_station_id": core_id(STATION_A)
+        "purpose": purpose, "governance_station_id": core_id(station_a)
     }}))
     .unwrap();
     if purpose == "agent_control" {
         genesis_event.executed_by =
             Some(arkret_wire::ActorId::account(arkret_wire::AccountId::new(
                 DidCoreId::new("ak:did_core:web:controller.example").unwrap(),
-                core_id(STATION_A),
+                core_id(station_a),
             )));
         genesis_event.authorization_ref = Some(
             arkret_wire::AuthorizationRef::new("did:web:founder.example#managed-controller")
@@ -317,7 +351,7 @@ fn chain_with_purpose(purpose: &str) -> Chain {
     if purpose == "applet_managed_control" {
         // Reconstruct the retired delegated origin as a negative fixture,
         // including both formerly required executor coordinates.
-        genesis_event.executed_by = Some(arkret_wire::ActorId::service(core_id(STATION_A)));
+        genesis_event.executed_by = Some(arkret_wire::ActorId::service(core_id(station_a)));
         genesis_event.authorization_ref = Some(
             arkret_wire::AuthorizationRef::new(
                 EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [0x77; 32]).to_string(),
@@ -337,7 +371,7 @@ fn chain_with_purpose(purpose: &str) -> Chain {
         &genesis_event.event_id,
         0,
         RealmCommitAuthorityRef::GenesisOrChangeEvent(genesis_event.event_id.clone()),
-        STATION_A,
+        station_a,
         &key_a,
     );
 
@@ -349,7 +383,7 @@ fn chain_with_purpose(purpose: &str) -> Chain {
     change_event.payload = serde_json::from_value(json!({
         "expected_governance_generation": "0",
         "expected_realm_stream_commit_id": genesis_commit.commit_id,
-        "new_governance_station_id": core_id(STATION_B),
+        "new_governance_station_id": core_id(station_b),
     }))
     .unwrap();
     change_event
@@ -363,18 +397,18 @@ fn chain_with_purpose(purpose: &str) -> Chain {
         &change_event.event_id,
         0,
         RealmCommitAuthorityRef::GenesisOrChangeEvent(genesis_event.event_id.clone()),
-        STATION_A,
+        station_a,
         &key_a,
     );
-    let handoff = seal_handoff(
+    let handoff = seal_handoff_for_stations(
         RealmAuthorityHandoff {
             management_private_state_digest: None,
             handoff_id: RealmAuthorityHandoffId::from_digest([0x21; 32]),
             realm_id: realm.clone(),
             from_generation: 0,
             to_generation: 1,
-            from_service_id: core_id(STATION_A),
-            to_service_id: core_id(STATION_B),
+            from_service_id: core_id(station_a),
+            to_service_id: core_id(station_b),
             final_stream_heads_digest: hash('a'),
             historical_signer_facts_digest: None,
             pcr_private_state_digest: matches!(
@@ -396,6 +430,8 @@ fn chain_with_purpose(purpose: &str) -> Chain {
         DetachedSignatureContext::RealmAuthorityHandoffNewAcceptance,
         &key_a,
         &key_b,
+        station_a,
+        station_b,
     );
 
     // One ordinary Realm-stream commit made after the handoff, under Station B.
@@ -415,7 +451,7 @@ fn chain_with_purpose(purpose: &str) -> Chain {
         &item_event.event_id,
         1,
         RealmCommitAuthorityRef::Handoff(handoff.handoff_id.clone()),
-        STATION_B,
+        station_b,
         &key_b,
     );
 
@@ -429,7 +465,7 @@ fn chain_with_purpose(purpose: &str) -> Chain {
     let mut assertion = RealmAuthorityCurrentAssertion {
         realm_id: realm.clone(),
         current_generation: 1,
-        current_service_id: core_id(STATION_B),
+        current_service_id: core_id(station_b),
         last_handoff_ref: Some(handoff.handoff_id.clone()),
         realm_stream_head: head.clone(),
         nonce: Base64UrlString::new(NONCE.to_owned()).unwrap(),
@@ -440,7 +476,7 @@ fn chain_with_purpose(purpose: &str) -> Chain {
     assertion.signature = sign_detached_object(
         &unsigned,
         DetachedSignatureContext::RealmAuthorityCurrentAssertion,
-        method(STATION_B),
+        method(station_b),
         issued_at(),
         &key_b,
     )
@@ -457,16 +493,16 @@ fn chain_with_purpose(purpose: &str) -> Chain {
             handoff,
         }],
         current_generation: 1,
-        current_service_id: core_id(STATION_B),
-        current_route_record: route_record(STATION_B, &key_b),
+        current_service_id: core_id(station_b),
+        current_route_record,
         realm_stream_head: head,
         bundle_issued_at: issued_at(),
         current_assertion: assertion,
     };
 
     let keys = RealmAuthorityKeyMap::new()
-        .with_key(&method(STATION_A), public(&key_a))
-        .with_key(&method(STATION_B), public(&key_b));
+        .with_key(&method(station_a), public(&key_a))
+        .with_key(&method(station_b), public(&key_b));
 
     Chain {
         bundle,
@@ -2188,4 +2224,614 @@ fn non_organization_public_bundle_omits_and_rejects_the_new_fact() {
     let error = with_fact.validate_shape().unwrap_err();
     assert!(error.to_string().contains("only an Org bundle"), "{error}");
     assert!(verify_realm_authority_bundle(&with_fact, &freshness(), &chain.keys).is_err());
+}
+
+#[test]
+fn artifact_generation_lookup_cannot_borrow_a_returned_stations_later_window() {
+    let fixture = chain();
+    let verified = verify(&fixture).unwrap();
+    let old = fixture.bundle.authority_transitions[0]
+        .handoff
+        .from_service_id
+        .clone();
+    let end = fixture.bundle.authority_transitions[0]
+        .change_commit
+        .committed_at;
+    assert!(verified.authorizes_generation_issuer_at(&old, 0, end));
+    assert!(!verified.authorizes_generation_issuer_at(&old, 0, end + Duration::milliseconds(1)));
+    assert!(!verified.authorizes_generation_issuer_at(&old, 1, end));
+    assert!(!verified.authorizes_generation_issuer_at(&old, 3, end));
+
+    // Pure generation-table counterexample only: no new bundle or acceptance
+    // is asserted by editing this private unit-test value. A repeated Service
+    // in a later generation must not lend its new window to generation zero.
+    let mut returned = verified;
+    let mut later = returned.generations[&0].clone();
+    later.effective_from = end + Duration::seconds(2);
+    later.frozen_at = None;
+    returned.generations.insert(2, later);
+    let at = end + Duration::seconds(3);
+    assert!(returned.authorizes_issuer_at(&old, None, at));
+    assert!(!returned.authorizes_generation_issuer_at(&old, 0, at));
+    assert!(returned.authorizes_generation_issuer_at(&old, 2, at));
+}
+
+// Genuine Service histories and a genuinely verified authority chain qualify
+// the pure delivery verifier. No native retirement/import fact is asserted.
+mod cleanup_delivery {
+    use arkret_models_collaboration::content_history::ContentRecoveryScopeCleanupSource;
+    use arkret_models_crypto::{
+        ContentRecoveryScopeCleanupResponseBody, ContentRecoveryScopeCleanupRetired,
+        ContentRetiredScopeCleanup, ContentScopeRetirementDeliveryAttestation,
+        ContentScopeRetirementProof, ContentScopeRetirementState,
+    };
+    use arkret_models_identity::AuthenticatedServiceResolution;
+    use rand_core::SeedableRng as _;
+
+    use super::*;
+
+    fn service(seed: u8, label: &str) -> (Did, AuthenticatedServiceResolution) {
+        let endpoint = format!("https://cleanup-{label}.example/");
+        let registration = arkret_models_identity::service_identity::ServiceRegistrationKey::new(
+            arkret_wire::ServiceKind::Station,
+            arkret_models_identity::service_identity::CanonicalServiceUrl::new(&endpoint).unwrap(),
+        )
+        .unwrap();
+        let mut rng = rand_chacha::ChaCha20Rng::from_seed([seed.wrapping_add(1); 32]);
+        let inception =
+            arkret_signatures::webvh::prepare_service_registration_inception_with_did_key_seed(
+                &mut rng,
+                &arkret_signatures::webvh::ServiceRegistrationInceptionInput {
+                    provider_endpoint: &url::Url::parse(&format!(
+                        "https://identity-{label}.example/"
+                    ))
+                    .unwrap(),
+                    registration_key: &registration,
+                    also_known_as: &[],
+                    version_created_at: now() - Duration::seconds(200),
+                    did_key_fragment: Some("realm-authority"),
+                },
+                &[seed; 32],
+            )
+            .unwrap();
+        let did = Did::new(inception.did.clone()).unwrap();
+        let resolution = crate::build_authenticated_webvh_service_resolution(
+            project_did_to_core_id(&did).unwrap(),
+            "station".into(),
+            serde_json::from_value(inception.log_entry["state"].clone()).unwrap(),
+            vec![inception.log_entry.clone()],
+            vec![],
+            now(),
+        )
+        .unwrap();
+        (did, resolution)
+    }
+
+    struct Fixture {
+        chain: Chain,
+        authority: VerifiedRealmAuthority,
+        source: ContentRecoveryScopeCleanupSource,
+        response: ContentRecoveryScopeCleanupResponseBody,
+        original: AuthenticatedServiceResolution,
+        current: AuthenticatedServiceResolution,
+        old_did: Did,
+        new_did: Did,
+    }
+
+    impl Fixture {
+        fn new() -> Self {
+            let (old_did, original) = service(0xA1, "old-g");
+            let (new_did, current) = service(0xB2, "current-g");
+            assert_ne!(old_did, new_did);
+            assert_ne!(
+                signing_key(0xA1).verifying_key(),
+                signing_key(0xB2).verifying_key()
+            );
+            let chain = chain_with_station_sources(
+                "collaboration",
+                old_did.as_str(),
+                new_did.as_str(),
+                serde_json::to_value(&current).unwrap(),
+            );
+            let authority = verify(&chain).unwrap();
+            assert_eq!(authority.current_service_id(), &current.service_id);
+            let mut source =
+                crate::content_scope_cleanup::original_cleanup_source_for_delivery_test(
+                    now() - Duration::seconds(10),
+                );
+            source.attestation.inventory_entry.effective_scope = ScopeRef::Realm {
+                realm_id: chain.bundle.realm_id.clone(),
+            };
+            source.attestation.destination_service_id = current.service_id.clone();
+            source.attestation.signature =
+                arkret_signatures::keypackages::sign_keypackage_signing_input(
+                    &[173; 32],
+                    source.attestation.verification_method.as_str(),
+                    &source.attestation.signing_bytes().unwrap(),
+                )
+                .unwrap();
+            let a = &source.attestation;
+            let proof = ContentScopeRetirementProof::Removed {
+                replacement: a.replacement.clone(),
+                inventory_digest: a.inventory_digest.clone(),
+                inventory_entry_digest: Hash::new(
+                    arkret_canonical::canonical_sha256(&a.inventory_entry).unwrap(),
+                )
+                .unwrap(),
+                request_digest: a.intent_digest().unwrap(),
+                effective_scope: a.inventory_entry.effective_scope.clone(),
+                genesis_event_ref: a.inventory_entry.genesis_event_ref.clone(),
+                governance_station_id: original.service_id.clone(),
+                governance_generation: 0,
+                scope_cut: arkret_wire::CommittedEventRef {
+                    event_id: chain.bundle.genesis_event.event_id.clone(),
+                    commit_id: chain.bundle.genesis_commit.commit_id.clone(),
+                    stream_ref: chain.bundle.genesis_commit.stream_ref.clone(),
+                    stream_position: 0,
+                },
+                group_state_ref: a.inventory_entry.base_group_state_ref.clone(),
+                epoch: a.inventory_entry.epoch,
+                nonce_base64url: a.nonce_base64url.clone(),
+                attested_at: issued_at(),
+                verification_method: method(old_did.as_str()),
+                remaining_old_leaf_count: 0,
+                signature: a.signature.clone(),
+            };
+            let delivery = ContentScopeRetirementDeliveryAttestation {
+                request_digest: a.intent_digest().unwrap(),
+                authorization_digest: Hash::new(arkret_canonical::canonical_sha256(a).unwrap())
+                    .unwrap(),
+                proof_digest: Hash::new(arkret_canonical::canonical_sha256(&proof).unwrap())
+                    .unwrap(),
+                recipient_service_id: source.origin_resolution.service_id.clone(),
+                governance_station_id: current.service_id.clone(),
+                governance_generation: 1,
+                nonce_base64url: a.nonce_base64url.clone(),
+                delivery_challenge_base64url: a.delivery_challenge_base64url.clone(),
+                attested_at: now(),
+                expires_at: now() + Duration::seconds(60),
+                verification_method: method(new_did.as_str()),
+                signature: a.signature.clone(),
+            };
+            let response = ContentRecoveryScopeCleanupResponseBody::Retired(
+                ContentRecoveryScopeCleanupRetired {
+                    cleanup: ContentRetiredScopeCleanup {
+                        state: ContentScopeRetirementState::Removed,
+                        effective_scope: a.inventory_entry.effective_scope.clone(),
+                        genesis_event_ref: a.inventory_entry.genesis_event_ref.clone(),
+                        retirement_proof: proof,
+                    },
+                    delivery_attestation: delivery,
+                },
+            );
+            let mut fixture = Self {
+                chain,
+                authority,
+                source,
+                response,
+                original,
+                current,
+                old_did,
+                new_did,
+            };
+            fixture.resign();
+            fixture
+        }
+        fn retired(&mut self) -> &mut ContentRecoveryScopeCleanupRetired {
+            let ContentRecoveryScopeCleanupResponseBody::Retired(result) = &mut self.response
+            else {
+                unreachable!()
+            };
+            result
+        }
+        fn resign(&mut self) {
+            let ContentRecoveryScopeCleanupResponseBody::Retired(result) = &mut self.response
+            else {
+                unreachable!()
+            };
+            let proof = &mut result.cleanup.retirement_proof;
+            let signature = arkret_signatures::keypackages::sign_keypackage_signing_input(
+                &[0xA1; 32],
+                method(self.old_did.as_str()).as_str(),
+                &proof.signing_bytes().unwrap(),
+            )
+            .unwrap();
+            let (ContentScopeRetirementProof::Removed {
+                signature: slot, ..
+            }
+            | ContentScopeRetirementProof::Terminated {
+                signature: slot, ..
+            }) = proof;
+            *slot = signature;
+            let delivery = &mut result.delivery_attestation;
+            delivery.proof_digest =
+                Hash::new(arkret_canonical::canonical_sha256(proof).unwrap()).unwrap();
+            delivery.signature = arkret_signatures::keypackages::sign_keypackage_signing_input(
+                &[0xB2; 32],
+                method(self.new_did.as_str()).as_str(),
+                &delivery.signing_bytes().unwrap(),
+            )
+            .unwrap();
+        }
+        fn verify(
+            &self,
+            at: DateTime<Utc>,
+        ) -> crate::Result<arkret_models_crypto::ContentRecoveryScopeCleanupSelfResponseBody>
+        {
+            crate::content_scope_cleanup::verify_content_scope_cleanup_delivery(
+                &self.response,
+                &self.source,
+                Some(&self.original),
+                Some(&self.current),
+                &self.authority,
+                at,
+            )
+        }
+    }
+
+    #[test]
+    fn historical_proof_and_current_delivery_use_distinct_genuine_station_histories() {
+        let f = Fixture::new();
+        let verified = f.verify(now()).unwrap();
+        assert_eq!(verified.delivery, f.response);
+        assert_eq!(
+            verified
+                .attestor_signing_key
+                .unwrap()
+                .public_key_base64url
+                .as_str(),
+            arkret_canonical::base64url_encode(signing_key(0xA1).verifying_key().to_bytes())
+        );
+        assert_eq!(
+            verified
+                .delivery_signing_key
+                .unwrap()
+                .public_key_base64url
+                .as_str(),
+            arkret_canonical::base64url_encode(signing_key(0xB2).verifying_key().to_bytes())
+        );
+        let bytes = arkret_canonical::canonical_json_bytes(&f.response).unwrap();
+        let reopened: ContentRecoveryScopeCleanupResponseBody =
+            serde_json::from_slice(&bytes).unwrap();
+        let result = crate::content_scope_cleanup::verify_content_scope_cleanup_delivery(
+            &reopened,
+            &f.source,
+            Some(&f.original),
+            Some(&f.current),
+            &f.authority,
+            now(),
+        )
+        .unwrap();
+        assert_eq!(result.delivery, f.response);
+    }
+
+    #[test]
+    fn wrong_historical_generation_or_its_closed_tenure_cannot_borrow_current_delivery() {
+        for change_generation in [false, true] {
+            let mut f = Fixture::new();
+            let ContentScopeRetirementProof::Removed {
+                governance_generation,
+                attested_at,
+                ..
+            } = &mut f.retired().cleanup.retirement_proof
+            else {
+                unreachable!()
+            };
+            if change_generation {
+                *governance_generation = 1;
+            } else {
+                *attested_at = now();
+            }
+            f.resign();
+            assert!(f.verify(now()).is_err());
+        }
+    }
+
+    #[test]
+    fn renewed_signatures_do_not_hide_wrong_challenge_audience_or_delivery_window() {
+        for mode in 0..5 {
+            let mut f = Fixture::new();
+            let d = &mut f.retired().delivery_attestation;
+            match mode {
+                0 => d.delivery_challenge_base64url = arkret_canonical::base64url_encode([231; 32]),
+                1 => d.recipient_service_id = core_id(STATION_A),
+                2 => d.expires_at = d.attested_at + Duration::seconds(301),
+                3 => {
+                    d.attested_at = now() - Duration::seconds(2);
+                    d.expires_at = now();
+                }
+                _ => d.governance_generation = 0,
+            }
+            f.resign();
+            assert!(f.verify(now()).is_err());
+        }
+    }
+
+    #[test]
+    fn proof_and_delivery_signatures_cannot_exchange_keys_or_histories() {
+        let mut f = Fixture::new();
+        let old_method = method(f.old_did.as_str());
+        let proof = &mut f.retired().cleanup.retirement_proof;
+        let bad = arkret_signatures::keypackages::sign_keypackage_signing_input(
+            &[0xB2; 32],
+            old_method.as_str(),
+            &proof.signing_bytes().unwrap(),
+        )
+        .unwrap();
+        let ContentScopeRetirementProof::Removed { signature, .. } = proof else {
+            unreachable!()
+        };
+        *signature = bad;
+        let result = f.retired();
+        result.delivery_attestation.proof_digest = Hash::new(
+            arkret_canonical::canonical_sha256(&result.cleanup.retirement_proof).unwrap(),
+        )
+        .unwrap();
+        let current_method = method(f.new_did.as_str());
+        let delivery = &mut f.retired().delivery_attestation;
+        delivery.signature = arkret_signatures::keypackages::sign_keypackage_signing_input(
+            &[0xB2; 32],
+            current_method.as_str(),
+            &delivery.signing_bytes().unwrap(),
+        )
+        .unwrap();
+        assert!(f.verify(now()).is_err());
+        let mut wrong_delivery = Fixture::new();
+        let wrong_method = method(wrong_delivery.new_did.as_str());
+        let delivery = &mut wrong_delivery.retired().delivery_attestation;
+        delivery.signature = arkret_signatures::keypackages::sign_keypackage_signing_input(
+            &[0xA1; 32],
+            wrong_method.as_str(),
+            &delivery.signing_bytes().unwrap(),
+        )
+        .unwrap();
+        assert!(wrong_delivery.verify(now()).is_err());
+        let f = Fixture::new();
+        assert!(
+            crate::content_scope_cleanup::verify_content_scope_cleanup_delivery(
+                &f.response,
+                &f.source,
+                Some(&f.current),
+                Some(&f.original),
+                &f.authority,
+                now(),
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn current_bundle_cutoff_is_independent_from_still_live_source_and_delivery() {
+        let mut f = Fixture::new();
+        f.chain.bundle.current_assertion.expires_at = now() + Duration::seconds(20);
+        f.chain.bundle.current_assertion.signature = sign_detached_object(
+            &canonical::unsigned_value(&f.chain.bundle.current_assertion, &["signature"]).unwrap(),
+            DetachedSignatureContext::RealmAuthorityCurrentAssertion,
+            method(f.new_did.as_str()),
+            issued_at(),
+            &signing_key(0xB2),
+        )
+        .unwrap();
+        f.authority = verify(&f.chain).unwrap();
+        f.verify(now()).unwrap();
+        assert!(f.source.attestation.expires_at > now() + Duration::seconds(21));
+        assert!(f.verify(now() + Duration::seconds(21)).is_err());
+    }
+    fn commit_at(mut value: RealmCommit, did: &str, seed: u8, at: DateTime<Utc>) -> RealmCommit {
+        value.committed_at = at;
+        value.commit_id = RealmCommitId::from_digest(arkret_canonical::sha256_bytes(
+            canonical::canonical_json_bytes(
+                &canonical::unsigned_value(&value, &["commit_id", "signature"]).unwrap(),
+            )
+            .unwrap(),
+        ));
+        value.signature = sign_detached_object(
+            &canonical::unsigned_value(&value, &["signature"]).unwrap(),
+            DetachedSignatureContext::RealmCommit,
+            method(did),
+            at,
+            &signing_key(seed),
+        )
+        .unwrap();
+        value
+    }
+
+    #[test]
+    fn returned_station_generation_does_not_reopen_its_original_proof_window() {
+        let mut f = Fixture::new();
+        let realm = f.chain.bundle.realm_id.clone();
+        let return_at = now() - Duration::seconds(10);
+        let predecessor = f.chain.item.commit.clone();
+        let previous = f.chain.bundle.authority_transitions[0].handoff.clone();
+        let mut change = event(EventKind::RealmGovernanceStationChange, 3);
+        change.realm_id = realm.clone();
+        change.scope_ref = ScopeRef::Realm {
+            realm_id: realm.clone(),
+        };
+        change.created_at = return_at;
+        change.payload=serde_json::from_value(json!({"expected_governance_generation":"1","expected_realm_stream_commit_id":predecessor.commit_id,"new_governance_station_id":f.original.service_id})).unwrap();
+        change
+            .refresh_content_bound_identity_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+            .unwrap();
+        let change_commit = commit_at(
+            commit_for_realm(
+                &realm,
+                0x61,
+                3,
+                Some(predecessor.commit_id.clone()),
+                &change.event_id,
+                1,
+                RealmCommitAuthorityRef::Handoff(previous.handoff_id.clone()),
+                f.new_did.as_str(),
+                &signing_key(0xB2),
+            ),
+            f.new_did.as_str(),
+            0xB2,
+            return_at,
+        );
+        let mut handoff = previous.clone();
+        handoff.handoff_id = RealmAuthorityHandoffId::from_digest([0x62; 32]);
+        handoff.from_generation = 1;
+        handoff.to_generation = 2;
+        handoff.from_service_id = f.current.service_id.clone();
+        handoff.to_service_id = f.original.service_id.clone();
+        handoff.change_event_ref = change.event_id.clone();
+        handoff.change_commit_id = change_commit.commit_id.clone();
+        handoff.snapshot_ref = RealmSnapshotId::from_digest([0x63; 32]);
+        let old_head = CommitStreamHead {
+            stream_ref: change_commit.stream_ref.clone(),
+            stream_position: 3,
+            commit_id: change_commit.commit_id.clone(),
+        };
+        handoff.final_stream_heads_digest =
+            Hash::new(arkret_canonical::canonical_sha256(&vec![old_head]).unwrap()).unwrap();
+        let unsigned = canonical::unsigned_value(
+            &handoff,
+            &[
+                "old_authority_signature",
+                "new_authority_acceptance_signature",
+            ],
+        )
+        .unwrap();
+        handoff.old_authority_signature = sign_detached_object(
+            &unsigned,
+            DetachedSignatureContext::RealmAuthorityHandoffOld,
+            method(f.new_did.as_str()),
+            return_at,
+            &signing_key(0xB2),
+        )
+        .unwrap();
+        handoff.new_authority_acceptance_signature = sign_detached_object(
+            &unsigned,
+            DetachedSignatureContext::RealmAuthorityHandoffNewAcceptance,
+            method(f.old_did.as_str()),
+            return_at,
+            &signing_key(0xA1),
+        )
+        .unwrap();
+        let mut latest = event(EventKind::MessageCreate, 4);
+        latest.realm_id = realm.clone();
+        latest.scope_ref = ScopeRef::Realm {
+            realm_id: realm.clone(),
+        };
+        latest.created_at = now() - Duration::seconds(5);
+        latest
+            .refresh_content_bound_identity_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+            .unwrap();
+        let latest_commit = commit_at(
+            commit_for_realm(
+                &realm,
+                0x64,
+                4,
+                Some(change_commit.commit_id.clone()),
+                &latest.event_id,
+                2,
+                RealmCommitAuthorityRef::Handoff(handoff.handoff_id.clone()),
+                f.old_did.as_str(),
+                &signing_key(0xA1),
+            ),
+            f.old_did.as_str(),
+            0xA1,
+            now() - Duration::seconds(5),
+        );
+        f.chain
+            .bundle
+            .authority_transitions
+            .push(RealmAuthorityTransition {
+                change_event: change,
+                change_commit,
+                handoff: handoff.clone(),
+            });
+        f.chain.bundle.current_generation = 2;
+        f.chain.bundle.current_service_id = f.original.service_id.clone();
+        f.chain.bundle.current_route_record = serde_json::to_value(&f.original).unwrap();
+        f.chain.bundle.realm_stream_head = CommitStreamHead {
+            stream_ref: latest_commit.stream_ref.clone(),
+            stream_position: 4,
+            commit_id: latest_commit.commit_id.clone(),
+        };
+        f.chain.item = CommittedEventFullView {
+            event: latest,
+            commit: latest_commit,
+        };
+        f.chain.bundle.bundle_issued_at = now() - Duration::seconds(1);
+        let assertion = &mut f.chain.bundle.current_assertion;
+        assertion.current_generation = 2;
+        assertion.current_service_id = f.original.service_id.clone();
+        assertion.last_handoff_ref = Some(handoff.handoff_id);
+        assertion.realm_stream_head = f.chain.bundle.realm_stream_head.clone();
+        assertion.signature = sign_detached_object(
+            &canonical::unsigned_value(assertion, &["signature"]).unwrap(),
+            DetachedSignatureContext::RealmAuthorityCurrentAssertion,
+            method(f.old_did.as_str()),
+            now() - Duration::seconds(1),
+            &signing_key(0xA1),
+        )
+        .unwrap();
+        f.authority = verify(&f.chain).unwrap();
+        assert_eq!(f.authority.current_generation(), 2);
+        assert_eq!(
+            f.authority.authority_service_at(0),
+            f.authority.authority_service_at(2)
+        );
+        f.source.attestation.destination_service_id = f.original.service_id.clone();
+        f.source.attestation.signature =
+            arkret_signatures::keypackages::sign_keypackage_signing_input(
+                &[173; 32],
+                f.source.attestation.verification_method.as_str(),
+                &f.source.attestation.signing_bytes().unwrap(),
+            )
+            .unwrap();
+        let old_method = method(f.old_did.as_str());
+        let authorization_digest =
+            Hash::new(arkret_canonical::canonical_sha256(&f.source.attestation).unwrap()).unwrap();
+        let current_service = f.authority.current_service_id().clone();
+        let result = f.retired();
+        let d = &mut result.delivery_attestation;
+        d.authorization_digest = authorization_digest;
+        d.governance_station_id = current_service;
+        d.governance_generation = 2;
+        d.verification_method = old_method.clone();
+        d.signature = arkret_signatures::keypackages::sign_keypackage_signing_input(
+            &[0xA1; 32],
+            old_method.as_str(),
+            &d.signing_bytes().unwrap(),
+        )
+        .unwrap();
+        f.current = f.original.clone();
+        f.verify(now()).unwrap();
+        // Genuine G0 -> G1 -> G0 history, no editing of Verified generations.
+        assert!(
+            f.authority
+                .authorizes_issuer_at(&f.original.service_id, None, now())
+        );
+        let proof = &mut f.retired().cleanup.retirement_proof;
+        let ContentScopeRetirementProof::Removed { attested_at, .. } = proof else {
+            unreachable!()
+        };
+        *attested_at = now();
+        let sig = arkret_signatures::keypackages::sign_keypackage_signing_input(
+            &[0xA1; 32],
+            old_method.as_str(),
+            &proof.signing_bytes().unwrap(),
+        )
+        .unwrap();
+        let ContentScopeRetirementProof::Removed { signature, .. } = proof else {
+            unreachable!()
+        };
+        *signature = sig;
+        let result = f.retired();
+        let d = &mut result.delivery_attestation;
+        d.proof_digest = Hash::new(
+            arkret_canonical::canonical_sha256(&result.cleanup.retirement_proof).unwrap(),
+        )
+        .unwrap();
+        d.signature = arkret_signatures::keypackages::sign_keypackage_signing_input(
+            &[0xA1; 32],
+            old_method.as_str(),
+            &d.signing_bytes().unwrap(),
+        )
+        .unwrap();
+        assert!(f.verify(now()).is_err());
+    }
 }

@@ -457,6 +457,28 @@ impl ContentRecoveryCheckpoint {
     }
 }
 
+impl ContentRecoveryInventoryEntry {
+    /// Validate one original frozen entry without inventing a full inventory
+    /// or its private PCR cut. Native completeness remains a separate gate.
+    pub fn validate_for_replacement(&self, replacement: &ContentEndpoint) -> Result<()> {
+        replacement.validate()?;
+        let mut indices = BTreeSet::new();
+        let mut prior_index = None;
+        for leaf in &self.old_leaves {
+            leaf.endpoint.validate()?;
+            if !indices.insert(leaf.leaf_index)
+                || prior_index.is_some_and(|i| i >= leaf.leaf_index)
+                || leaf.endpoint.actor_id != replacement.actor_id
+                || leaf.endpoint.signature_key_base64url == replacement.signature_key_base64url
+            {
+                return protocol("recovery inventory has duplicate, foreign or reused endpoint");
+            }
+            prior_index = Some(leaf.leaf_index);
+        }
+        Ok(())
+    }
+}
+
 impl ContentRecoveryInventory {
     pub fn validate(&self) -> Result<()> {
         self.replacement.validate()?;
@@ -480,22 +502,7 @@ impl ContentRecoveryInventory {
                 return protocol("recovery inventory is not unique canonical scope order");
             }
             previous = Some(key);
-            let mut indices = BTreeSet::new();
-            let mut prior_index = None;
-            for leaf in &entry.old_leaves {
-                leaf.endpoint.validate()?;
-                if !indices.insert(leaf.leaf_index)
-                    || prior_index.is_some_and(|i| i >= leaf.leaf_index)
-                    || leaf.endpoint.actor_id != self.actor_id
-                    || leaf.endpoint.signature_key_base64url
-                        == self.replacement.signature_key_base64url
-                {
-                    return protocol(
-                        "recovery inventory has duplicate, foreign or reused endpoint",
-                    );
-                }
-                prior_index = Some(leaf.leaf_index);
-            }
+            entry.validate_for_replacement(&self.replacement)?;
         }
         Ok(())
     }

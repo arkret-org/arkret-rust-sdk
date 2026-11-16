@@ -262,6 +262,21 @@ class Generator:
                 attributes = [attr for attr in attributes if not re.fullmatch(r'#\[serde\(\s*\)\]', attr)]
                 if typ.startswith("Option<") and not any("deserialize_with" in attr or re.search(r"\bwith\s*=", attr) for attr in attributes):
                     attributes.append(f'#[serde(deserialize_with = "{HELPERS}::deserialize_required_nullable")]')
+            nullable_value = ((typ.startswith("Option<Option<") or typ in {"Option<Value>", "Option<serde_json::Value>"})
+                              and self.nullable(shape, pointer))
+            if nullable_value and wire not in required:
+                # The outer Option owns presence; its inner value can retain
+                # the canonical schema's null. Custom typed/time codecs remain
+                # with their reviewed owner rather than being overwritten.
+                attributes = [attr.replace(
+                    f'"{HELPERS}::deserialize_non_null_optional"',
+                    f'"{HELPERS}::deserialize_optional_value_preserving_null"')
+                    for attr in attributes]
+                if not any("deserialize_with" in attr or re.search(r"\bwith\s*=", attr) for attr in attributes):
+                    default = "" if any(re.search(r"\bdefault\b", attr) for attr in attributes) else "default, "
+                    attributes.append(f'#[serde({default}deserialize_with = "{HELPERS}::deserialize_optional_value_preserving_null")]')
+                    if not any("skip_serializing_if" in attr for attr in attributes):
+                        attributes.append('#[serde(skip_serializing_if = "Option::is_none")]')
             if typ.startswith("Option<") and wire not in required and not self.nullable(shape, pointer):
                 for index, attr in enumerate(attributes):
                     if re.search(r'\bwith\s*=\s*"[^"]*::optional_canonical_timestamp"', attr):
@@ -515,7 +530,9 @@ class Generator:
                 adapter = self.identifier_adapter(shape, here, rust_type, field not in required)
                 if field not in required:
                     lines.append('    #[serde(default, skip_serializing_if = "Option::is_none",')
-                    helper = "deserialize_non_null_optional_timestamp" if timestamp else "deserialize_non_null_optional"
+                    helper = ("deserialize_optional_value_preserving_null" if self.nullable(shape, here) and
+                              (rust_type.startswith("Option<") or rust_type in {"Value", "serde_json::Value"})
+                              else "deserialize_non_null_optional_timestamp" if timestamp else "deserialize_non_null_optional")
                     lines.append(f'        deserialize_with = "{adapter or (HELPERS + "::" + helper)}")]')
                     if timestamp:
                         lines.append(f'    #[serde(serialize_with = "{HELPERS}::serialize_optional_canonical_timestamp")]')

@@ -213,6 +213,52 @@ class ClosedModelsTests(unittest.TestCase):
             rust["members"]["first"]["type"] = "Option<serde_json::Value>"
             self.assertNotIn("deserialize_non_null_optional", self.generate())
 
+    def test_representation_nullable_presence_selects_one_shared_value_owner(self):
+        rust = self.representation()
+        self.schema["properties"]["first"] = {"anyOf": [{"type": "string"}, {"type": "null"}]}
+        rust["members"]["first"]["type"] = "Option<Option<String>>"
+        output = self.generate()
+        self.assertIn("deserialize_optional_value_preserving_null", output)
+        self.assertNotIn("deserialize_non_null_optional", output)
+        rust["members"]["first"]["attributes"] = [
+            '#[serde(default, deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]'
+        ]
+        output = self.generate()
+        self.assertIn("deserialize_optional_value_preserving_null", output)
+        self.assertNotIn("deserialize_non_null_optional", output)
+        rust["members"]["first"]["attributes"] = []
+        rust["members"]["first"]["type"] = "Option<serde_json::Value>"
+        self.schema["properties"]["first"] = {}
+        self.assertIn("deserialize_optional_value_preserving_null", self.generate())
+        self.schema["properties"]["first"] = {"type": "object"}
+        output = self.generate()
+        self.assertNotIn("deserialize_optional_value_preserving_null", output)
+        self.assertIn("deserialize_non_null_optional", output)
+
+    def test_referenced_nullable_inner_value_keeps_outer_presence(self):
+        (self.root / "nullable.schema.json").write_text(
+            json.dumps({"type": ["string", "null"]}), encoding="utf-8")
+        self.bindings["references"]["nullable.schema.json"] = "Option<String>"
+        self.schema["properties"]["first"] = {"$ref": "nullable.schema.json"}
+        output = self.generate()
+        self.assertIn("pub first: Option<Option<String>>", output)
+        self.assertIn("deserialize_optional_value_preserving_null", output)
+        self.assertNotIn("deserialize_non_null_optional", output)
+
+    def test_nullable_custom_timestamp_and_tristate_codecs_remain_owned(self):
+        rust = self.representation()
+        self.schema["properties"]["first"] = {"type": ["string", "null"]}
+        for typ, attr in (
+            ("Option<chrono::DateTime<chrono::Utc>>", '#[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]'),
+            ("Option<Option<String>>", '#[serde(default, deserialize_with = "deserialize_present_nullable")]'),
+        ):
+            rust["members"]["first"]["type"] = typ
+            rust["members"]["first"]["attributes"] = [attr]
+            output = self.generate()
+            self.assertIn(attr, output)
+            self.assertNotIn("deserialize_optional_value_preserving_null", output)
+            self.assertNotIn("deserialize_non_null_optional", output)
+
     def test_representation_non_null_timestamp_keeps_canonical_adapter(self):
         rust = self.representation()
         self.schema["properties"]["first"] = {"type": "string"}

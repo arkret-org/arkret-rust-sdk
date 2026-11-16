@@ -52,6 +52,8 @@ impl ContentRecoveryScopeCleanupAuthorization {
         self.inventory_entry
             .effective_scope
             .canonical_mls_group_id()?;
+        self.inventory_entry
+            .validate_for_replacement(&self.replacement)?;
         bytes32(&self.nonce_base64url)?;
         bytes32(&self.delivery_challenge_base64url)?;
         if self
@@ -69,6 +71,22 @@ impl ContentRecoveryScopeCleanupAuthorization {
     /// authenticated by the complete source signature rather than this digest.
     /// Its hash is not native authorization or an outer transport cache key.
     pub fn intent_digest(&self) -> Result<arkret_wire::Hash> {
+        Self::intent_digest_for(
+            &self.replacement,
+            &self.inventory_digest,
+            &self.inventory_entry,
+            &self.nonce_base64url,
+        )
+    }
+
+    /// The same closed I before a native owner signs any outer source.
+    /// This byte projection does not create or qualify a source attestation.
+    pub fn intent_digest_for(
+        replacement: &ContentEndpoint,
+        inventory_digest: &arkret_wire::Hash,
+        inventory_entry: &ContentRecoveryInventoryEntry,
+        nonce_base64url: &str,
+    ) -> Result<arkret_wire::Hash> {
         #[derive(Serialize)]
         struct Intent<'a> {
             replacement: &'a ContentEndpoint,
@@ -78,10 +96,10 @@ impl ContentRecoveryScopeCleanupAuthorization {
         }
         let mut bytes = b"ak.mls.recovery_scope_cleanup_request.v1\n".to_vec();
         bytes.extend(arkret_canonical::canonical_json_bytes(&Intent {
-            replacement: &self.replacement,
-            inventory_digest: &self.inventory_digest,
-            inventory_entry: &self.inventory_entry,
-            nonce_base64url: &self.nonce_base64url,
+            replacement,
+            inventory_digest,
+            inventory_entry,
+            nonce_base64url,
         })?);
         Ok(arkret_wire::Hash::new(arkret_canonical::sha256_digest(
             bytes,
@@ -89,7 +107,65 @@ impl ContentRecoveryScopeCleanupAuthorization {
     }
 
     pub fn signing_bytes(&self) -> Result<Vec<u8>> {
-        signing_bytes(b"ak.mls.recovery_scope_cleanup_authorization.v1\n", self)
+        Self::signing_bytes_for(
+            &self.replacement,
+            &self.inventory_digest,
+            &self.inventory_entry,
+            &self.destination_service_id,
+            &self.predecessor_authorization_event_refs,
+            &self.nonce_base64url,
+            &self.delivery_challenge_base64url,
+            &self.verification_method,
+            self.attested_at,
+            self.expires_at,
+        )
+    }
+
+    /// Original unsigned source bytes, before any signature slot exists.
+    /// Native episode, inventory and first-winner qualification remain with
+    /// their respective owners; this is only the closed signing projection.
+    pub fn signing_bytes_for(
+        replacement: &ContentEndpoint,
+        inventory_digest: &arkret_wire::Hash,
+        inventory_entry: &ContentRecoveryInventoryEntry,
+        destination_service_id: &arkret_wire::DidCoreId,
+        predecessor_authorization_event_refs: &[arkret_wire::EventId],
+        nonce_base64url: &str,
+        delivery_challenge_base64url: &str,
+        verification_method: &arkret_wire::DidUrl,
+        attested_at: chrono::DateTime<chrono::Utc>,
+        expires_at: chrono::DateTime<chrono::Utc>,
+    ) -> Result<Vec<u8>> {
+        #[derive(Serialize)]
+        struct Unsigned<'a> {
+            replacement: &'a ContentEndpoint,
+            inventory_digest: &'a arkret_wire::Hash,
+            inventory_entry: &'a ContentRecoveryInventoryEntry,
+            destination_service_id: &'a arkret_wire::DidCoreId,
+            predecessor_authorization_event_refs: &'a [arkret_wire::EventId],
+            nonce_base64url: &'a str,
+            delivery_challenge_base64url: &'a str,
+            verification_method: &'a arkret_wire::DidUrl,
+            #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+            attested_at: chrono::DateTime<chrono::Utc>,
+            #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+            expires_at: chrono::DateTime<chrono::Utc>,
+        }
+        signing_bytes(
+            b"ak.mls.recovery_scope_cleanup_authorization.v1\n",
+            &Unsigned {
+                replacement,
+                inventory_digest,
+                inventory_entry,
+                destination_service_id,
+                predecessor_authorization_event_refs,
+                nonce_base64url,
+                delivery_challenge_base64url,
+                verification_method,
+                attested_at,
+                expires_at,
+            },
+        )
     }
 }
 

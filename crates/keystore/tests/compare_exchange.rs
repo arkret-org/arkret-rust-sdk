@@ -129,7 +129,9 @@ fn cas_worker() {
         assert_eq!(store.load(ID).unwrap().as_slice(), b"initial");
         None
     };
-    println!("READY");
+    // The single-threaded test harness can print its test-name prefix without
+    // a newline. Keep the IPC marker on its own line in either harness mode.
+    println!("\nREADY");
     std::io::stdout().flush().unwrap();
     wait_for_go();
     assert_ne!(

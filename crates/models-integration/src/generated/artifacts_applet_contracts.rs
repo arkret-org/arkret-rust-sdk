@@ -17,7 +17,7 @@
 // sha256=34b87fd503f5bf7cd3cecd25e2f9be91817fc612502419b5c5d1df85ed2ccccf
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=3bfe22afd0deee9b00a0fd4b2c1e2c7eee318ee6752681d944e4cc4b38492100
+// sha256=7d1fdb47ec4baf0bbf7ecbf1969f8fff785140d5d15b0d6fadc690db7bbd4a62
 
 /// Counterpart: `applet-edge-operations.schema.json#/$defs/field_definition`.
 /// Counterpart for
@@ -155,8 +155,12 @@ pub struct NamespaceConflict {
 #[serde(deny_unknown_fields)]
 pub struct WidgetEffect {
     pub widget_allowed: bool,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub policy_event_ref: Option<CommittedEventRef>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_value_preserving_null"
+    )]
+    pub policy_event_ref: Option<Option<EventId>>,
 }
 
 /// Counterpart: `applet-edge-operations.schema.json#/$defs/external_ref`.

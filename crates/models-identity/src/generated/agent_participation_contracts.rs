@@ -11,7 +11,7 @@
 // sha256=80fba7d397f1c4d067304c83b87dcdacee8db4585991eda985aceb0272890fa1
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=3bfe22afd0deee9b00a0fd4b2c1e2c7eee318ee6752681d944e4cc4b38492100
+// sha256=7d1fdb47ec4baf0bbf7ecbf1969f8fff785140d5d15b0d6fadc690db7bbd4a62
 
 /// Counterpart: `principal-operations.schema.json#/$defs/participation_bits`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

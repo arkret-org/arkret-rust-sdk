@@ -112,7 +112,9 @@ where
     D: serde::Deserializer<'de>,
     T: Deserialize<'de>,
 {
-    T::deserialize(deserializer).map(Some)
+    Option::<T>::deserialize(deserializer)?
+        .ok_or_else(|| serde::de::Error::custom("present optional member must not be null"))
+        .map(Some)
 }
 
 /// Canonical timestamp counterpart of a present non-null optional member.
@@ -125,15 +127,16 @@ where
     deserialize_canonical_timestamp(deserializer).map(Some)
 }
 
-/// Deserialize an `Option<Value>` field while preserving an explicit wire
-/// `null` as `Some(Value::Null)` rather than collapsing it to `None`.
-pub fn deserialize_optional_value_preserving_null<'de, D>(
+/// Retain one present schema-nullable value, including `Value::Null` or an
+/// inner `Option::None`. `serde(default)` represents an absent outer member.
+pub fn deserialize_optional_value_preserving_null<'de, D, T>(
     deserializer: D,
-) -> Result<Option<Value>, D::Error>
+) -> Result<Option<T>, D::Error>
 where
     D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
 {
-    Value::deserialize(deserializer).map(Some)
+    T::deserialize(deserializer).map(Some)
 }
 
 pub fn serialize_canonical_timestamp<S>(
@@ -244,6 +247,67 @@ mod tests {
             deserialize_with = "deserialize_canonical_timestamp"
         )]
         at: DateTime<Utc>,
+    }
+
+    #[test]
+    fn present_non_null_optional_rejects_json_null_even_for_raw_value() {
+        #[derive(Deserialize)]
+        struct OptionalObject {
+            #[serde(default, deserialize_with = "deserialize_non_null_optional")]
+            value: Option<Value>,
+        }
+        assert!(
+            serde_json::from_str::<OptionalObject>(r#"{}"#)
+                .unwrap()
+                .value
+                .is_none()
+        );
+        let supplied = serde_json::json!({"value": {"bound": true}});
+        assert_eq!(
+            serde_json::from_value::<OptionalObject>(supplied.clone())
+                .unwrap()
+                .value,
+            Some(supplied["value"].clone())
+        );
+        assert!(serde_json::from_str::<OptionalObject>(r#"{"value":null}"#).is_err());
+    }
+
+    #[test]
+    fn present_nullable_keeps_absent_null_and_borrowed_value_distinct() {
+        #[derive(Debug, PartialEq, Deserialize, serde::Serialize)]
+        struct OptionalNullable<'a> {
+            #[serde(
+                default,
+                borrow,
+                skip_serializing_if = "Option::is_none",
+                deserialize_with = "deserialize_optional_value_preserving_null"
+            )]
+            value: Option<Option<&'a str>>,
+        }
+        for (wire, expected) in [
+            (r#"{}"#, None),
+            (r#"{"value":null}"#, Some(None)),
+            (r#"{"value":"original"}"#, Some(Some("original"))),
+        ] {
+            let actual: OptionalNullable<'_> = serde_json::from_str(wire).unwrap();
+            assert_eq!(actual.value, expected);
+            assert_eq!(serde_json::to_string(&actual).unwrap(), wire);
+        }
+        assert!(serde_json::from_str::<OptionalNullable<'_>>(r#"{"value":42}"#).is_err());
+
+        #[derive(Deserialize, serde::Serialize)]
+        struct OptionalJson {
+            #[serde(
+                default,
+                skip_serializing_if = "Option::is_none",
+                deserialize_with = "deserialize_optional_value_preserving_null"
+            )]
+            value: Option<Value>,
+        }
+        for wire in [r#"{}"#, r#"{"value":null}"#, r#"{"value":{"child":null}}"#] {
+            let actual: OptionalJson = serde_json::from_str(wire).unwrap();
+            assert_eq!(serde_json::to_string(&actual).unwrap(), wire);
+        }
     }
 
     #[test]
