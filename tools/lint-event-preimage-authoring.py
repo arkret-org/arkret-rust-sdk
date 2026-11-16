@@ -36,7 +36,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
+from collections.abc import Iterator
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -81,14 +83,23 @@ def load_allowlist(path: Path, repo: str) -> dict[str, str]:
     stale-entry check below stays meaningful: without scoping, every entry
     belonging to a sibling repository would read as stale on each scan.
     """
-    if not path.exists():
-        return {}
     payload = json.loads(path.read_text(encoding="utf-8"))
     return {
         entry["path"]: entry["reason"]
         for entry in payload.get("entries", [])
         if entry["repo"] == repo
     }
+
+
+def rust_sources(root: Path) -> Iterator[Path]:
+    def fail(error: OSError) -> None:
+        raise error
+
+    for directory, children, files in os.walk(root, onerror=fail):
+        children[:] = [child for child in children if child not in SKIP_DIRS]
+        for name in files:
+            if name.endswith(".rs") and name not in SKIP_FILES:
+                yield Path(directory) / name
 
 
 def main() -> int:
@@ -101,10 +112,8 @@ def main() -> int:
 
     violations: list[str] = []
     used: set[str] = set()
-    for path in sorted(scan_root.rglob("*.rs")):
+    for path in sorted(rust_sources(scan_root)):
         relative_path = path.relative_to(scan_root)
-        if any(part in SKIP_DIRS for part in relative_path.parts) or path.name in SKIP_FILES:
-            continue
         relative = relative_path.as_posix()
         text = path.read_text(encoding="utf-8")
         hits = [

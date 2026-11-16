@@ -530,8 +530,7 @@ pub mod mls {
 pub use arkret_crypto::{
     AEAD_NONCE_AES_GCM_LEN, AEAD_NONCE_COUNTER_LEN, AEAD_NONCE_XCHACHA20_POLY1305_LEN,
     AEAD_PROFILE_AES_256_GCM, AEAD_PROFILE_XCHACHA20_POLY1305, AeadNonceContext,
-    AeadNonceReplayTracker, compose_aead_nonce, json_aad_digest, verify_aead_nonce_derivation,
-    verify_aead_sender_nonce,
+    AeadNonceReplayTracker, compose_aead_nonce, verify_aead_sender_nonce,
 };
 pub use arkret_identifiers::hlc::{
     EXPECTED_FUTURE_SKEW_MS, HARD_FUTURE_SKEW_MS, HlcComponents, HlcFutureDrift, compare_hlc,
