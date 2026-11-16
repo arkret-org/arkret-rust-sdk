@@ -24,7 +24,7 @@ default = []
 # crypto provider). NOTE: arkret-spec transport-bindings section 5 makes
 # PQ-hybrid TLS (X25519MLKEM768) a MUST for ALL profiles, fail-closed — see
 # the crate docs for the recommended rustls provider configuration.
-tls-rustls = ["reqwest/rustls"]
+tls-rustls = ["reqwest/rustls", "arkret-egress-reqwest/tls-rustls"]
 
 [dependencies]
 arkret-canonical = { workspace = true }

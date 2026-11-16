@@ -61,6 +61,26 @@ impl ServiceIdentityFixture {
         )
     }
 
+    /// Build a PushGateway from its own signed inception and operational key.
+    pub fn webvh_push_gateway(
+        endpoint: &url::Url,
+        rng_seed: u64,
+        signing_seed: [u8; 32],
+        fragment: &str,
+        inception_at: DateTime<Utc>,
+        observed_at: DateTime<Utc>,
+    ) -> Result<Self> {
+        Self::webvh_for_kind(
+            endpoint,
+            rng_seed,
+            signing_seed,
+            fragment,
+            inception_at,
+            observed_at,
+            ServiceKind::PushGateway,
+        )
+    }
+
     fn webvh_for_kind(
         endpoint: &url::Url,
         rng_seed: u64,
@@ -93,7 +113,16 @@ impl ServiceIdentityFixture {
                     &signing_seed,
                 )?
             }
-            _ => anyhow::bail!("fixture only constructs Station or AppletService identities"),
+            ServiceKind::PushGateway => {
+                arkret_signatures::webvh::prepare_push_gateway_inception_with_did_key_seed(
+                    &mut rng,
+                    &input,
+                    &signing_seed,
+                )?
+            }
+            _ => anyhow::bail!(
+                "fixture only constructs Station, AppletService or PushGateway identities"
+            ),
         };
         let did = Did::new(prepared.did.clone())?;
         let service_id = arkret_wire::project_did_to_core_id(&did)?;

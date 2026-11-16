@@ -12,6 +12,11 @@ repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
 
+[features]
+default = []
+# The application retains ownership of the rustls cryptography provider.
+tls-rustls = ["reqwest/rustls-no-provider"]
+
 [dependencies]
 arkret-egress-policy = { workspace = true }
 reqwest = { workspace = true }

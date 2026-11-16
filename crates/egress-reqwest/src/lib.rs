@@ -27,6 +27,11 @@ use reqwest::dns::{Addrs, Name, Resolve, Resolving};
 use reqwest::{ClientBuilder, Url};
 use thiserror::Error;
 
+#[cfg(all(not(target_arch = "wasm32"), feature = "tls-rustls"))]
+mod tls_roots;
+#[cfg(all(not(target_arch = "wasm32"), feature = "tls-rustls"))]
+pub use tls_roots::apply_explicit_tls_roots;
+
 type BoxError = Box<dyn std::error::Error + Send + Sync>;
 
 /// Port assumed when a URL carries neither an explicit port nor a scheme with a
