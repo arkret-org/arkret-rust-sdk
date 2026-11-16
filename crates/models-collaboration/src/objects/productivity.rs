@@ -1569,21 +1569,6 @@ impl ContactRemark {
         next
     }
 
-    /// Initializes the identity-confirmation baseline without inventing a
-    /// holder-authored petname. The caller must already have validated the
-    /// exact signed PCR profile Event behind the display value, through
-    /// [`crate::actor_profile_resolution::validate_resolved_actor_profile`];
-    /// ordinary profile state carries no independent finality artifact to wait for.
-    pub fn new_with_confirmed_display_name(
-        principal_id: DidCoreId,
-        confirmed_display_name: impl Into<String>,
-        saved_at: DateTime<Utc>,
-    ) -> Self {
-        let mut remark = Self::new(principal_id, "", saved_at);
-        remark.confirmed_display_name = Some(confirmed_display_name.into());
-        remark
-    }
-
     /// Refreshes only the evidence-backed identity-confirmation baseline and
     /// preserves every holder-authored remark field for whole-value CAS.
     pub fn with_confirmed_display_name_preserving_fields(

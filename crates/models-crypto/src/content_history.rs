@@ -712,9 +712,3 @@ impl ContentScopeRetirementProof {
         Ok(())
     }
 }
-
-// Public historical path; the descriptor has exactly one canonical owner.
-pub use crate::realm_actor_content_backup::{
-    ContentBackupRecipientHpkeSuite as RealmActorContentBackupRecipientHpkeSuite,
-    RealmActorContentBackupRecipient,
-};

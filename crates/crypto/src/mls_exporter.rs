@@ -95,42 +95,6 @@ pub fn mls_exporter_from_secret(
     mls_expand_with_label(&derived, MLS_EXPORTED_LABEL, &context_hash, length)
 }
 
-/// RFC 9420 exporter with an explicit cipher-suite Hash/KDF.
-/// Live groups use their negotiated runtime exporter, never this KAT adapter.
-pub fn mls_exporter_from_secret_with_hash(
-    exporter_secret: &[u8],
-    label: &str,
-    context: &[u8],
-    length: usize,
-    hash: MlsExporterHash,
-) -> Result<Vec<u8>> {
-    let nh = match hash {
-        MlsExporterHash::Sha256 => 32,
-        MlsExporterHash::Sha384 => 48,
-    };
-    if exporter_secret.len() != nh || label.is_empty() || length == 0 {
-        return Err(Error::Crypto(
-            "invalid MLS exporter primitive inputs".into(),
-        ));
-    }
-    if hash == MlsExporterHash::Sha256 {
-        return mls_exporter_from_secret(exporter_secret, label, context, length);
-    }
-    let root_info = mls_kdf_label(nh, label, &[])?;
-    let mut root = vec![0; nh];
-    Hkdf::<Sha384>::from_prk(exporter_secret)
-        .map_err(|_| Error::Crypto("invalid SHA-384 exporter secret".into()))?
-        .expand(&root_info, &mut root)
-        .map_err(|_| Error::Crypto("MLS DeriveSecret failed".into()))?;
-    let info = mls_kdf_label(length, MLS_EXPORTED_LABEL, &Sha384::digest(context))?;
-    let mut output = vec![0; length];
-    Hkdf::<Sha384>::from_prk(&root)
-        .map_err(|_| Error::Crypto("invalid SHA-384 derived secret".into()))?
-        .expand(&info, &mut output)
-        .map_err(|_| Error::Crypto("MLS exporter expansion failed".into()))?;
-    Ok(output)
-}
-
 /// Explicit suite-hash expansion for independent primitive KATs.
 /// This does not activate alternate hashes in the live Arkret suite registry.
 pub fn mls_expand_with_label_with_hash(

@@ -134,30 +134,6 @@ pub struct ManagementApprovalBinding<'a> {
     pub target_actor_id: Option<&'a arkret_wire::ActorId>,
 }
 
-/// Check management-only binding before the existing exact producer Event verifier.
-/// Approver qualification, policy revisions and atomic consumption remain Station-owned.
-#[allow(clippy::too_many_arguments)]
-pub fn verify_management_event_approval_signature(
-    signature: &ApprovalSignature,
-    event: &Event,
-    operation: &str,
-    action: CapabilityActionId,
-    verification_time: DateTime<Utc>,
-    approver_public_key: &PublicKeyMaterial,
-    binding: &ManagementApprovalBinding<'_>,
-) -> Result<(), ApprovalEventVerificationError> {
-    verify_management_event_approval_signature_with_verified_controller(
-        signature,
-        event,
-        operation,
-        action,
-        verification_time,
-        approver_public_key,
-        binding,
-        None,
-    )
-}
-
 /// Verify a management Event after independently authenticating native DID control.
 /// The supplied controller does not replace the exact historical method/key check.
 #[allow(clippy::too_many_arguments)]
@@ -216,32 +192,6 @@ fn validate_management_binding(
 
 pub use arkret_wire::management_creation_request_digest;
 
-/// Verify operation-target management approval over the immutable body digest.
-/// This neither accepts the body nor consumes a private review ledger record.
-#[allow(clippy::too_many_arguments)]
-pub fn verify_management_operation_approval_signature(
-    signature: &ApprovalSignature,
-    expected_digest: &arkret_wire::Hash,
-    operation: &str,
-    action: CapabilityActionId,
-    initiating_actor: &arkret_wire::ActorId,
-    at: DateTime<Utc>,
-    approver_public_key: &PublicKeyMaterial,
-    binding: &ManagementApprovalBinding<'_>,
-) -> Result<(), ApprovalEventVerificationError> {
-    verify_management_operation_approval_signature_with_verified_controller(
-        signature,
-        expected_digest,
-        operation,
-        action,
-        initiating_actor,
-        at,
-        approver_public_key,
-        binding,
-        None,
-    )
-}
-
 /// Native-history counterpart of the management operation verifier.
 /// Callers authenticate the historical method, key and principal before passing it.
 #[allow(clippy::too_many_arguments)]
@@ -271,32 +221,6 @@ pub fn verify_management_operation_approval_signature_with_verified_controller(
         at,
         approver_public_key,
         verified_controller,
-    )
-}
-
-/// Verify only the original operation, its exact initiating actor and signature.
-/// Context-specific eligibility, quorum and nonce consumption remain independent.
-#[allow(clippy::too_many_arguments)]
-pub fn verify_operation_approval_signature(
-    signature: &ApprovalSignature,
-    expected_digest: &arkret_wire::Hash,
-    operation: &str,
-    action: CapabilityActionId,
-    realm: &arkret_wire::RealmId,
-    initiating_actor: &arkret_wire::ActorId,
-    at: DateTime<Utc>,
-    approver_public_key: &PublicKeyMaterial,
-) -> Result<(), ApprovalEventVerificationError> {
-    verify_operation_approval_signature_with_verified_controller(
-        signature,
-        expected_digest,
-        operation,
-        action,
-        realm,
-        initiating_actor,
-        at,
-        approver_public_key,
-        None,
     )
 }
 
