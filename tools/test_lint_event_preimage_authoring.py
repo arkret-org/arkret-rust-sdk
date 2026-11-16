@@ -13,6 +13,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 MODULE_PATH = REPO_ROOT / "tools" / "lint-event-preimage-authoring.py"
@@ -61,6 +62,34 @@ fn verify(event: &Event) {
     def test_repository_build_artifacts_remain_excluded(self) -> None:
         source = 'fn preimage() { map.remove("event_id"); }\n'
         self.assertEqual(self.scan({"artifacts/sign.rs": source}, []), 0)
+
+    def test_excluded_trees_are_not_enumerated(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for relative in ["src/event.rs", "artifacts/deep/event.rs", "target/deep/event.rs"]:
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("fn unrelated() {}\n", encoding="utf-8")
+            visited = []
+            scandir = LINT.os.scandir
+
+            def observed(path):
+                visited.append(Path(path).relative_to(root).as_posix())
+                return scandir(path)
+
+            with patch.object(LINT.os, "scandir", side_effect=observed):
+                self.assertEqual(list(LINT.rust_sources(root)), [root / "src/event.rs"])
+            self.assertCountEqual(visited, [".", "src"])
+
+    def test_unreadable_scan_root_does_not_succeed_with_empty_coverage(self) -> None:
+        with patch.object(LINT.os, "scandir", side_effect=PermissionError("denied")):
+            with self.assertRaises(PermissionError):
+                list(LINT.rust_sources(Path("unreadable-repo")))
+
+    def test_missing_allowlist_is_not_an_implicit_empty_allowlist(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaises(FileNotFoundError):
+                LINT.load_allowlist(Path(directory) / "missing.json", "some-repo")
 
     def test_allows_stripping_proofs_from_a_non_event_object(self) -> None:
         # PrincipalLocator / DID documents legally strip

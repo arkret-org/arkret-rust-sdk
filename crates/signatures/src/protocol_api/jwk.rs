@@ -157,7 +157,7 @@ impl JsonWebKey {
         Some(x)
     }
 
-    pub fn ed25519_thumbprint_members(&self) -> Option<(&str, &Base64UrlString)> {
+    pub(super) fn ed25519_thumbprint_members(&self) -> Option<(&str, &Base64UrlString)> {
         let Self::Okp { crv, x, .. } = self else {
             return None;
         };

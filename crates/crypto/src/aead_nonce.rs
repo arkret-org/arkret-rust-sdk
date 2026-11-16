@@ -2,16 +2,13 @@
 //!
 //! v1 deterministic AEAD sender-nonce construction
 //! (`nonce = I2OSP(durable_sender_counter, AEAD.Nn)`, per
-//! `crypto-media/encryption-and-audit.md`) plus the canonical
-//! These moved here from the SDK so the MLS behavior layer can reach them
-//! without a dependency cycle back through the umbrella crate.
+//! `crypto-media/encryption-and-audit.md`) and receiver replay tracking.
 
 use std::collections::{BTreeMap, VecDeque};
 
-use arkret_canonical::canonical::{canonical_json_bytes, sha256_bytes, sha256_digest};
+use arkret_canonical::canonical::{canonical_json_bytes, sha256_bytes};
 use arkret_wire::{MlsGroupId, ReasonCode};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use sha2::{Digest, Sha256};
 use subtle::ConstantTimeEq;
 
@@ -162,12 +159,6 @@ fn protocol_error(reason: &str, detail: &str) -> Error {
     Error::Protocol(format!("{reason}: {detail}"))
 }
 
-fn sha256_prefixed(bytes: &[u8]) -> String {
-    // Authoritative `sha256:<lowercase-hex>` formatter (single source of truth
-    // for the digest prefix/encoding).
-    sha256_digest(bytes)
-}
-
 fn validate_aead_nonce_len(nonce_len: usize) -> Result<()> {
     if nonce_len < AEAD_NONCE_COUNTER_LEN {
         return Err(protocol_error(
@@ -194,18 +185,6 @@ pub fn compose_aead_nonce(counter: u64, nonce_len: usize) -> Result<Vec<u8>> {
     let mut nonce = vec![0; nonce_len - AEAD_NONCE_COUNTER_LEN];
     nonce.extend_from_slice(&counter.to_be_bytes());
     Ok(nonce)
-}
-
-/// Reject if a supplied nonce does not equal the deterministic canonical nonce.
-pub fn verify_aead_nonce_derivation(expected_nonce: &[u8], supplied_nonce: &[u8]) -> Result<()> {
-    if expected_nonce == supplied_nonce {
-        Ok(())
-    } else {
-        Err(protocol_error(
-            ReasonCode::AEAD_NONCE_DERIVATION_INVALID,
-            "AEAD nonce does not match the canonical deterministic derivation",
-        ))
-    }
 }
 
 /// Parse the canonical full-width counter nonce and optionally enforce replay.
@@ -240,13 +219,6 @@ pub fn verify_aead_sender_nonce(
         tracker.accept_counter(context, counter)?;
     }
     Ok(counter)
-}
-
-/// Compute a SHA-256 digest over arbitrary JSON AAD using canonical JSON.
-pub fn json_aad_digest(aad: &Value) -> Result<String> {
-    Ok(sha256_prefixed(
-        &arkret_canonical::canonical_json_value_bytes(aad)?,
-    ))
 }
 
 /// Compare two strings in constant time after reducing both to fixed-size digests.

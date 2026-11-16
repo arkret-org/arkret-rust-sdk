@@ -1119,13 +1119,8 @@ pub fn canonical_message(
     ))
 }
 
-/// Build canonical RFC 9421 message bytes from already-resolved component
-/// values.
-///
-/// This is the shared lower-level primitive for adapters that obtain request
-/// components from framework-specific request types. Callers remain
-/// responsible for resolving each value according to RFC 9421.
-pub fn canonical_message_from_component_values(
+/// Assemble RFC 9421 bytes after `canonical_message` resolves the components.
+fn canonical_message_from_component_values(
     components: &[(Component, String)],
     signature_params: &str,
 ) -> Vec<u8> {

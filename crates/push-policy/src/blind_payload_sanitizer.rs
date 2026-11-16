@@ -254,7 +254,7 @@ pub fn sanitize_blind_payload_with(
         if is_forbidden_payload_key(key) {
             return Err(BlindPayloadError::forbidden(key.clone()));
         }
-        if !is_allowed_blind_field(key) {
+        if !ALLOWED_BLIND_FIELDS.contains(&key.as_str()) {
             return Err(BlindPayloadError::forbidden(key.clone()));
         }
         validate_allowed_field(key, value)?;
@@ -374,12 +374,6 @@ fn check_sensitive_literal(path: &str, raw: &str) -> Result<(), BlindPayloadErro
         return Err(BlindPayloadError::sensitive(path));
     }
     Ok(())
-}
-
-/// Return true if `key` is an allow-listed field name for the blind
-/// wakeup contract.
-pub fn is_allowed_blind_field(key: &str) -> bool {
-    ALLOWED_BLIND_FIELDS.contains(&key)
 }
 
 /// Return true if `key` is a forbidden payload key for the blind wakeup

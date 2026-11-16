@@ -29,7 +29,7 @@
 
 use arkret_canonical::base64url::{base64url_decode, base64url_encode};
 use arkret_canonical::canonical;
-use arkret_wire::{DidUrl, Hash, PayloadProof, ProducerEventProof, SignalEnvelope, proof_kind};
+use arkret_wire::{DidUrl, Hash, PayloadProof, ProducerEventProof, SignalEnvelope};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
@@ -885,14 +885,10 @@ pub fn build_proof_envelope(
     }
 }
 
-/// Sugar for the canonical detached-JWS production kind constant.
-pub fn detached_jws_kind() -> &'static str {
-    proof_kind::DETACHED_JWS
-}
-
 #[cfg(test)]
 mod tests {
     use arkret_canonical::base64url_decode;
+    use arkret_wire::proof_kind;
     use serde_json::json;
 
     use super::*;
