@@ -3,13 +3,12 @@
 use arkret_identity::VerifiedSubmission;
 use arkret_models_collaboration::governance::circle::{
     CircleCreateRequestBody, CircleList, CircleMemberDeleteRequestBody, CircleMemberRequestBody,
-    CircleMembershipResponseBody, CircleReadView, CircleScopeRotateRequestBody,
-    CircleScopeRotateResponseBody, CircleView,
+    CircleMembershipResponseBody, CircleReadView, CircleView,
 };
-use arkret_wire::ActorId;
+use arkret_wire::{ActorId, AuthoritySubmitResponseBody, MlsCommitSubmission};
 use reqwest::Method;
 
-use crate::{Client, ClientRequestOptions, Result, reject_path_segment};
+use crate::{Client, Result, reject_path_segment};
 
 impl Client {
     pub async fn circle_list(&self, realm_id: &str) -> Result<CircleList> {
@@ -61,15 +60,11 @@ impl Client {
     pub async fn circle_scope_rotate(
         &self,
         circle_id: &str,
-        idempotency_key: &str,
-        request: &VerifiedSubmission<CircleScopeRotateRequestBody>,
-    ) -> Result<CircleScopeRotateResponseBody> {
+        request: &VerifiedSubmission<MlsCommitSubmission>,
+    ) -> Result<AuthoritySubmitResponseBody> {
         reject_path_segment(circle_id)?;
         let path = format!("/_arkret/self/circles/{circle_id}/scope-rotate");
-        let options = ClientRequestOptions::new()
-            .request_id(idempotency_key)
-            .idempotency_key(idempotency_key);
-        self.post_with_options(&path, request, &options).await
+        self.post(&path, request).await
     }
 }
 

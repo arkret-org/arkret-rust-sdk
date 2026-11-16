@@ -1081,6 +1081,69 @@ fn sidecar_frozen_add_verifies_public_transition_without_rewinding_live_ratchets
 }
 
 #[test]
+fn public_rotation_framing_requires_exact_group_epoch_and_real_update_path() {
+    let scope = realm_scope();
+    let mut group = identity()
+        .create_group_with_governance_binding(&scope, &genesis_binding(&scope))
+        .unwrap();
+    let commit = group
+        .self_update_commit_with_governance_binding(&transition_binding(&scope, event(196), 0))
+        .unwrap();
+    let bytes = decode(&commit.commit).unwrap();
+    crate::require_public_commit_update_path(&bytes, group.group_id().as_str(), 0).unwrap();
+    assert!(crate::require_public_commit_update_path(&bytes, "wrong-group", 0).is_err());
+    assert!(
+        crate::require_public_commit_update_path(&bytes, group.group_id().as_str(), 1).is_err()
+    );
+    let mut trailing = bytes.clone();
+    trailing.push(0);
+    assert!(
+        crate::require_public_commit_update_path(&trailing, group.group_id().as_str(), 0).is_err()
+    );
+    // Signature verification remains the ordinary MLS unit's separate job.
+    let (info, tree) = group.public_group_state_bytes().unwrap();
+    let mut tracker =
+        crate::MlsPublicGroupTracker::from_external(&info, &tree, group.group_id().as_str(), 0)
+            .unwrap();
+    tracker.process_public_handshake(&bytes).unwrap();
+    assert_eq!(tracker.epoch(), 1);
+
+    let mut no_path = identity()
+        .create_group_with_governance_binding(&scope, &genesis_binding(&scope))
+        .unwrap();
+    let recipient = second_identity();
+    let package =
+        decode_key_package(&no_path.identity.provider, &claimed_keypackage(&recipient)).unwrap();
+    let bundle = no_path
+        .group
+        .commit_builder()
+        .consume_proposal_store(false)
+        .force_self_update(false)
+        .propose_adds(vec![package])
+        .load_psks(no_path.identity.provider.storage())
+        .unwrap()
+        .build(
+            no_path.identity.provider.rand(),
+            no_path.identity.provider.crypto(),
+            &no_path.identity.signer,
+            |_| true,
+        )
+        .unwrap()
+        .stage_commit(&no_path.identity.provider)
+        .unwrap();
+    let (commit_without_path, ..) = bundle.into_contents();
+    let no_path_bytes = commit_without_path.tls_serialize_detached().unwrap();
+    // A genuine Add-only Commit can omit UpdatePath under RFC 9420. Its
+    // canonical structure alone must not count as this rotation operation.
+    crate::verify_adds_from_accepted_public_commit(&no_path_bytes, no_path.group_id().as_str(), 0)
+        .unwrap();
+    assert!(
+        crate::require_public_commit_update_path(&no_path_bytes, no_path.group_id().as_str(), 0,)
+            .is_err()
+    );
+}
+
+#[test]
 fn governed_self_update_survives_restart_and_advances_the_public_binding() {
     let scope = realm_scope();
     let genesis = genesis_binding(&scope);

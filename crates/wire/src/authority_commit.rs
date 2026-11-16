@@ -2915,7 +2915,17 @@ pub enum AuthoritySubmitRequestBody {
 impl AuthoritySubmitRequestBody {
     pub fn validate(&self) -> Result<()> {
         match self {
-            Self::Event(submission) => submission.validate(),
+            Self::Event(submission) => {
+                submission.validate()?;
+                if submission.event.kind == crate::EventKind::MlsCommit {
+                    return Err(WireError::ProtocolCode {
+                        code: crate::ErrorCode::SchemaViolation,
+                        message: "first MLS admission requires the complete MlsCommitSubmission"
+                            .to_owned(),
+                    });
+                }
+                Ok(())
+            }
             Self::MlsCommit(submission) => submission.validate(),
         }
     }

@@ -19,7 +19,6 @@ use arkret_models_collaboration::contact_operations::{
 use arkret_models_collaboration::device_pairing::AccountDevicePairRequestBody;
 use arkret_models_collaboration::governance::circle::{
     CircleCreateRequestBody, CircleMemberDeleteRequestBody, CircleMemberRequestBody,
-    CircleScopeRotateRequestBody,
 };
 use arkret_models_collaboration::message_authoring::MessageSubmitRequestBody;
 use arkret_models_collaboration::objects::read_receipts::ReadCursorAdvanceRequestBody;
@@ -223,12 +222,6 @@ request!(
     canonical_shape(self)
 );
 request!(
-    CircleScopeRotateRequestBody,
-    self,
-    self.events.iter().collect(),
-    canonical_shape(self)
-);
-request!(
     AgentProvisionRequestBody,
     self,
     match self {
@@ -422,7 +415,12 @@ impl PublicationRequest for PeerAuthoritySubmitRequestBody {
     }
 
     fn validate_publication_shape(&self) -> arkret_wire::Result<()> {
-        self.validate()
+        match self {
+            Self::AuthorityForwardMls(value) if value.is_original_result_probe() => {
+                value.validate_replay_shape()
+            }
+            _ => self.validate(),
+        }
     }
 }
 

@@ -835,11 +835,13 @@ fn normalize_projection_document(document: &DidDocument) -> Result<Value> {
 /// losslessly bound through sorted extension rows.
 pub fn normalized_did_document(document: &DidDocument) -> Result<Value> {
     document.validate()?;
-    if document.raw_properties.contains_key("did") {
-        normalize_projection_document(document)
+    let normalized = if document.raw_properties.contains_key("did") {
+        normalize_projection_document(document)?
     } else {
-        normalize_w3c_document(document)
-    }
+        normalize_w3c_document(document)?
+    };
+    crate::OrganizationGovernance::from_normalized(&normalized)?;
+    Ok(normalized)
 }
 
 /// Serde adapter for a wire member that carries the canonical normalized DID

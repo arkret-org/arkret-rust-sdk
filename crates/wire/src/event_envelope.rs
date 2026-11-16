@@ -1321,6 +1321,28 @@ impl Event {
                     "ak.realm.create MUST use the realm_genesis scope".to_owned(),
                 ));
             }
+            if self
+                .payload
+                .get("object")
+                .and_then(|object| object.get("purpose"))
+                .and_then(Value::as_str)
+                == Some("principal_control")
+            {
+                let descriptor = self
+                    .payload
+                    .get("object")
+                    .and_then(|object| object.get("founding_device_descriptor"));
+                let valid = match (self.executed_by.is_some(), self.authorization_ref.is_some()) {
+                    (false, false) => descriptor.is_some_and(Value::is_object),
+                    (true, true) => descriptor.is_none(),
+                    _ => false,
+                };
+                if !valid {
+                    return Err(WireError::Protocol(
+                        "principal_control genesis requires a descriptor only for the Human unit and a complete descriptor-free executor pair for Organization".into(),
+                    ));
+                }
+            }
         } else if self.scope_ref.realm_id_opt() != Some(&self.realm_id) {
             return Err(WireError::Protocol(
                 "event scope_ref.realm_id must equal the envelope realm_id".to_owned(),

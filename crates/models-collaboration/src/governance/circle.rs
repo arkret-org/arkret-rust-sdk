@@ -19,7 +19,6 @@ use std::collections::BTreeSet;
 /// Re-export of [`arkret_wire::SchemaId::CIRCLE_V1`] for code that imports
 /// types from this module.
 pub use arkret_wire::CircleId;
-use arkret_wire::event_envelope::Event;
 use arkret_wire::{ActorId, EventAdmissionSubmission, HistoryAccess, RealmId, SchemaId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -405,28 +404,6 @@ pub struct CircleMembershipResponseBody {
     pub circle_id: CircleId,
     pub member_id: ActorId,
     pub membership: CircleMembership,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct CircleScopeRotateRequestBody {
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Vec<serde_json::Value>)))]
-    pub events: Vec<Event>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub idempotency_key: Option<String>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct CircleScopeRotateResponseBody {
-    pub circle_id: CircleId,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub mls_group_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub note: Option<String>,
 }
 
 /// Circle lifecycle state. Mirrors spec circle.schema.json `state` enum.

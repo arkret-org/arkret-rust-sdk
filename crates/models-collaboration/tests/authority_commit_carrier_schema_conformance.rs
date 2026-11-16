@@ -1308,3 +1308,68 @@ fn service_terminal_grant_fact_binds_realm_governance_and_circle_effect() {
     // The actual native installation/issuer/once-effect qualification remains
     // outside this model's structural committed-fact check.
 }
+
+#[test]
+fn organization_bootstrap_reuses_the_existing_forward_without_a_human_descriptor() {
+    let fixture_path = artifacts_dir().join("fixtures/content-bound-event-id-fixture.json");
+    let fixture: Value = serde_json::from_str(&fs::read_to_string(fixture_path).unwrap()).unwrap();
+    let case = |name: &str| {
+        fixture["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|case| case["name"] == name)
+            .unwrap()["complete_wire_event"]
+            .clone()
+    };
+    let organization = case("organization_governed_pcr_genesis_derives_a_distinct_realm");
+    let human = case("principal_control_realm_id_is_event_derived_and_nonzero_nibble_rejected");
+    let evidence = serde_json::to_value(producer_device_evidence()).unwrap();
+    let request = forward(&json!({"event":organization}), Some(&evidence));
+    validate_fragment(
+        "authority-commit-operations.schema.json",
+        "#/$defs/peer_submit_request_body",
+        &request,
+    );
+    let parsed: PeerAuthorityForwardEventRequestBody =
+        serde_json::from_value(request.clone()).unwrap();
+    parsed.validate().unwrap();
+    assert!(parsed.is_organization_pcr_genesis_candidate());
+    assert!(!parsed.is_native_pcr_candidate());
+    let mut no_executor_evidence = request.clone();
+    no_executor_evidence
+        .as_object_mut()
+        .unwrap()
+        .remove("producer_device_evidence");
+    let absent: PeerAuthorityForwardEventRequestBody =
+        serde_json::from_value(no_executor_evidence).unwrap();
+    assert!(!absent.is_organization_pcr_genesis_candidate());
+    assert!(absent.validate().is_err());
+    // A schema/candidate result is not independent Organization authority.
+    let mut borrowed = request.clone();
+    borrowed["event_submission"]["event"]["payload"]["object"]["founding_device_descriptor"] =
+        human["payload"]["object"]["founding_device_descriptor"].clone();
+    assert!(schema_rejects(
+        "authority-commit-operations.schema.json",
+        "#/$defs/peer_submit_request_body",
+        &borrowed
+    ));
+    assert!(serde_json::from_value::<PeerAuthorityForwardEventRequestBody>(borrowed).is_err());
+    let mut missing = human;
+    missing["payload"]["object"]
+        .as_object_mut()
+        .unwrap()
+        .remove("founding_device_descriptor");
+    assert!(serde_json::from_value::<arkret_wire::Event>(missing).is_err());
+    let mut root_as_producer = request;
+    root_as_producer["event_submission"]["event"]["producer_proof"]["verification_method"] =
+        json!("did:webvh:z6mkfixtureorgexecutor:org.example#organization-control");
+    root_as_producer
+        .as_object_mut()
+        .unwrap()
+        .remove("producer_device_evidence");
+    let parsed: PeerAuthorityForwardEventRequestBody =
+        serde_json::from_value(root_as_producer).unwrap();
+    assert!(!parsed.is_organization_pcr_genesis_candidate());
+    assert!(parsed.validate().is_err());
+}

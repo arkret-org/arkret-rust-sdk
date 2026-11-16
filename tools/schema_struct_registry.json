@@ -2374,10 +2374,6 @@
       "schema": "circle-operations.schema.json#/$defs/circle_membership_response_body"
     },
     {
-      "rust_type": "crates/models-collaboration/src/governance/circle.rs::CircleScopeRotateResponseBody",
-      "schema": "circle-operations.schema.json#/$defs/circle_scope_rotate_response_body"
-    },
-    {
       "rust_type": "crates/models-collaboration/src/governance/erasure.rs::ErasureReceiptPackage",
       "schema": "erasure-receipt-operations.schema.json#/$defs/erasure_receipt_package"
     },
@@ -3589,7 +3585,7 @@
     },
     {
       "rust_type": "crates/wire/src/authority_commit.rs::MlsCommitSubmission",
-      "schema": "mls-commit-submission.schema.json"
+      "schema": "authority-commit-operations.schema.json#/$defs/client_mls_commit_submission"
     },
     {
       "rust_type": "crates/wire/src/authority_commit.rs::MemberStateValue",
@@ -4438,6 +4434,18 @@
     {
       "rust_type": "crates/models-crypto/src/generated/realm_owner_transfer_contracts.rs::RealmOwnerTransferAcceptance",
       "schema": "keys-operations.schema.json#/$defs/peer_keys_query_request_body/properties/owner_transfer_acceptance"
+    },
+    {
+      "rust_type": "crates/models-identity/src/organization_governance.rs::OrganizationGovernanceThreshold",
+      "schema": "did-binding-contracts.schema.json#/$defs/organization_governance_threshold"
+    },
+    {
+      "rust_type": "crates/models-identity/src/organization_governance.rs::OrganizationServiceDelegation",
+      "schema": "did-binding-contracts.schema.json#/$defs/organization_service_delegation"
+    },
+    {
+      "rust_type": "crates/models-identity/src/organization_governance.rs::OrganizationGovernance",
+      "schema": "did-binding-contracts.schema.json#/$defs/organization_governance"
     }
   ],
   "exemptions": [

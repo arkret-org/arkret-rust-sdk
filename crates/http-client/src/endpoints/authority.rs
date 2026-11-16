@@ -68,7 +68,7 @@ impl Client {
         request: &VerifiedSubmission<PeerAuthoritySubmitRequestBody>,
         options: &ClientRequestOptions,
     ) -> Result<PeerAuthoritySubmitResponseBody> {
-        request.validate()?;
+        arkret_identity::PublicationRequest::validate_publication_shape(request.wire())?;
         let outcome: PeerAuthoritySubmitResponseBody = self
             .post_with_options("/_arkret/peer/events", request, options)
             .await?;
