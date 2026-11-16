@@ -8,7 +8,7 @@
 // sha256=694f553340eeccd86deab4c0bb637d741e62e4babab325d516ffa30352ceb03d
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=378099dfc0552c94d918067d3fefafa8cc572fc164f01f1a4d741a161c5c7c1a
+// sha256=3bfe22afd0deee9b00a0fd4b2c1e2c7eee318ee6752681d944e4cc4b38492100
 
 /// Counterpart: `event-payload.schema.json#/$defs/sidecar_create_payload`.
 /// Counterpart for `event-payload.schema.json#/$defs/sidecar_create_payload`.

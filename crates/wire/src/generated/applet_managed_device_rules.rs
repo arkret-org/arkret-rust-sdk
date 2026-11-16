@@ -1,9 +1,9 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/applet-managed-authority-registry.json;
-//! sha256=7e5782b81c21b32a35e59dee89243015b78f9955caf2a4c1d925923274caee75 Input: registry/
-//! contract-registry.json; sha256=3a75e9f9cbaf7a02abd04bfe97f220e3cf91a05f41d7255374d3911b00894054
-//! Entries: managed_device_operations=26
+//! sha256=0f9aa170fe622e937eb88cabe78e75d9610f78520f3e6b1a7c4cb1ad83d718ce Input: registry/
+//! contract-registry.json; sha256=b66361888e355ed45b753d10a0edb55a8b2bb54f42d10b6fa8419c6099567a12
+//! Entries: managed_device_operations=27
 
 use super::{CapabilityActionId, ServiceOperationId};
 
@@ -47,6 +47,9 @@ pub const fn applet_managed_device_scope_rule(
         ]),
         ServiceOperationId::SelfBlobUploadCreateV1 => {
             ManagedDeviceScopeRule::AllActions(&[CapabilityActionId::SelfBlobUploadCreateV1])
+        }
+        ServiceOperationId::SelfCircleCommandRotateScopeV1 => {
+            ManagedDeviceScopeRule::SubmittedBusinessActions
         }
         ServiceOperationId::SelfDeviceMessagesCommandAckV1 => {
             ManagedDeviceScopeRule::DeviceControl(

@@ -351,6 +351,7 @@ mod tests {
                 producer_signer_fact_digest: None,
                 signature: signature(DetachedSignatureContext::RealmCommit),
             },
+            producer_signer_fact: None,
             genesis_event,
             authority_transitions: Vec::new(),
             current_generation: 0,

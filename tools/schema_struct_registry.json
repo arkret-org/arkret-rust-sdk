@@ -4446,6 +4446,10 @@
     {
       "rust_type": "crates/models-identity/src/organization_governance.rs::OrganizationGovernance",
       "schema": "did-binding-contracts.schema.json#/$defs/organization_governance"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/authority_commit/organization_genesis.rs::OrganizationGenesisSignerFact",
+      "schema": "authority-commit-operations.schema.json#/$defs/organization_genesis_signer_fact"
     }
   ],
   "exemptions": [

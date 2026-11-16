@@ -346,7 +346,8 @@
     "agent-operations.schema.json#/$defs/agent_participation_view": "arkret_models_identity::AgentParticipationView",
     "agent-operations.schema.json#/$defs/agent_participation_view/properties/next_replace_input": "arkret_models_identity::ParticipationNextReplaceInput",
     "authority-commit-operations.schema.json#/$defs/client_mls_commit_submission": "arkret_wire::MlsCommitSubmission",
-    "mls-commit-submission.schema.json": "crate::content_history::PeerMlsCommitSubmission"
+    "mls-commit-submission.schema.json": "crate::content_history::PeerMlsCommitSubmission",
+    "authority-commit-operations.schema.json#/$defs/organization_genesis_signer_fact": "arkret_models_collaboration::authority_commit::OrganizationGenesisSignerFact"
   },
   "families": [
     {
@@ -25129,6 +25130,12 @@
       "schema": "did-binding-contracts.schema.json#/$defs/organization_governance",
       "category": "domain_semantics",
       "reason": "Retain the unique SDK definition of the existing Organization DID metadata with typed canonical timestamps and whole-value threshold, unique Service and validity invariants; no downstream protocol DTO is permitted."
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/authority_commit/organization_genesis.rs::OrganizationGenesisSignerFact",
+      "schema": "authority-commit-operations.schema.json#/$defs/organization_genesis_signer_fact",
+      "category": "domain_semantics",
+      "reason": "The native Org source owns role XOR, bounded original evidence, exact Event/Commit binding and the existing fact digest. Retain this SDK owner with the shared exact field-set/scalar-encoding gate; generated models must not duplicate it."
     }
   ],
   "retained_exemptions": [

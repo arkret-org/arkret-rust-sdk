@@ -450,6 +450,7 @@ fn chain_with_purpose(purpose: &str) -> Chain {
         realm_id: realm,
         genesis_event,
         genesis_commit,
+        producer_signer_fact: None,
         authority_transitions: vec![RealmAuthorityTransition {
             change_event,
             change_commit,
@@ -1066,6 +1067,7 @@ fn same_method_rotation() -> (RealmAuthorityBundle, CommittedEventFullView, Hist
         realm_id: realm_id(),
         genesis_event,
         genesis_commit,
+        producer_signer_fact: None,
         authority_transitions: vec![],
         current_generation: 0,
         current_service_id: core_id(STATION_A),
@@ -2170,4 +2172,20 @@ fn direct_governance_rejects_a_fully_signed_handoff_and_foreign_current() {
     )
     .unwrap_err();
     assert!(error.to_string().contains("Direct Conversation"), "{error}");
+}
+
+#[test]
+fn non_organization_public_bundle_omits_and_rejects_the_new_fact() {
+    let chain = chain();
+    verify_realm_authority_bundle(&chain.bundle, &freshness(), &chain.keys).unwrap();
+    let original = serde_json::to_value(&chain.bundle).unwrap();
+    assert!(original.get("producer_signer_fact").is_none());
+    let mut with_null = original;
+    with_null["producer_signer_fact"] = serde_json::Value::Null;
+    assert!(serde_json::from_value::<RealmAuthorityBundle>(with_null).is_err());
+    let mut with_fact = chain.bundle.clone();
+    with_fact.producer_signer_fact = Some(serde_json::json!({}));
+    let error = with_fact.validate_shape().unwrap_err();
+    assert!(error.to_string().contains("only an Org bundle"), "{error}");
+    assert!(verify_realm_authority_bundle(&with_fact, &freshness(), &chain.keys).is_err());
 }

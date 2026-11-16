@@ -6,6 +6,7 @@
 //! branches without inventing a generic federation envelope.
 
 mod audit_atomic;
+mod organization_genesis;
 use arkret_models_identity::{
     AgentProducerEvidence, ForwardAccountDeviceSignerEvidence, ResolvedSignerKey,
 };
@@ -21,6 +22,7 @@ use arkret_wire::{
 };
 pub use audit_atomic::*;
 use chrono::{DateTime, Utc};
+pub use organization_genesis::*;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -287,6 +289,7 @@ pub enum HistoricalProducerSignerFact {
     RealmControl(RealmControlHistoricalSignerFact),
     RealmRecoveryService(RealmRecoveryServiceHistoricalSignerFact),
     AgentRuntime(AgentRuntimeHistoricalSignerFact),
+    OrganizationGenesis(OrganizationGenesisSignerFact),
 }
 impl From<AccountDeviceHistoricalSignerFact> for HistoricalProducerSignerFact {
     fn from(fact: AccountDeviceHistoricalSignerFact) -> Self {
@@ -298,6 +301,11 @@ impl From<ServiceHistoricalSignerFact> for HistoricalProducerSignerFact {
         Self::Service(fact)
     }
 }
+impl From<OrganizationGenesisSignerFact> for HistoricalProducerSignerFact {
+    fn from(fact: OrganizationGenesisSignerFact) -> Self {
+        Self::OrganizationGenesis(fact)
+    }
+}
 impl HistoricalProducerSignerFact {
     pub fn event_id(&self) -> &EventId {
         match self {
@@ -307,6 +315,7 @@ impl HistoricalProducerSignerFact {
             Self::RealmControl(f) => &f.event_id,
             Self::RealmRecoveryService(f) => &f.event_id,
             Self::AgentRuntime(f) => &f.event_ref,
+            Self::OrganizationGenesis(f) => &f.event_id,
         }
     }
     pub fn as_account_device(&self) -> Option<&AccountDeviceHistoricalSignerFact> {
@@ -323,7 +332,8 @@ impl HistoricalProducerSignerFact {
             | Self::RealmDevice(_)
             | Self::RealmControl(_)
             | Self::RealmRecoveryService(_)
-            | Self::AgentRuntime(_) => None,
+            | Self::AgentRuntime(_)
+            | Self::OrganizationGenesis(_) => None,
         }
     }
     pub fn digest(&self) -> Result<Hash> {
@@ -334,6 +344,7 @@ impl HistoricalProducerSignerFact {
             Self::RealmControl(f) => f.digest(),
             Self::RealmRecoveryService(f) => f.digest(),
             Self::AgentRuntime(f) => f.digest(),
+            Self::OrganizationGenesis(f) => f.digest(),
         }
     }
     pub fn validate_event_binding(
@@ -348,6 +359,7 @@ impl HistoricalProducerSignerFact {
             Self::RealmControl(f) => f.validate_event_binding(event, suite),
             Self::RealmRecoveryService(f) => f.validate_event_binding(event, suite),
             Self::AgentRuntime(f) => f.validate_event_binding(event, suite),
+            Self::OrganizationGenesis(f) => f.validate_event_binding(event, suite),
         }
     }
     pub fn validate_commit_binding(
@@ -362,6 +374,7 @@ impl HistoricalProducerSignerFact {
             Self::RealmControl(f) => f.validate_commit_binding(full, suite),
             Self::RealmRecoveryService(f) => f.validate_commit_binding(full, suite),
             Self::AgentRuntime(f) => f.validate_commit_binding(full, suite),
+            Self::OrganizationGenesis(f) => f.validate_commit_binding(full, suite),
         }
     }
 }

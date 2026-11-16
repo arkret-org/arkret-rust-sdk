@@ -407,6 +407,7 @@ fn verified_nonhuman(station: &ServiceIdentityFixture) -> VerifiedRealmAuthority
         realm_id: realm,
         genesis_event: full.event,
         genesis_commit: full.commit,
+        producer_signer_fact: None,
         authority_transitions: vec![],
         current_generation: 0,
         current_service_id: station.service_id.clone(),

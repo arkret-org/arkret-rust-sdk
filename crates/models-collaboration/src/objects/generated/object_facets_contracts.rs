@@ -11,10 +11,10 @@
 // sha256=79f44b93062a197a5ed0854fa6ae7b113f028dd8e38369f40276457d00d93e0b
 //
 // Input: schemas/circle.schema.json
-// sha256=9986beb646534b389a90fb75bab275d56919f86f6318bf853ff4d32d7ab53621
+// sha256=0a8320e175daa78c70a9d859ed38b44b4753098e780b7f6509678268ee19c733
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=378099dfc0552c94d918067d3fefafa8cc572fc164f01f1a4d741a161c5c7c1a
+// sha256=3bfe22afd0deee9b00a0fd4b2c1e2c7eee318ee6752681d944e4cc4b38492100
 
 /// Counterpart: `strand.schema.json#/$defs/strand_track`.
 /// Counterpart for `spec/v1/artifacts/schemas/strand.schema.json#/$defs/strand_track`.

@@ -621,6 +621,21 @@ pub fn verify_realm_authority_bundle(
     bundle
         .validate_shape()
         .map_err(|error| E::ChainBroken(error.to_string()))?;
+    // Org intent and the real Service producer must establish G independently.
+    // The certificate is an original accepted-cut source, not today's permission.
+    if let Some(fact) =
+        arkret_models_collaboration::authority_commit::organization_genesis_signer_fact(bundle)
+            .map_err(|error| E::ChainBroken(error.to_string()))?
+    {
+        crate::organization_pcr_genesis::verify_organization_genesis_signer_fact(
+            &CommittedEventFullView {
+                event: bundle.genesis_event.clone(),
+                commit: bundle.genesis_commit.clone(),
+            },
+            &fact,
+        )
+        .map_err(|error| E::SignatureInvalid(error.to_string()))?;
+    }
     let resolution = verify_route_record(bundle, freshness.now)?;
     verify_chain_signatures(bundle, keys, &resolution)?;
     // Deliberately excludes the online assertion, route material, nonce, and

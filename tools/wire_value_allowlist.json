@@ -6135,6 +6135,18 @@
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
+    },
+    {
+      "finding": "crates/wire/src/authority_commit.rs::RealmAuthorityBundle.producer_signer_fact",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "realm-authority-bundle.schema.json#/properties/producer_signer_fact",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Decode to the sole SDK OrganizationGenesisSignerFact before authority use; non-Org bundles omit the field. No reverse wire-to-models dependency.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "Exact closed dependency boundary like current_route_record. The identity verifier decodes the typed immutable source and independently establishes Org intent and actual Service history before trusting G.",
+      "spec_pointer": "realm-authority-bundle.schema.json#/properties/producer_signer_fact"
     }
   ]
 }

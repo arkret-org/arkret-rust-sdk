@@ -415,6 +415,7 @@ fn accepted_create(circle: bool) -> (MlsCreatorBootstrapIntent, MlsCreatorBootst
         realm_id: realm_id.clone(),
         genesis_event: root_event,
         genesis_commit: root_commit.clone(),
+        producer_signer_fact: None,
         authority_transitions: vec![],
         current_generation: 0,
         current_service_id: service.clone(),
