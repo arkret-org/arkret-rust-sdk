@@ -3,6 +3,24 @@
 
 use super::*;
 
+/// Borrowed unsigned source projection, before a signature exists.
+/// This input only determines signing bytes; native authority stays with its owner.
+#[derive(Serialize)]
+pub struct ContentRecoveryScopeCleanupAuthorizationUnsigned<'a> {
+    pub replacement: &'a ContentEndpoint,
+    pub inventory_digest: &'a arkret_wire::Hash,
+    pub inventory_entry: &'a ContentRecoveryInventoryEntry,
+    pub destination_service_id: &'a arkret_wire::DidCoreId,
+    pub predecessor_authorization_event_refs: &'a [arkret_wire::EventId],
+    pub nonce_base64url: &'a str,
+    pub delivery_challenge_base64url: &'a str,
+    pub verification_method: &'a arkret_wire::DidUrl,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub attested_at: chrono::DateTime<chrono::Utc>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub expires_at: chrono::DateTime<chrono::Utc>,
+}
+
 fn validate_signature_shape(
     signature: &crate::KeyOperationSignature,
     method: &arkret_wire::DidUrl,
@@ -107,64 +125,29 @@ impl ContentRecoveryScopeCleanupAuthorization {
     }
 
     pub fn signing_bytes(&self) -> Result<Vec<u8>> {
-        Self::signing_bytes_for(
-            &self.replacement,
-            &self.inventory_digest,
-            &self.inventory_entry,
-            &self.destination_service_id,
-            &self.predecessor_authorization_event_refs,
-            &self.nonce_base64url,
-            &self.delivery_challenge_base64url,
-            &self.verification_method,
-            self.attested_at,
-            self.expires_at,
-        )
+        Self::signing_bytes_for(&ContentRecoveryScopeCleanupAuthorizationUnsigned {
+            replacement: &self.replacement,
+            inventory_digest: &self.inventory_digest,
+            inventory_entry: &self.inventory_entry,
+            destination_service_id: &self.destination_service_id,
+            predecessor_authorization_event_refs: &self.predecessor_authorization_event_refs,
+            nonce_base64url: &self.nonce_base64url,
+            delivery_challenge_base64url: &self.delivery_challenge_base64url,
+            verification_method: &self.verification_method,
+            attested_at: self.attested_at,
+            expires_at: self.expires_at,
+        })
     }
 
     /// Original unsigned source bytes, before any signature slot exists.
     /// Native episode, inventory and first-winner qualification remain with
     /// their respective owners; this is only the closed signing projection.
     pub fn signing_bytes_for(
-        replacement: &ContentEndpoint,
-        inventory_digest: &arkret_wire::Hash,
-        inventory_entry: &ContentRecoveryInventoryEntry,
-        destination_service_id: &arkret_wire::DidCoreId,
-        predecessor_authorization_event_refs: &[arkret_wire::EventId],
-        nonce_base64url: &str,
-        delivery_challenge_base64url: &str,
-        verification_method: &arkret_wire::DidUrl,
-        attested_at: chrono::DateTime<chrono::Utc>,
-        expires_at: chrono::DateTime<chrono::Utc>,
+        unsigned: &ContentRecoveryScopeCleanupAuthorizationUnsigned<'_>,
     ) -> Result<Vec<u8>> {
-        #[derive(Serialize)]
-        struct Unsigned<'a> {
-            replacement: &'a ContentEndpoint,
-            inventory_digest: &'a arkret_wire::Hash,
-            inventory_entry: &'a ContentRecoveryInventoryEntry,
-            destination_service_id: &'a arkret_wire::DidCoreId,
-            predecessor_authorization_event_refs: &'a [arkret_wire::EventId],
-            nonce_base64url: &'a str,
-            delivery_challenge_base64url: &'a str,
-            verification_method: &'a arkret_wire::DidUrl,
-            #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-            attested_at: chrono::DateTime<chrono::Utc>,
-            #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-            expires_at: chrono::DateTime<chrono::Utc>,
-        }
         signing_bytes(
             b"ak.mls.recovery_scope_cleanup_authorization.v1\n",
-            &Unsigned {
-                replacement,
-                inventory_digest,
-                inventory_entry,
-                destination_service_id,
-                predecessor_authorization_event_refs,
-                nonce_base64url,
-                delivery_challenge_base64url,
-                verification_method,
-                attested_at,
-                expires_at,
-            },
+            unsigned,
         )
     }
 }

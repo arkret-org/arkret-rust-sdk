@@ -76,7 +76,7 @@ pub fn build_webvh_method_history_evidence(
     let witnesses = terminal_witnesses(&log_entries)?;
     let witness_proofs_digest = Hash::new(arkret_canonical::canonical_sha256(&witness_records)?)
         .map_err(|error| IdentityError::Protocol(error.to_string()))?;
-    let document_digest = crate::document_canonical_digest(&normalized_did_document)
+    let document_digest = crate::document_canonical_digest(normalized_did_document)
         .map_err(|error| IdentityError::Protocol(error.to_string()))?;
     let evidence = ResolutionMethodHistoryEvidence::WebvhLog {
         boundary: ResolutionMethodEvidenceBoundary {

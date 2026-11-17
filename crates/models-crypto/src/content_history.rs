@@ -12,6 +12,8 @@ include!("generated/content_history_contracts.rs");
 
 mod scope_cleanup;
 
+pub use scope_cleanup::ContentRecoveryScopeCleanupAuthorizationUnsigned;
+
 /// Local unsigned signing input, never a wire authorization or storage proof.
 #[derive(Clone, Debug)]
 pub struct ContentBackupSourceDraft {

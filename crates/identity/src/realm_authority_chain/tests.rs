@@ -2658,7 +2658,7 @@ mod cleanup_delivery {
                 &realm,
                 0x61,
                 3,
-                Some(predecessor.commit_id.clone()),
+                Some(predecessor.commit_id),
                 &change.event_id,
                 1,
                 RealmCommitAuthorityRef::Handoff(previous.handoff_id.clone()),
@@ -2669,7 +2669,7 @@ mod cleanup_delivery {
             0xB2,
             return_at,
         );
-        let mut handoff = previous.clone();
+        let mut handoff = previous;
         handoff.handoff_id = RealmAuthorityHandoffId::from_digest([0x62; 32]);
         handoff.from_generation = 1;
         handoff.to_generation = 2;

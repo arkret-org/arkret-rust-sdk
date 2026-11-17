@@ -211,12 +211,12 @@ pub fn verify_organization_pcr_genesis_authority(
             .as_str(),
     )
     .map_err(signature)?;
-    let accepting_document: DidDocument = serde_json::from_value(accepting_point.document.clone())?;
+    let accepting_document: DidDocument = serde_json::from_value(accepting_point.document)?;
     let accepting_governance = OrganizationGovernance::from_document(&accepting_document)?;
     let threshold = accepting_governance
         .as_ref()
         .and_then(|g| g.threshold.as_ref());
-    let (methods, eligible) = finite_votes(
+    let FiniteVotes { methods, eligible } = finite_votes(
         submission,
         &holder,
         &resolution.did,
@@ -569,6 +569,11 @@ pub fn verify_organization_pcr_genesis_source(
     Ok((authority, fact))
 }
 
+struct FiniteVotes {
+    methods: Vec<(ApprovalSignature, [u8; 32])>,
+    eligible: BTreeSet<DidUrl>,
+}
+
 /// Verify each finite vote at its own historical method, then count only
 /// contributions allowed by the policy at the original accepting cut.
 fn finite_votes(
@@ -579,7 +584,7 @@ fn finite_votes(
     policy: Option<&OrganizationGovernance>,
     action: CapabilityActionId,
     accepted_at: DateTime<Utc>,
-) -> Result<(Vec<(ApprovalSignature, [u8; 32])>, BTreeSet<DidUrl>)> {
+) -> Result<FiniteVotes> {
     let event = &submission.event;
     let threshold = policy.and_then(|policy| policy.threshold.as_ref());
     let mut methods = Vec::new();
@@ -614,7 +619,7 @@ fn finite_votes(
         }
         methods.push((approval.clone(), key.ed25519_bytes().map_err(signature)?));
     }
-    Ok((methods, eligible))
+    Ok(FiniteVotes { methods, eligible })
 }
 
 /// Finite Organization control proof for the registered planned handoff Event.
@@ -682,7 +687,7 @@ pub fn verify_organization_pcr_governance_change_authority(
         .map_err(signature)?;
     let document: DidDocument = serde_json::from_value(current.document)?;
     let policy = OrganizationGovernance::from_document(&document)?;
-    let (methods, eligible) = finite_votes(
+    let FiniteVotes { methods, eligible } = finite_votes(
         submission,
         inception.holder(),
         &did,

@@ -569,7 +569,7 @@ fn verified_nonhuman(station: &ServiceIdentityFixture) -> (VerifiedRealmAuthorit
         GenesisGovernance::from_genesis(&bundle.genesis_event).unwrap(),
         GenesisGovernance::Organization,
     ));
-    let mut missing = bundle.clone();
+    let mut missing = bundle;
     missing.producer_signer_fact = None;
     assert!(
         arkret_identity::verify_realm_authority_bundle(

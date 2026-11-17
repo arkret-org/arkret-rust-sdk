@@ -1,4 +1,6 @@
-use arkret_models_crypto::ContentRecoveryScopeCleanupAuthorization;
+use arkret_models_crypto::{
+    ContentRecoveryScopeCleanupAuthorization, ContentRecoveryScopeCleanupAuthorizationUnsigned,
+};
 use arkret_models_identity::service_identity::{CanonicalServiceUrl, ServiceRegistrationKey};
 use arkret_wire::ServiceKind;
 use rand_core::SeedableRng as _;
@@ -248,16 +250,18 @@ fn unsigned_source_projection_is_the_original_ten_field_signing_preimage() {
     let mut expected = b"ak.mls.recovery_scope_cleanup_authorization.v1\n".to_vec();
     expected.extend(arkret_canonical::canonical_json_bytes(&unsigned).unwrap());
     let before_signature = ContentRecoveryScopeCleanupAuthorization::signing_bytes_for(
-        &source.replacement,
-        &source.inventory_digest,
-        &source.inventory_entry,
-        &source.destination_service_id,
-        &source.predecessor_authorization_event_refs,
-        &source.nonce_base64url,
-        &source.delivery_challenge_base64url,
-        &source.verification_method,
-        source.attested_at,
-        source.expires_at,
+        &ContentRecoveryScopeCleanupAuthorizationUnsigned {
+            replacement: &source.replacement,
+            inventory_digest: &source.inventory_digest,
+            inventory_entry: &source.inventory_entry,
+            destination_service_id: &source.destination_service_id,
+            predecessor_authorization_event_refs: &source.predecessor_authorization_event_refs,
+            nonce_base64url: &source.nonce_base64url,
+            delivery_challenge_base64url: &source.delivery_challenge_base64url,
+            verification_method: &source.verification_method,
+            attested_at: source.attested_at,
+            expires_at: source.expires_at,
+        },
     )
     .unwrap();
     assert_eq!(before_signature, expected);
@@ -344,7 +348,7 @@ fn independently_signed_recovery_source() -> (
     let scope = a.inventory_entry.effective_scope.clone();
     let realm = scope.realm_id().clone();
     let governance = MlsGovernanceBindingPayload::realm(
-        realm.clone(),
+        realm,
         Some(binding.base_group_state_ref.clone()),
         binding.expected_epoch,
         binding.expected_epoch + 1,
@@ -578,7 +582,7 @@ fn independent_methods_preserve_original_fact_endpoint_authorization_time_and_pr
             .validate_original_binding(&event, source.attestation.expires_at, &fact)
             .is_err()
     );
-    let mut missing = event.clone();
+    let mut missing = event;
     missing.producer_proof = None;
     assert!(source.validate_submission_binding(&missing).is_err());
 }
@@ -658,7 +662,7 @@ fn origin_station_source_and_original_agent_runtime_also_keep_independent_method
         arkret_canonical::DigestSuite::Sha256,
     )
     .unwrap();
-    let mut wrong = fact.clone();
+    let mut wrong = fact;
     let HistoricalProducerSignerFact::AgentRuntime(changed) = &mut wrong else {
         unreachable!()
     };
