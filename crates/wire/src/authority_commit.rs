@@ -1691,7 +1691,10 @@ pub enum RealmActorBackupKind {
     SecretStorage,
 }
 
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[macro_use]
+mod current_selector_schema;
+
+current_selector! {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum CurrentSelector {
@@ -1972,6 +1975,7 @@ pub enum CurrentSelector {
         subject_id: DidCoreId,
         accountability_scope: AccountabilityScopeSet,
     },
+}
 }
 
 #[derive(Deserialize)]
