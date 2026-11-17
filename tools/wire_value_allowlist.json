@@ -1363,17 +1363,6 @@
       "adjudication": "manual"
     },
     {
-      "finding": "coland/crates/storage/src/member_identity.rs::HandleClaimEvidenceRecord.envelope",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Value",
-      "owner_repository": "coland",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
-    },
-    {
       "finding": "coland/crates/storage/src/member_identity.rs::MemberIdentityEventRecord.raw_event",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",

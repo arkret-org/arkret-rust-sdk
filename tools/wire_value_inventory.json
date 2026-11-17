@@ -1,6 +1,6 @@
 {
   "summary": {
-    "total": 534,
+    "total": 533,
     "scope": {
       "repositories": [
         "arkret-rust-sdk",
@@ -67,7 +67,7 @@
       "server": 1,
       "services": 11,
       "signatures": 18,
-      "storage": 66,
+      "storage": 65,
       "storage-postgres": 1,
       "wire": 10
     },
@@ -76,28 +76,28 @@
       "json_authoring": 114,
       "json_path_mutation": 80,
       "paired_api": 14,
-      "public_value_field": 321
+      "public_value_field": 320
     },
     "by_classification": {
       "independent": 13,
       "internal_or_fixture": 25,
       "open_json": 78,
-      "polymorphic_boundary": 418
+      "polymorphic_boundary": 417
     },
     "by_lifecycle": {
-      "retained_boundary": 534
+      "retained_boundary": 533
     },
     "by_decision": {
       "independent": 16,
       "open": 78,
-      "raw": 440
+      "raw": 439
     },
     "by_owner_repository": {
       "arkret-rust-sdk": 199,
       "bridges": 4,
       "coauth": 41,
       "codmin": 1,
-      "coland": 227,
+      "coland": 226,
       "flagon": 1,
       "floria": 12,
       "garth": 3,
@@ -108,7 +108,7 @@
       "open_json": 6,
       "open_json_container": 18,
       "open_map": 52,
-      "unknown": 452
+      "unknown": 451
     }
   },
   "entries": [
@@ -3085,31 +3085,6 @@
       "action": "Preserve the exact stored envelope already decoded and validated as KeyBackup by the unlock verifier; compare the whole payload with the locked current row and frozen object digest before consuming authority.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This non-serializable storage command aggregates the former consume_unlock argument without adding an external schema or an untyped authoring path. The HTTP verifier decodes and validates the SDK KeyBackup, verifies its proof and signing trust root, then passes the same stored JSON to the transaction. The PG transaction rechecks the active pointer, compares the locked current payload and frozen digest/charge, and retains holder/replay/budget guards. A typed serialization round trip could normalize missing/default fields and change this exact compare-and-swap witness.",
-      "evidence": "public Value field"
-    },
-    {
-      "finding": "coland/crates/storage/src/member_identity.rs::HandleClaimEvidenceRecord.envelope",
-      "category": "public_value_field",
-      "rust_field": "coland/crates/storage/src/member_identity.rs::HandleClaimEvidenceRecord.envelope",
-      "crate": "storage",
-      "file": "coland/crates/storage/src/member_identity.rs",
-      "path": "coland/crates/storage/src/member_identity.rs",
-      "owner": "HandleClaimEvidenceRecord",
-      "owner_repository": "coland",
-      "symbol": "HandleClaimEvidenceRecord.envelope",
-      "field": "envelope",
-      "discriminator": "status",
-      "data_field": "envelope",
-      "rust_type": "Value",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Value",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic.",
       "evidence": "public Value field"
     },
     {

@@ -11,7 +11,7 @@
 //! Input: schemas/agent-membership-cascade.schema.json
 //! sha256=0aeb76477ec3d0ff335ea072a019a0b7d4371ff5890add72cf986fe5167e8de3
 //! Input: schemas/agent-operations.schema.json
-//! sha256=ea3f7e2004e5af42575146f7f0a56a7a80ad65c234b8b92a8b49486aa5b4cebe
+//! sha256=6e3c5ec888a579f338abc03d4aa7789d04efbd445f2e0620cce10243dca5bb0c
 //! Input: schemas/agent-provision.schema.json
 //! sha256=9fd05ffd6b0ea5ee7437f17c2883c0d1811fe7e77e1cfc46c3405c63b4788e27
 //! Input: schemas/applet-install-plan.schema.json
