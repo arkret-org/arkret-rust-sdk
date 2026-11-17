@@ -4450,6 +4450,38 @@
     {
       "rust_type": "crates/models-collaboration/src/authority_commit/organization_genesis.rs::OrganizationGenesisSignerFact",
       "schema": "authority-commit-operations.schema.json#/$defs/organization_genesis_signer_fact"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/mls_native_scope_source.rs::MlsNativeScopeMemberJoin",
+      "schema": "mls-native-scope-source.schema.json#/$defs/sidecar_member_join"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/mls_native_scope_source.rs::MlsNativeScopeMembershipBasis",
+      "schema": "mls-native-scope-source.schema.json#/$defs/sidecar_membership_basis"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/mls_native_scope_source.rs::MlsNativeScopeSourceRequestBody",
+      "schema": "mls-native-scope-source.schema.json#/$defs/native_scope_source_request_body"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/mls_native_scope_source.rs::MlsNativeScopeQualification",
+      "schema": "mls-native-scope-source.schema.json#/$defs/qualification"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/mls_native_scope_source.rs::MlsNativeScopeSourceResponseBody",
+      "schema": "mls-native-scope-source.schema.json#/$defs/native_scope_source_response_body"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/mls_native_scope_source/basis.rs::MlsNativeScopeCoveredAuthorization",
+      "schema": "mls-native-scope-source.schema.json#/$defs/covered_authorization"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/mls_native_scope_source/basis.rs::MlsNativeScopeFenceBasisEntry",
+      "schema": "mls-native-scope-source.schema.json#/$defs/fence_basis_entry"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/mls_native_scope_source/basis.rs::MlsNativeScopeBasis",
+      "schema": "mls-native-scope-source.schema.json#/$defs/g_basis_preimage"
     }
   ],
   "exemptions": [

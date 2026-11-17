@@ -40,7 +40,7 @@ fn validate_signature_shape(
     Ok(())
 }
 
-fn signing_bytes(domain: &[u8], value: &impl Serialize) -> Result<Vec<u8>> {
+pub(super) fn signing_bytes(domain: &[u8], value: &impl Serialize) -> Result<Vec<u8>> {
     let value = arkret_canonical::unsigned_value(value, &["signature"])?;
     let mut bytes = domain.to_vec();
     bytes.extend(arkret_canonical::canonical_json_bytes(&value)?);
@@ -232,7 +232,7 @@ impl ContentScopeRetirementProof {
     }
 
     pub fn signing_bytes(&self) -> Result<Vec<u8>> {
-        signing_bytes(b"ak.mls.scope_retirement.v1\n", self)
+        ContentScopeRetirementProofUnsigned::from(self).signing_bytes()
     }
 }
 
@@ -279,7 +279,7 @@ impl ContentScopeRetirementDeliveryAttestation {
     }
 
     pub fn signing_bytes(&self) -> Result<Vec<u8>> {
-        signing_bytes(b"ak.mls.scope_retirement_delivery.v1\n", self)
+        ContentScopeRetirementDeliveryUnsigned::from(self).signing_bytes()
     }
 }
 

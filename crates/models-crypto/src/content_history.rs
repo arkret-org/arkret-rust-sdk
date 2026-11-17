@@ -10,8 +10,11 @@ use zeroize::Zeroizing;
 
 include!("generated/content_history_contracts.rs");
 
+mod retirement_signing;
 mod scope_cleanup;
-
+pub use retirement_signing::{
+    ContentScopeRetirementDeliveryUnsigned, ContentScopeRetirementProofUnsigned,
+};
 pub use scope_cleanup::ContentRecoveryScopeCleanupAuthorizationUnsigned;
 
 /// Local unsigned signing input, never a wire authorization or storage proof.
