@@ -344,7 +344,10 @@
     "agent-operations.schema.json#/$defs/agent_participation": "arkret_models_identity::ParticipationBits",
     "agent-operations.schema.json#/$defs/agent_participation_scope": "arkret_models_identity::ParticipationScope",
     "agent-operations.schema.json#/$defs/agent_participation_view": "arkret_models_identity::AgentParticipationView",
-    "agent-operations.schema.json#/$defs/agent_participation_view/properties/next_replace_input": "arkret_models_identity::ParticipationNextReplaceInput"
+    "agent-operations.schema.json#/$defs/agent_participation_view/properties/next_replace_input": "arkret_models_identity::ParticipationNextReplaceInput",
+    "authority-commit-operations.schema.json#/$defs/client_mls_commit_submission": "arkret_wire::MlsCommitSubmission",
+    "mls-commit-submission.schema.json": "crate::content_history::PeerMlsCommitSubmission",
+    "authority-commit-operations.schema.json#/$defs/organization_genesis_signer_fact": "arkret_models_collaboration::authority_commit::OrganizationGenesisSignerFact"
   },
   "families": [
     {
@@ -5202,7 +5205,7 @@
                 "visibility": "pub",
                 "type": "Option<Option<RealmCommitId>>",
                 "attributes": [
-                  "#[serde(\n        default,\n        skip_serializing_if = \"Option::is_none\",\n        deserialize_with = \"arkret_canonical::serde_helpers::deserialize_non_null_optional\"\n    )]"
+                  "#[serde(\n        default,\n        skip_serializing_if = \"Option::is_none\",\n        deserialize_with = \"arkret_canonical::serde_helpers::deserialize_optional_value_preserving_null\"\n    )]"
                 ]
               },
               "value": {
@@ -7233,9 +7236,9 @@
               "policy_event_ref": {
                 "name": "policy_event_ref",
                 "visibility": "pub",
-                "type": "Option<CommittedEventRef>",
+                "type": "Option<Option<EventId>>",
                 "attributes": [
-                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\", deserialize_with = \"arkret_canonical::serde_helpers::deserialize_optional_value_preserving_null\")]"
                 ]
               }
             }
@@ -22665,12 +22668,6 @@
       "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
     },
     {
-      "rust_type": "crates/models-collaboration/src/governance/circle.rs::CircleScopeRotateResponseBody",
-      "schema": "circle-operations.schema.json#/$defs/circle_scope_rotate_response_body",
-      "category": "domain_semantics",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
-    },
-    {
       "rust_type": "crates/models-collaboration/src/governance/erasure.rs::ErasureReceiptPackage",
       "schema": "erasure-receipt-operations.schema.json#/$defs/erasure_receipt_package",
       "category": "domain_semantics",
@@ -24465,9 +24462,9 @@
     },
     {
       "rust_type": "crates/wire/src/authority_commit.rs::MlsCommitSubmission",
-      "schema": "mls-commit-submission.schema.json",
+      "schema": "authority-commit-operations.schema.json#/$defs/client_mls_commit_submission",
       "category": "domain_semantics",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
+      "reason": "Retain the existing generic MlsCommitSubmission declaration. Its default NoRecoverySource client specialization owns this source-absent schema view; the existing PeerMlsCommitSubmission alias retains ContentRecoverySource through the base schema. No second DTO or duplicate fields are generated."
     },
     {
       "rust_type": "crates/wire/src/authority_commit.rs::MemberStateValue",
@@ -25115,6 +25112,30 @@
       "schema": "agent-operations.schema.json#/$defs/agent_participation_view/properties/next_replace_input",
       "category": "domain_semantics",
       "reason": "The sole identity-owned replace echo retains its custom canonical decimal serialization and maximum signed-64-minus-one bound. It is not regenerated with a weaker generic integer adapter."
+    },
+    {
+      "rust_type": "crates/models-identity/src/organization_governance.rs::OrganizationGovernanceThreshold",
+      "schema": "did-binding-contracts.schema.json#/$defs/organization_governance_threshold",
+      "category": "domain_semantics",
+      "reason": "Retain the unique SDK definition of the existing Organization DID metadata with typed canonical timestamps and whole-value threshold, unique Service and validity invariants; no downstream protocol DTO is permitted."
+    },
+    {
+      "rust_type": "crates/models-identity/src/organization_governance.rs::OrganizationServiceDelegation",
+      "schema": "did-binding-contracts.schema.json#/$defs/organization_service_delegation",
+      "category": "domain_semantics",
+      "reason": "Retain the unique SDK definition of the existing Organization DID metadata with typed canonical timestamps and whole-value threshold, unique Service and validity invariants; no downstream protocol DTO is permitted."
+    },
+    {
+      "rust_type": "crates/models-identity/src/organization_governance.rs::OrganizationGovernance",
+      "schema": "did-binding-contracts.schema.json#/$defs/organization_governance",
+      "category": "domain_semantics",
+      "reason": "Retain the unique SDK definition of the existing Organization DID metadata with typed canonical timestamps and whole-value threshold, unique Service and validity invariants; no downstream protocol DTO is permitted."
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/authority_commit/organization_genesis.rs::OrganizationGenesisSignerFact",
+      "schema": "authority-commit-operations.schema.json#/$defs/organization_genesis_signer_fact",
+      "category": "domain_semantics",
+      "reason": "The native Org source owns role XOR, bounded original evidence, exact Event/Commit binding and the existing fact digest. Retain this SDK owner with the shared exact field-set/scalar-encoding gate; generated models must not duplicate it."
     }
   ],
   "retained_exemptions": [

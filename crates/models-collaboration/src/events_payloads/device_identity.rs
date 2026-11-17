@@ -1263,7 +1263,18 @@ mod managed_scope_tests {
         let rules = registry["device_authentication"]["operation_scope_rules"]
             .as_array()
             .unwrap();
-        assert_eq!(rules.len(), 26);
+        let formal_operations: BTreeSet<_> = rules
+            .iter()
+            .map(|rule| rule["operation_id"].as_str().unwrap())
+            .collect();
+        assert_eq!(formal_operations.len(), rules.len());
+        let described_operations: BTreeSet<_> = ServiceOperationId::ALL
+            .iter()
+            .copied()
+            .filter(|operation| applet_managed_device_scope_rule(*operation).is_some())
+            .map(ServiceOperationId::as_str)
+            .collect();
+        assert_eq!(described_operations, formal_operations);
         for rule in rules {
             let operation =
                 ServiceOperationId::from_wire(rule["operation_id"].as_str().unwrap()).unwrap();

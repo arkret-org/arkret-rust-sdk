@@ -399,8 +399,8 @@ impl RealmGenesis {
         );
         if self.schema != SchemaId::REALM_GENESIS_V1
             || identity_control != self.initial_resolution.is_some()
-            || (self.purpose == RealmPurpose::PrincipalControl)
-                != self.founding_device_descriptor.is_some()
+            || (self.purpose != RealmPurpose::PrincipalControl
+                && self.founding_device_descriptor.is_some())
         {
             return Err(WireError::Protocol(
                 "schema_violation: invalid Realm genesis identity branch".to_owned(),

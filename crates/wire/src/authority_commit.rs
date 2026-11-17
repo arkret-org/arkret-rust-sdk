@@ -594,6 +594,14 @@ pub struct RealmAuthorityBundle {
     pub realm_id: RealmId,
     pub genesis_event: Event,
     pub genesis_commit: RealmCommit,
+    /// Raw closed dependency boundary; the identity verifier decodes the sole
+    /// OrganizationGenesisSignerFact before establishing the first governor.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    pub producer_signer_fact: Option<Value>,
     pub authority_transitions: Vec<RealmAuthorityTransition>,
     #[serde(with = "arkret_canonical::serde_helpers::uint64_decimal")]
     pub current_generation: u64,
@@ -763,6 +771,19 @@ impl RealmAuthorityBundle {
             ));
         }
         let governance = GenesisGovernance::from_genesis(&self.genesis_event)?;
+        // The registered candidate selector controls presence, not authority.
+        // Native Org intent and producer evidence are checked by identity.
+        if matches!(governance, GenesisGovernance::Organization)
+            != self.producer_signer_fact.is_some()
+            || self
+                .producer_signer_fact
+                .as_ref()
+                .is_some_and(|fact| !fact.is_object())
+        {
+            return Err(WireError::Protocol(
+                "only an Org bundle carries its one original Genesis fact".into(),
+            ));
+        }
         governance.validate_current(&self.current_service_id, self.current_generation)?;
         if !self.authority_transitions.is_empty() {
             governance.require_transferable()?;
@@ -2915,7 +2936,17 @@ pub enum AuthoritySubmitRequestBody {
 impl AuthoritySubmitRequestBody {
     pub fn validate(&self) -> Result<()> {
         match self {
-            Self::Event(submission) => submission.validate(),
+            Self::Event(submission) => {
+                submission.validate()?;
+                if submission.event.kind == crate::EventKind::MlsCommit {
+                    return Err(WireError::ProtocolCode {
+                        code: crate::ErrorCode::SchemaViolation,
+                        message: "first MLS admission requires the complete MlsCommitSubmission"
+                            .to_owned(),
+                    });
+                }
+                Ok(())
+            }
             Self::MlsCommit(submission) => submission.validate(),
         }
     }

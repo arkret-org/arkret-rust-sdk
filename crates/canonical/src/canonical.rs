@@ -464,7 +464,7 @@ pub fn parse_canonical_json(bytes: &[u8]) -> Result<Value> {
 ///
 /// See [`parse_json_rejecting_duplicate_keys_within`] for why the budget is a
 /// parameter rather than the Event Envelope constant.
-pub fn parse_canonical_json_within(bytes: &[u8], max_ingress_bytes: usize) -> Result<Value> {
+fn parse_canonical_json_within(bytes: &[u8], max_ingress_bytes: usize) -> Result<Value> {
     let limit = max_ingress_bytes.min(MAX_CANONICAL_JSON_BODY_INGRESS_BYTES);
     let value = parse_json_rejecting_duplicate_keys_within(bytes, limit)?;
     validate_canonical_bytes_match(bytes, &value)?;
@@ -796,21 +796,6 @@ pub fn digest_bytes(suite: DigestSuite, bytes: impl AsRef<[u8]>) -> [u8; 32] {
     }
 }
 
-/// Compute one raw digest without forcing callers to concatenate domain-
-/// separated inputs into an intermediate buffer.
-pub fn digest_bytes_from_slices(suite: DigestSuite, parts: &[&[u8]]) -> [u8; 32] {
-    match suite {
-        DigestSuite::Sha256 => sha256_bytes_from_slices(parts),
-        DigestSuite::Blake3 => {
-            let mut hasher = blake3::Hasher::new();
-            for part in parts {
-                hasher.update(part);
-            }
-            *hasher.finalize().as_bytes()
-        }
-    }
-}
-
 pub fn digest(suite: DigestSuite, bytes: impl AsRef<[u8]>) -> String {
     format!("{}:{}", suite.as_str(), digest_hex(suite, bytes.as_ref()))
 }
@@ -862,13 +847,9 @@ pub fn domain_prefixed_canonical_sha256<T: Serialize>(domain: &str, value: &T) -
     ]))
 }
 
-pub fn canonical_digest_with_suite(bytes: &[u8], suite: &str) -> Result<String> {
-    digest_with_suite(suite, bytes)
-}
-
 pub fn canonical_hash<T: Serialize>(value: &T, suite: &str) -> Result<String> {
     let bytes = canonical_json_bytes(value)?;
-    canonical_digest_with_suite(&bytes, suite)
+    digest_with_suite(suite, &bytes)
 }
 
 pub fn verify_digest(bytes: &[u8], expected_digest: &str) -> Result<()> {
@@ -1650,12 +1631,6 @@ mod tests {
     }
 
     #[test]
-    fn canonical_digest_matches_sha256_digest_alias() {
-        let bytes = canonical_json_bytes(&json!({ "b": 2, "a": 1 })).unwrap();
-        assert_eq!(canonical_digest(&bytes), sha256_digest(&bytes));
-    }
-
-    #[test]
     fn blake3_digest_matches_known_vectors_and_verifies() {
         assert_eq!(
             blake3_digest(b""),
@@ -1667,17 +1642,6 @@ mod tests {
         );
         verify_digest(b"abc", &blake3_digest(b"abc")).unwrap();
         assert!(verify_digest(b"abd", &blake3_digest(b"abc")).is_err());
-    }
-
-    #[test]
-    fn canonical_digest_round_trips_through_canonical_json_bytes() {
-        // Reordering object keys MUST yield the same digest because
-        // canonical_json_bytes sorts them; the digest is taken over the
-        // sorted byte stream.
-        let a = canonical_json_bytes(&json!({ "a": 1, "b": 2 })).unwrap();
-        let b = canonical_json_bytes(&json!({ "b": 2, "a": 1 })).unwrap();
-        assert_eq!(canonical_digest(&a), canonical_digest(&b));
-        assert!(canonical_digest(&a).starts_with("sha256:"));
     }
 
     #[test]

@@ -902,9 +902,16 @@ mod tests {
                 &scope.agent_key_authorization_ref,
             ));
         assert!(value.validate().is_err());
-        let mut value = vector("agent_runtime");
-        value["scope_details"]["unexpected"] = Value::Bool(true);
-        assert!(serde_json::from_value::<SessionGrantMetadata>(value).is_err());
+        let value = vector("agent_runtime");
+        for pointer in [
+            "/scope_details",
+            "/scope_details/resources",
+            "/scope_details/constraints",
+        ] {
+            let mut invalid = value.clone();
+            invalid.pointer_mut(pointer).unwrap()["unexpected"] = Value::Bool(true);
+            assert!(serde_json::from_value::<SessionGrantMetadata>(invalid).is_err());
+        }
         let mut value = metadata("agent_runtime");
         value
             .scope_details

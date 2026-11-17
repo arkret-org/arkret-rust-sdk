@@ -572,6 +572,11 @@ pub fn verify_historical_producer_event_signature(
             )
             .map_err(|e| signature_invalid(format!("Realm proof {method}: {e}")))
         }
+        F::OrganizationGenesis(fact) => {
+            crate::organization_pcr_genesis::verify_organization_genesis_event_signature(
+                event, fact, suite,
+            )
+        }
         F::Service(fact) => {
             fact.validate_event_binding(event, suite)?;
             let raw = arkret_canonical::base64url_decode(fact.key.public_key_base64url.as_str())
@@ -604,5 +609,8 @@ pub fn verify_historical_producer_committed_event(
     authority
         .verify_committed_item(full, keys)
         .map_err(|e| signature_invalid(e.to_string()))?;
+    if let arkret_models_collaboration::authority_commit::HistoricalProducerSignerFact::OrganizationGenesis(fact) = fact {
+        return crate::organization_pcr_genesis::verify_organization_genesis_signer_fact(full, fact).map(|_| ());
+    }
     verify_historical_producer_event_signature(&full.event, fact, suite)
 }

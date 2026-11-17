@@ -5,10 +5,10 @@
 // sha256=30f8a7bac2a387091f550a02d6f44c69afc5fde62df0cd0be521f28a963726c0
 //
 // Input: schemas/event-envelope.schema.json
-// sha256=37c9298b9ba476c817c0dde83346e286f423426dcc536a596cbc09f0078f3397
+// sha256=2a3f8d112bfec45b9ba80a8a1dc4d6c4dbf336c02a866133f84530da585a52a1
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=378099dfc0552c94d918067d3fefafa8cc572fc164f01f1a4d741a161c5c7c1a
+// sha256=7d1fdb47ec4baf0bbf7ecbf1969f8fff785140d5d15b0d6fadc690db7bbd4a62
 
 /// Counterpart: `event-payload.schema.json#/$defs/strand_create_payload`.
 /// Counterpart for

@@ -473,7 +473,8 @@ mod mutation_lock_tests {
         let store = MacOsKeychainKeyStore::new(&app).unwrap();
         store
             .with_mutation_lock(|| {
-                println!("READY");
+                // Keep the marker separate from the single-threaded harness prefix.
+                println!("\nREADY");
                 std::io::stdout().flush().unwrap();
                 let mut signal = String::new();
                 std::io::stdin().read_line(&mut signal).unwrap();

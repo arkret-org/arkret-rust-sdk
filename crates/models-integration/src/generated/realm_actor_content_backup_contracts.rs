@@ -11,10 +11,10 @@
 // sha256=1c0e4d7bc2303d040259991aa33f767d6fafd434d0cce306ad6ace5f4af25986
 //
 // Input: schemas/authority-commit-operations.schema.json
-// sha256=bd2b6dbd26bb3fafddd4c373baa6618fe6c4fb692a03b3e96046b619cf79cf18
+// sha256=87d27218a735fe1af4a515abe3553dd93ef2af14665de64103fc6c8a36fc9f47
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=378099dfc0552c94d918067d3fefafa8cc572fc164f01f1a4d741a161c5c7c1a
+// sha256=7d1fdb47ec4baf0bbf7ecbf1969f8fff785140d5d15b0d6fadc690db7bbd4a62
 
 /// Counterpart: `keys-operations.schema.json#/$defs/keys_backups_list_response_body`.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]

@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/operations-error-mapping.json;
-//! sha256=63d5d2efdb6529344bf4ecf228bbdfc7a4c39d2173b01f8115559d6d23c4c72d Input: registry/
-//! contract-registry.json; sha256=3a75e9f9cbaf7a02abd04bfe97f220e3cf91a05f41d7255374d3911b00894054
+//! sha256=3a15a8cee6c873851ef488f418f0ff5dcef01d6c4c1cdaa9447bafabe5c142ce Input: registry/
+//! contract-registry.json; sha256=e026fde7f2edfe398101242bcaf3ff3451fa186519fd8428e729d8f9585ad55e
 //! Input: registry/error-code-registry.json;
 //! sha256=ed6f316b287008a6fda34fc5b2812550f606c3a52ec74481c722868ff4e5072d Entries: operations=221
 
@@ -318,6 +318,7 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Code(ErrorCode::DeviceGenerationFenced),
         OperationSpecificError::Code(ErrorCode::DigestMismatch),
         OperationSpecificError::Reason(ReasonCode::InvalidMembershipTransition),
+        OperationSpecificError::Code(ErrorCode::NotFound),
     ],
     &[
         OperationSpecificError::Code(ErrorCode::FailedPrecondition),
@@ -650,7 +651,19 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
     &[OperationSpecificError::Reason(
         ReasonCode::SnapshotCapacityExceeded,
     )],
-    &[],
+    &[
+        OperationSpecificError::Code(ErrorCode::DuplicateConflict),
+        OperationSpecificError::Code(ErrorCode::EpochMismatch),
+        OperationSpecificError::Code(ErrorCode::FailedPrecondition),
+        OperationSpecificError::Code(ErrorCode::RealmFrozen),
+        OperationSpecificError::Reason(ReasonCode::SnapshotCapacityExceeded),
+        OperationSpecificError::Reason(ReasonCode::ApprovalCarrierUnregistered),
+        OperationSpecificError::Code(ErrorCode::DeviceUnauthorized),
+        OperationSpecificError::Code(ErrorCode::DeviceRevoked),
+        OperationSpecificError::Code(ErrorCode::DeviceRevocationPending),
+        OperationSpecificError::Code(ErrorCode::DeviceGenerationFenced),
+        OperationSpecificError::Code(ErrorCode::DependencyMissing),
+    ],
     &[OperationSpecificError::Reason(
         ReasonCode::SnapshotCapacityExceeded,
     )],

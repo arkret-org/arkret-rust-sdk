@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json;
-//! sha256=3a75e9f9cbaf7a02abd04bfe97f220e3cf91a05f41d7255374d3911b00894054 Entries: registered=221
+//! sha256=e026fde7f2edfe398101242bcaf3ff3451fa186519fd8428e729d8f9585ad55e Entries: registered=221
 
 use serde::{Deserialize, Serialize};
 
@@ -5172,22 +5172,20 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         mq: Some("self.circle.command.rotate_scope"),
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("none"),
-        retry_safe: Some(false),
-        request_schema_ref: None,
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: Some("canonical_hash"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/authority-commit-operations.schema.json#/$defs/client_mls_commit_submission",
+        ),
         response_schema_ref: Some(
-            "schemas/circle-operations.schema.json#/$defs/circle_scope_rotate_response_body",
+            "schemas/authority-commit-operations.schema.json#/$defs/submit_response_body",
         ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.circle.resource.get.v1\",\"strategy\":\"query_operation\"}",
-        ),
+        uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some(
-                "v1_surface_is_declared_but_always_returns_unsupported_feature_until_a_signed_event_submission_request_contract_is_registered",
-            ),
+            kind: DurableEffectKind::EventLog,
+            target: Some(DurableEventTarget::Static(&["ak.mls.commit"])),
+            rationale: None,
             branch_contract_json: None,
         }),
     },

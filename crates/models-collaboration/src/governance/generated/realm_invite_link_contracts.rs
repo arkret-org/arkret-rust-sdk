@@ -14,7 +14,7 @@
 // sha256=cb687e509069f1fbb51f994d67db65147340c90190894272b49b322641827f12
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=378099dfc0552c94d918067d3fefafa8cc572fc164f01f1a4d741a161c5c7c1a
+// sha256=7d1fdb47ec4baf0bbf7ecbf1969f8fff785140d5d15b0d6fadc690db7bbd4a62
 
 /// Counterpart: `realm-invite-link.schema.json#/$defs/proof/properties/signature_algorithm`.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]

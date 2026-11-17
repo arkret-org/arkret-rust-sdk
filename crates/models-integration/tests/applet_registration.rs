@@ -656,6 +656,34 @@ fn install_plan_digest_excludes_itself_and_scope_round_trips() {
     let round_trip: AppletInstallPlan = serde_json::from_value(value.clone()).unwrap();
     assert_eq!(round_trip.effective_scope.realm_id(), &realm());
 
+    let reference = EventId::from_digest(canonical::DigestSuite::Sha256, [106; 32]);
+    let mut digests = std::collections::BTreeSet::new();
+    for policy in [None, Some(Value::Null), Some(json!(reference))] {
+        let mut original = value.clone();
+        if let Some(policy) = policy {
+            original["widget_effect"]["policy_event_ref"] = policy;
+        }
+        validate_fragment(
+            "applet-install-plan.schema.json",
+            "#/$defs/widget_effect",
+            &original["widget_effect"],
+        );
+        let mut decoded: AppletInstallPlan = serde_json::from_value(original.clone()).unwrap();
+        assert_eq!(serde_json::to_value(&decoded).unwrap(), original);
+        assert_eq!(
+            canonical::canonical_json_bytes(&decoded).unwrap(),
+            canonical::canonical_json_bytes(&original).unwrap(),
+        );
+        let mut digest_input = original;
+        digest_input.as_object_mut().unwrap().remove("plan_digest");
+        let expected = Hash::new(canonical::canonical_sha256(&digest_input).unwrap()).unwrap();
+        assert_eq!(decoded.compute_plan_digest().unwrap(), expected);
+        decoded.stamp_plan_digest().unwrap();
+        assert_eq!(decoded.plan_digest, expected);
+        assert!(digests.insert(expected));
+    }
+    assert_eq!(digests.len(), 3);
+
     let mut invalid_id = value;
     invalid_id["plan_id"] = json!("plan_1");
     assert!(serde_json::from_value::<AppletInstallPlan>(invalid_id).is_err());
@@ -690,7 +718,7 @@ fn committed_applet_refs_preserve_independent_circle_and_sidecar_streams() {
     };
     let widget = WidgetEffect {
         widget_allowed: true,
-        policy_event_ref: Some(sidecar_ref),
+        policy_event_ref: Some(Some(sidecar_ref.event_id.clone())),
     };
     let e2ee_wire = serde_json::to_value(e2ee).unwrap();
     let widget_wire = serde_json::to_value(widget).unwrap();
@@ -699,9 +727,13 @@ fn committed_applet_refs_preserve_independent_circle_and_sidecar_streams() {
         e2ee_wire["authorization_refs"][0]["stream_ref"]["kind"],
         "circle"
     );
-    assert_eq!(
-        widget_wire["policy_event_ref"]["stream_ref"]["kind"],
-        "sidecar"
+    assert_eq!(widget_wire["policy_event_ref"], json!(sidecar_ref.event_id));
+    assert!(
+        serde_json::from_value::<WidgetEffect>(json!({
+            "widget_allowed": true,
+            "policy_event_ref": sidecar_ref,
+        }))
+        .is_err()
     );
 
     let outcome = AppletTransactionResponseBody::Accepted {

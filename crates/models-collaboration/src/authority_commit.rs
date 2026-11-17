@@ -6,6 +6,7 @@
 //! branches without inventing a generic federation envelope.
 
 mod audit_atomic;
+mod organization_genesis;
 use arkret_models_identity::{
     AgentProducerEvidence, ForwardAccountDeviceSignerEvidence, ResolvedSignerKey,
 };
@@ -21,6 +22,7 @@ use arkret_wire::{
 };
 pub use audit_atomic::*;
 use chrono::{DateTime, Utc};
+pub use organization_genesis::*;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -287,6 +289,7 @@ pub enum HistoricalProducerSignerFact {
     RealmControl(RealmControlHistoricalSignerFact),
     RealmRecoveryService(RealmRecoveryServiceHistoricalSignerFact),
     AgentRuntime(AgentRuntimeHistoricalSignerFact),
+    OrganizationGenesis(OrganizationGenesisSignerFact),
 }
 impl From<AccountDeviceHistoricalSignerFact> for HistoricalProducerSignerFact {
     fn from(fact: AccountDeviceHistoricalSignerFact) -> Self {
@@ -298,6 +301,11 @@ impl From<ServiceHistoricalSignerFact> for HistoricalProducerSignerFact {
         Self::Service(fact)
     }
 }
+impl From<OrganizationGenesisSignerFact> for HistoricalProducerSignerFact {
+    fn from(fact: OrganizationGenesisSignerFact) -> Self {
+        Self::OrganizationGenesis(fact)
+    }
+}
 impl HistoricalProducerSignerFact {
     pub fn event_id(&self) -> &EventId {
         match self {
@@ -307,6 +315,7 @@ impl HistoricalProducerSignerFact {
             Self::RealmControl(f) => &f.event_id,
             Self::RealmRecoveryService(f) => &f.event_id,
             Self::AgentRuntime(f) => &f.event_ref,
+            Self::OrganizationGenesis(f) => &f.event_id,
         }
     }
     pub fn as_account_device(&self) -> Option<&AccountDeviceHistoricalSignerFact> {
@@ -323,7 +332,8 @@ impl HistoricalProducerSignerFact {
             | Self::RealmDevice(_)
             | Self::RealmControl(_)
             | Self::RealmRecoveryService(_)
-            | Self::AgentRuntime(_) => None,
+            | Self::AgentRuntime(_)
+            | Self::OrganizationGenesis(_) => None,
         }
     }
     pub fn digest(&self) -> Result<Hash> {
@@ -334,6 +344,7 @@ impl HistoricalProducerSignerFact {
             Self::RealmControl(f) => f.digest(),
             Self::RealmRecoveryService(f) => f.digest(),
             Self::AgentRuntime(f) => f.digest(),
+            Self::OrganizationGenesis(f) => f.digest(),
         }
     }
     pub fn validate_event_binding(
@@ -348,6 +359,7 @@ impl HistoricalProducerSignerFact {
             Self::RealmControl(f) => f.validate_event_binding(event, suite),
             Self::RealmRecoveryService(f) => f.validate_event_binding(event, suite),
             Self::AgentRuntime(f) => f.validate_event_binding(event, suite),
+            Self::OrganizationGenesis(f) => f.validate_event_binding(event, suite),
         }
     }
     pub fn validate_commit_binding(
@@ -362,6 +374,7 @@ impl HistoricalProducerSignerFact {
             Self::RealmControl(f) => f.validate_commit_binding(full, suite),
             Self::RealmRecoveryService(f) => f.validate_commit_binding(full, suite),
             Self::AgentRuntime(f) => f.validate_commit_binding(full, suite),
+            Self::OrganizationGenesis(f) => f.validate_commit_binding(full, suite),
         }
     }
 }
@@ -878,7 +891,17 @@ pub enum SelfAuthoritySubmitRequestBody {
 impl SelfAuthoritySubmitRequestBody {
     pub fn validate(&self) -> Result<()> {
         match self {
-            Self::Event(value) => value.validate(),
+            Self::Event(value) => {
+                value.validate()?;
+                if value.event.kind == EventKind::MlsCommit {
+                    return Err(WireError::ProtocolCode {
+                        code: ErrorCode::SchemaViolation,
+                        message: "first MLS admission requires the complete MlsCommitSubmission"
+                            .to_owned(),
+                    });
+                }
+                Ok(())
+            }
             Self::MlsCommit(value) => value.validate(),
             Self::OrdinaryRealmBootstrap(value) => value.validate(),
             Self::DirectConversationFounding(value) => value.validate(),
@@ -1082,6 +1105,37 @@ impl PeerAuthorityForwardEventRequestBody {
                 .and_then(|profile| profile.realm_event_kind_allowlist)
                 .is_some_and(|kinds| kinds.contains(&self.event_submission.event.kind.as_str()))
     }
+    /// Structural Organization bootstrap candidate, never proof of its source.
+    /// Admission must verify the independent Organization authority and complete
+    /// native Account/PCR unit. Actual producer evidence keeps its normal rules.
+    pub fn is_organization_pcr_genesis_candidate(&self) -> bool {
+        let event = &self.event_submission.event;
+        let producer = match self.account_device_producer() {
+            Ok(Some(_)) => true,
+            Ok(None) => matches!(event.actual_signer(), ActorId::Service { .. }),
+            Err(_) => false,
+        };
+        event.kind == EventKind::RealmCreate
+            && event.actor_id.as_account_id().is_some()
+            && event
+                .payload
+                .get("object")
+                .and_then(|object| object.get("purpose"))
+                .and_then(serde_json::Value::as_str)
+                == Some("principal_control")
+            && event.executed_by.is_some()
+            && event.authorization_ref.is_some()
+            && event
+                .payload
+                .get("object")
+                .is_some_and(|object| object.get("founding_device_descriptor").is_none())
+            && self.mls_group_state_material.is_none()
+            && self.content_backup_sources.is_none()
+            && self.successor_device_evidence.is_none()
+            && self.producer_agent_evidence.is_none()
+            && producer
+    }
+
     pub fn new_agent(
         event_submission: EventAdmissionSubmission,
         mls_group_state_material: Option<MlsGroupStateMaterial>,
@@ -1143,6 +1197,12 @@ impl PeerAuthorityForwardEventRequestBody {
 
     pub fn validate(&self) -> Result<()> {
         self.event_submission.validate()?;
+        if self.event_submission.event.kind == EventKind::MlsCommit {
+            return Err(WireError::ProtocolCode {
+                code: ErrorCode::SchemaViolation,
+                message: "first MLS admission requires the complete MlsCommitSubmission".to_owned(),
+            });
+        }
         match (
             &self.event_submission.event.kind,
             &self.successor_device_evidence,
@@ -1224,9 +1284,17 @@ pub struct PeerAuthorityForwardMlsRequestBody {
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
     )]
     pub content_backup_sources: Option<Vec<crate::content_history::ContentBackupSource>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub producer_device_evidence: Option<ForwardAccountDeviceSignerEvidence>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
     pub producer_agent_evidence: Option<AgentProducerEvidence>,
 }
 
@@ -1268,7 +1336,8 @@ impl PeerAuthorityForwardMlsRequestBody {
         Ok(request)
     }
 
-    pub fn validate(&self) -> Result<()> {
+    /// Validate immutable carrier shape without first-admission producer evidence.
+    pub fn validate_replay_shape(&self) -> Result<()> {
         self.mls_submission.validate()?;
         crate::content_history::validate_backup_source_candidates(
             &[&self.mls_submission.commit_event],
@@ -1289,6 +1358,25 @@ impl PeerAuthorityForwardMlsRequestBody {
         if let Some(source) = &self.mls_submission.recovery_source {
             source.validate_submission_binding(&self.mls_submission.commit_event)?;
         }
+        Ok(())
+    }
+
+    /// Absence of both dynamic proofs is result-only for an ordinary Account unit.
+    /// A receiver must never admit a new Event from this request on a miss.
+    pub fn is_original_result_probe(&self) -> bool {
+        self.mls_submission.recovery_source.is_none()
+            && self
+                .mls_submission
+                .commit_event
+                .actual_signer()
+                .as_account_id()
+                .is_some()
+            && self.producer_device_evidence.is_none()
+            && self.producer_agent_evidence.is_none()
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        self.validate_replay_shape()?;
         validate_producer_agent_evidence_presence(
             &self.mls_submission.commit_event,
             self.producer_agent_evidence.as_ref(),
@@ -1686,7 +1774,14 @@ impl PeerAuthoritySubmitResponseBody {
     }
 
     pub fn validate_for_request(&self, request: &PeerAuthoritySubmitRequestBody) -> Result<()> {
-        request.validate()?;
+        match request {
+            PeerAuthoritySubmitRequestBody::AuthorityForwardMls(value)
+                if value.is_original_result_probe() =>
+            {
+                value.validate_replay_shape()?
+            }
+            _ => request.validate()?,
+        }
         self.validate()?;
         match (request, self) {
             (

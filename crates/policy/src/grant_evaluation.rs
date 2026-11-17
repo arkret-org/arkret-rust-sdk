@@ -922,17 +922,6 @@ fn temporal_matches(
     result
 }
 
-/// §16.1 `matches_object_window`: `now - skew` is not past
-/// `created_at + window`. A window without a fixed length contains nothing.
-pub fn object_window_contains(
-    created_at: DateTime<Utc>,
-    window: &str,
-    now: DateTime<Utc>,
-    skew: TimeDelta,
-) -> bool {
-    object_window_predicate(created_at, window, now, skew) == Tri::Yes
-}
-
 fn object_window_predicate(
     created_at: DateTime<Utc>,
     window: &str,

@@ -215,3 +215,77 @@ fn applet_service_fixture_verifies_native_history_and_rejects_role_relabeling() 
     }
     assert!(verify(&changed_history).is_err());
 }
+
+#[test]
+fn push_gateway_fixture_binds_role_before_scid_and_preserves_registration_limits() {
+    use arkret_models_identity::service_identity::{CanonicalServiceUrl, ServiceRegistrationKey};
+    use rand_core::SeedableRng as _;
+
+    let endpoint = "https://fixture-push.example/".parse().unwrap();
+    let at = "2026-10-14T00:00:00.000Z".parse().unwrap();
+    let fixture =
+        ServiceIdentityFixture::webvh_push_gateway(&endpoint, 35, [35; 32], "push-receipt", at, at)
+            .unwrap();
+    let mut rng = rand_chacha::ChaCha20Rng::seed_from_u64(35);
+    let expected = arkret_signatures::webvh::prepare_push_gateway_inception_with_did_key_seed(
+        &mut rng,
+        &arkret_signatures::webvh::ServiceInceptionInput {
+            principal_endpoint: &endpoint,
+            local_id: "service",
+            also_known_as: &[],
+            version_created_at: at,
+            did_key_fragment: Some("push-receipt"),
+        },
+        &[35; 32],
+    )
+    .unwrap();
+    assert_eq!(fixture.history.entries, vec![expected.log_entry.clone()]);
+    assert_eq!(fixture.history.did.as_str(), expected.did);
+    assert_eq!(fixture.verification_method.as_str(), expected.did_key_id);
+    assert_eq!(fixture.resolution.service_kind, "push_gateway");
+    assert_eq!(
+        fixture.history.entries[0]["state"]["service"][0]["service_kind"],
+        "push_gateway"
+    );
+    assert_eq!(
+        fixture.signing_key.verifying_key().to_bytes(),
+        ed25519_dalek::SigningKey::from_bytes(&[35; 32])
+            .verifying_key()
+            .to_bytes()
+    );
+    let verify =
+        |value: &arkret_models_identity::AuthenticatedServiceResolution| -> anyhow::Result<()> {
+            arkret_identity::verify_authenticated_service_resolution_history(
+                value,
+                &fixture.service_id,
+                at,
+            )?;
+            value.projection()?;
+            Ok(())
+        };
+    verify(&fixture.resolution).unwrap();
+    let station =
+        ServiceIdentityFixture::webvh(&endpoint, 35, [35; 32], "push-receipt", at, at).unwrap();
+    assert_ne!(fixture.history.did, station.history.did);
+    assert_ne!(fixture.history.entries, station.history.entries);
+    let mut relabeled = fixture.resolution.clone();
+    relabeled.service_kind = "station".into();
+    assert!(verify(&relabeled).is_err());
+    let mut changed = fixture.resolution.clone();
+    if let arkret_models_identity::ResolutionMethodHistoryEvidence::WebvhLog {
+        log_entries, ..
+    } = &mut changed.method_history_evidence
+    {
+        log_entries[0]["state"]["service"][0]["service_kind"] = "station".into();
+    } else {
+        panic!("gateway must carry native signed history");
+    }
+    assert!(verify(&changed).is_err());
+    assert!(
+        ServiceRegistrationKey::new(
+            arkret_wire::ServiceKind::PushGateway,
+            CanonicalServiceUrl::new(endpoint.as_str()).unwrap()
+        )
+        .is_err()
+    );
+}

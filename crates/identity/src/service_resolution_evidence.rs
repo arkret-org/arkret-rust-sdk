@@ -25,6 +25,30 @@ pub fn build_authenticated_webvh_service_resolution(
     witness_records: Vec<Value>,
     now: DateTime<Utc>,
 ) -> Result<AuthenticatedServiceResolution> {
+    let method_history_evidence = build_webvh_method_history_evidence(
+        &normalized_did_document,
+        log_entries,
+        witness_records,
+    )?;
+    let resolution = AuthenticatedServiceResolution {
+        service_id,
+        service_kind,
+        method_history_evidence,
+        normalized_did_document,
+    };
+    let expected_service_id = resolution.service_id.clone();
+    verify_authenticated_service_resolution_history(&resolution, &expected_service_id, now)?;
+    Ok(resolution)
+}
+
+/// Project the existing complete WebVH evidence carrier from method-native
+/// originals. This projection is not current authorization: callers must
+/// verify the history and independently establish their current source.
+pub fn build_webvh_method_history_evidence(
+    normalized_did_document: &DidDocument,
+    log_entries: Vec<Value>,
+    witness_records: Vec<Value>,
+) -> Result<ResolutionMethodHistoryEvidence> {
     if normalized_did_document.id.method() != "webvh" {
         return Err(IdentityError::Protocol(
             "WebVH service resolution builder received a different DID method or document"
@@ -52,37 +76,31 @@ pub fn build_authenticated_webvh_service_resolution(
     let witnesses = terminal_witnesses(&log_entries)?;
     let witness_proofs_digest = Hash::new(arkret_canonical::canonical_sha256(&witness_records)?)
         .map_err(|error| IdentityError::Protocol(error.to_string()))?;
-    let document_digest = crate::document_canonical_digest(&normalized_did_document)
+    let document_digest = crate::document_canonical_digest(normalized_did_document)
         .map_err(|error| IdentityError::Protocol(error.to_string()))?;
-    let resolution = AuthenticatedServiceResolution {
-        service_id,
-        service_kind,
-        method_history_evidence: ResolutionMethodHistoryEvidence::WebvhLog {
-            boundary: ResolutionMethodEvidenceBoundary {
-                from_method_history_head: first_history_head,
-                from_version_id: first_version,
-                to_method_history_head: last_history_head.clone(),
-                to_version_id: last_version,
-            },
-            evidence: DidBindingEvidenceReceipt {
-                kind: DidBindingEvidenceKind::AkDidBindingEvidenceV1,
-                method: "webvh".to_owned(),
-                document_digest,
-                method_proofs: vec![DidBindingMethodProof {
-                    kind: DidBindingMethodProofKind::WebvhLog,
-                    history_head: last_history_head,
-                    witnesses,
-                    witness_proofs_digest,
-                }],
-            },
-            log_entries,
-            witness_records,
+    let evidence = ResolutionMethodHistoryEvidence::WebvhLog {
+        boundary: ResolutionMethodEvidenceBoundary {
+            from_method_history_head: first_history_head,
+            from_version_id: first_version,
+            to_method_history_head: last_history_head.clone(),
+            to_version_id: last_version,
         },
-        normalized_did_document,
+        evidence: DidBindingEvidenceReceipt {
+            kind: DidBindingEvidenceKind::AkDidBindingEvidenceV1,
+            method: "webvh".to_owned(),
+            document_digest,
+            method_proofs: vec![DidBindingMethodProof {
+                kind: DidBindingMethodProofKind::WebvhLog,
+                history_head: last_history_head,
+                witnesses,
+                witness_proofs_digest,
+            }],
+        },
+        log_entries,
+        witness_records,
     };
-    let expected_service_id = resolution.service_id.clone();
-    verify_authenticated_service_resolution_history(&resolution, &expected_service_id, now)?;
-    Ok(resolution)
+    evidence.validate_shape().map_err(wire)?;
+    Ok(evidence)
 }
 
 /// Build immutable service history directly from the did:key identifier.

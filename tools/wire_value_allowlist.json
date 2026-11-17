@@ -1,17 +1,6 @@
 {
   "entries": [
     {
-      "finding": "bridges/crates/runtime/src/authority.rs::CurrentAuthority.route_record",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Value",
-      "owner_repository": "bridges",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
-    },
-    {
       "finding": "bridges/crates/runtime/src/config.rs::BridgeConfig.extensions",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
@@ -55,39 +44,6 @@
       "test": "python tools/wire_value_audit.py --check",
       "reason": "prepare_native_reply<E: Serialize> includes the caller binding in the durable input digest and encrypts the reply record. Recovery recomputes that digest before publication; this field is not a v1 wire payload.",
       "adjudication": "manual"
-    },
-    {
-      "finding": "chime/src/push/wire.rs::ChimePushRegisterDeviceRequest.proof",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Option<Value>",
-      "owner_repository": "chime",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
-    },
-    {
-      "finding": "chime/src/push/wire.rs::ChimePushUnregisterDeviceRequest.proof",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Option<Value>",
-      "owner_repository": "chime",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
-    },
-    {
-      "finding": "chime/src/push/wire.rs::PushDeviceConfig.proof",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Option<&'a Value>",
-      "owner_repository": "chime",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
       "finding": "closed_dispatch:coland/crates/http/src/routing/events/operations/semantics.rs::validate_typed_payload_shapes:9b494af9f6c312f7",
@@ -1115,39 +1071,6 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "coland/crates/services/src/identity.rs::AgentPairingState.accountability",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Option<Value>",
-      "owner_repository": "coland",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
-    },
-    {
-      "finding": "coland/crates/services/src/identity.rs::AgentPairingState.provision_event_refs",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Option<Value>",
-      "owner_repository": "coland",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
-    },
-    {
-      "finding": "coland/crates/services/src/identity.rs::AgentPairingState.requested_scope",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Option<Value>",
-      "owner_repository": "coland",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
-    },
-    {
       "finding": "coland/crates/services/src/identity.rs::DeviceIdentity.payload",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
@@ -1580,51 +1503,6 @@
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
-    },
-    {
-      "finding": "coland/crates/storage/src/projection.rs::SpaceContainerProjectionRecord.fields",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "BTreeMap<String, Value>",
-      "owner_repository": "coland",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
-    },
-    {
-      "finding": "coland/crates/storage/src/projection.rs::StrandProjectionRecord.content",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Option<serde_json::Value>",
-      "owner_repository": "coland",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
-    },
-    {
-      "finding": "coland/crates/storage/src/projection.rs::StrandProjectionRecord.encrypted_content",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Option<serde_json::Value>",
-      "owner_repository": "coland",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
-    },
-    {
-      "finding": "coland/crates/storage/src/projection.rs::StrandProjectionRecord.fields",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret_models_collaboration::objects::strand::StrandMetadata.fields; strand.schema.json#/$defs/metadata_fields",
-      "owner_repository": "coland",
-      "action": "Persistence projection of the schema-defined extensible metadata map. Keys and registered structured values are validated through StrandMetadata before protocol use; this storage record does not define a second wire schema.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "Persistence projection of the schema-defined extensible metadata map. Keys and registered structured values are validated through StrandMetadata before protocol use; this storage record does not define a second wire schema.",
-      "adjudication": "manual"
     },
     {
       "finding": "coland/crates/storage/src/records.rs::AccountDataRecord.payload",
@@ -3580,17 +3458,6 @@
       "decision": "raw",
       "authority": "Map<String, Value>",
       "owner_repository": "floria",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
-    },
-    {
-      "finding": "garth/src/projection.rs::RealmProjectionState.product",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Option<Value>",
-      "owner_repository": "garth",
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
@@ -6268,6 +6135,18 @@
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
+    },
+    {
+      "finding": "crates/wire/src/authority_commit.rs::RealmAuthorityBundle.producer_signer_fact",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "realm-authority-bundle.schema.json#/properties/producer_signer_fact",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Decode to the sole SDK OrganizationGenesisSignerFact before authority use; non-Org bundles omit the field. No reverse wire-to-models dependency.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "Exact closed dependency boundary like current_route_record. The identity verifier decodes the typed immutable source and independently establishes Org intent and actual Service history before trusting G.",
+      "spec_pointer": "realm-authority-bundle.schema.json#/properties/producer_signer_fact"
     }
   ]
 }

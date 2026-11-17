@@ -2,11 +2,9 @@
 
 use std::collections::BTreeMap;
 
-use arkret_models_collaboration::events_payloads::ActorProfileCreatePayload;
 use arkret_models_identity::ActorProfileDefinition;
 use arkret_models_integration::{GhostActorProfileFields, GhostExternalTuple};
-use arkret_wire::{ActorKind, AppletId, BlobRef, RealmActorId, ScopeRef};
-use chrono::{DateTime, Utc};
+use arkret_wire::{ActorKind, AppletId, BlobRef, RealmActorId};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -94,20 +92,5 @@ impl GhostActorProfileRequest {
             profile_fields,
             encrypted_private_fields: None,
         })
-    }
-
-    pub fn profile_create_intent(&self, created_at: DateTime<Utc>) -> Result<crate::EventIntent> {
-        let payload = ActorProfileCreatePayload {
-            object: self.to_definition()?,
-        };
-        crate::TypedEventDraft::<arkret_wire::event_spec::ProfileCreate>::new(
-            ScopeRef::RealmControl {
-                realm_id: self.realm_actor_id.realm_id.clone(),
-            },
-            arkret_wire::ActorId::realm(self.realm_actor_id.clone()),
-            payload,
-        )?
-        .with_applet_id(self.profile_fields.managed_by_applet.clone())
-        .into_intent(created_at)
     }
 }

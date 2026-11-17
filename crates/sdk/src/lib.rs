@@ -248,9 +248,6 @@ pub use arkret_models_collaboration::{
 };
 pub use arkret_models_crypto::artifacts_keys::*;
 pub use arkret_models_crypto::authority_set_policy::*;
-pub use arkret_models_crypto::content_history::{
-    RealmActorContentBackupRecipient, RealmActorContentBackupRecipientHpkeSuite,
-};
 pub use arkret_models_crypto::encrypted_attachment::*;
 pub use arkret_models_crypto::encrypted_envelope::{
     EncryptedPayload, EventContentPreEncryptionHeader, EventContentRoutingContext,
@@ -274,6 +271,9 @@ pub use arkret_models_crypto::mls_records::{
 };
 pub use arkret_models_crypto::protected_payload::{
     MlsEncryptedPayload, MlsPayloadType, PlainPayload, ProtectedPayload,
+};
+pub use arkret_models_crypto::realm_actor_content_backup::{
+    ContentBackupRecipientHpkeSuite, RealmActorContentBackupRecipient,
 };
 pub use arkret_models_crypto::recovery_policy::*;
 pub use arkret_models_crypto::recovery_session::*;
@@ -530,8 +530,7 @@ pub mod mls {
 pub use arkret_crypto::{
     AEAD_NONCE_AES_GCM_LEN, AEAD_NONCE_COUNTER_LEN, AEAD_NONCE_XCHACHA20_POLY1305_LEN,
     AEAD_PROFILE_AES_256_GCM, AEAD_PROFILE_XCHACHA20_POLY1305, AeadNonceContext,
-    AeadNonceReplayTracker, compose_aead_nonce, json_aad_digest, verify_aead_nonce_derivation,
-    verify_aead_sender_nonce,
+    AeadNonceReplayTracker, compose_aead_nonce, verify_aead_sender_nonce,
 };
 pub use arkret_identifiers::hlc::{
     EXPECTED_FUTURE_SKEW_MS, HARD_FUTURE_SKEW_MS, HlcComponents, HlcFutureDrift, compare_hlc,

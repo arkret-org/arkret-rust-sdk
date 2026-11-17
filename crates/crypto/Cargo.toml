@@ -13,8 +13,8 @@ version.workspace = true
 
 [features]
 default = []
-# MLS-Exporter AEAD nonce derivation + encrypted-envelope AAD digest helpers
-# (`aead_nonce` module). Pulls in HKDF-SHA256 and constant-time comparison;
+# MLS exporter, deterministic sender nonces and receiver replay tracking.
+# Pulls in HKDF-SHA256 and constant-time comparison;
 # kept behind a feature so the bare `arkret-crypto` types crate stays light.
 aead = ["dep:hkdf", "dep:subtle"]
 # Principal-private Account Data value sealing (`account_data_crypto` module):

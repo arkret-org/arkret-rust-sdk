@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json;
-//! sha256=3a75e9f9cbaf7a02abd04bfe97f220e3cf91a05f41d7255374d3911b00894054
+//! sha256=e026fde7f2edfe398101242bcaf3ff3451fa186519fd8428e729d8f9585ad55e
 //! Entries: http_signature_scenarios=9, freshness_profile=ak.http_signature.freshness.v1
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -297,6 +297,7 @@ pub const HTTP_SIGNATURE_SCENARIOS: &[HttpSignatureScenarioDescriptor] = &[
             "ak.self.realm_state_snapshot.read.by_ref.v1",
             "ak.self.realm_state_snapshot.read.manifest_head.v1",
             "ak.self.events.command.submit.v1",
+            "ak.self.circle.command.rotate_scope.v1",
             "ak.self.realm_actor.read.material.v1",
             "ak.self.keys.backups.resource.replace.v1",
             "ak.self.keys.backups.read.list.v1",

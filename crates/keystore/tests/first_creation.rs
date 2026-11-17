@@ -34,7 +34,8 @@ fn creation_worker() {
     let candidate = std::env::var("ARKRET_CREATION_CANDIDATE").unwrap();
     let store = open_store(&kind, &directory.join("vault"), &app);
     assert!(store.load(ID).unwrap_err().is_not_found());
-    println!("READY");
+    // Keep the marker separate from the single-threaded harness prefix.
+    println!("\nREADY");
     std::io::stdout().flush().unwrap();
     let mut signal = String::new();
     std::io::stdin().read_line(&mut signal).unwrap();

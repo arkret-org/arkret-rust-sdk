@@ -198,11 +198,7 @@ impl ContentRecoverySource {
             || source.inventory_digest != binding.inventory_digest
             || source.expires_at - source.attested_at > chrono::Duration::seconds(300)
             || source.expires_at <= source.attested_at
-            || event
-                .producer_proof
-                .as_ref()
-                .map(|proof| &proof.verification_method)
-                != Some(&source.verification_method)
+            || event.producer_proof.is_none()
         {
             return Err(WireError::Protocol(
                 "recovery source differs from exact original submission binding".to_owned(),
@@ -225,7 +221,7 @@ impl ContentRecoverySource {
                 "recovery source was not fresh at original acceptance".into(),
             ));
         }
-        let (actor, method, authorization, accepted_at) = match fact {
+        let (actor, authorization, accepted_at) = match fact {
             HistoricalProducerSignerFact::AccountDevice(f) => {
                 f.validate_event_binding(event, event.event_id.digest_suite_code().digest_suite())?;
                 if source.replacement.endpoint
@@ -237,12 +233,7 @@ impl ContentRecoverySource {
                         "recovery source Device mismatch".to_owned(),
                     ));
                 }
-                (
-                    &f.actor,
-                    &f.verification_method,
-                    &f.key.authorization_ref.event_id,
-                    f.accepted_at,
-                )
+                (&f.actor, &f.key.authorization_ref.event_id, f.accepted_at)
             }
             HistoricalProducerSignerFact::AgentRuntime(f) => {
                 f.validate_event_binding(event, event.event_id.digest_suite_code().digest_suite())?;
@@ -255,12 +246,7 @@ impl ContentRecoverySource {
                         "Agent recovery source cannot use a Device endpoint".to_owned(),
                     ));
                 }
-                (
-                    &f.actor_id,
-                    &f.verification_method,
-                    &f.authorization_event_ref,
-                    f.accepted_at,
-                )
+                (&f.actor_id, &f.authorization_event_ref, f.accepted_at)
             }
             _ => {
                 return Err(WireError::Protocol(
@@ -268,10 +254,10 @@ impl ContentRecoverySource {
                 ));
             }
         };
-        // The producer fact authenticates the Event signing key. The accepted
-        // RFC recovery path independently binds the replacement leaf key.
+        // Each fact's original validate_event_binding above binds the actual
+        // Event producer method. H's source method is an independent service
+        // signer; the accepted RFC path binds the replacement leaf key.
         if actor != &source.replacement.actor_id
-            || method != &source.verification_method
             || authorization != &source.replacement.authorization_event_ref
             || accepted_at != committed_at
             || fact.event_id() != &event.event_id

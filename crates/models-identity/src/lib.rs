@@ -31,6 +31,7 @@ pub mod http_bodies;
 pub mod identity;
 pub mod identity_resolution;
 pub mod member_identity;
+pub mod organization_governance;
 pub mod organization_registration;
 /// §3.2.1 deterministic primary-handle selection, `claim_digest`, and
 /// §3.8.2 mention/subject rendering. wasm-safe, dependency-free helpers
@@ -69,6 +70,7 @@ pub use http_bodies::*;
 pub use identity::*;
 pub use identity_resolution::*;
 pub use member_identity::*;
+pub use organization_governance::*;
 pub use organization_registration::*;
 pub use principal_registration_anchor::*;
 pub use proof::*;

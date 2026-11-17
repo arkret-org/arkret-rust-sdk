@@ -245,7 +245,7 @@ impl EventIntent {
         self
     }
 
-    pub fn with_optional_executed_by(mut self, executed_by: Option<ActorId>) -> Self {
+    pub(crate) fn with_optional_executed_by(mut self, executed_by: Option<ActorId>) -> Self {
         self.executed_by = executed_by;
         self
     }
@@ -258,12 +258,12 @@ impl EventIntent {
         self
     }
 
-    pub fn with_optional_applet_id(mut self, applet_id: Option<AppletId>) -> Self {
+    pub(crate) fn with_optional_applet_id(mut self, applet_id: Option<AppletId>) -> Self {
         self.applet_id = applet_id;
         self
     }
 
-    pub fn with_optional_external_ref(
+    pub(crate) fn with_optional_external_ref(
         mut self,
         external_ref: Option<BTreeMap<String, Value>>,
     ) -> Self {

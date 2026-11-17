@@ -91,6 +91,30 @@ pub fn verify_adds_from_accepted_public_commit(
     expected_group_id: &str,
     expected_previous_epoch: u64,
 ) -> Result<Vec<MlsVerifiedAddProposalLeaf>> {
+    public_commit_framing(bytes, expected_group_id, expected_previous_epoch).map(|(added, _)| added)
+}
+
+/// Check immutable Commit framing and its actual UpdatePath. This performs no
+/// signature or current-state authorization; ordinary MLS admission still must
+/// authenticate the exact Commit against its accepted public group state.
+pub fn require_public_commit_update_path(
+    bytes: &[u8],
+    expected_group_id: &str,
+    expected_previous_epoch: u64,
+) -> Result<()> {
+    if !public_commit_framing(bytes, expected_group_id, expected_previous_epoch)?.1 {
+        return Err(Error::Protocol(
+            "scope rotation requires an RFC 9420 UpdatePath".into(),
+        ));
+    }
+    Ok(())
+}
+
+fn public_commit_framing(
+    bytes: &[u8],
+    expected_group_id: &str,
+    expected_previous_epoch: u64,
+) -> Result<(Vec<MlsVerifiedAddProposalLeaf>, bool)> {
     let message = MlsMessageIn::tls_deserialize_exact(bytes).map_err(mls_error)?;
     if message.tls_serialize_detached().map_err(mls_error)? != bytes {
         return Err(Error::Protocol("MLS Commit wire is not canonical".into()));
@@ -119,6 +143,15 @@ pub fn verify_adds_from_accepted_public_commit(
     tls_codec::VLBytes::tls_deserialize(&mut input).map_err(mls_error)?;
     u8::tls_deserialize(&mut input).map_err(mls_error)?;
     let proposals = tls_codec::VLBytes::tls_deserialize(&mut input).map_err(mls_error)?;
+    let has_update_path = match u8::tls_deserialize(&mut input).map_err(mls_error)? {
+        0 => false,
+        1 => true,
+        _ => {
+            return Err(Error::Protocol(
+                "invalid RFC 9420 optional UpdatePath tag".into(),
+            ));
+        }
+    };
     let mut input = proposals.as_slice();
     let mut added = Vec::new();
     while !input.is_empty() {
@@ -139,7 +172,7 @@ pub fn verify_adds_from_accepted_public_commit(
             added.push(verify_add_proposal_leaf(wire)?);
         }
     }
-    Ok(added)
+    Ok((added, has_update_path))
 }
 
 /// Validate an MLSMessage carrying GroupInfo together with the exact external

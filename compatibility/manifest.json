@@ -31,7 +31,7 @@
     },
     "arkret-rust-sdk": {
       "repository": "arkret-org/arkret-rust-sdk",
-      "commit": "5a2d1665e1831ff6e6cefe8a0b09a4d37989b611",
+      "commit": "04b257d2c8418878bfc55194706b0a3d300dcee0",
       "checkout_path": "arkret-rust-sdk",
       "roles": [
         "public-models",
@@ -41,7 +41,7 @@
     },
     "floria": {
       "repository": "arkret-org/floria",
-      "commit": "74cdcef3be19397ff7b813779c3e1ec734ed487b",
+      "commit": "50ac03fa1d146857603f8a4fcde7904e43cfa9bb",
       "checkout_path": "floria",
       "roles": [
         "coland-build-dependency"
@@ -49,7 +49,7 @@
     },
     "coland": {
       "repository": "arkret-org/coland",
-      "commit": "3cdc2265f5134b7f7c53b563474c58cdc0070d06",
+      "commit": "cee0c78655a629e0f4adbc6411c8660c07cfa7ec",
       "checkout_path": "coland",
       "roles": [
         "protocol-producer",
@@ -58,7 +58,7 @@
     },
     "coauth": {
       "repository": "arkret-org/coauth",
-      "commit": "c7b37228f2c1e787ce7ca7b87d6862f68bf2719c",
+      "commit": "7e103692b86a5e5ca963919c26a74145e8c8816d",
       "checkout_path": "coauth",
       "roles": [
         "identity-producer",
@@ -67,7 +67,7 @@
     },
     "garth": {
       "repository": "arkret-org/garth",
-      "commit": "960e007b4905f91b2ffc52ccf91db0b3cf5ca44d",
+      "commit": "131b0b0e412117abca0dc56ed858f5f497fd1cf8",
       "checkout_path": "garth",
       "roles": [
         "runtime-consumer"
@@ -75,7 +75,7 @@
     },
     "chime": {
       "repository": "arkret-org/chime",
-      "commit": "fed3a6c08501ecb2e02fa0b10f6c152b07b8359e",
+      "commit": "d68bf9965a669269fc00d8daf1fc9eaba47ed40e",
       "checkout_path": "chime",
       "roles": [
         "inkson-build-dependency"
@@ -83,7 +83,7 @@
     },
     "inkson": {
       "repository": "arkret-org/inkson",
-      "commit": "fc79bd7a90e2695ecdbf95146462cd0b31891b3b",
+      "commit": "f848ca22a51bc9babdcb4da9548a1707b06ed0ae",
       "checkout_path": "inkson",
       "roles": [
         "application-consumer"
@@ -91,7 +91,7 @@
     },
     "cotest": {
       "repository": "arkret-org/cotest",
-      "commit": "6014fd04077aeca6a5f5f5e0dc5e7f84c9a07ec0",
+      "commit": "5aa3d83596c76614c42cc5fe4ea7b6429da86302",
       "checkout_path": "cotest",
       "roles": [
         "joint-contract-tests",
@@ -100,7 +100,7 @@
     },
     "bridges": {
       "repository": "arkret-org/bridges",
-      "commit": "ffc924755307dd76a092c36aedb9c7b464539d9f",
+      "commit": "9c5b9136df74d1420f8377c830f932f9c6b28a29",
       "checkout_path": "bridges",
       "roles": [
         "sdk-openapi-consumer"
@@ -108,7 +108,7 @@
     },
     "flagon": {
       "repository": "arkret-org/flagon",
-      "commit": "3a186987db707470e48021f160be9035fb2dfd67",
+      "commit": "73246e33f73ef4022609a61180012d9b9e8c9e1a",
       "checkout_path": "flagon",
       "roles": [
         "sdk-openapi-consumer"
@@ -116,7 +116,7 @@
     },
     "savfox": {
       "repository": "savfox-ai/savfox",
-      "commit": "05f25d778e9bf90afde4240da9aa2179ec8e0fff",
+      "commit": "990c12da202941636784f2f9cfdd752166831edb",
       "checkout_path": "../savfox-ai/savfox",
       "roles": [
         "coland-native-agent-build-dependency"
@@ -124,7 +124,7 @@
     },
     "codmin": {
       "repository": "arkret-org/codmin",
-      "commit": "7c10c7b05f8aee0c8edea6201951e50db1ad6436",
+      "commit": "fb9ed7790fb88a12b0d446e20004a4c0de147c87",
       "checkout_path": "codmin",
       "roles": [
         "admin-consumer",

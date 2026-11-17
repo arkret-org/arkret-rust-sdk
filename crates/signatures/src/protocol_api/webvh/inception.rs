@@ -2079,6 +2079,18 @@ pub fn prepare_applet_service_inception_with_did_key_seed<R: Rng + ?Sized>(
     prepare_service_inception_internal(rng, input, ServiceKind::AppletService, Some(did_key_seed))
 }
 
+/// Prepare a PushGateway WebVH inception with a supplied durable assertion key.
+///
+/// The gateway role is committed before SCID derivation, entry hashing and
+/// the update-key proof. This self-mint does not create a ServiceRegistrationKey.
+pub fn prepare_push_gateway_inception_with_did_key_seed<R: Rng + ?Sized>(
+    rng: &mut R,
+    input: &ServiceInceptionInput<'_>,
+    did_key_seed: &[u8; SECRET_KEY_LENGTH],
+) -> Result<PreparedInception, WebvhInceptionError> {
+    prepare_service_inception_internal(rng, input, ServiceKind::PushGateway, Some(did_key_seed))
+}
+
 pub fn prepare_service_registration_inception<R: Rng + ?Sized>(
     rng: &mut R,
     input: &ServiceRegistrationInceptionInput<'_>,
