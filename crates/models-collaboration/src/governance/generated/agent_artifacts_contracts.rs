@@ -2,7 +2,7 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/agent-operations.schema.json
-// sha256=80fba7d397f1c4d067304c83b87dcdacee8db4585991eda985aceb0272890fa1
+// sha256=ea3f7e2004e5af42575146f7f0a56a7a80ad65c234b8b92a8b49486aa5b4cebe
 //
 // Input: schemas/account-operations.schema.json
 // sha256=694f553340eeccd86deab4c0bb637d741e62e4babab325d516ffa30352ceb03d
@@ -11,13 +11,13 @@
 // sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
 //
 // Input: schemas/event-payload.schema.json
-// sha256=30f8a7bac2a387091f550a02d6f44c69afc5fde62df0cd0be521f28a963726c0
+// sha256=e82aa2728d1f60c88a7493e0ec3093f76e625428156e83978a5e8e4b14614034
 //
 // Input: schemas/public-key.schema.json
 // sha256=5eeab77475a955f40077ebca872da1800d5159f072b38e40b72c2dddc9013c87
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=7d1fdb47ec4baf0bbf7ecbf1969f8fff785140d5d15b0d6fadc690db7bbd4a62
+// sha256=6f2298d507cfeaf587b0a77d565af971535b7d029bf667f2e4b743448bcc016f
 
 /// Counterpart: `agent-operations.schema.json#/$defs/agent_grant_view`.
 /// Counterpart for

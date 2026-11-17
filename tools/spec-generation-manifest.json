@@ -1320,6 +1320,8 @@
         "SidecarStrandContextRef",
         "AgentSidecarFoldedCheckpoint",
         "SidecarSourceTrackRef",
+        "SidecarParticipantAuthorityPreimage",
+        "SidecarParticipantAuthorityAgent",
         "AgentSidecarMlsContext",
         "PendingSidecarAccessReconciliation",
         "AgentSidecarExchangeControlAssertion",

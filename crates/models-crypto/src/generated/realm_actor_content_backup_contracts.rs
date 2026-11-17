@@ -20,7 +20,7 @@
 // sha256=694f553340eeccd86deab4c0bb637d741e62e4babab325d516ffa30352ceb03d
 //
 // Input: schemas/agent-operations.schema.json
-// sha256=80fba7d397f1c4d067304c83b87dcdacee8db4585991eda985aceb0272890fa1
+// sha256=ea3f7e2004e5af42575146f7f0a56a7a80ad65c234b8b92a8b49486aa5b4cebe
 //
 // Input: schemas/time.schema.json
 // sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
@@ -32,7 +32,7 @@
 // sha256=044d45d62401cc0435f045b5931ce8c7ec54fc2c6901c5d4d2b2f1ffda3028dc
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=7d1fdb47ec4baf0bbf7ecbf1969f8fff785140d5d15b0d6fadc690db7bbd4a62
+// sha256=6f2298d507cfeaf587b0a77d565af971535b7d029bf667f2e4b743448bcc016f
 
 /// Counterpart: `realm-actor.schema.json#/$defs/content_backup_recipient/properties/hpke_suite`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

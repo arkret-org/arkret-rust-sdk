@@ -4450,6 +4450,14 @@
     {
       "rust_type": "crates/models-collaboration/src/authority_commit/organization_genesis.rs::OrganizationGenesisSignerFact",
       "schema": "authority-commit-operations.schema.json#/$defs/organization_genesis_signer_fact"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/agent_sidecar_contracts.rs::SidecarParticipantAuthorityPreimage",
+      "schema": "agent-operations.schema.json#/$defs/sidecar_participant_authority_preimage"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/generated/agent_sidecar_contracts.rs::SidecarParticipantAuthorityAgent",
+      "schema": "agent-operations.schema.json#/$defs/sidecar_participant_authority_preimage/properties/desired_agents/items"
     }
   ],
   "exemptions": [

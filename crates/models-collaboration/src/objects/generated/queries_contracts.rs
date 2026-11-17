@@ -5,7 +5,7 @@
 // sha256=f12bcf942493ff8c43f45bfdc5a3140d62ff1de8a3ae827cb72d696eaa7e5d3a
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=7d1fdb47ec4baf0bbf7ecbf1969f8fff785140d5d15b0d6fadc690db7bbd4a62
+// sha256=6f2298d507cfeaf587b0a77d565af971535b7d029bf667f2e4b743448bcc016f
 
 /// Counterpart: `view.schema.json#/$defs/sort_specification`.
 /// Counterpart for `spec/v1/artifacts/schemas/view.schema.json#/$defs/sort_specification`.

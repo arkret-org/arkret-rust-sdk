@@ -5,7 +5,7 @@
 // sha256=f15299dcf50eb9d402f226b2dd6829be638f416fb46629b78d24e7dbce5c5f30
 //
 // Input: schemas/event-payload.schema.json
-// sha256=30f8a7bac2a387091f550a02d6f44c69afc5fde62df0cd0be521f28a963726c0
+// sha256=e82aa2728d1f60c88a7493e0ec3093f76e625428156e83978a5e8e4b14614034
 //
 // Input: schemas/common-ids.schema.json
 // sha256=81b18acd21f4382860d5cab2384d9bb78ee5dbc23629752a6cc74ce384186149
@@ -29,7 +29,7 @@
 // sha256=c6d3efc76c853e71ee4cbf6eda707cd0e89139e85441d3616fadfeda84f0ad41
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=7d1fdb47ec4baf0bbf7ecbf1969f8fff785140d5d15b0d6fadc690db7bbd4a62
+// sha256=6f2298d507cfeaf587b0a77d565af971535b7d029bf667f2e4b743448bcc016f
 
 /// Counterpart: `content-encryption.schema.json#/$defs/root_context`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

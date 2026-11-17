@@ -1170,6 +1170,18 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
+      "finding": "coland/crates/storage/src/agents.rs::AgentScopeEncryptedEvidence.associated_data",
+      "classification": "internal_or_fixture",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "Coland verifier-private encrypted receipt custody; scope_custody_aad and decrypt_scope_custody in pairing.rs",
+      "owner_repository": "coland",
+      "action": "Retain this exact reviewed boundary; keep the owning validation and canonical SDK authoring paths enforced.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "Verifier-private AEAD associated data, never a wire DTO or authority source. The owning receipt validator checks canonical AAD, authenticated decryption, content digest and exact original binding before use.",
+      "adjudication": "manual"
+    },
+    {
       "finding": "coland/crates/storage/src/agents.rs::EnqueueAgentRuntimeMessage.content",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
@@ -1267,6 +1279,30 @@
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
+    },
+    {
+      "finding": "coland/crates/storage/src/authority_commit.rs::OrganizationPcrGovernanceChangeAdmissionWrite.organization_log_entries",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "arkret_identity::organization_pcr_genesis native log/witness verification",
+      "owner_repository": "coland",
+      "action": "Retain this exact reviewed boundary; keep the owning validation and canonical SDK authoring paths enforced.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "Exact process-local original method-log evidence, not a new wire type or accepted marker. The owning PostgreSQL transaction invokes SDK Organization native authority verification and retains the original signed evidence for cold replay; arbitrary Value content is not authority.",
+      "adjudication": "manual"
+    },
+    {
+      "finding": "coland/crates/storage/src/authority_commit.rs::OrganizationPcrGovernanceChangeAdmissionWrite.organization_witness_records",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "arkret_identity::organization_pcr_genesis native log/witness verification",
+      "owner_repository": "coland",
+      "action": "Retain this exact reviewed boundary; keep the owning validation and canonical SDK authoring paths enforced.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "Exact process-local original method-log evidence, not a new wire type or accepted marker. The owning PostgreSQL transaction invokes SDK Organization native authority verification and retains the original signed evidence for cold replay; arbitrary Value content is not authority.",
+      "adjudication": "manual"
     },
     {
       "finding": "coland/crates/storage/src/idempotency.rs::IdempotencyRecord.response_body",
@@ -1402,6 +1438,30 @@
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
+    },
+    {
+      "finding": "coland/crates/storage/src/organization_pcr_genesis.rs::OrganizationPcrGenesisAdmissionWrite.organization_log_entries",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "arkret_identity::organization_pcr_genesis native log/witness verification",
+      "owner_repository": "coland",
+      "action": "Retain this exact reviewed boundary; keep the owning validation and canonical SDK authoring paths enforced.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "Exact process-local original method-log evidence, not a new wire type or accepted marker. The owning PostgreSQL transaction invokes SDK Organization native authority verification and retains the original signed evidence for cold replay; arbitrary Value content is not authority.",
+      "adjudication": "manual"
+    },
+    {
+      "finding": "coland/crates/storage/src/organization_pcr_genesis.rs::OrganizationPcrGenesisAdmissionWrite.organization_witness_records",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "arkret_identity::organization_pcr_genesis native log/witness verification",
+      "owner_repository": "coland",
+      "action": "Retain this exact reviewed boundary; keep the owning validation and canonical SDK authoring paths enforced.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "Exact process-local original method-log evidence, not a new wire type or accepted marker. The owning PostgreSQL transaction invokes SDK Organization native authority verification and retains the original signed evidence for cold replay; arbitrary Value content is not authority.",
+      "adjudication": "manual"
     },
     {
       "finding": "coland/crates/storage/src/principal_resolution.rs::PrincipalResolutionUpdateWrite.log_entries",
@@ -3327,6 +3387,18 @@
       "spec_pointer": "realm-authority-bundle.schema.json#/properties/current_route_record"
     },
     {
+      "finding": "crates/wire/src/authority_commit.rs::RealmAuthorityBundle.producer_signer_fact",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "realm-authority-bundle.schema.json#/properties/producer_signer_fact",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Decode to the sole SDK OrganizationGenesisSignerFact before authority use; non-Org bundles omit the field. No reverse wire-to-models dependency.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "Exact closed dependency boundary like current_route_record. The identity verifier decodes the typed immutable source and independently establishes Org intent and actual Service history before trusting G.",
+      "spec_pointer": "realm-authority-bundle.schema.json#/properties/producer_signer_fact"
+    },
+    {
       "finding": "crates/wire/src/event_envelope.rs::Event.external_ref",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
@@ -4405,7 +4477,7 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
-      "finding": "json_authoring:coland/crates/storage-postgres/src/realm_actor_governance.rs::commit:788c260caf844124",
+      "finding": "json_authoring:coland/crates/storage-postgres/src/realm_actor_governance.rs::commit_inner:788c260caf844124",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -4416,7 +4488,7 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
-      "finding": "json_authoring:coland/crates/storage-postgres/src/realm_actor_governance.rs::commit:ab418a8e6aee10e6",
+      "finding": "json_authoring:coland/crates/storage-postgres/src/realm_actor_governance.rs::commit_inner:ab418a8e6aee10e6",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -4427,7 +4499,7 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
-      "finding": "json_authoring:coland/crates/storage-postgres/src/realm_actor_governance.rs::commit:af8bcd04b5863912",
+      "finding": "json_authoring:coland/crates/storage-postgres/src/realm_actor_governance.rs::commit_inner:af8bcd04b5863912",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -4438,7 +4510,7 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
-      "finding": "json_authoring:coland/crates/storage-postgres/src/realm_actor_governance.rs::commit:ffd48d1ed02b8cc8",
+      "finding": "json_authoring:coland/crates/storage-postgres/src/realm_actor_governance.rs::commit_inner:ffd48d1ed02b8cc8",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -5083,6 +5155,18 @@
       "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
     },
     {
+      "finding": "json_path_mutation:coland/crates/storage-postgres/src/audit.rs::append:d066b83d538d2e1c",
+      "classification": "internal_or_fixture",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "Coland AuditStore local diagnostic sink; PgAuditStore::append",
+      "owner_repository": "coland",
+      "action": "Retain this exact reviewed boundary; keep the owning validation and canonical SDK authoring paths enforced.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "This exact removal strips the duplicate erasable payload from a local diagnostic record. It neither mutates a signed Event nor changes canonical or signed audit archives.",
+      "adjudication": "manual"
+    },
+    {
       "finding": "json_path_mutation:coland/crates/storage-postgres/src/authority_commit.rs::realm_state_snapshot_material_in_connection:e7a55ee369a15f91",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
@@ -5116,7 +5200,7 @@
       "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
     },
     {
-      "finding": "json_path_mutation:coland/crates/storage-postgres/src/message_revision_current_states.rs::commit_message_create_current_state_in_connection:71ec441b09c51eef",
+      "finding": "json_path_mutation:coland/crates/storage-postgres/src/message_revision_current_states.rs::commit_message_create_current_state_in_connection_inner:71ec441b09c51eef",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -6135,18 +6219,6 @@
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
-    },
-    {
-      "finding": "crates/wire/src/authority_commit.rs::RealmAuthorityBundle.producer_signer_fact",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "realm-authority-bundle.schema.json#/properties/producer_signer_fact",
-      "owner_repository": "arkret-rust-sdk",
-      "action": "Decode to the sole SDK OrganizationGenesisSignerFact before authority use; non-Org bundles omit the field. No reverse wire-to-models dependency.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "Exact closed dependency boundary like current_route_record. The identity verifier decodes the typed immutable source and independently establishes Org intent and actual Service history before trusting G.",
-      "spec_pointer": "realm-authority-bundle.schema.json#/properties/producer_signer_fact"
     }
   ]
 }

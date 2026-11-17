@@ -19,8 +19,8 @@ pub const SIDECAR_EXCHANGE_CLOSED_EMPTY_REASON: &str = "controller_closed_empty"
 /// Failure reason a controller derives when it cancels an exchange.
 pub const SIDECAR_EXCHANGE_CANCELLED_REASON: &str = "controller_cancelled";
 
-/// Accepted participant inputs at one durable cut. This internal authority
-/// provider result does not introduce a new wire object or operation.
+/// Accepted participant inputs observed by the owning Station. This internal
+/// authority provider result does not introduce a new wire object or operation.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SidecarParticipantAuthorityCut {
     pub realm_id: RealmId,
@@ -28,7 +28,6 @@ pub struct SidecarParticipantAuthorityCut {
     pub controller_account_id: AccountId,
     pub desired_agent_ids: Vec<DidCoreId>,
     pub participant_authority_digest: Hash,
-    pub authority_stream_head: Vec<EventId>,
     pub visible_stream_heads: Vec<CommitStreamHead>,
 }
 
@@ -525,63 +524,48 @@ pub enum SidecarAccessProvisioningPhase {
 // Field declaration order is byte-for-byte the properties order of
 // agent-operations.schema.json#/$defs/pending_sidecar_access_reconciliation.
 
-/// Upper bound of `authority_stream_head`, equal to the MLS governance binding
-/// decoder `maximum_collection_items`.
-pub const SIDECAR_AUTHORITY_STREAM_HEAD_MAX_ITEMS: usize = 64;
-
 /// Domain member for the signed Sidecar participant-authority transcript.
 pub const SIDECAR_PARTICIPANT_AUTHORITY_DOMAIN: &str = "ak.sidecar.participant_authority.v1";
 
-#[derive(Serialize)]
-struct SidecarParticipantAuthorityTranscript<'a> {
-    domain: &'static str,
-    sidecar_id: &'a SidecarId,
-    realm_id: &'a RealmId,
-    controller_account_id: &'a AccountId,
-    desired_agent_ids: Vec<DidCoreId>,
-}
-
 /// Compute the canonical participant-authority digest for one Sidecar.
 ///
-/// `desired_agent_ids` is normalized by UTF-8 byte order before the exact
-/// five-member transcript is hashed. The effective MLS roster and authority
-/// stream head are deliberately not part of this digest.
+/// Desired Agent/join pairs are sorted by Agent ID UTF-8 bytes before hashing
+/// the generated five-member preimage. Repeated Agent IDs are rejected, even
+/// when their join refs agree. Native eligibility is the owning Station's
+/// responsibility; this helper only commits the supplied membership instances.
 pub fn sidecar_participant_authority_digest(
     sidecar_id: &SidecarId,
     realm_id: &RealmId,
     controller_account_id: &AccountId,
-    desired_agent_ids: &[DidCoreId],
+    desired_agents: &[SidecarParticipantAuthorityAgent],
 ) -> Result<Hash> {
     controller_account_id.validate()?;
-    let mut desired_agent_ids = desired_agent_ids.to_vec();
-    desired_agent_ids
-        .sort_by(|left, right| left.as_str().as_bytes().cmp(right.as_str().as_bytes()));
-    desired_agent_ids.dedup_by(|left, right| left.as_str() == right.as_str());
+    let mut desired_agents = desired_agents.to_vec();
+    desired_agents.sort_by(|left, right| {
+        left.agent_id
+            .as_str()
+            .as_bytes()
+            .cmp(right.agent_id.as_str().as_bytes())
+    });
+    if desired_agents
+        .windows(2)
+        .any(|pair| pair[0].agent_id == pair[1].agent_id)
+    {
+        return Err(WireError::Protocol(
+            "Sidecar participant authority requires unique Agent IDs".to_owned(),
+        ));
+    }
 
     Hash::new(arkret_canonical::canonical_sha256(
-        &SidecarParticipantAuthorityTranscript {
-            domain: SIDECAR_PARTICIPANT_AUTHORITY_DOMAIN,
-            sidecar_id,
-            realm_id,
-            controller_account_id,
-            desired_agent_ids,
+        &SidecarParticipantAuthorityPreimage {
+            domain: SIDECAR_PARTICIPANT_AUTHORITY_DOMAIN.to_owned(),
+            sidecar_id: sidecar_id.clone(),
+            realm_id: realm_id.clone(),
+            controller_account_id: controller_account_id.clone(),
+            desired_agents,
         },
     )?)
     .map_err(Into::into)
-}
-
-/// Return the canonical Sidecar authority cut: UTF-8 sorted, deduplicated and
-/// bounded to the MLS governance-binding decoder's 64-item limit.
-pub fn normalize_sidecar_authority_stream_head(authority_refs: &[EventId]) -> Result<Vec<EventId>> {
-    let mut normalized = authority_refs.to_vec();
-    normalized.sort_by(|left, right| left.as_str().as_bytes().cmp(right.as_str().as_bytes()));
-    normalized.dedup_by(|left, right| left.as_str() == right.as_str());
-    if normalized.is_empty() || normalized.len() > SIDECAR_AUTHORITY_STREAM_HEAD_MAX_ITEMS {
-        return Err(WireError::Protocol(
-            "sidecar MLS authority refs must normalize to 1..=64 items".to_owned(),
-        ));
-    }
-    Ok(normalized)
 }
 
 // MLS coordinates of one Sidecar scope. The MLS scope is plaintext before its
@@ -592,22 +576,6 @@ pub fn normalize_sidecar_authority_stream_head(authority_refs: &[EventId]) -> Re
 
 impl AgentSidecarMlsContext {
     pub fn validate_shape(&self) -> Result<()> {
-        if self.authority_stream_head.is_empty()
-            || self.authority_stream_head.len() > SIDECAR_AUTHORITY_STREAM_HEAD_MAX_ITEMS
-        {
-            return Err(WireError::Protocol(
-                "sidecar MLS context carries 1..=64 authority refs".to_owned(),
-            ));
-        }
-        if self
-            .authority_stream_head
-            .windows(2)
-            .any(|pair| pair[0].as_str() >= pair[1].as_str())
-        {
-            return Err(WireError::Protocol(
-                "sidecar MLS authority refs must be sorted and unique".to_owned(),
-            ));
-        }
         let present = usize::from(self.mls_group_id.is_some())
             + usize::from(self.epoch.is_some())
             + usize::from(self.genesis_event_ref.is_some());
@@ -627,505 +595,6 @@ impl AgentSidecarMlsContext {
 }
 
 #[cfg(test)]
-mod tests {
-    use serde_json::json;
-
-    use super::*;
-
-    fn realm_id() -> RealmId {
-        RealmId::from_event_id(&event_id(1))
-    }
-
-    fn event_id(byte: u8) -> EventId {
-        EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [byte; 32])
-    }
-
-    fn sidecar_id() -> SidecarId {
-        SidecarId::from_event_id(&event_id(2))
-    }
-
-    fn strand_id() -> StrandId {
-        StrandId::from_event_id(&event_id(3))
-    }
-
-    fn account_id() -> serde_json::Value {
-        json!({
-            "principal_id": "ak:did_core:webvh:z6mkfixture:alice.example",
-            "station_id": "ak:did_core:web:station.example"
-        })
-    }
-
-    fn typed_account_id() -> AccountId {
-        serde_json::from_value(account_id()).unwrap()
-    }
-
-    const AGENT_ID: &str = "ak:did_core:webvh:z6mkfixture:agent.example";
-    const EXCHANGE_ID: &str = "exchange-fixture-0000001";
-    const HLC: &str = "0198ff000000-0001-0a0b0c0d";
-
-    #[test]
-    fn encrypted_control_current_is_closed_sorted_and_context_bound() {
-        use crate::exact_current_state::CanonicalEventDot;
-        let entry = |byte| {
-            AgentSidecarExchangeControlAssertion {
-            tag_id: CanonicalEventDot::new(event_id(byte), 0).unwrap(),
-            value: serde_json::from_value(json!({
-                "sidecar_id": sidecar_id(),
-                "source_context_ref": {"kind":"strand","strand_id":strand_id()},
-                "encrypted_payload": ({
-                    let fixture: serde_json::Value = serde_json::from_str(include_str!("../../../../arkret-spec/spec/v1/artifacts/fixtures/content-history-fixture.json")).unwrap();
-                    let mut envelope = fixture["kat"]["envelope"].clone();
-                    envelope["content_type"] = json!("application/vnd.arkret.agent-sidecar-exchange-control+json");
-                    envelope
-                })
-            })).unwrap(),
-        }
-        };
-        let mut entries = vec![entry(4), entry(5)];
-        entries.sort_by(|a, b| a.tag_id.cmp(&b.tag_id));
-        let current = AgentSidecarExchangeControlsValue::new(entries.clone()).unwrap();
-        let encoded = serde_json::to_value(&current).unwrap();
-        assert_eq!(
-            serde_json::from_value::<AgentSidecarExchangeControlsValue>(encoded.clone()).unwrap(),
-            current
-        );
-        let mut unknown = encoded;
-        unknown["exchange_id"] = json!(EXCHANGE_ID);
-        assert!(serde_json::from_value::<AgentSidecarExchangeControlsValue>(unknown).is_err());
-        entries.reverse();
-        assert!(AgentSidecarExchangeControlsValue::new(entries).is_err());
-        assert!(current.clone().with_assertion(entry(4)).is_err());
-        let mut wrong_dot = entry(6);
-        wrong_dot.tag_id = CanonicalEventDot::new(event_id(6), 1).unwrap();
-        assert!(current.clone().with_assertion(wrong_dot).is_err());
-        assert!(
-            current
-                .validate_for_context(
-                    &SidecarId::from_event_id(&event_id(8)),
-                    &arkret_wire::SidecarContextRef::Strand {
-                        strand_id: strand_id()
-                    }
-                )
-                .is_err()
-        );
-        let selector = arkret_wire::CurrentSelector::AgentSidecarExchangeControls {
-            sidecar_id: sidecar_id(),
-            source_context_ref: arkret_wire::SidecarContextRef::Strand {
-                strand_id: strand_id(),
-            },
-        };
-        assert_eq!(
-            serde_json::from_value::<arkret_wire::CurrentSelector>(
-                serde_json::to_value(&selector).unwrap()
-            )
-            .unwrap(),
-            selector
-        );
-    }
-
-    #[test]
-    fn exchange_control_rejects_noncanonical_sets_and_invalid_tokens() {
-        let mut control: AgentSidecarExchangeControl =
-            serde_json::from_value(control_value()).unwrap();
-        control.validate_shape().unwrap();
-        control
-            .basis_event_ids
-            .push(control.basis_event_ids[0].clone());
-        assert!(control.validate_shape().is_err());
-        control.basis_event_ids.pop();
-        control.exchange_id = "too-short".to_owned();
-        assert!(control.validate_shape().is_err());
-        control.exchange_id = "opaque.exchange~=0000000001".to_owned();
-        control.validate_shape().unwrap();
-    }
-
-    fn sidecar_value() -> serde_json::Value {
-        json!({
-            "id": sidecar_id(),
-            "schema": "ak.schema.agent_sidecar.v1",
-            "realm_id": realm_id(),
-            "controller_account_id": account_id(),
-            "state": "active",
-            "created_at": "2026-08-01T00:00:00.000Z"
-        })
-    }
-
-    #[test]
-    fn agent_sidecar_round_trips_and_is_closed() {
-        let value = sidecar_value();
-        let parsed: AgentSidecar = serde_json::from_value(value.clone()).expect("closed sidecar");
-        parsed.validate_shape().expect("valid sidecar");
-        assert_eq!(serde_json::to_value(&parsed).unwrap(), value);
-
-        let mut unknown = value.clone();
-        unknown
-            .as_object_mut()
-            .unwrap()
-            .insert("encryption_profile".to_owned(), json!("x"));
-        assert!(serde_json::from_value::<AgentSidecar>(unknown).is_err());
-
-        let mut missing = value;
-        missing.as_object_mut().unwrap().remove("realm_id");
-        assert!(serde_json::from_value::<AgentSidecar>(missing).is_err());
-    }
-
-    #[test]
-    fn suspended_sidecar_requires_state_changed_at() {
-        let mut value = sidecar_value();
-        value["state"] = json!("suspended");
-        let parsed: AgentSidecar = serde_json::from_value(value.clone()).expect("shape parses");
-        assert!(parsed.validate_shape().is_err());
-
-        value["state_changed_at"] = json!("2026-08-02T00:00:00.000Z");
-        let parsed: AgentSidecar = serde_json::from_value(value).expect("shape parses");
-        parsed.validate_shape().expect("suspended sidecar is valid");
-    }
-
-    #[test]
-    fn view_state_round_trips_and_is_closed() {
-        let value = json!({
-            "schema": "ak.schema.agent_sidecar_view_state.v1",
-            "controller_account_id": account_id(),
-            "sidecar_id": sidecar_id(),
-            "context_ref": {"realm_id": realm_id(), "strand_id": strand_id()},
-            "updated_hlc": HLC,
-            "origin_device_id": "ak:device:0198ff00-0000-7000-8000-00000000000a"
-        });
-        let parsed: AgentSidecarViewState =
-            serde_json::from_value(value.clone()).expect("closed view state");
-        parsed.validate_shape().expect("valid view state");
-        assert_eq!(serde_json::to_value(&parsed).unwrap(), value);
-
-        let mut unknown = value.clone();
-        unknown
-            .as_object_mut()
-            .unwrap()
-            .insert("sidecar_control_frontier".to_owned(), json!([]));
-        assert!(serde_json::from_value::<AgentSidecarViewState>(unknown).is_err());
-
-        for mode in ["context_merged", "sidecar_only"] {
-            let mut obsolete = value.clone();
-            obsolete["display_mode"] = json!(mode);
-            assert!(serde_json::from_value::<AgentSidecarViewState>(obsolete).is_err());
-        }
-
-        let mut missing = value;
-        missing.as_object_mut().unwrap().remove("updated_hlc");
-        assert!(serde_json::from_value::<AgentSidecarViewState>(missing).is_err());
-    }
-
-    fn control_value() -> serde_json::Value {
-        json!({
-            "schema": "ak.schema.agent_sidecar_exchange_control.v1",
-            "exchange_id": EXCHANGE_ID,
-            "request_event_id": event_id(4),
-            "basis_event_ids": [event_id(4), event_id(5)],
-            "action": "close",
-            "response_event_ids": [event_id(5)]
-        })
-    }
-
-    #[test]
-    fn exchange_control_round_trips_and_is_closed() {
-        let value = control_value();
-        let parsed: AgentSidecarExchangeControl =
-            serde_json::from_value(value.clone()).expect("closed control");
-        parsed.validate_shape().expect("valid control");
-        assert_eq!(serde_json::to_value(&parsed).unwrap(), value);
-
-        let mut unknown = value.clone();
-        unknown
-            .as_object_mut()
-            .unwrap()
-            .insert("control_proposal".to_owned(), json!({}));
-        assert!(serde_json::from_value::<AgentSidecarExchangeControl>(unknown).is_err());
-
-        let mut missing = value;
-        missing.as_object_mut().unwrap().remove("action");
-        assert!(serde_json::from_value::<AgentSidecarExchangeControl>(missing).is_err());
-    }
-
-    #[test]
-    fn terminal_and_reassign_controls_carry_disjoint_members() {
-        let mut fail = control_value();
-        fail["action"] = json!("fail");
-        let parsed: AgentSidecarExchangeControl =
-            serde_json::from_value(fail.clone()).expect("shape parses");
-        assert!(parsed.validate_shape().is_err());
-        fail["failure_reason_code"] = json!("agent_unavailable");
-        let parsed: AgentSidecarExchangeControl =
-            serde_json::from_value(fail).expect("shape parses");
-        parsed.validate_shape().expect("fail control is valid");
-
-        let mut reassign = control_value();
-        reassign["action"] = json!("reassign_coordinator");
-        let parsed: AgentSidecarExchangeControl =
-            serde_json::from_value(reassign.clone()).expect("shape parses");
-        assert!(parsed.validate_shape().is_err());
-
-        reassign
-            .as_object_mut()
-            .unwrap()
-            .remove("response_event_ids");
-        reassign["expected_coordinator_agent_id"] = json!(AGENT_ID);
-        reassign["coordinator_agent_id"] = json!(AGENT_ID);
-        let parsed: AgentSidecarExchangeControl =
-            serde_json::from_value(reassign).expect("shape parses");
-        parsed.validate_shape().expect("reassign control is valid");
-    }
-
-    fn projection_value() -> serde_json::Value {
-        json!({
-            "schema": "ak.schema.agent_sidecar_exchange_projection.v1",
-            "controller_account_id": account_id(),
-            "sidecar_id": sidecar_id(),
-            "exchange_id": EXCHANGE_ID,
-            "source_track_ref": {
-                "realm_id": realm_id(),
-                "strand_id": strand_id(),
-                "track_name": "main"
-            },
-            "source_hlc": HLC,
-            "client_order_key": "order-1",
-            "addressed_agent_ids": [AGENT_ID],
-            "coordinator_agent_id": AGENT_ID,
-            "coordinator_assignment_event_id": event_id(4),
-            "participating_agent_ids": [AGENT_ID],
-            "private_request_event_id": event_id(4),
-            "user_facing_response_event_ids": [],
-            "status": "delivered",
-            "folded_checkpoint": {
-                "event_ids": [event_id(4)],
-                "event_set_digest": format!("sha256:{}", "ab".repeat(32)),
-                "max_hlc": HLC
-            }
-        })
-    }
-
-    #[test]
-    fn exchange_projection_round_trips_and_is_closed() {
-        let value = projection_value();
-        let parsed: AgentSidecarExchangeProjection =
-            serde_json::from_value(value.clone()).expect("closed projection");
-        parsed.validate_shape().expect("valid projection");
-        assert_eq!(serde_json::to_value(&parsed).unwrap(), value);
-
-        let mut unknown = value.clone();
-        unknown
-            .as_object_mut()
-            .unwrap()
-            .insert("cas_revision".to_owned(), json!(2));
-        assert!(serde_json::from_value::<AgentSidecarExchangeProjection>(unknown).is_err());
-
-        let mut missing = value;
-        missing.as_object_mut().unwrap().remove("folded_checkpoint");
-        assert!(serde_json::from_value::<AgentSidecarExchangeProjection>(missing).is_err());
-    }
-
-    #[test]
-    fn failed_projection_carries_no_responses() {
-        let mut value = projection_value();
-        value["status"] = json!("failed");
-        value["user_facing_response_event_ids"] = json!([event_id(5)]);
-        value["failure_reason_code"] = json!("agent_unavailable");
-        value["terminal_event_id"] = json!(event_id(6));
-        let parsed: AgentSidecarExchangeProjection =
-            serde_json::from_value(value.clone()).expect("shape parses");
-        assert!(parsed.validate_shape().is_err());
-
-        value["user_facing_response_event_ids"] = json!([]);
-        let parsed: AgentSidecarExchangeProjection =
-            serde_json::from_value(value).expect("shape parses");
-        parsed.validate_shape().expect("failed projection is valid");
-    }
-
-    #[test]
-    fn request_binding_carries_only_its_request_context() {
-        let value = json!({
-            "schema": "ak.schema.agent_sidecar_event_exchange_binding.v1",
-            "exchange_id": EXCHANGE_ID,
-            "role": "request",
-            "request_context": {
-                "source_track_ref": {
-                    "realm_id": realm_id(),
-                    "strand_id": strand_id(),
-                    "track_name": "main"
-                },
-                "source_hlc": HLC,
-                "client_order_key": "order-1",
-                "addressed_agent_ids": [AGENT_ID]
-            }
-        });
-        let parsed: AgentSidecarEventExchangeBinding =
-            serde_json::from_value(value.clone()).expect("closed binding");
-        parsed.validate_shape().expect("valid request binding");
-        assert_eq!(serde_json::to_value(&parsed).unwrap(), value);
-
-        let mut with_event = value.clone();
-        with_event["request_event_id"] = json!(event_id(4));
-        let parsed: AgentSidecarEventExchangeBinding =
-            serde_json::from_value(with_event).expect("shape parses");
-        assert!(parsed.validate_shape().is_err());
-
-        let mut unknown = value.clone();
-        unknown
-            .as_object_mut()
-            .unwrap()
-            .insert("message_id".to_owned(), json!("x"));
-        assert!(serde_json::from_value::<AgentSidecarEventExchangeBinding>(unknown).is_err());
-
-        let mut missing = value;
-        missing.as_object_mut().unwrap().remove("role");
-        assert!(serde_json::from_value::<AgentSidecarEventExchangeBinding>(missing).is_err());
-    }
-
-    #[test]
-    fn completion_request_needs_its_coordinator_assignment() {
-        let mut value = json!({
-            "schema": "ak.schema.agent_sidecar_event_exchange_binding.v1",
-            "exchange_id": EXCHANGE_ID,
-            "role": "user_facing_response",
-            "request_event_id": event_id(4),
-            "completes_exchange": true
-        });
-        let parsed: AgentSidecarEventExchangeBinding =
-            serde_json::from_value(value.clone()).expect("shape parses");
-        assert!(parsed.validate_shape().is_err());
-
-        value["coordinator_assignment_event_id"] = json!(event_id(7));
-        let parsed: AgentSidecarEventExchangeBinding =
-            serde_json::from_value(value).expect("shape parses");
-        parsed
-            .validate_shape()
-            .expect("completion binding is valid");
-    }
-
-    #[test]
-    fn mls_context_group_members_travel_together() {
-        let value = json!({
-            "participant_authority_digest": format!("sha256:{}", "cd".repeat(32)),
-            "authority_stream_head": [event_id(8)],
-            "current_controller_device_ready": false
-        });
-        let parsed: AgentSidecarMlsContext =
-            serde_json::from_value(value.clone()).expect("closed context");
-        parsed.validate_shape().expect("pre-activation context");
-        assert!(!parsed.is_mls_activated());
-        assert_eq!(serde_json::to_value(&parsed).unwrap(), value);
-
-        let mut partial = value.clone();
-        partial["mls_group_id"] = json!("c2lkZWNhcg");
-        let parsed: AgentSidecarMlsContext = serde_json::from_value(partial).expect("shape parses");
-        assert!(parsed.validate_shape().is_err());
-
-        let mut unknown = value.clone();
-        unknown
-            .as_object_mut()
-            .unwrap()
-            .insert("encryption_floor".to_owned(), json!("x"));
-        assert!(serde_json::from_value::<AgentSidecarMlsContext>(unknown).is_err());
-
-        let mut missing = value;
-        missing
-            .as_object_mut()
-            .unwrap()
-            .remove("current_controller_device_ready");
-        assert!(serde_json::from_value::<AgentSidecarMlsContext>(missing).is_err());
-    }
-
-    #[test]
-    fn mls_context_authority_stream_head_is_bounded() {
-        let mut head = (0..=64_u8).map(event_id).collect::<Vec<_>>();
-        head.sort_by(|left, right| left.as_str().cmp(right.as_str()));
-        let mut context = AgentSidecarMlsContext {
-            participant_authority_digest: Hash::new(format!("sha256:{}", "cd".repeat(32))).unwrap(),
-            authority_stream_head: head,
-            mls_group_id: None,
-            epoch: None,
-            genesis_event_ref: None,
-            current_controller_device_ready: false,
-        };
-        assert!(context.validate_shape().is_err());
-        context.authority_stream_head.pop();
-        context
-            .validate_shape()
-            .expect("64 refs fit the decoder bound");
-    }
-
-    #[test]
-    fn participant_authority_digest_normalizes_desired_agents_and_matches_kat() {
-        let agent_a = DidCoreId::new("ak:did_core:webvh:z6mkfixture:agent-a.example").unwrap();
-        let agent_b = DidCoreId::new("ak:did_core:webvh:z6mkfixture:agent-b.example").unwrap();
-        let unordered = vec![agent_b.clone(), agent_a.clone(), agent_b];
-        let digest = sidecar_participant_authority_digest(
-            &SidecarId::new("ak:sidecar:AZUfzdx1qBOtCsg2CGmS3QLP7vlDe_kxRx0pxdxefWTa").unwrap(),
-            &RealmId::new("ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5").unwrap(),
-            &typed_account_id(),
-            &unordered,
-        )
-        .unwrap();
-
-        assert_eq!(
-            digest.as_str(),
-            "sha256:8dd408915026b3c60d80b0d4f8959196ea9efcdcfff0f8227c3ba97fcc6224d6"
-        );
-        assert_eq!(
-            digest,
-            sidecar_participant_authority_digest(
-                &SidecarId::new("ak:sidecar:AZUfzdx1qBOtCsg2CGmS3QLP7vlDe_kxRx0pxdxefWTa",)
-                    .unwrap(),
-                &RealmId::new("ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5",).unwrap(),
-                &typed_account_id(),
-                &[
-                    agent_a,
-                    DidCoreId::new("ak:did_core:webvh:z6mkfixture:agent-b.example",).unwrap(),
-                ],
-            )
-            .unwrap()
-        );
-    }
-
-    #[test]
-    fn authority_stream_head_normalizer_sorts_deduplicates_and_bounds() {
-        let normalized = normalize_sidecar_authority_stream_head(&[
-            event_id(3),
-            event_id(1),
-            event_id(3),
-            event_id(2),
-        ])
-        .unwrap();
-        assert_eq!(normalized.len(), 3);
-        assert!(
-            normalized
-                .windows(2)
-                .all(|pair| pair[0].as_str() < pair[1].as_str())
-        );
-        assert!(normalize_sidecar_authority_stream_head(&[]).is_err());
-
-        let too_many = (0..=64_u8).map(event_id).collect::<Vec<_>>();
-        assert!(normalize_sidecar_authority_stream_head(&too_many).is_err());
-    }
-
-    #[test]
-    fn pending_reconciliation_item_round_trips_and_is_closed() {
-        let value = json!({"agent_id": AGENT_ID, "provisioning_phase": "mls_welcome"});
-        let parsed: PendingSidecarAccessReconciliation =
-            serde_json::from_value(value.clone()).expect("closed item");
-        assert_eq!(serde_json::to_value(&parsed).unwrap(), value);
-
-        assert!(
-            serde_json::from_value::<PendingSidecarAccessReconciliation>(
-                json!({"agent_id": AGENT_ID, "provisioning_phase": "mls_welcome", "reason": "x"})
-            )
-            .is_err()
-        );
-        assert!(
-            serde_json::from_value::<PendingSidecarAccessReconciliation>(
-                json!({"agent_id": AGENT_ID})
-            )
-            .is_err()
-        );
-    }
-}
+mod tests;
 
 include!("generated/agent_sidecar_contracts.rs");

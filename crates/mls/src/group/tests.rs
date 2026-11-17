@@ -873,7 +873,6 @@ fn sidecar_frozen_add_verifies_public_transition_without_rewinding_live_ratchets
             next,
             revision,
             Hash::new(canonical::sha256_digest([4])).unwrap(),
-            vec![event(5)],
         )
         .unwrap()
     };

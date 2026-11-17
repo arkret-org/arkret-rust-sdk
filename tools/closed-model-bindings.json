@@ -347,7 +347,9 @@
     "agent-operations.schema.json#/$defs/agent_participation_view/properties/next_replace_input": "arkret_models_identity::ParticipationNextReplaceInput",
     "authority-commit-operations.schema.json#/$defs/client_mls_commit_submission": "arkret_wire::MlsCommitSubmission",
     "mls-commit-submission.schema.json": "crate::content_history::PeerMlsCommitSubmission",
-    "authority-commit-operations.schema.json#/$defs/organization_genesis_signer_fact": "arkret_models_collaboration::authority_commit::OrganizationGenesisSignerFact"
+    "authority-commit-operations.schema.json#/$defs/organization_genesis_signer_fact": "arkret_models_collaboration::authority_commit::OrganizationGenesisSignerFact",
+    "agent-operations.schema.json#/$defs/sidecar_participant_authority_preimage": "crate::agent_sidecar::SidecarParticipantAuthorityPreimage",
+    "agent-operations.schema.json#/$defs/sidecar_participant_authority_preimage/properties/desired_agents/items": "crate::agent_sidecar::SidecarParticipantAuthorityAgent"
   },
   "families": [
     {
@@ -9082,6 +9084,76 @@
           }
         },
         {
+          "name": "SidecarParticipantAuthorityPreimage",
+          "schema": "agent-operations.schema.json#/$defs/sidecar_participant_authority_preimage",
+          "rust": {
+            "signature": "pub struct SidecarParticipantAuthorityPreimage",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "domain": {
+                "name": "domain",
+                "visibility": "pub",
+                "type": "String",
+                "attributes": []
+              },
+              "sidecar_id": {
+                "name": "sidecar_id",
+                "visibility": "pub",
+                "type": "SidecarId",
+                "attributes": []
+              },
+              "realm_id": {
+                "name": "realm_id",
+                "visibility": "pub",
+                "type": "RealmId",
+                "attributes": []
+              },
+              "controller_account_id": {
+                "name": "controller_account_id",
+                "visibility": "pub",
+                "type": "AccountId",
+                "attributes": []
+              },
+              "desired_agents": {
+                "name": "desired_agents",
+                "visibility": "pub",
+                "type": "Vec<SidecarParticipantAuthorityAgent>",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "SidecarParticipantAuthorityAgent",
+          "schema": "agent-operations.schema.json#/$defs/sidecar_participant_authority_preimage/properties/desired_agents/items",
+          "rust": {
+            "signature": "pub struct SidecarParticipantAuthorityAgent",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "agent_id": {
+                "name": "agent_id",
+                "visibility": "pub",
+                "type": "DidCoreId",
+                "attributes": []
+              },
+              "join_event_ref": {
+                "name": "join_event_ref",
+                "visibility": "pub",
+                "type": "EventId",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
           "name": "AgentSidecarMlsContext",
           "schema": "agent-operations.schema.json#/$defs/agent_sidecar_mls_context",
           "rust": {
@@ -9099,12 +9171,6 @@
                 "name": "participant_authority_digest",
                 "visibility": "pub",
                 "type": "Hash",
-                "attributes": []
-              },
-              "authority_stream_head": {
-                "name": "authority_stream_head",
-                "visibility": "pub",
-                "type": "Vec<EventId>",
                 "attributes": []
               },
               "mls_group_id": {

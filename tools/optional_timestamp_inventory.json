@@ -1,8 +1,8 @@
 {
-  "total": 167,
+  "total": 168,
   "counts": {
     "internal": 45,
-    "optional_has_default": 119,
+    "optional_has_default": 120,
     "required": 3
   },
   "sites": [
@@ -80,7 +80,7 @@
     },
     {
       "file": "crates/models-collaboration/src/agent_sidecar.rs",
-      "line": 60,
+      "line": 59,
       "struct_name": "AgentSidecar",
       "field_name": "state_changed_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -92,7 +92,7 @@
     },
     {
       "file": "crates/models-collaboration/src/agent_sidecar.rs",
-      "line": 68,
+      "line": 67,
       "struct_name": "AgentSidecar",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -548,7 +548,7 @@
     },
     {
       "file": "crates/models-collaboration/src/governance/circle.rs",
-      "line": 186,
+      "line": 185,
       "struct_name": "Circle",
       "field_name": "state_changed_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -560,7 +560,7 @@
     },
     {
       "file": "crates/models-collaboration/src/governance/circle.rs",
-      "line": 194,
+      "line": 193,
       "struct_name": "Circle",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -572,7 +572,7 @@
     },
     {
       "file": "crates/models-collaboration/src/governance/circle.rs",
-      "line": 227,
+      "line": 226,
       "struct_name": "CircleView",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -980,7 +980,7 @@
     },
     {
       "file": "crates/models-collaboration/src/objects/productivity.rs",
-      "line": 1741,
+      "line": 1726,
       "struct_name": "AccountBlocklistEntry",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1028,7 +1028,7 @@
     },
     {
       "file": "crates/models-collaboration/src/objects/queries.rs",
-      "line": 114,
+      "line": 185,
       "struct_name": "View",
       "field_name": "state_changed_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1040,7 +1040,7 @@
     },
     {
       "file": "crates/models-collaboration/src/objects/queries.rs",
-      "line": 142,
+      "line": 213,
       "struct_name": "View",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1891,6 +1891,18 @@
       "classification": "optional_has_default"
     },
     {
+      "file": "crates/models-identity/src/organization_governance.rs",
+      "line": 30,
+      "struct_name": "OrganizationServiceDelegation",
+      "field_name": "expires_at",
+      "field_type": "Option<DateTime<Utc>>",
+      "has_default": true,
+      "has_skip": true,
+      "schema_pointer": "did-binding-contracts.schema.json#/$defs/organization_service_delegation",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
+    },
+    {
       "file": "crates/models-identity/src/signer_key_operations.rs",
       "line": 754,
       "struct_name": "SignerKeyQueryResultWireRef",
@@ -1976,7 +1988,7 @@
     },
     {
       "file": "crates/wire/src/authority_commit.rs",
-      "line": 2748,
+      "line": 2769,
       "struct_name": "MemberStateValue",
       "field_name": "joined_at",
       "field_type": "Option<DateTime<Utc>>",

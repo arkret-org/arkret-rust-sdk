@@ -8,7 +8,7 @@
 // sha256=952900cbdbafc71f26a703a9cf423fa07fc67d9741e833df9ad949fce0db9508
 //
 // Input: schemas/agent-operations.schema.json
-// sha256=80fba7d397f1c4d067304c83b87dcdacee8db4585991eda985aceb0272890fa1
+// sha256=ea3f7e2004e5af42575146f7f0a56a7a80ad65c234b8b92a8b49486aa5b4cebe
 //
 // Input: schemas/common-ids.schema.json
 // sha256=81b18acd21f4382860d5cab2384d9bb78ee5dbc23629752a6cc74ce384186149
@@ -29,7 +29,7 @@
 // sha256=6652f814405afb672ebc20ca69bdd58f47a3847606d5f5b890b3306b5949d947
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=7d1fdb47ec4baf0bbf7ecbf1969f8fff785140d5d15b0d6fadc690db7bbd4a62
+// sha256=6f2298d507cfeaf587b0a77d565af971535b7d029bf667f2e4b743448bcc016f
 
 /// Counterpart: `agent-sidecar-view-state.schema.json`.
 /// Controller-private encrypted account-data plaintext for one hosted Sidecar
@@ -90,6 +90,29 @@ pub struct SidecarSourceTrackRef {
     pub track_name: String,
 }
 
+/// Counterpart: `agent-operations.schema.json#/$defs/sidecar_participant_authority_preimage`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SidecarParticipantAuthorityPreimage {
+    pub domain: String,
+    pub sidecar_id: SidecarId,
+    pub realm_id: RealmId,
+    pub controller_account_id: AccountId,
+    pub desired_agents: Vec<SidecarParticipantAuthorityAgent>,
+}
+
+/// Counterpart:
+/// `agent-operations.schema.json#/$defs/sidecar_participant_authority_preimage/properties/
+/// desired_agents/items`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SidecarParticipantAuthorityAgent {
+    pub agent_id: DidCoreId,
+    pub join_event_ref: EventId,
+}
+
 /// Counterpart: `agent-operations.schema.json#/$defs/agent_sidecar_mls_context`.
 /// MLS coordinates of one Sidecar scope. The MLS scope is plaintext before its
 /// own accepted `ak.mls.genesis` and irreversibly activates to standard
@@ -99,7 +122,6 @@ pub struct SidecarSourceTrackRef {
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarMlsContext {
     pub participant_authority_digest: Hash,
-    pub authority_stream_head: Vec<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
     pub mls_group_id: Option<String>,
