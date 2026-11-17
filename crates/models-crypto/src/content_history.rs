@@ -98,7 +98,6 @@ impl ContentBackupSourceDraft {
         self,
         signature: crate::KeyOperationSignature,
     ) -> Result<ContentBackupSourceAttestation> {
-        self.validate()?;
         let source = ContentBackupSourceAttestation {
             event_ref: self.event_ref,
             event_original_digest: self.event_original_digest,

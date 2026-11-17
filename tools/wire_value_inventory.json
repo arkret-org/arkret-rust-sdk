@@ -1,6 +1,6 @@
 {
   "summary": {
-    "total": 533,
+    "total": 532,
     "scope": {
       "repositories": [
         "arkret-rust-sdk",
@@ -74,7 +74,7 @@
     "by_category": {
       "closed_dispatch": 5,
       "json_authoring": 114,
-      "json_path_mutation": 80,
+      "json_path_mutation": 79,
       "paired_api": 14,
       "public_value_field": 320
     },
@@ -82,15 +82,15 @@
       "independent": 13,
       "internal_or_fixture": 25,
       "open_json": 78,
-      "polymorphic_boundary": 417
+      "polymorphic_boundary": 416
     },
     "by_lifecycle": {
-      "retained_boundary": 533
+      "retained_boundary": 532
     },
     "by_decision": {
       "independent": 16,
       "open": 78,
-      "raw": 439
+      "raw": 438
     },
     "by_owner_repository": {
       "arkret-rust-sdk": 199,
@@ -101,14 +101,14 @@
       "flagon": 1,
       "floria": 12,
       "garth": 3,
-      "inkson": 46
+      "inkson": 45
     },
     "by_schema_shape": {
       "closed": 6,
       "open_json": 6,
       "open_json_container": 18,
       "open_map": 52,
-      "unknown": 451
+      "unknown": 450
     }
   },
   "entries": [
@@ -12836,31 +12836,6 @@
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact decrypted metadata validation view starts from typed Strand, removes encrypted_metadata, installs the opened plaintext, applies the validated SDK Patch, then immediately deserializes to typed Strand and validates profile activation and Calendar metadata. The temporary Value is never submitted or signed; it validates the post-patch plaintext branch before encryption, as required by strand.schema.json metadata/encrypted_metadata and profile activation rules.",
       "evidence": "opened[\"metadata\"] = plaintext;"
-    },
-    {
-      "finding": "json_path_mutation:inkson/src/outbound_store/creator_quarantine.rs::decode_for_recovery:1b97957abb11d222",
-      "category": "json_path_mutation",
-      "rust_field": null,
-      "crate": null,
-      "file": "inkson/src/outbound_store/creator_quarantine.rs",
-      "path": "inkson/src/outbound_store/creator_quarantine.rs",
-      "owner": "decode_for_recovery",
-      "owner_repository": "inkson",
-      "symbol": "decode_for_recovery",
-      "field": "schema",
-      "discriminator": null,
-      "data_field": "schema",
-      "rust_type": null,
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec protocol schema owning schema",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated.",
-      "evidence": "root.remove(\"schema\");"
     },
     {
       "finding": "json_path_mutation:inkson/src/signal_receive_engine.rs::live_body_value:7dbb70ad444e5a38",

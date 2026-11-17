@@ -11,7 +11,7 @@ pub fn verify_content_backup_source_signature(
     source: &ContentBackupSource,
 ) -> Result<(), WireError> {
     let attestation = &source.attestation;
-    attestation.validate()?;
+    let signing_bytes = attestation.signing_payload_bytes()?;
     let account = attestation
         .producer
         .actor_id
@@ -21,7 +21,7 @@ pub fn verify_content_backup_source_signature(
         &account.station_id,
         attestation.attested_at,
         &attestation.signature,
-        &attestation.signing_payload_bytes()?,
+        &signing_bytes,
         &source.origin_resolution,
     )
 }

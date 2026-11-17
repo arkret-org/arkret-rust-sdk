@@ -5848,17 +5848,6 @@
       "reason": "This exact decrypted metadata validation view starts from typed Strand, removes encrypted_metadata, installs the opened plaintext, applies the validated SDK Patch, then immediately deserializes to typed Strand and validates profile activation and Calendar metadata. The temporary Value is never submitted or signed; it validates the post-patch plaintext branch before encryption, as required by strand.schema.json metadata/encrypted_metadata and profile activation rules."
     },
     {
-      "finding": "json_path_mutation:inkson/src/outbound_store/creator_quarantine.rs::decode_for_recovery:1b97957abb11d222",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec protocol schema owning schema",
-      "owner_repository": "inkson",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
-    },
-    {
       "finding": "json_path_mutation:inkson/src/signal_receive_engine.rs::live_body_value:7dbb70ad444e5a38",
       "classification": "internal_or_fixture",
       "lifecycle": "retained_boundary",

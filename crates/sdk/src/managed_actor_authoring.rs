@@ -15,7 +15,6 @@ pub fn author_realm_actor_create<S: EventSigner + ?Sized>(
     created_at: DateTime<Utc>,
     service_signer: &S,
 ) -> crate::Result<Event> {
-    candidate.validate()?;
     arkret_identity::verify_realm_actor_initial_resolution(&candidate, created_at)?;
     let realm_id = candidate
         .actor_id
