@@ -22,7 +22,7 @@ fn invalid(detail: impl std::fmt::Display) -> IdentityError {
     .into()
 }
 
-pub(crate) fn verify_signature(
+fn verify_signature(
     resolution: &AuthenticatedServiceResolution,
     owner: &DidCoreId,
     at: DateTime<Utc>,

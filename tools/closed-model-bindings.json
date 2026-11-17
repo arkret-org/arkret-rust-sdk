@@ -347,19 +347,7 @@
     "agent-operations.schema.json#/$defs/agent_participation_view/properties/next_replace_input": "arkret_models_identity::ParticipationNextReplaceInput",
     "authority-commit-operations.schema.json#/$defs/client_mls_commit_submission": "arkret_wire::MlsCommitSubmission",
     "mls-commit-submission.schema.json": "crate::content_history::PeerMlsCommitSubmission",
-    "authority-commit-operations.schema.json#/$defs/organization_genesis_signer_fact": "arkret_models_collaboration::authority_commit::OrganizationGenesisSignerFact",
-    "mls-native-scope-source.schema.json#/$defs/sidecar_member_join": "crate::mls_native_scope_source::MlsNativeScopeMemberJoin",
-    "mls-native-scope-source.schema.json#/$defs/sidecar_membership_basis": "crate::mls_native_scope_source::MlsNativeScopeMembershipBasis",
-    "mls-native-scope-source.schema.json#/$defs/source_purpose": "crate::mls_native_scope_source::MlsNativeScopeSourcePurpose",
-    "mls-native-scope-source.schema.json#/$defs/native_scope_source_request_body/properties/endpoint_sources/items": "crate::mls_native_scope_source::MlsNativeScopeEndpointSource",
-    "mls-native-scope-source.schema.json#/$defs/native_scope_source_request_body": "crate::mls_native_scope_source::MlsNativeScopeSourceRequestBody",
-    "mls-native-scope-source.schema.json#/$defs/qualification/properties/endpoint_qualifications/items": "crate::mls_native_scope_source::MlsNativeScopeEndpointQualification",
-    "mls-native-scope-source.schema.json#/$defs/qualification": "crate::mls_native_scope_source::MlsNativeScopeQualification",
-    "mls-native-scope-source.schema.json#/$defs/native_scope_source_response_body": "crate::mls_native_scope_source::MlsNativeScopeSourceResponseBody",
-    "mls-native-scope-source.schema.json#/$defs/covered_authorization": "crate::mls_native_scope_source::MlsNativeScopeCoveredAuthorization",
-    "mls-native-scope-source.schema.json#/$defs/fence_basis_entry": "crate::mls_native_scope_source::MlsNativeScopeFenceBasisEntry",
-    "mls-native-scope-source.schema.json#/$defs/g_basis_preimage": "crate::mls_native_scope_source::MlsNativeScopeBasis",
-    "mls-native-scope-source.schema.json#/$defs/g_basis_preimage/properties/domain": "crate::mls_native_scope_source::MlsNativeScopeBasisDomain"
+    "authority-commit-operations.schema.json#/$defs/organization_genesis_signer_fact": "arkret_models_collaboration::authority_commit::OrganizationGenesisSignerFact"
   },
   "families": [
     {
@@ -25148,54 +25136,6 @@
       "schema": "authority-commit-operations.schema.json#/$defs/organization_genesis_signer_fact",
       "category": "domain_semantics",
       "reason": "The native Org source owns role XOR, bounded original evidence, exact Event/Commit binding and the existing fact digest. Retain this SDK owner with the shared exact field-set/scalar-encoding gate; generated models must not duplicate it."
-    },
-    {
-      "rust_type": "crates/models-crypto/src/mls_native_scope_source.rs::MlsNativeScopeMemberJoin",
-      "schema": "mls-native-scope-source.schema.json#/$defs/sidecar_member_join",
-      "category": "domain_semantics",
-      "reason": "Exact native-scope-source contract with strict serde branch/null behavior and paired query/qualification validation. Native role, real accepted sources and complete held G basis are external owning-transaction obligations; retain only this schema-bound declaration, never a generic verified flag."
-    },
-    {
-      "rust_type": "crates/models-crypto/src/mls_native_scope_source.rs::MlsNativeScopeMembershipBasis",
-      "schema": "mls-native-scope-source.schema.json#/$defs/sidecar_membership_basis",
-      "category": "domain_semantics",
-      "reason": "Exact native-scope-source contract with strict serde branch/null behavior and paired query/qualification validation. Native role, real accepted sources and complete held G basis are external owning-transaction obligations; retain only this schema-bound declaration, never a generic verified flag."
-    },
-    {
-      "rust_type": "crates/models-crypto/src/mls_native_scope_source.rs::MlsNativeScopeSourceRequestBody",
-      "schema": "mls-native-scope-source.schema.json#/$defs/native_scope_source_request_body",
-      "category": "domain_semantics",
-      "reason": "Exact native-scope-source contract with strict serde branch/null behavior and paired query/qualification validation. Native role, real accepted sources and complete held G basis are external owning-transaction obligations; retain only this schema-bound declaration, never a generic verified flag."
-    },
-    {
-      "rust_type": "crates/models-crypto/src/mls_native_scope_source.rs::MlsNativeScopeQualification",
-      "schema": "mls-native-scope-source.schema.json#/$defs/qualification",
-      "category": "domain_semantics",
-      "reason": "Exact native-scope-source contract with strict serde branch/null behavior and paired query/qualification validation. Native role, real accepted sources and complete held G basis are external owning-transaction obligations; retain only this schema-bound declaration, never a generic verified flag."
-    },
-    {
-      "rust_type": "crates/models-crypto/src/mls_native_scope_source.rs::MlsNativeScopeSourceResponseBody",
-      "schema": "mls-native-scope-source.schema.json#/$defs/native_scope_source_response_body",
-      "category": "domain_semantics",
-      "reason": "Exact native-scope-source contract with strict serde branch/null behavior and paired query/qualification validation. Native role, real accepted sources and complete held G basis are external owning-transaction obligations; retain only this schema-bound declaration, never a generic verified flag."
-    },
-    {
-      "rust_type": "crates/models-crypto/src/mls_native_scope_source/basis.rs::MlsNativeScopeCoveredAuthorization",
-      "schema": "mls-native-scope-source.schema.json#/$defs/covered_authorization",
-      "category": "domain_semantics",
-      "reason": "Private G canonical byte projection normalizes installed fence coverage and current candidate ordering with the sole original I owner. No native completeness, membership, installed status or current authority is inferred by this schema-bound type."
-    },
-    {
-      "rust_type": "crates/models-crypto/src/mls_native_scope_source/basis.rs::MlsNativeScopeFenceBasisEntry",
-      "schema": "mls-native-scope-source.schema.json#/$defs/fence_basis_entry",
-      "category": "domain_semantics",
-      "reason": "Private G canonical byte projection normalizes installed fence coverage and current candidate ordering with the sole original I owner. No native completeness, membership, installed status or current authority is inferred by this schema-bound type."
-    },
-    {
-      "rust_type": "crates/models-crypto/src/mls_native_scope_source/basis.rs::MlsNativeScopeBasis",
-      "schema": "mls-native-scope-source.schema.json#/$defs/g_basis_preimage",
-      "category": "domain_semantics",
-      "reason": "Private G canonical byte projection normalizes installed fence coverage and current candidate ordering with the sole original I owner. No native completeness, membership, installed status or current authority is inferred by this schema-bound type."
     }
   ],
   "retained_exemptions": [

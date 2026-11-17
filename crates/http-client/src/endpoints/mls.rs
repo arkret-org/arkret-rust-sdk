@@ -16,21 +16,6 @@ use arkret_wire::{
 use crate::{Client, Result, reject_path_segment};
 
 impl Client {
-    /// Current-G to fixed owning-H qualification. Native role, census,
-    /// historical leaf binding and complete held basis remain caller gates.
-    /// Operation: `ak.peer.mls.read.native_scope_source.v1`.
-    pub async fn peer_mls_native_scope_source(
-        &self,
-        request: &arkret_models_crypto::MlsNativeScopeSourceRequestBody,
-    ) -> Result<arkret_models_crypto::MlsNativeScopeSourceResponseBody> {
-        request.validate()?;
-        let response: arkret_models_crypto::MlsNativeScopeSourceResponseBody = self
-            .post(arkret_wire::PATH_PEER_MLS_NATIVE_SCOPE_SOURCE, request)
-            .await?;
-        response.validate_for_request(request)?;
-        Ok(response)
-    }
-
     /// Observe a prepared episode's narrow cleanup result. The host verifies
     /// both signatures, native qualification and first acceptance separately.
     /// Operation: `ak.self.mls.command.reconcile_recovery_scope.v1`.
