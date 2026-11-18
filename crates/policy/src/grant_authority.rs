@@ -12,7 +12,7 @@ use arkret_models_collaboration::governance::grant_constraint::{
     GrantConstraintEffect, GrantConstraintKind, GrantConstraintSubkind, IssuerAuthorityRef,
     ManagedActorRole,
 };
-use arkret_wire::{ActorId, EvaluationClass, GrantId, WireResourceSelector};
+use arkret_wire::{ActorId, CapabilityActionId, EvaluationClass, GrantId, WireResourceSelector};
 use chrono::{DateTime, Utc};
 
 use crate::grant_evaluation::resource_selector_covers;
@@ -59,6 +59,12 @@ fn constraint_window(
         temporal().filter_map(|c| c.expires_at).min(),
     )
 }
+/// Earliest valid signing time of a grant-context vote for its signed action.
+pub fn approval_not_before(grant: &CapabilityGrant, action: CapabilityActionId) -> DateTime<Utc> {
+    let (start, _) = window(grant, action.as_str());
+    start.map_or(grant.issued_at, |start| start.max(grant.issued_at))
+}
+
 fn active(grant: &CapabilityGrant, at: DateTime<Utc>, action: &str) -> bool {
     let (from, until) = window(grant, action);
     grant.status == CapabilityGrantStatus::Active
