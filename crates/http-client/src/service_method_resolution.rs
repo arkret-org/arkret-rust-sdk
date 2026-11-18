@@ -26,7 +26,11 @@ pub(crate) struct LoopbackMethodScope {
 
 impl LoopbackMethodScope {
     pub(crate) fn new(namespace: &str, port: u16) -> Result<Self> {
-        if !matches!(namespace, "localhost" | "local.host" | "127.0.0.1") || port == 0 {
+        if !matches!(
+            namespace,
+            "localhost" | "local.host" | "arkret_local" | "127.0.0.1"
+        ) || port == 0
+        {
             return Err(protocol(
                 "invalid loopback service discovery namespace or port",
             ));
@@ -543,7 +547,7 @@ mod tests {
 
     #[test]
     fn scoped_method_dns_requires_only_loopback_and_pins_the_verified_answers() {
-        for namespace in ["localhost", "local.host"] {
+        for namespace in ["localhost", "local.host", "arkret_local"] {
             let scope = LoopbackMethodScope::new(namespace, 24630).unwrap();
             let url = Url::parse(&format!(
                 "https://coland-server2.{namespace}:24630/did.json"
