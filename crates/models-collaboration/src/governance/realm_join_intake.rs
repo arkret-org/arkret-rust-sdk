@@ -319,12 +319,38 @@ impl SelfRealmJoinPrepareResponseBody {
     }
 }
 
-// A candidate names the authority-signed RealmCommit that admitted its
-// membership. The Commit id alone addresses that admission: the bootstrap
-// answer is derived from the authority's own stream, so the request carries no
-// client-supplied Event coordinates.
-// Field declaration order is byte-for-byte the `properties` order of
-// `realm-join-intake.schema.json#/$defs/peer_bootstrap_request_body`.
+impl PeerRealmJoinBootstrapRequestBody {
+    /// Bind the complete history original to the fresh request. Signature,
+    /// serving tenure and current disclosure are checked by the receiving Station.
+    pub fn validate_history_snapshot(&self, snapshot: &RealmStateSnapshot) -> Result<()> {
+        snapshot.validate_purpose()?;
+        let Some(basis) = &snapshot.history_basis else {
+            return Err(WireError::Protocol(
+                "expected a stream history snapshot".into(),
+            ));
+        };
+        if snapshot.realm_id != self.realm_id
+            || basis.account_id != self.member_account_id
+            || Some(&basis.stream_ref) != self.history_stream_ref.as_ref()
+        {
+            return Err(WireError::Protocol(
+                "history snapshot differs from requested coverage".into(),
+            ));
+        }
+        if matches!(basis.stream_ref, CommitStreamRef::Sidecar { .. }) {
+            let member = arkret_wire::ActorId::account(self.member_account_id.clone());
+            if snapshot
+                .parent_membership_revision(&member)
+                .is_none_or(|revision| revision.commit_id != self.membership_commit_id)
+            {
+                return Err(WireError::Protocol(
+                    "Sidecar history snapshot differs from the requested parent join".into(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
 
 /// The verified current authority answers a bootstrap with one signed snapshot
 /// plus the head of every stream the new member may read after its membership
