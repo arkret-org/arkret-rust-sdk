@@ -10,6 +10,7 @@
 //! is re-established through [`arkret_wire::StreamScanRequestBody`], which is
 //! addressed by [`arkret_wire::CommitStreamRef`] and `stream_position`.
 
+use arkret_wire::cursor::validate_stream_cursor;
 use arkret_wire::{CommitStreamRef, CommittedEventView, RealmId, Result, WireError};
 use serde::{Deserialize, Serialize};
 
@@ -18,23 +19,6 @@ pub const COMMITTED_EVENT_SUBSCRIBE_MAX_RECONNECT_AFTER_MS: u64 = 300_000;
 
 fn protocol_error(message: impl Into<String>) -> WireError {
     WireError::Protocol(message.into())
-}
-
-fn validate_cursor(value: &str) -> Result<()> {
-    let tail = value
-        .strip_prefix("ak:cursor:")
-        .ok_or_else(|| protocol_error("invalid committed-event stream cursor prefix"))?;
-    if tail.is_empty()
-        || value.len() > 2048
-        || !tail
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
-    {
-        return Err(protocol_error(
-            "invalid bounded committed-event stream cursor",
-        ));
-    }
-    Ok(())
 }
 
 /// Closed `kind` discriminator of `committed-event-subscribe-frame.schema.json`.
@@ -147,7 +131,7 @@ impl CommittedEventSubscribeFrame {
     /// violation. This mirrors that branch by branch.
     pub fn validate(&self) -> Result<()> {
         if let Some(cursor) = &self.cursor {
-            validate_cursor(cursor)?;
+            validate_stream_cursor(cursor, "committed-event stream cursor")?;
         }
         if let Some(reconnect_after_ms) = self.reconnect_after_ms
             && !(1..=COMMITTED_EVENT_SUBSCRIBE_MAX_RECONNECT_AFTER_MS).contains(&reconnect_after_ms)

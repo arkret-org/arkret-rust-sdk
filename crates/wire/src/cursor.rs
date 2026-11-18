@@ -13,6 +13,23 @@ use crate::{Result, SchemaId, WireError};
 /// not prove entropy; issuers use 128 CSPRNG bits in `generate_cursor_handle`.
 pub const CURSOR_HANDLE_MIN_LEN: usize = 22;
 
+/// Check the lexical form of an opaque subscribe-frame or continuation cursor.
+pub fn validate_stream_cursor(value: &str, field: &str) -> Result<()> {
+    let suffix = value
+        .strip_prefix("ak:cursor:")
+        .ok_or_else(|| WireError::Protocol(format!("{field} is not an ak:cursor: value")))?;
+    if !(1..=2028).contains(&suffix.len())
+        || !suffix
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
+    {
+        return Err(WireError::Protocol(format!(
+            "{field} is not a bounded cursor"
+        )));
+    }
+    Ok(())
+}
+
 /// Generate a fresh ≥22-character base64url cursor handle.
 ///
 /// Output uses only `[A-Za-z0-9_-]` with no padding, satisfying schema

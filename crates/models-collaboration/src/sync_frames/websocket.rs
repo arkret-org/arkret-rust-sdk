@@ -17,6 +17,7 @@
 
 use std::collections::BTreeSet;
 
+use arkret_wire::cursor::validate_stream_cursor;
 use arkret_wire::websocket_binding::{
     WEBSOCKET_HARD_MAX_FRAME_BYTES, WebSocketCloseCode, validate_websocket_channel_id,
     validate_websocket_opaque_id, validate_websocket_ping_id, validate_websocket_session_grant,
@@ -484,28 +485,13 @@ pub struct WebSocketAccountOpenParameters {
     pub replace_filter: Option<bool>,
 }
 
-fn validate_cursor(value: &str, field: &str) -> Result<()> {
-    let tail = value
-        .strip_prefix("ak:cursor:")
-        .ok_or_else(|| protocol_error(format!("{field} is not an ak:cursor: value")))?;
-    if tail.is_empty()
-        || value.len() > 2048
-        || !tail
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
-    {
-        return Err(protocol_error(format!("{field} is not a bounded cursor")));
-    }
-    Ok(())
-}
-
 impl WebSocketAccountOpenParameters {
     pub fn validate(&self) -> Result<()> {
         if let Some(after) = &self.after {
-            validate_cursor(after, "account open after")?;
+            validate_stream_cursor(after, "account open after")?;
         }
         if let Some(wait_for) = &self.wait_for {
-            validate_cursor(wait_for, "account open wait_for")?;
+            validate_stream_cursor(wait_for, "account open wait_for")?;
         }
         if let Some(filter) = &self.filter {
             filter.validate()?;
@@ -573,7 +559,7 @@ impl WebSocketEventsOpenParameters {
             }
         }
         if let Some(after) = &self.after {
-            validate_cursor(after, "events open after")?;
+            validate_stream_cursor(after, "events open after")?;
         }
         Ok(())
     }

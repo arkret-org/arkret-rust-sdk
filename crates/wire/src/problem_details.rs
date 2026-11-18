@@ -14,21 +14,7 @@ pub struct AccountRevisionStaleProblemExtensions {
 impl AccountRevisionStaleProblemExtensions {
     pub fn new(continuation_cursor: impl Into<String>) -> crate::Result<Self> {
         let continuation_cursor = continuation_cursor.into();
-        let suffix = continuation_cursor
-            .strip_prefix("ak:cursor:")
-            .ok_or_else(|| {
-                crate::WireError::Protocol("Account continuation is not a cursor token".into())
-            })?;
-        if suffix.is_empty()
-            || suffix.len() > 2028
-            || !suffix
-                .bytes()
-                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
-        {
-            return Err(crate::WireError::Protocol(
-                "Account continuation has invalid token shape".into(),
-            ));
-        }
+        crate::cursor::validate_stream_cursor(&continuation_cursor, "Account continuation")?;
         Ok(Self {
             continuation_cursor,
         })

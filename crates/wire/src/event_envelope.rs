@@ -1267,12 +1267,6 @@ impl Event {
         self.validate_structural()
     }
 
-    /// Validate a retained Event using the same producer-proof shape as a new
-    /// submission. Historical signer resolution is attested by RealmCommit.
-    pub fn validate_for_direct_history_structural(&self) -> Result<()> {
-        self.validate_structural()
-    }
-
     /// Validate the wire-level shape of a federated Event.
     ///
     /// Federation preserves the same sole producer proof. Receiver-local

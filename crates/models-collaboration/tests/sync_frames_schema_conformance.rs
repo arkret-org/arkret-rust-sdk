@@ -415,6 +415,47 @@ fn realm_list_item_matches_its_schema_shape_and_order() {
 }
 
 #[test]
+fn subscription_cursor_suffix_length_matches_live_schema_across_frame_types() {
+    for (length, valid) in [(2028, true), (2029, false)] {
+        let cursor = format!("ak:cursor:{}", "a".repeat(length));
+        let value = json!(cursor);
+        for (file, fragment) in [
+            (ACCOUNT_FRAME, "#/$defs/cursor_value"),
+            (EVENTS_FRAME, "#/properties/cursor"),
+            (WEBSOCKET_FRAME, "#/$defs/cursor"),
+        ] {
+            if valid {
+                validate_fragment(file, fragment, &value);
+            } else {
+                reject_fragment(file, fragment, &value);
+            }
+        }
+
+        let checkpoint = json!({"kind": "checkpoint", "cursor": cursor}).to_string();
+        assert_eq!(
+            AccountSubscribeFrame::from_ndjson_line(&checkpoint).is_ok(),
+            valid
+        );
+        assert_eq!(
+            CommittedEventSubscribeFrame::from_ndjson_line(&checkpoint).is_ok(),
+            valid
+        );
+
+        let page: RealmListPage = serde_json::from_value(json!({
+            "snapshot_cursor": cursor, "snapshot_revision": 1, "items": [],
+        }))
+        .unwrap();
+        assert_eq!(page.validate().is_ok(), valid);
+
+        let open: WebSocketAccountOpenParameters = serde_json::from_value(json!({
+            "after": cursor,
+        }))
+        .unwrap();
+        assert_eq!(open.validate().is_ok(), valid);
+    }
+}
+
+#[test]
 fn realm_list_page_matches_its_schema_shape_and_order() {
     let page: RealmListPage = round_trip(
         ACCOUNT_FRAME,

@@ -2,7 +2,7 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/realm-join-intake.schema.json
-// sha256=cb687e509069f1fbb51f994d67db65147340c90190894272b49b322641827f12
+// sha256=0ee9d684775731ae52b164105cbce6362d9c088958553a2849f63e43aa08a70c
 //
 // Input: schemas/realm-commit.schema.json
 // sha256=6feb8f90ab444004084e457cc4c52193dbfc9d630f4739eda7712c21257af590

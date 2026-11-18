@@ -7,6 +7,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_models_identity::account::AccountDataEntry;
+use arkret_wire::cursor::validate_stream_cursor;
 use arkret_wire::{
     AccountId, ActorId, CommitStreamRef, CommittedEventView, Cursor, DidCoreId, Event, EventId,
     Hash, RealmId, Result, SchemaId, WireError, canonical,
@@ -41,21 +42,6 @@ fn protocol_error(message: impl Into<String>) -> WireError {
     WireError::Protocol(message.into())
 }
 
-fn validate_cursor(value: &str) -> Result<()> {
-    let tail = value
-        .strip_prefix("ak:cursor:")
-        .ok_or_else(|| protocol_error("invalid account stream cursor prefix"))?;
-    if tail.is_empty()
-        || value.len() > 2048
-        || !tail
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
-    {
-        return Err(protocol_error("invalid bounded account stream cursor"));
-    }
-    Ok(())
-}
-
 fn bounded_unique<T: Ord>(values: &[T], maximum: usize, field: &str) -> Result<()> {
     if values.len() > maximum || values.iter().collect::<BTreeSet<_>>().len() != values.len() {
         return Err(protocol_error(format!(
@@ -83,7 +69,7 @@ pub struct AccountSubscribeParameters {
 impl AccountSubscribeParameters {
     pub fn validate(&self) -> Result<()> {
         if let Some(after) = &self.after {
-            validate_cursor(after)?;
+            validate_stream_cursor(after, "account stream cursor")?;
         }
         if self.replace_filter == Some(true) && (self.after.is_none() || self.filter.is_none()) {
             return Err(protocol_error(
@@ -143,7 +129,7 @@ pub struct RealmListParameters {
 impl RealmListParameters {
     pub fn validate(&self) -> Result<()> {
         if let Some(after) = &self.after {
-            validate_cursor(after.as_str())?;
+            validate_stream_cursor(after.as_str(), "account stream cursor")?;
         }
         if self.limit.is_some_and(|limit| !(1..=100).contains(&limit)) {
             return Err(protocol_error("Realm list limit must be 1..=100"));
@@ -230,7 +216,7 @@ impl AccountSubscribeFrame {
 
     pub fn validate(&self) -> Result<()> {
         if let Some(cursor) = &self.cursor {
-            validate_cursor(cursor)?;
+            validate_stream_cursor(cursor, "account stream cursor")?;
         }
         if canonical::canonical_json_bytes(self)?.len() > ACCOUNT_SUBSCRIBE_MAX_FRAME_BYTES {
             return Err(protocol_error(
@@ -441,7 +427,7 @@ impl RealmSyncEntry {
             }
         }
         if let Some(cursor) = &self.window_snapshot_cursor {
-            validate_cursor(cursor)?;
+            validate_stream_cursor(cursor, "account stream cursor")?;
             if self.streams.is_none() {
                 return Err(protocol_error(
                     "window_snapshot_cursor requires stream windows",
@@ -541,7 +527,7 @@ impl RealmDetailBaseline {
     /// The baseline's own invariants: a well-formed opaque cursor and coverage
     /// that answers each stream once.
     pub fn validate(&self) -> Result<()> {
-        validate_cursor(&self.snapshot_cursor)?;
+        validate_stream_cursor(&self.snapshot_cursor, "account stream cursor")?;
         self.coverage.validate()
     }
 }

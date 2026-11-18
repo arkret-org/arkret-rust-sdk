@@ -5,7 +5,7 @@
 // sha256=61c5e64619b36a92bd52168fefe55f7643dbee653acdca81f37cde5e0398c420
 //
 // Input: schemas/key-backup.schema.json
-// sha256=07597f9b9987a50bcfabacf774c720e49e985eec665ccb1981d2722465a07e2c
+// sha256=85df9a32502b9901452f2109c09bb9fca32b74af5712012cbae9590f53777e3d
 //
 // Input: schemas/keys-operations.schema.json
 // sha256=8cafab3f5d4a61e2d9900c88eabf3d707a081f3411ccf0d16a4eb4f081682733

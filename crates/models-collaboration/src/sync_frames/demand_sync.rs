@@ -15,6 +15,7 @@
 
 use std::collections::BTreeSet;
 
+use arkret_wire::cursor::validate_stream_cursor;
 use arkret_wire::{RealmId, Result, StrandId, WireError};
 use serde::{Deserialize, Serialize};
 
@@ -43,21 +44,6 @@ pub const ACCOUNT_SYNC_MAX_WINDOW_EVENT_COUNT: u32 = 100;
 
 pub(crate) fn protocol_error(message: impl Into<String>) -> WireError {
     WireError::Protocol(message.into())
-}
-
-pub(crate) fn validate_snapshot_cursor(value: &str) -> Result<()> {
-    let tail = value
-        .strip_prefix("ak:cursor:")
-        .ok_or_else(|| protocol_error("invalid account stream cursor prefix"))?;
-    if tail.is_empty()
-        || value.len() > 2048
-        || !tail
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
-    {
-        return Err(protocol_error("invalid bounded account stream cursor"));
-    }
-    Ok(())
 }
 
 /// Membership states a Realm list row may report.
@@ -127,7 +113,7 @@ pub struct RealmListPage {
 
 impl RealmListPage {
     pub fn validate(&self) -> Result<()> {
-        validate_snapshot_cursor(&self.snapshot_cursor)?;
+        validate_stream_cursor(&self.snapshot_cursor, "snapshot cursor")?;
         if self.items.len() > ACCOUNT_SYNC_MAX_COLLECTION_ITEMS {
             return Err(protocol_error("Realm list page exceeds 100 items"));
         }
@@ -138,7 +124,7 @@ impl RealmListPage {
             item.validate()?;
         }
         if let Some(next_cursor) = &self.next_cursor {
-            validate_snapshot_cursor(next_cursor)?;
+            validate_stream_cursor(next_cursor, "snapshot cursor")?;
             if self.items.is_empty() {
                 return Err(protocol_error(
                     "a nonterminal Realm list page must carry at least one item",
@@ -227,7 +213,7 @@ pub struct AccountBaselineSegment {
 
 impl AccountBaselineSegment {
     pub fn validate(&self) -> Result<()> {
-        validate_snapshot_cursor(&self.snapshot_cursor)?;
+        validate_stream_cursor(&self.snapshot_cursor, "snapshot cursor")?;
         if self.channels.is_empty() {
             return Err(protocol_error(
                 "account baseline segment must name at least one channel",

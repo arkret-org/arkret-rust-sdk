@@ -23,7 +23,7 @@
 // sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
 //
 // Input: schemas/key-backup.schema.json
-// sha256=07597f9b9987a50bcfabacf774c720e49e985eec665ccb1981d2722465a07e2c
+// sha256=85df9a32502b9901452f2109c09bb9fca32b74af5712012cbae9590f53777e3d
 //
 // Input: schemas/keypackage-operations.schema.json
 // sha256=c6d3efc76c853e71ee4cbf6eda707cd0e89139e85441d3616fadfeda84f0ad41
