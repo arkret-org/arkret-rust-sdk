@@ -1371,7 +1371,8 @@
         "schemas/realm-join-intake.schema.json"
       ],
       "provides": [
-        "PeerRealmJoinBootstrapRequestBody"
+        "PeerRealmJoinBootstrapRequestBody",
+        "OwnedAgentContentIntent"
       ]
     },
     {
@@ -2324,7 +2325,9 @@
         "RealmActorDeviceKeyBackupUnlockProof",
         "RealmActorManagerKeyBackupUnlockProof",
         "KeysBackupsReplaceOperationResponseBody",
-        "KeysBackupsIssueUnlockChallengeBody"
+        "KeysBackupsIssueUnlockChallengeBody",
+        "SidecarBackupPrepareResponseBody",
+        "SidecarBackupPrepareQuery"
       ]
     },
     {

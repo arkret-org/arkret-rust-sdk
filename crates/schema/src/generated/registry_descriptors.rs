@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json;
-//! sha256=2fb1b259aa44b7323f67cf916c1751b301d27005bb0de1cd4f576d329b238908 Input: registry/
+//! sha256=be848c6b560c01d71a35fa236c179f78f1dd2f94c418d0218c69a2343e93046a Input: registry/
 //! account-data-key-registry.json;
 //! sha256=14c426553e88881fcf3501b1c471472248c2e9ff5c3a8b87673b5e235d4f6762 Entries: id_kinds=47,
-//! special_forms=15, actions=162, approval_carriers=2, schemas=237, account_data_patterns=24
+//! special_forms=15, actions=162, approval_carriers=2, schemas=236, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -3500,10 +3500,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::AGENT_SIDECAR_VIEW_STATE_V1,
         file: "schemas/agent-sidecar-view-state.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::APPLET_V1,
-        file: "schemas/applet.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::APPLET_AUTHORITY_MATERIAL_V1,

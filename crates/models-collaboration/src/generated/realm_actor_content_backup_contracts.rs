@@ -5,7 +5,7 @@
 // sha256=72b3aa5374e048b1fd8bf165fcb91f6bc06d12d8d6542d44d2845089bd3a5e7c
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=6f2298d507cfeaf587b0a77d565af971535b7d029bf667f2e4b743448bcc016f
+// sha256=db60be1849d8bc93becf15639c6e3cafbbddfe2c4d0967db90cec73027764425
 
 /// Counterpart: `current-state.schema.json#/$defs/current_realm_actor_key_backup_active_series`.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]

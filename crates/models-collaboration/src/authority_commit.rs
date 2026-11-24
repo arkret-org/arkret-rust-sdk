@@ -28,6 +28,51 @@ use uuid::Uuid;
 
 use crate::objects::direct_conversation::DirectConversationFoundingAuthorityEvidence;
 
+/// Account delivery and ordinary Station replication have distinct selectors.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum PeerStreamScanRequestBody {
+    Replication(arkret_wire::StreamScanRequestBody),
+    OwnedAgent(Box<OwnedAgentStreamScanRequestBody>),
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OwnedAgentStreamScanRequestBody {
+    pub request_id: arkret_wire::RequestId,
+    pub member_account_id: arkret_wire::AccountId,
+    pub membership_commit_id: RealmCommitId,
+    pub content_intent: crate::governance::realm_join_intake::OwnedAgentContentIntent,
+    pub session_grant_id: arkret_wire::SessionGrantId,
+    pub scan: arkret_wire::StreamScanRequestBody,
+}
+
+impl OwnedAgentStreamScanRequestBody {
+    pub fn validate_binding(&self) -> Result<()> {
+        use crate::governance::realm_join_intake::OwnedAgentContentAction::*;
+        let intent = &self.content_intent;
+        if !matches!(
+            intent.action,
+            EventRead
+                | ObjectRead
+                | ObjectReadContent
+                | ObjectReadHistory
+                | ObjectReadMetadata
+                | StrandRead
+        ) || intent.backup_root_context.is_some()
+            || intent.effective_scope != self.scan.stream_ref.scope_ref()
+            || self.scan.stream_ref.realm_id() != &self.scan.realm_id
+            || intent.controller_account_id.station_id != self.member_account_id.station_id
+            || intent.controller_account_id == self.member_account_id
+        {
+            return Err(WireError::Protocol(
+                "invalid owned Agent delivery binding".into(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 crate::string_marker!(
     AuthorityForwardBranch,
     AuthorityForward,

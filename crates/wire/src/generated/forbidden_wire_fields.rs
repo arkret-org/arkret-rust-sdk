@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/forbidden-wire-fields.json;
-//! sha256=f11706793284e04493185fbcedad64454b19770dd29da6c4caf17a06f9b7337b
-//! Entries: forbidden_wire_fields=238
+//! sha256=dd807e45009ca4a960b1c8349a39be28afa407b76aeb91edb14b014e91ad7088
+//! Entries: forbidden_wire_fields=237
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ForbiddenWireSelector {
@@ -2069,20 +2069,6 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
         }],
         match_kind: "field",
         match_values: &["tree_size"],
-        value_pointer: "",
-    },
-    ForbiddenWireFieldDescriptor {
-        id: "icon_blob",
-        context: "applet_protocol_metadata",
-        rejection_level: "hard_reject",
-        selectors: &[ForbiddenWireSelector {
-            document_kind: "schema_instance",
-            schema_ref: "applet.schema.json",
-            instance_pointer: "",
-            match_scope: "root",
-        }],
-        match_kind: "field",
-        match_values: &["icon_blob"],
         value_pointer: "",
     },
     ForbiddenWireFieldDescriptor {

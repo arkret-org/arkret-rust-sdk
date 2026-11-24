@@ -320,6 +320,34 @@ impl SelfRealmJoinPrepareResponseBody {
 }
 
 impl PeerRealmJoinBootstrapRequestBody {
+    pub fn validate_selectors(&self) -> Result<()> {
+        if let Some(intent) = &self.content_intent {
+            if self.history_stream_ref.is_some()
+                || intent.effective_scope.realm_id_opt() != Some(&self.realm_id)
+                || self.member_account_id.station_id != intent.controller_account_id.station_id
+                || self.member_account_id == intent.controller_account_id
+            {
+                return Err(WireError::Protocol(
+                    "invalid owned Agent bootstrap binding".into(),
+                ));
+            }
+            if let Some(context) = &intent.backup_root_context {
+                context.validate()?;
+                if context.effective_scope != intent.effective_scope
+                    || !matches!(
+                        intent.effective_scope,
+                        arkret_wire::ScopeRef::Sidecar { .. }
+                    )
+                {
+                    return Err(WireError::Protocol(
+                        "backup context differs from Agent Sidecar".into(),
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Bind the complete history original to the fresh request. Signature,
     /// serving tenure and current disclosure are checked by the receiving Station.
     pub fn validate_history_snapshot(&self, snapshot: &RealmStateSnapshot) -> Result<()> {
@@ -329,7 +357,8 @@ impl PeerRealmJoinBootstrapRequestBody {
                 "expected a stream history snapshot".into(),
             ));
         };
-        if snapshot.realm_id != self.realm_id
+        if self.content_intent.is_some()
+            || snapshot.realm_id != self.realm_id
             || basis.account_id != self.member_account_id
             || Some(&basis.stream_ref) != self.history_stream_ref.as_ref()
         {
@@ -476,6 +505,69 @@ impl RealmJoinCandidate {
         }
         Ok(())
     }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum OwnedAgentContentAction {
+    #[serde(rename = "ak.event.read")]
+    EventRead,
+    #[serde(rename = "ak.message.create")]
+    MessageCreate,
+    #[serde(rename = "ak.message.redact.own")]
+    MessageRedactOwn,
+    #[serde(rename = "ak.message.revise.own")]
+    MessageReviseOwn,
+    #[serde(rename = "ak.object.read")]
+    ObjectRead,
+    #[serde(rename = "ak.object.read_content")]
+    ObjectReadContent,
+    #[serde(rename = "ak.object.read_history")]
+    ObjectReadHistory,
+    #[serde(rename = "ak.object.read_metadata")]
+    ObjectReadMetadata,
+    #[serde(rename = "ak.reaction.add")]
+    ReactionAdd,
+    #[serde(rename = "ak.reaction.remove")]
+    ReactionRemove,
+    #[serde(rename = "ak.strand.read")]
+    StrandRead,
+}
+
+/// The content branch carries only the live answer to this specific intent.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OwnedAgentContentResponse {
+    pub request_id: RequestId,
+    pub content_intent: OwnedAgentContentIntent,
+    pub membership_commit_id: RealmCommitId,
+    pub scope_details: arkret_models_identity::SessionGrantScope,
+}
+
+impl OwnedAgentContentResponse {
+    pub fn validate_binding(&self, request: &PeerRealmJoinBootstrapRequestBody) -> Result<()> {
+        request.validate_selectors()?;
+        if self.request_id != request.request_id
+            || self.membership_commit_id != request.membership_commit_id
+            || request.content_intent.as_ref() != Some(&self.content_intent)
+            || self.scope_details.agent_key_authorization_ref
+                != self.content_intent.agent_key_authorization_ref
+            || self.scope_details.controller_principal_id
+                != self.content_intent.controller_account_id.principal_id
+        {
+            return Err(WireError::Protocol(
+                "content scope reply differs from its signed request".into(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Both registered forms of the authenticated peer bootstrap response.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum PeerRealmJoinBootstrapOutcome {
+    Snapshot(Box<PeerRealmJoinBootstrapResponseBody>),
+    Content(Box<OwnedAgentContentResponse>),
 }
 
 include!("generated/realm_join_intake_contracts.rs");

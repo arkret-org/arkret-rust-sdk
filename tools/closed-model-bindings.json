@@ -349,7 +349,8 @@
     "mls-commit-submission.schema.json": "crate::content_history::PeerMlsCommitSubmission",
     "authority-commit-operations.schema.json#/$defs/organization_genesis_signer_fact": "arkret_models_collaboration::authority_commit::OrganizationGenesisSignerFact",
     "agent-operations.schema.json#/$defs/sidecar_participant_authority_preimage": "crate::agent_sidecar::SidecarParticipantAuthorityPreimage",
-    "agent-operations.schema.json#/$defs/sidecar_participant_authority_preimage/properties/desired_agents/items": "crate::agent_sidecar::SidecarParticipantAuthorityAgent"
+    "agent-operations.schema.json#/$defs/sidecar_participant_authority_preimage/properties/desired_agents/items": "crate::agent_sidecar::SidecarParticipantAuthorityAgent",
+    "keys-operations.schema.json#/$defs/sidecar_backup_prepare_response_body": "arkret_models_crypto::realm_actor_content_backup::SidecarBackupPrepareResponseBody"
   },
   "families": [
     {
@@ -9778,6 +9779,79 @@
                 "attributes": [
                   "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
                 ]
+              },
+              "content_intent": {
+                "name": "content_intent",
+                "visibility": "pub",
+                "type": "Option<OwnedAgentContentIntent>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "name": "OwnedAgentContentIntent",
+          "schema": "realm-join-intake.schema.json#/$defs/owned_agent_content_intent",
+          "rust": {
+            "signature": "pub struct OwnedAgentContentIntent",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "controller_account_id": {
+                "name": "controller_account_id",
+                "visibility": "pub",
+                "type": "AccountId",
+                "attributes": []
+              },
+              "controller_membership_commit_id": {
+                "name": "controller_membership_commit_id",
+                "visibility": "pub",
+                "type": "RealmCommitId",
+                "attributes": []
+              },
+              "agent_key_authorization_ref": {
+                "name": "agent_key_authorization_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::EventId",
+                "attributes": []
+              },
+              "action": {
+                "name": "action",
+                "visibility": "pub",
+                "type": "OwnedAgentContentAction",
+                "attributes": []
+              },
+              "effective_scope": {
+                "name": "effective_scope",
+                "visibility": "pub",
+                "type": "arkret_wire::ScopeRef",
+                "attributes": []
+              },
+              "request_digest": {
+                "name": "request_digest",
+                "visibility": "pub",
+                "type": "arkret_wire::Hash",
+                "attributes": []
+              },
+              "backup_root_context": {
+                "name": "backup_root_context",
+                "visibility": "pub",
+                "type": "Option<arkret_models_crypto::content_history::ContentRootContext>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
+                ]
+              },
+              "strand_id": {
+                "name": "strand_id",
+                "visibility": "pub",
+                "type": "Option<arkret_wire::StrandId>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
+                ]
               }
             }
           }
@@ -18868,7 +18942,8 @@
           "reference_variants": {
             "Account": "crate::KeyBackupsListQuery",
             "Device": "RealmActorBackupHeadQuery",
-            "Manager": "RealmActorArchiveInventoryQuery"
+            "Manager": "RealmActorArchiveInventoryQuery",
+            "Sidecar": "SidecarBackupPrepareQuery"
           },
           "partial_eq": false,
           "openapi": true
@@ -20047,6 +20122,91 @@
           },
           "partial_eq": false,
           "openapi": true
+        },
+        {
+          "name": "SidecarBackupPrepareResponseBody",
+          "schema": "keys-operations.schema.json#/$defs/sidecar_backup_prepare_response_body",
+          "rust": {
+            "signature": "pub struct SidecarBackupPrepareResponseBody",
+            "attributes": [
+              "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
+              "#[serde(remote = \"Self\", deny_unknown_fields)]"
+            ],
+            "members": {
+              "sidecar_id": {
+                "name": "sidecar_id",
+                "visibility": "pub",
+                "type": "arkret_wire::SidecarId",
+                "attributes": []
+              },
+              "root_context": {
+                "name": "root_context",
+                "visibility": "pub",
+                "type": "crate::content_history::ContentRootContext",
+                "attributes": []
+              },
+              "series_id": {
+                "name": "series_id",
+                "visibility": "pub",
+                "type": "arkret_wire::BackupSeriesId",
+                "attributes": []
+              },
+              "series_sequence": {
+                "name": "series_sequence",
+                "visibility": "pub",
+                "type": "u64",
+                "attributes": []
+              },
+              "supersedes_id": {
+                "name": "supersedes_id",
+                "visibility": "pub",
+                "type": "Option<arkret_wire::BackupId>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
+                ]
+              },
+              "supersedes_digest": {
+                "name": "supersedes_digest",
+                "visibility": "pub",
+                "type": "Option<arkret_wire::Hash>",
+                "attributes": [
+                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
+                ]
+              },
+              "recovery_policy_ref": {
+                "name": "recovery_policy_ref",
+                "visibility": "pub",
+                "type": "crate::RecoveryPolicyRef",
+                "attributes": []
+              },
+              "backup_hpke": {
+                "name": "backup_hpke",
+                "visibility": "pub",
+                "type": "crate::RecoveryKeyAgreementEntry",
+                "attributes": []
+              }
+            }
+          }
+        },
+        {
+          "name": "SidecarBackupPrepareQuery",
+          "schema": "keys-operations.schema.json#/$defs/keys_backups_list_query/oneOf/3",
+          "rust": {
+            "signature": "pub struct SidecarBackupPrepareQuery",
+            "attributes": [
+              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]",
+              "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
+              "#[serde(deny_unknown_fields)]"
+            ],
+            "members": {
+              "sidecar_id": {
+                "name": "sidecar_id",
+                "visibility": "pub",
+                "type": "arkret_wire::SidecarId",
+                "attributes": []
+              }
+            }
+          }
         }
       ]
     },
@@ -20199,7 +20359,8 @@
           "reference_variants": {
             "Account": "arkret_models_crypto::KeysBackupsPage",
             "Device": "arkret_models_crypto::RealmActorBackupSeriesHeadResponseBody",
-            "Manager": "RealmActorArchiveInventoryPage"
+            "Manager": "RealmActorArchiveInventoryPage",
+            "Sidecar": "arkret_models_crypto::realm_actor_content_backup::SidecarBackupPrepareResponseBody"
           },
           "partial_eq": false,
           "openapi": false,

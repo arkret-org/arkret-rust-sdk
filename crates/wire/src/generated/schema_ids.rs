@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json;
-//! sha256=2fb1b259aa44b7323f67cf916c1751b301d27005bb0de1cd4f576d329b238908 Entries: schema_ids=237,
-//! active=237
+//! sha256=be848c6b560c01d71a35fa236c179f78f1dd2f94c418d0218c69a2343e93046a Entries: schema_ids=236,
+//! active=236
 
 use serde::{Deserialize, Serialize};
 
@@ -40,7 +40,6 @@ pub enum SchemaId {
     AgentSidecarExchangeControlV1,
     AgentSidecarExchangeProjectionV1,
     AgentSidecarViewStateV1,
-    AppletV1,
     AppletAuthorityMaterialV1,
     AppletBotAuthoringRequestBasisV1,
     AppletBotOperationsV1,
@@ -281,7 +280,6 @@ impl SchemaId {
         Self::AgentSidecarExchangeControlV1,
         Self::AgentSidecarExchangeProjectionV1,
         Self::AgentSidecarViewStateV1,
-        Self::AppletV1,
         Self::AppletAuthorityMaterialV1,
         Self::AppletBotAuthoringRequestBasisV1,
         Self::AppletBotOperationsV1,
@@ -522,7 +520,6 @@ impl SchemaId {
         Self::AgentSidecarExchangeControlV1,
         Self::AgentSidecarExchangeProjectionV1,
         Self::AgentSidecarViewStateV1,
-        Self::AppletV1,
         Self::AppletAuthorityMaterialV1,
         Self::AppletBotAuthoringRequestBasisV1,
         Self::AppletBotOperationsV1,
@@ -833,9 +830,6 @@ impl SchemaId {
     /// Controller-private encrypted account-data plaintext for per-context Sidecar display mode and
     /// hosted-view state.
     pub const AGENT_SIDECAR_VIEW_STATE_V1: &'static str = "ak.schema.agent_sidecar_view_state.v1";
-    /// Schema-registry object for applet protocol metadata snapshots. Event payloads for
-    /// ak.applet.* use typed payload definitions in event-payload.schema.json.
-    pub const APPLET_V1: &'static str = "ak.schema.applet.v1";
     /// Exact Service-authenticated parent grant and current material; no group content.
     pub const APPLET_AUTHORITY_MATERIAL_V1: &'static str = "ak.schema.applet_authority_material.v1";
     /// Exact installed Service Bot creation intent and scope.
@@ -1466,7 +1460,6 @@ impl SchemaId {
             Self::AgentSidecarExchangeControlV1 => Self::AGENT_SIDECAR_EXCHANGE_CONTROL_V1,
             Self::AgentSidecarExchangeProjectionV1 => Self::AGENT_SIDECAR_EXCHANGE_PROJECTION_V1,
             Self::AgentSidecarViewStateV1 => Self::AGENT_SIDECAR_VIEW_STATE_V1,
-            Self::AppletV1 => Self::APPLET_V1,
             Self::AppletAuthorityMaterialV1 => Self::APPLET_AUTHORITY_MATERIAL_V1,
             Self::AppletBotAuthoringRequestBasisV1 => Self::APPLET_BOT_AUTHORING_REQUEST_BASIS_V1,
             Self::AppletBotOperationsV1 => Self::APPLET_BOT_OPERATIONS_V1,
@@ -1750,7 +1743,6 @@ impl SchemaId {
                 "schemas/agent-sidecar-exchange-projection.schema.json"
             }
             Self::AgentSidecarViewStateV1 => "schemas/agent-sidecar-view-state.schema.json",
-            Self::AppletV1 => "schemas/applet.schema.json",
             Self::AppletAuthorityMaterialV1 => "schemas/applet-authority-material.schema.json",
             Self::AppletBotAuthoringRequestBasisV1 => {
                 "schemas/applet-install-authoring.schema.json"
@@ -2044,7 +2036,6 @@ impl SchemaId {
                 Some(Self::AgentSidecarExchangeProjectionV1)
             }
             Self::AGENT_SIDECAR_VIEW_STATE_V1 => Some(Self::AgentSidecarViewStateV1),
-            Self::APPLET_V1 => Some(Self::AppletV1),
             Self::APPLET_AUTHORITY_MATERIAL_V1 => Some(Self::AppletAuthorityMaterialV1),
             Self::APPLET_BOT_AUTHORING_REQUEST_BASIS_V1 => {
                 Some(Self::AppletBotAuthoringRequestBasisV1)

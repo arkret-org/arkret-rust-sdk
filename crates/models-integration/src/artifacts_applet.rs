@@ -10,7 +10,7 @@ use std::collections::BTreeMap;
 
 use arkret_wire::{
     AppletId, CircleId, CommittedEventRef, DidCoreId, DidUrl, EventId, EventProofAudience, Hash,
-    RealmId, ReasonCode, SchemaId, SemanticRef, WebOrigin, WireResourceSelector, XExtensionMap,
+    RealmId, ReasonCode, SemanticRef, WebOrigin, WireResourceSelector, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -105,10 +105,6 @@ pub struct Applet {
     pub error: Option<AppletError>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub extra: XExtensionMap,
-}
-
-impl Applet {
-    pub const SCHEMA: &'static str = SchemaId::APPLET_V1;
 }
 
 /// Counterpart for

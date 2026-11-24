@@ -5,7 +5,7 @@
 // sha256=42278e7c05317c7629724c1cbbe5ab019e87da08d73d014d915898fce20012ab
 //
 // Input: schemas/authority-commit-operations.schema.json
-// sha256=87d27218a735fe1af4a515abe3553dd93ef2af14665de64103fc6c8a36fc9f47
+// sha256=a54d3a63eae6e9a9cb6599130ef06d42358f93ed17148c0db82da086f4865afe
 //
 // Input: schemas/authorization-operations.schema.json
 // sha256=b367d60aeb13aa9e524c5201cc1857d8ac9defd5c78293f696a4f4c0a5d4450b
@@ -26,7 +26,7 @@
 // sha256=6feb8f90ab444004084e457cc4c52193dbfc9d630f4739eda7712c21257af590
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=6f2298d507cfeaf587b0a77d565af971535b7d029bf667f2e4b743448bcc016f
+// sha256=db60be1849d8bc93becf15639c6e3cafbbddfe2c4d0967db90cec73027764425
 
 /// Counterpart: `realm-read-operations.schema.json#/$defs/realm_stream_view`.
 /// One established authority stream the caller may know exists

@@ -299,6 +299,34 @@ impl OwnStationStateClient {
         self.bind(request.clone(), value)
     }
 
+    /// Fetch the recipient and predecessor for a first Sidecar root, bound to
+    /// this exact host session across the network call.
+    pub async fn prepare_sidecar_backup(
+        &self,
+        query: &arkret_models_crypto::SidecarBackupPrepareQuery,
+    ) -> Result<
+        BoundOwnStationResponse<
+            arkret_models_crypto::SidecarBackupPrepareQuery,
+            arkret_models_crypto::SidecarBackupPrepareResponseBody,
+        >,
+    > {
+        self.check_session()?;
+        let pairs = arkret_models_crypto::KeysBackupsListParameters::Sidecar(query.clone())
+            .to_query_pairs()?;
+        let result: arkret_models_crypto::SidecarBackupPrepareResponseBody = self
+            .client
+            .send_json(
+                self.client
+                    .request(reqwest::Method::GET, "/_arkret/self/keys/backups")?
+                    .query(&pairs),
+            )
+            .await?;
+        if query.sidecar_id != result.sidecar_id {
+            return Err(protocol("backup preparation returned another Sidecar"));
+        }
+        self.bind(query.clone(), result)
+    }
+
     pub async fn scan_commit_stream(
         &self,
         request: &StreamScanRequestBody,

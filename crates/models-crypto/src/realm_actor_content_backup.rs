@@ -7,6 +7,41 @@ use zeroize::Zeroizing;
 
 include!("generated/realm_actor_content_backup_contracts.rs");
 
+impl SidecarBackupPrepareResponseBody {
+    pub fn validate(&self) -> Result<()> {
+        self.root_context.validate()?;
+        if !matches!(&self.root_context.effective_scope, arkret_wire::ScopeRef::Sidecar { sidecar_id, .. } if sidecar_id == &self.sidecar_id)
+        {
+            return Err(WireError::Protocol(
+                "Sidecar backup preparation scope mismatch".into(),
+            ));
+        }
+        if self.supersedes_id.is_some() != (self.series_sequence > 0)
+            || self.supersedes_digest.is_some() != (self.series_sequence > 0)
+        {
+            return Err(WireError::Protocol(
+                "Sidecar backup preparation predecessor mismatch".into(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl Serialize for SidecarBackupPrepareResponseBody {
+    fn serialize<S: Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
+        self.validate().map_err(serde::ser::Error::custom)?;
+        Self::serialize(self, serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for SidecarBackupPrepareResponseBody {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> std::result::Result<Self, D::Error> {
+        let body = Self::deserialize(deserializer)?;
+        body.validate().map_err(serde::de::Error::custom)?;
+        Ok(body)
+    }
+}
+
 // Serde remote-Self emits the canonical field decoder without a second DTO.
 // Cross-field/curve invariants are then enforced at actual Deserialize ingress.
 macro_rules! checked_native_serde {
@@ -242,6 +277,14 @@ impl KeysBackupsListParameters {
                     Self::Manager(query)
                 }
             }
+            None if values.contains_key("sidecar_id") => {
+                let id = values
+                    .remove("sidecar_id")
+                    .expect("present Sidecar selector");
+                Self::Sidecar(SidecarBackupPrepareQuery {
+                    sidecar_id: arkret_wire::SidecarId::new(id)?,
+                })
+            }
             None => {
                 let query = crate::KeyBackupsListQuery {
                     agent_id: values.remove("agent_id").map(DidCoreId::new).transpose()?,
@@ -287,6 +330,7 @@ impl KeysBackupsListParameters {
         let mut pairs = Vec::new();
         let mut push = |key: &str, value: String| pairs.push((key.to_owned(), value));
         match self {
+            Self::Sidecar(q) => push("sidecar_id", q.sidecar_id.to_string()),
             Self::Account(q) => {
                 if let Some(id) = &q.agent_id {
                     push("agent_id", id.to_string());
@@ -684,6 +728,17 @@ mod tests {
         let mut malformed = fixture()["recipient"].clone();
         malformed["public_key_base64url"] = json!(arkret_canonical::base64url_encode([0; 32]));
         assert!(serde_json::from_value::<RealmActorContentBackupRecipient>(malformed).is_err());
+    }
+
+    #[test]
+    fn sidecar_prepare_query_accepts_only_the_single_target() {
+        let id = "ak:sidecar:AUD2WOhX-Xh47vBHtRJPMRfXRQXGiOWQqOrJGJnE8CaI";
+        let query = KeysBackupsListParameters::from_query_pairs([("sidecar_id",id)]).unwrap();
+        assert!(matches!(&query,KeysBackupsListParameters::Sidecar(q) if q.sidecar_id.as_str()==id));
+        assert_eq!(query.to_query_pairs().unwrap(), vec![("sidecar_id".to_owned(),id.to_owned())]);
+        for extra in [("sidecar_id",id),("limit","1"),("purpose","series_predecessor"),("agent_id","another")] {
+            assert!(KeysBackupsListParameters::from_query_pairs([("sidecar_id",id),extra]).is_err());
+        }
     }
 
     #[test]

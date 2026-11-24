@@ -5,10 +5,10 @@
 // sha256=61c5e64619b36a92bd52168fefe55f7643dbee653acdca81f37cde5e0398c420
 //
 // Input: schemas/key-backup.schema.json
-// sha256=85df9a32502b9901452f2109c09bb9fca32b74af5712012cbae9590f53777e3d
+// sha256=4b8a4368dbd297cce51d4537eb81c70a0a9fcf8bbccc486b03ccd795218d6da6
 //
 // Input: schemas/keys-operations.schema.json
-// sha256=8cafab3f5d4a61e2d9900c88eabf3d707a081f3411ccf0d16a4eb4f081682733
+// sha256=6ae4e3efa09f689cad8f3cf498111d3e9bee6e48017194dfac443320d01b37b7
 //
 // Input: schemas/common-ids.schema.json
 // sha256=81b18acd21f4382860d5cab2384d9bb78ee5dbc23629752a6cc74ce384186149
@@ -32,7 +32,7 @@
 // sha256=044d45d62401cc0435f045b5931ce8c7ec54fc2c6901c5d4d2b2f1ffda3028dc
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=6f2298d507cfeaf587b0a77d565af971535b7d029bf667f2e4b743448bcc016f
+// sha256=db60be1849d8bc93becf15639c6e3cafbbddfe2c4d0967db90cec73027764425
 
 /// Counterpart: `realm-actor.schema.json#/$defs/content_backup_recipient/properties/hpke_suite`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -142,6 +142,7 @@ pub enum KeysBackupsListParameters {
     Account(crate::KeyBackupsListQuery),
     Device(RealmActorBackupHeadQuery),
     Manager(RealmActorArchiveInventoryQuery),
+    Sidecar(SidecarBackupPrepareQuery),
 }
 
 /// Counterpart: `keys-operations.schema.json#/$defs/realm_actor_backup_active_series_state`.
@@ -512,4 +513,30 @@ pub enum KeysBackupsReplaceOperationResponseBody {
 pub enum KeysBackupsIssueUnlockChallengeBody {
     Account(crate::KeysBackupsIssueUnlockChallengeRequestBody),
     Native(RealmActorBackupIssueUnlockChallengeRequestBody),
+}
+
+/// Counterpart: `keys-operations.schema.json#/$defs/sidecar_backup_prepare_response_body`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(remote = "Self", deny_unknown_fields)]
+pub struct SidecarBackupPrepareResponseBody {
+    pub sidecar_id: arkret_wire::SidecarId,
+    pub root_context: crate::content_history::ContentRootContext,
+    pub series_id: arkret_wire::BackupSeriesId,
+    pub series_sequence: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
+    pub supersedes_id: Option<arkret_wire::BackupId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
+    pub supersedes_digest: Option<arkret_wire::Hash>,
+    pub recovery_policy_ref: crate::RecoveryPolicyRef,
+    pub backup_hpke: crate::RecoveryKeyAgreementEntry,
+}
+
+/// Counterpart: `keys-operations.schema.json#/$defs/keys_backups_list_query/oneOf/3`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SidecarBackupPrepareQuery {
+    pub sidecar_id: arkret_wire::SidecarId,
 }

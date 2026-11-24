@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json;
-//! sha256=2fb1b259aa44b7323f67cf916c1751b301d27005bb0de1cd4f576d329b238908
+//! sha256=be848c6b560c01d71a35fa236c179f78f1dd2f94c418d0218c69a2343e93046a
 //! Entries: operation_bundles=42 features=12
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
@@ -292,10 +292,16 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
     OperationBundleDescriptor {
         operation_bundle_id: "ak.operation_bundle.push_gateway.registration_handoff.v1",
         service_kind: ServiceKind::PushGateway,
-        members: &[OperationBindingPair {
-            operation_id: ServiceOperationId::EdgePushCommandApplyRegistrationV1,
-            binding_kind: BindingKind::HttpJson,
-        }],
+        members: &[
+            OperationBindingPair {
+                operation_id: ServiceOperationId::EdgePushCommandApplyRegistrationV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::OpenServiceReadResolutionV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+        ],
     },
     OperationBundleDescriptor {
         operation_bundle_id: "ak.operation_bundle.recovery_service.describe.v1",
