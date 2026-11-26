@@ -351,7 +351,7 @@ mod tests {
             assert!(decrypt(&record, &tampered, &[7; 32]).is_err());
             assert!(decrypt(&record, &ciphertext[..ciphertext.len() - 1], &[7; 32]).is_err());
             if size == 2048 {
-                let mut reordered = ciphertext.clone();
+                let mut reordered = ciphertext;
                 reordered.rotate_left(1040);
                 // Refresh the digest to isolate segment authentication from the
                 // independent complete-Blob digest rejection.

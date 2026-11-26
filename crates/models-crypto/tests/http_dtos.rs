@@ -451,7 +451,7 @@ fn claim_arrays_preserve_presence_and_timeout_obeys_schema_minimum() {
                 row["branch"]
             );
         }
-        let mut smallest = value.clone();
+        let mut smallest = value;
         smallest["timeout_ms"] = json!(1);
         serde_json::from_value::<PeerKeyPackagesClaimFields>(smallest)
             .unwrap()

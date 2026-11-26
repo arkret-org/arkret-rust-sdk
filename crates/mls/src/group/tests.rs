@@ -392,13 +392,18 @@ fn keypackage_fixture_credentials_decode_to_the_exact_actor() {
     .unwrap();
     for case in fixture["cases"].as_array().unwrap() {
         let keypackage = base64url_decode(case["keypackage"].as_str().unwrap().as_bytes()).unwrap();
-        let leaf = crate::identity::author_leaf_from_key_package_bytes(&keypackage, 0).unwrap();
-        let crate::AuthorLeafCredential::Basic { identity } = leaf.credential else {
-            panic!("fixture KeyPackage must carry BasicCredential");
-        };
+        // A frozen wire vector has a fixed MLS lifetime. Inspect its encoded
+        // identity independently of today's date; live admission validates expiry.
+        let package = openmls::prelude::KeyPackageIn::tls_deserialize_exact(&keypackage).unwrap();
+        let credential = package.unverified_credential().credential;
+        assert_eq!(
+            credential.credential_type(),
+            openmls::prelude::CredentialType::Basic
+        );
+        let identity = credential.serialized_content();
         let actor: ActorId = serde_json::from_value(case["endpoint"]["actor_id"].clone()).unwrap();
         assert_eq!(
-            arkret_models_crypto::decode_mls_basic_credential_identity(&identity).unwrap(),
+            arkret_models_crypto::decode_mls_basic_credential_identity(identity).unwrap(),
             actor
         );
         assert_eq!(
@@ -406,7 +411,7 @@ fn keypackage_fixture_credentials_decode_to_the_exact_actor() {
             base64url_decode(case["leaf_credential"].as_str().unwrap().as_bytes()).unwrap()
         );
         assert_eq!(
-            std::str::from_utf8(&identity).unwrap(),
+            std::str::from_utf8(identity).unwrap(),
             case["leaf_credential_jcs"].as_str().unwrap()
         );
     }

@@ -65,6 +65,6 @@ fn missing_status_and_unknown_lifecycle_words_fail_closed() {
         json!({"status": "ready"}),
     ] {
         assert!(!schema_accepts(&value), "schema accepted {value}");
-        assert!(serde_json::from_value::<AgentOperationStatusView>(value.clone()).is_err());
+        assert!(serde_json::from_value::<AgentOperationStatusView>(value).is_err());
     }
 }

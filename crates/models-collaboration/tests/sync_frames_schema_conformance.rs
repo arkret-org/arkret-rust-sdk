@@ -1501,7 +1501,7 @@ fn account_filter_rejects_retired_and_out_of_bound_members_on_both_sides() {
     ];
     for (case, value) in negatives {
         reject_fragment(ACCOUNT_FRAME, "#/$defs/account_filter", &value);
-        let dto = serde_json::from_value::<AccountFilter>(value.clone());
+        let dto = serde_json::from_value::<AccountFilter>(value);
         assert!(
             dto.is_err() || dto.unwrap().validate().is_err(),
             "{case}: the DTO accepted a filter the schema rejects",

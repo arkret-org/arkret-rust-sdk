@@ -1320,7 +1320,7 @@ mod tests {
             registry.validate_value(schema_id, &wire).unwrap();
             let typed: CurrentSelector = serde_json::from_value(selector.clone()).unwrap();
             assert_eq!(serde_json::to_value(typed).unwrap(), selector);
-            let mut mirrored = wire.clone();
+            let mut mirrored = wire;
             mirrored["selector"]["account_id"] = serde_json::json!({
                 "principal_id":"ak:did_core:web:alice.example",
                 "station_id":"ak:did_core:web:station.example"
@@ -1390,7 +1390,7 @@ mod tests {
             registry.validate_value(schema_id, &wire).unwrap();
             let typed: CurrentSelector = serde_json::from_value(selector.clone()).unwrap();
             assert_eq!(serde_json::to_value(typed).unwrap(), selector);
-            let mut unknown = wire.clone();
+            let mut unknown = wire;
             unknown["selector"]["account_id"] = serde_json::json!(agent_id);
             assert!(registry.validate_value(schema_id, &unknown).is_err());
             assert!(

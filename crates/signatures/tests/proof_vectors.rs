@@ -82,7 +82,7 @@ fn canonical_json_vectors_match_event_proof_builder() {
         let bytes = builder
             .canonical_bytes(&v.value)
             .unwrap_or_else(|err| panic!("vector '{}' failed canonical_bytes: {err}", v.name));
-        let bytes_str = String::from_utf8(bytes.clone())
+        let bytes_str = String::from_utf8(bytes)
             .unwrap_or_else(|err| panic!("vector '{}' canonical bytes not UTF-8: {err}", v.name));
         assert_eq!(
             bytes_str, v.canonical_bytes,
@@ -182,7 +182,7 @@ fn ed25519_vectors_round_trip_through_signer_and_verifier() {
             .expect("verifier accepts detached JWS");
 
         // Tampered bytes rejected.
-        let mut tampered = bytes.clone();
+        let mut tampered = bytes;
         tampered.push(b'!');
         assert!(
             verifier

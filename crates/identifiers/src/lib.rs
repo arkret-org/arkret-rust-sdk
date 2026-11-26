@@ -668,54 +668,23 @@ fn platform_unix_ms() -> u64 {
         .unwrap_or(0)
 }
 
-/// Validate that `value` is a canonical lower-case RFC 9562 UUIDv7 in the
-/// 36-character `xxxxxxxx-xxxx-7xxx-Nxxx-xxxxxxxxxxxx` form (N ∈ {8,9,a,b}),
-/// per `conformance/encoding.md` §4.
-///
-/// The v1 wire forbids upper-case hex, missing dashes, URN/Microsoft braces,
-/// and any UUID version other than 7.
+/// Validate the canonical lowercase UUID form required by the identifier profile.
+/// A zero version selector denotes an event-derived UUIDv8. Other selectors
+/// are the ASCII version nibble required by the caller.
 pub fn is_lowercase_typed_uuid(value: &str, version_nibble: u8) -> bool {
-    if value.len() != 36 {
-        return false;
-    }
     let bytes = value.as_bytes();
-    // Reject upper-case hex.
-    for &b in bytes {
-        if b.is_ascii_uppercase() {
-            return false;
-        }
-    }
-    // Position structure check, then version + variant nibble check.
-    for (i, &b) in bytes.iter().enumerate() {
-        match i {
-            8 | 13 | 18 | 23 => {
-                if b != b'-' {
-                    return false;
-                }
-            }
-            _ => {
-                let c = b as char;
-                if !c.is_ascii_digit() && !matches!(c, 'a'..='f') {
-                    return false;
-                }
-            }
-        }
-    }
-    // Version nibble at byte position 14 (third group: Vxxx).
-    // `0` is reserved for derivation-tagged identifiers. Realm identifiers
-    // use the event-derived v8 form exclusively.
-    if version_nibble == 0 {
-        if bytes[14] != b'8' {
-            return false;
-        }
-    } else if bytes[14] != version_nibble {
-        return false;
-    }
-    // Variant nibble at byte position 19 (fourth group: Nxxx, N ∈ {8,9,a,b}).
-    if !matches!(bytes[19], b'8' | b'9' | b'a' | b'b') {
-        return false;
-    }
-    true
+    let version = if version_nibble == 0 {
+        b'8'
+    } else {
+        version_nibble
+    };
+    bytes.len() == 36
+        && bytes[14] == version
+        && matches!(bytes[19], b'8' | b'9' | b'a' | b'b')
+        && bytes.iter().enumerate().all(|(index, byte)| match index {
+            8 | 13 | 18 | 23 => *byte == b'-',
+            _ => matches!(byte, b'0'..=b'9' | b'a'..=b'f'),
+        })
 }
 
 id_type!(

@@ -708,7 +708,7 @@ fn later_reader_opens_original_attachment_with_public_epoch_and_retained_root() 
                 .unwrap(),
             b"original archived attachment"
         );
-        let mut changed = descriptor.clone();
+        let mut changed = descriptor;
         let arkret_models_crypto::EncryptedAttachment::Stream(stream) = &mut changed else {
             unreachable!()
         };

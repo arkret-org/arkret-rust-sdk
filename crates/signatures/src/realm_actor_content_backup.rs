@@ -306,7 +306,7 @@ mod tests {
                 );
                 assert!(
                     challenge
-                        .sign_manager_unlock_proof_at(method.clone(), challenge.issued_at, sign)
+                        .sign_manager_unlock_proof_at(method, challenge.issued_at, sign)
                         .is_err()
                 );
                 serde_json::to_value(proof).unwrap()
@@ -319,7 +319,7 @@ mod tests {
                 serde_json::from_value::<arkret_models_crypto::KeyBackupUnlockProofBody>(legacy)
                     .is_err()
             );
-            let mut widened = challenge.clone();
+            let mut widened = challenge;
             widened.expires_at += chrono::Duration::milliseconds(1);
             assert!(widened.validate_at(widened.issued_at).is_err());
         }

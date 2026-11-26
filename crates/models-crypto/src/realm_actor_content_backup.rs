@@ -733,11 +733,23 @@ mod tests {
     #[test]
     fn sidecar_prepare_query_accepts_only_the_single_target() {
         let id = "ak:sidecar:AUD2WOhX-Xh47vBHtRJPMRfXRQXGiOWQqOrJGJnE8CaI";
-        let query = KeysBackupsListParameters::from_query_pairs([("sidecar_id",id)]).unwrap();
-        assert!(matches!(&query,KeysBackupsListParameters::Sidecar(q) if q.sidecar_id.as_str()==id));
-        assert_eq!(query.to_query_pairs().unwrap(), vec![("sidecar_id".to_owned(),id.to_owned())]);
-        for extra in [("sidecar_id",id),("limit","1"),("purpose","series_predecessor"),("agent_id","another")] {
-            assert!(KeysBackupsListParameters::from_query_pairs([("sidecar_id",id),extra]).is_err());
+        let query = KeysBackupsListParameters::from_query_pairs([("sidecar_id", id)]).unwrap();
+        assert!(
+            matches!(&query,KeysBackupsListParameters::Sidecar(q) if q.sidecar_id.as_str()==id)
+        );
+        assert_eq!(
+            query.to_query_pairs().unwrap(),
+            vec![("sidecar_id".to_owned(), id.to_owned())]
+        );
+        for extra in [
+            ("sidecar_id", id),
+            ("limit", "1"),
+            ("purpose", "series_predecessor"),
+            ("agent_id", "another"),
+        ] {
+            assert!(
+                KeysBackupsListParameters::from_query_pairs([("sidecar_id", id), extra]).is_err()
+            );
         }
     }
 

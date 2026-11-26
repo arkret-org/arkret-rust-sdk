@@ -76,7 +76,7 @@ fn changed_original_proof_payload_endpoint_or_destination_cannot_rebind() {
                 .validate_content_backup_source_binding(&source, &producer, &destination)
                 .is_err()
         );
-        let mut incomplete = source.clone();
+        let mut incomplete = source;
         incomplete.protections_digest =
             arkret_wire::Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap();
         assert!(
