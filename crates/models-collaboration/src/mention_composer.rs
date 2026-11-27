@@ -6,7 +6,6 @@ use arkret_wire::AccountId;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AgentMentionComposerScope {
     Realm,
-    Circle,
     Direct,
     Sidecar,
 }
@@ -48,7 +47,7 @@ pub fn agent_mention_route_with_modes(
     if !private {
         return Route::Shared;
     }
-    if scope == Scope::Circle || public || outside || audience {
+    if public || outside || audience {
         Route::BlockedMixedPrivateTargets
     } else {
         Route::Sidecar
@@ -174,8 +173,8 @@ mod tests {
     }
 
     #[test]
-    fn realm_modes_circle_and_private_scopes_keep_their_boundaries() {
-        use AgentMentionComposerScope::{Circle, Direct, Realm, Sidecar};
+    fn realm_modes_and_private_scopes_keep_their_boundaries() {
+        use AgentMentionComposerScope::{Direct, Realm, Sidecar};
         use AgentMentionRoute::{
             BlockedMixedPrivateTargets as Blocked, Direct as DirectRoute, Shared,
             Sidecar as PrivateRoute,
@@ -195,8 +194,8 @@ mod tests {
             (Realm, vec![Some(Private)], true, false, Blocked),
             (Realm, vec![Some(Private)], false, true, Blocked),
             (Realm, vec![None], false, false, Blocked),
-            (Circle, vec![Some(Private)], false, false, Blocked),
-            (Circle, vec![Some(Public)], false, false, Shared),
+
+
             (Sidecar, vec![Some(Public)], false, false, PrivateRoute),
             (Sidecar, vec![None], false, false, PrivateRoute),
             (Direct, vec![None], false, false, DirectRoute),

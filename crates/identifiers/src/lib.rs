@@ -624,7 +624,6 @@ impl TryFrom<u8> for RealmDerivationClass {
 pub const EVENT_DERIVED_ID_KIND_PREFIXES: &[&str] = &[
     "ak:actor_profile:",
     "ak:call:",
-    "ak:circle:",
     "ak:event:",
     "ak:grant:",
     "ak:invite:",
@@ -879,9 +878,6 @@ declare_uuid_id_kinds! {
     ConsentId, "ak:consent:", UUID_VERSION_PRODUCER_ALLOCATED;
     CapabilityId, "ak:capability:", UUID_VERSION_PRODUCER_ALLOCATED;
     ChunkId, "ak:chunk:", UUID_VERSION_PRODUCER_ALLOCATED;
-    // AKP-0007 (2026-05-08) — Circle id-kind. Intra-Realm cryptographic
-    // sub-boundary; see spec artifacts/registry/id-kind-registry.json and
-    // zh/models/circle.md.
     ClaimId, "ak:claim:", UUID_VERSION_PRODUCER_ALLOCATED;
     DeviceMessageId, "ak:device_message:", UUID_VERSION_PRODUCER_ALLOCATED;
     FilterId, "ak:filter:", UUID_VERSION_PRODUCER_ALLOCATED;
@@ -905,7 +901,6 @@ declare_uuid_id_kinds! {
 declare_event_token_id_kinds! {
     ActorProfileId, "ak:actor_profile:";
     CallId, "ak:call:";
-    CircleId, "ak:circle:";
     EventId, "ak:event:";
     GrantId, "ak:grant:";
     InviteId, "ak:invite:";

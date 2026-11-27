@@ -6,17 +6,17 @@ use arkret_wire::CapabilityActionId;
 
 #[test]
 fn capability_descriptor_is_indexed_by_canonical_action_id() {
-    let descriptor = capability_action_descriptor(CapabilityActionId::CircleManage);
+    let descriptor = capability_action_descriptor(CapabilityActionId::SpaceCreate);
 
-    assert_eq!(descriptor.action, CapabilityActionId::CircleManage);
+    assert_eq!(descriptor.action, CapabilityActionId::SpaceCreate);
     assert_eq!(descriptor.risk_tier, CapabilityRiskTier::Medium);
-    assert_eq!(descriptor.required_constraints, &["allowed_circle_ids"]);
-    assert_eq!(descriptor.event_mapping_kind, "aggregate_admin");
+    assert_eq!(descriptor.required_constraints, &["allowed_space_kinds"]);
+    assert_eq!(descriptor.event_mapping_kind, "same_name");
 }
 
 #[test]
 fn durable_event_action_uses_the_registered_submission_carrier() {
-    let descriptor = capability_action_descriptor(CapabilityActionId::CircleManage);
+    let descriptor = capability_action_descriptor(CapabilityActionId::SpaceCreate);
 
     assert_eq!(
         descriptor.approval_requirement_eligibility,

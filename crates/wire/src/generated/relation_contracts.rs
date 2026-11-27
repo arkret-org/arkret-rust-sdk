@@ -2,16 +2,13 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/relation.schema.json
-// sha256=70545ff21fc729e799002ff573e2cf03f7c6e2096ae97437583e5fbc51b981a4
-//
-// Input: schemas/common-ids.schema.json
-// sha256=81b18acd21f4382860d5cab2384d9bb78ee5dbc23629752a6cc74ce384186149
+// sha256=77aff8a642fa16313c365d604fb71f1633766593cacf33d882c8ce7be72ed2e0
 //
 // Input: schemas/event-envelope.schema.json
-// sha256=1a6e35870a77026b5c24a6afd6d4bee713836d9ee7efba9041b27b2059397d20
+// sha256=63e18909fb55d3e68142f95c276b58ef538eea7902b9158312c89f8e8aef2365
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=5c71516a86f6e77bf88bd907edc9f7002dddfcc4a5457d0ba636150543e5b28e
+// sha256=a78e63d1f3a48c87115a3e40e578dc4aeb5f619833613e5eb9fae1be319bff29
 
 /// Counterpart: `relation.schema.json#/$defs/relation_definition`.
 /// Closed authoring input for `ak.relation.create`.
@@ -22,9 +19,6 @@
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RelationDefinition {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
-    pub scope_circle_id: Option<CircleId>,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
     pub relation_kind: RelationKind,
     pub from_ref: RelationEndpoint,

@@ -924,7 +924,7 @@ fn audit_pair_validates_direction_target_and_producer_for_real_event_digests() {
     use arkret_models_collaboration::authority_commit::{
         AuditPairedEventUnitSubmission, is_audit_paired_event_slot,
     };
-    for name in ["closed_watch_pair", "closed_circle_pair"] {
+    for name in ["closed_watch_pair"] {
         let fixture = audit_fixture();
         let case = fixture["schema_validation_cases"]
             .as_array()
@@ -1271,7 +1271,7 @@ fn hex_to_bytes(value: &str) -> Vec<u8> {
 }
 
 #[test]
-fn service_terminal_grant_fact_binds_realm_governance_and_circle_effect() {
+fn service_terminal_grant_fact_binds_realm_governance_and_effect() {
     let fixture = arkret_schema_conformance::spec_json_artifact(
         "fixtures/applet-management-source-fixture.json",
     )
@@ -1285,7 +1285,7 @@ fn service_terminal_grant_fact_binds_realm_governance_and_circle_effect() {
         serde_json::from_value(source["producer_signer_fact"].clone()).unwrap();
     assert!(matches!(
         fact.key.effective_scope,
-        arkret_wire::ScopeRef::Circle { .. }
+        arkret_wire::ScopeRef::Realm { .. }
     ));
     assert_eq!(
         full.event.scope_ref,

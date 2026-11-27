@@ -12,12 +12,6 @@ use crate::governance::operation_wire::Policy;
 #[serde(deny_unknown_fields)]
 pub struct SignalProductAuthority {
     pub authority_commit_id: RealmCommitId,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    pub parent_realm_authority_commit_id: Option<RealmCommitId>,
     pub current_realm_head: CommitStreamHead,
     pub current_scope_head: CommitStreamHead,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -74,7 +68,6 @@ impl SignalProductAuthority {
         let scope_stream = CommitStreamRef::from_scope(&envelope.scope_ref, None)?;
         if self.sent_at != envelope.sent_at
             || self.authority_commit_id != envelope.authority_commit_id
-            || self.parent_realm_authority_commit_id != envelope.parent_realm_authority_commit_id
             || self.current_realm_head.stream_ref != realm_stream
             || self.current_scope_head.stream_ref != scope_stream
             || (self.agent.is_some() != envelope.sender_device_id.is_none())
@@ -375,7 +368,6 @@ mod tests {
         };
         let product = SignalProductAuthority {
             authority_commit_id: envelope.authority_commit_id.clone(),
-            parent_realm_authority_commit_id: None,
             current_realm_head: head.clone(),
             current_scope_head: head,
             sent_at: envelope.sent_at,

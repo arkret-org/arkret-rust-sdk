@@ -4,20 +4,17 @@
 use arkret_models_collaboration::governance::operation_wire::{
     AgentPolicyOperation, Policy, PolicyResourceKind, PolicyRuleKind,
 };
-use arkret_wire::{PolicyEffect, PolicyKind, ScopeRef, ServiceOperationId, WireError};
+use arkret_wire::{PolicyKind, ScopeRef, ServiceOperationId, WireError};
 
 /// Local implementation facts, not a wire object, negotiated profile or grant.
 /// A caller may declare support only when its registered consumers implement it.
 #[derive(Clone, Copy, Debug)]
 pub struct AgentPolicyBackendSupport {
-    /// An executable, registered Circle management review carrier.
-    pub circle_review: bool,
 }
 
 /// Established configuration consumers shared by the reference Station and UI.
 /// This is not a claim of complete protocol or runtime support.
 pub const REFERENCE_AGENT_POLICY_SUPPORT: AgentPolicyBackendSupport = AgentPolicyBackendSupport {
-    circle_review: false,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -28,8 +25,6 @@ pub enum AgentPolicySupportError {
     NotAgentPolicy,
     #[error("Agent Policy has no registered governance scope")]
     GovernanceScope,
-    #[error("Circle review carrier is unavailable")]
-    CircleReview,
     #[error("non-Agent rule has no registered Agent matcher")]
     RuleKind,
     #[error("unknown action has no registered matcher")]
@@ -62,21 +57,14 @@ pub fn validate_agent_policy_support(
     }
     document.validate().map_err(Error::InvalidPolicy)?;
     if !matches!(scope,
-        ScopeRef::Realm { realm_id } | ScopeRef::Circle { realm_id, .. }
+        ScopeRef::Realm { realm_id }
         if document.realm_id.as_ref() == Some(realm_id))
     {
         return Err(Error::GovernanceScope);
     }
-    let circle_without_review = matches!(scope, ScopeRef::Circle { .. }) && !support.circle_review;
-    if circle_without_review && document.default_effect == PolicyEffect::RequireReview {
-        return Err(Error::CircleReview);
-    }
     for rule in &document.rules {
         if rule.kind != PolicyRuleKind::Agent {
             return Err(Error::RuleKind);
-        }
-        if circle_without_review && rule.effect == PolicyEffect::RequireReview {
-            return Err(Error::CircleReview);
         }
         if let Some(actions) = &rule.actions {
             for action in actions {

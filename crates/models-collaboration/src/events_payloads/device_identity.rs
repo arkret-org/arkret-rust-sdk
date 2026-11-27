@@ -249,7 +249,7 @@ impl AppletManagedDeviceScopes {
         for entry in &entries {
             if !matches!(
                 entry.effective_scope,
-                ScopeRef::Realm { .. } | ScopeRef::Circle { .. }
+                ScopeRef::Realm { .. }
             ) || entry.actions.is_empty()
                 || entry
                     .actions

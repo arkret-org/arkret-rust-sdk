@@ -160,9 +160,9 @@ impl StrandWatchCurrentResponseBody {
         };
         if !matches!(
             &head.stream_ref,
-            CommitStreamRef::Realm { .. } | CommitStreamRef::Circle { .. }
+            CommitStreamRef::Realm { .. }
         ) {
-            return Err("watch-current head is not a Realm or Circle namespace");
+            return Err("watch-current head is not a Realm namespace");
         }
         if realm_id != &request.realm_id || head.stream_ref.realm_id() != &request.realm_id {
             return Err("watch-current response Realm differs from request");
@@ -226,10 +226,10 @@ impl WatchAuditReadRequestBody {
         }
         if !matches!(
             event.scope_ref,
-            arkret_wire::ScopeRef::Realm { .. } | arkret_wire::ScopeRef::Circle { .. }
+            arkret_wire::ScopeRef::Realm { .. }
         ) {
             return Err(arkret_wire::WireError::Protocol(
-                "audited read requires a Realm or Circle stream".to_owned(),
+                "audited read requires a Realm stream".to_owned(),
             ));
         }
         self.selector()?;

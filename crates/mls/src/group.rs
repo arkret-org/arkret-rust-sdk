@@ -53,38 +53,8 @@ fn endpoint_replaces(previous: &MlsEndpointIdentity, current: &MlsEndpointIdenti
 
 /// Match a recipient Welcome's RFC 9420 KeyPackageRef to public local
 /// inventory. This is allocation bookkeeping only: it neither admits the
-/// Welcome nor authorizes opening it or issuing a durable consume receipt.
-pub fn welcome_addresses_key_package(
-    delivery: &MlsWelcomeDelivery,
-    record: &MlsKeyPackageRecord,
-) -> Result<bool> {
-    delivery.validate_shape()?;
-    let provider = OpenMlsRustCrypto::default();
-    let package = decode_key_package(&provider, record)?;
-    let reference = package.hash_ref(provider.crypto()).map_err(mls_error)?;
-    let bytes = decode(delivery.ciphertext_base64url.as_str())?;
-    let message = MlsMessageIn::tls_deserialize_exact(bytes.as_slice()).map_err(mls_error)?;
-    let MlsMessageBodyIn::Welcome(welcome) = message.extract() else {
-        return Err(Error::Protocol(
-            "MLS delivery does not contain a Welcome".to_owned(),
-        ));
-    };
-    Ok(welcome
-        .secrets()
-        .iter()
-        .any(|secret| secret.new_member() == reference))
-}
-
-/// Realm and Circle groups carry handshakes as `PublicMessage`; a Sidecar group
-/// keeps its own policy and encrypts them.
-///
-/// This takes the scope, never a `group_id`. Before the 2218 ruling the policy
-/// was recovered by parsing the `group_id` bytes back into a `RealmId` or
-/// `CircleId`, which only worked because those bytes *were* the scope id in
-/// clear. Since `group_id` is now a SHA-256 digest, that parse can only ever
-/// fail — it would have silently downgraded every Realm and Circle group to
-/// `PURE_CIPHERTEXT` instead of failing loudly. The scope is therefore threaded
-/// down from the caller and persisted with the group.
+/// Realm and Sidecar groups carry RFC 9420 handshakes as PublicMessage.
+/// The signed scope selects the policy independently of its hashed group id.
 pub(super) fn handshake_policy(scope: &ScopeRef) -> Result<openmls::prelude::WireFormatPolicy> {
     scope.requires_public_mls_handshake()?;
     Ok(openmls::prelude::PURE_PLAINTEXT_WIRE_FORMAT_POLICY)
@@ -2050,7 +2020,7 @@ impl ArkretMlsGroup {
     }
 
     /// Install an MLS Commit only after the containing Event has an accepted
-    /// `RealmCommit` in the same independent Realm/Circle/Sidecar stream.
+    /// `RealmCommit` in the same independent Realm/Sidecar stream.
     /// `current` is the exact Station `MlsGroupValue` base result pinned
     /// before this transition; callers must not reconstruct it from the Event
     /// payload being verified.

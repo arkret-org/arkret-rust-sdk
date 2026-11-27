@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/forbidden-wire-fields.json;
-//! sha256=dd807e45009ca4a960b1c8349a39be28afa407b76aeb91edb14b014e91ad7088
+//! sha256=1ee5c8c0b582837ac2bfd8634930192b89a37f7809911bbab0cac8ff02642288
 //! Entries: forbidden_wire_fields=237
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -2682,20 +2682,12 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
         id: "via",
         context: "membership_payload",
         rejection_level: "hard_reject",
-        selectors: &[
-            ForbiddenWireSelector {
-                document_kind: "schema_instance",
-                schema_ref: "event-payload.schema.json#/$defs/membership_payload",
-                instance_pointer: "",
-                match_scope: "root",
-            },
-            ForbiddenWireSelector {
-                document_kind: "schema_instance",
-                schema_ref: "event-payload.schema.json#/$defs/circle_member_state_payload",
-                instance_pointer: "",
-                match_scope: "root",
-            },
-        ],
+        selectors: &[ForbiddenWireSelector {
+            document_kind: "schema_instance",
+            schema_ref: "event-payload.schema.json#/$defs/membership_payload",
+            instance_pointer: "",
+            match_scope: "root",
+        }],
         match_kind: "field",
         match_values: &["via"],
         value_pointer: "",
@@ -2704,20 +2696,12 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
         id: "via_ids",
         context: "membership_payload",
         rejection_level: "hard_reject",
-        selectors: &[
-            ForbiddenWireSelector {
-                document_kind: "schema_instance",
-                schema_ref: "event-payload.schema.json#/$defs/membership_payload",
-                instance_pointer: "",
-                match_scope: "root",
-            },
-            ForbiddenWireSelector {
-                document_kind: "schema_instance",
-                schema_ref: "event-payload.schema.json#/$defs/circle_member_state_payload",
-                instance_pointer: "",
-                match_scope: "root",
-            },
-        ],
+        selectors: &[ForbiddenWireSelector {
+            document_kind: "schema_instance",
+            schema_ref: "event-payload.schema.json#/$defs/membership_payload",
+            instance_pointer: "",
+            match_scope: "root",
+        }],
         match_kind: "field",
         match_values: &["via_ids"],
         value_pointer: "",
@@ -3014,12 +2998,6 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
             ForbiddenWireSelector {
                 document_kind: "schema_instance",
                 schema_ref: "event-payload.schema.json#/$defs/space_patch_payload",
-                instance_pointer: "",
-                match_scope: "root",
-            },
-            ForbiddenWireSelector {
-                document_kind: "schema_instance",
-                schema_ref: "event-payload.schema.json#/$defs/circle_patch_payload",
                 instance_pointer: "",
                 match_scope: "root",
             },

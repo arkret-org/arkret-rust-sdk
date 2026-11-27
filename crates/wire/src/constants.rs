@@ -1,4 +1,4 @@
-use crate::{CapabilityActionId, DomainSeparationId};
+use crate::DomainSeparationId;
 
 pub const PROTOCOL_VERSION: &str = "1.0";
 
@@ -65,20 +65,6 @@ pub const SECRET_SEND_KIND: &str = "ak.secret.send";
 pub const RECOVERY_POLICY_SIGNATURE_TYPE: &str =
     DomainSeparationId::IDENTITY_RECOVERY_POLICY_SIGNATURE_V1;
 
-/// AKP-0007 capability action list (6 actions). Useful for downstream
-/// services that want to iterate the Circle-management surface.
-///
-/// `ak.circle.manage`, `ak.circle.member.manage`, `ak.circle.member.add.others`
-/// and `ak.circle.audit` declare `required_constraints=["allowed_circle_ids"]`;
-/// unconstrained Realm-wide grants for those actions MUST be rejected.
-pub const CIRCLE_CAPABILITY_ACTIONS: &[&str] = &[
-    CapabilityActionId::CIRCLE_CREATE,
-    CapabilityActionId::CIRCLE_MANAGE,
-    CapabilityActionId::CIRCLE_MEMBER_ADD,
-    CapabilityActionId::CIRCLE_MEMBER_MANAGE,
-    CapabilityActionId::CIRCLE_MEMBER_ADD_OTHERS,
-    CapabilityActionId::CIRCLE_AUDIT,
-];
 
 /// AKP-0010 — maximum TTL bound for media tokens (600 seconds). Tokens
 /// MUST be rejected when `expires_at - now > 600s`. SHOULD floor: 300s.

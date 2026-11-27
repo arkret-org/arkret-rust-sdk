@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json;
-//! sha256=1d326e38cd652bea30ae35bddd0e89f0887505dd36c4cc7ccfdd344af12d096d Entries: schema_ids=236,
-//! active=236
+//! sha256=1bde71b428c1fcbf12de2072f155a3a0191e1d6bacec46b421c85bf2e07938c5 Entries: schema_ids=234,
+//! active=234
 
 use serde::{Deserialize, Serialize};
 
@@ -70,8 +70,6 @@ pub enum SchemaId {
     CallRecordingArtifactV1,
     CallSignalPlaintextV1,
     CapabilityV1,
-    CircleV1,
-    CircleOperationsV1,
     CommittedEventSubscribeFrameV1,
     CommonIdsV1,
     ConsentOperationsV1,
@@ -310,8 +308,6 @@ impl SchemaId {
         Self::CallRecordingArtifactV1,
         Self::CallSignalPlaintextV1,
         Self::CapabilityV1,
-        Self::CircleV1,
-        Self::CircleOperationsV1,
         Self::CommittedEventSubscribeFrameV1,
         Self::CommonIdsV1,
         Self::ConsentOperationsV1,
@@ -550,8 +546,6 @@ impl SchemaId {
         Self::CallRecordingArtifactV1,
         Self::CallSignalPlaintextV1,
         Self::CapabilityV1,
-        Self::CircleV1,
-        Self::CircleOperationsV1,
         Self::CommittedEventSubscribeFrameV1,
         Self::CommonIdsV1,
         Self::ConsentOperationsV1,
@@ -810,13 +804,12 @@ impl SchemaId {
     pub const AGENT_REQUESTED_SCOPE_DISCLOSURE_V1: &'static str =
         "ak.schema.agent_requested_scope_disclosure.v1";
     /// Controller-owned private AI workspace with native Sidecar scope and ownership-derived Agent
-    /// access. It is not a Circle profile and has no backing Circle or editable membership. See
-    /// zh/models/sidecar.md.
+    /// access. Its participant set is fixed by its controller binding. See zh/models/sidecar.md.
     pub const AGENT_SIDECAR_V1: &'static str = "ak.schema.agent_sidecar.v1";
     /// Closed exchange binding inside the encrypted metadata plaintext of Sidecar-scoped Message
     /// events. Sole normative declaration of explicit user-facing/internal response disposition.
-    /// Never legal in plaintext metadata or shared Realm/Circle events. See zh/models/sidecar.md
-    /// section 8.
+    /// Never legal in plaintext metadata or shared Realm events. See zh/models/sidecar.md section
+    /// 8.
     pub const AGENT_SIDECAR_EVENT_EXCHANGE_BINDING_V1: &'static str =
         "ak.schema.agent_sidecar_event_exchange_binding.v1";
     /// Closed plaintext encrypted by ak.agent.sidecar.exchange.control. Sole durable source of
@@ -920,17 +913,10 @@ impl SchemaId {
     /// validation defined by the WebRTC signaling profile.
     pub const CALL_SIGNAL_PLAINTEXT_V1: &'static str = "ak.schema.call_signal_plaintext.v1";
     pub const CAPABILITY_V1: &'static str = "ak.schema.capability.v1";
-    /// Circle — intra-Realm scoped event/message boundary. Subset membership, independent history
-    /// visibility, delivery/query/projection boundary, and optional independent MLS group. Does NOT
-    /// carry federation identity. see zh/models/circle.md.
-    pub const CIRCLE_V1: &'static str = "ak.schema.circle.v1";
-    /// Closed request/response DTO bundle for self-surface Circle administration operations
-    /// (ak.self.circle.*); see zh/models/circle.md.
-    pub const CIRCLE_OPERATIONS_V1: &'static str = "ak.schema.circle_operations.v1";
     /// Closed data/control frame union for ak.self.committed_event.stream.subscribe.v1.
     pub const COMMITTED_EVENT_SUBSCRIBE_FRAME_V1: &'static str =
         "ak.schema.committed_event_subscribe_frame.v1";
-    /// Defs-only shared typed-ID patterns (e.g. circle_id) referenced cross-file by morph and
+    /// Defs-only shared typed-ID patterns (e.g. strand_id) referenced cross-file by morph and
     /// relation schemas so a single id-form change propagates without inline drift. Not an
     /// object/event schema. See zh/models/common-fields.md §6.
     pub const COMMON_IDS_V1: &'static str = "ak.schema.common_ids.v1";
@@ -1215,7 +1201,7 @@ impl SchemaId {
     pub const REALM_AUTHORITY_BUNDLE_V1: &'static str = "ak.schema.realm_authority_bundle.v1";
     /// Dual-signed planned authority generation transfer.
     pub const REALM_AUTHORITY_HANDOFF_V1: &'static str = "ak.schema.realm_authority_handoff.v1";
-    /// Authority-signed finality record for one Realm, Circle or Sidecar stream.
+    /// Authority-signed finality record for one Realm or Sidecar stream.
     pub const REALM_COMMIT_V1: &'static str = "ak.schema.realm_commit.v1";
     pub const REALM_GENESIS_V1: &'static str = "ak.schema.realm_genesis.v1";
     pub const REALM_INVITE_LINK_V1: &'static str = "ak.schema.realm_invite_link.v1";
@@ -1341,9 +1327,8 @@ impl SchemaId {
     /// Canonical DTO bundle for service operation request/response shapes migrated out of OpenAPI
     /// inline components.
     pub const SERVICE_OPERATION_DTOS_V1: &'static str = "ak.schema.service_operation_dtos.v1";
-    /// Encrypted-only Signal envelope with exact scope authority_commit_id and Circle-only
-    /// parent_realm_authority_commit_id; both enter proof digest and pre-encryption AAD. Product
-    /// payloads remain encrypted.
+    /// Encrypted-only Signal envelope with exact ordinary Realm authority_commit_id; it enters
+    /// proof digest and pre-encryption AAD. Product payloads remain encrypted.
     pub const SIGNAL_ENVELOPE_V1: &'static str = "ak.schema.signal_envelope.v1";
     /// Closed decrypted Signal payload profile for transient Message generation keyframe, delta,
     /// and abort frames.
@@ -1500,8 +1485,6 @@ impl SchemaId {
             Self::CallRecordingArtifactV1 => Self::CALL_RECORDING_ARTIFACT_V1,
             Self::CallSignalPlaintextV1 => Self::CALL_SIGNAL_PLAINTEXT_V1,
             Self::CapabilityV1 => Self::CAPABILITY_V1,
-            Self::CircleV1 => Self::CIRCLE_V1,
-            Self::CircleOperationsV1 => Self::CIRCLE_OPERATIONS_V1,
             Self::CommittedEventSubscribeFrameV1 => Self::COMMITTED_EVENT_SUBSCRIBE_FRAME_V1,
             Self::CommonIdsV1 => Self::COMMON_IDS_V1,
             Self::ConsentOperationsV1 => Self::CONSENT_OPERATIONS_V1,
@@ -1791,8 +1774,6 @@ impl SchemaId {
             Self::CallRecordingArtifactV1 => "schemas/call-recording-artifact.schema.json",
             Self::CallSignalPlaintextV1 => "schemas/call-signal-plaintext.schema.json",
             Self::CapabilityV1 => "schemas/capability-grant.schema.json",
-            Self::CircleV1 => "schemas/circle.schema.json",
-            Self::CircleOperationsV1 => "schemas/circle-operations.schema.json",
             Self::CommittedEventSubscribeFrameV1 => {
                 "schemas/committed-event-subscribe-frame.schema.json"
             }
@@ -2082,8 +2063,6 @@ impl SchemaId {
             Self::CALL_RECORDING_ARTIFACT_V1 => Some(Self::CallRecordingArtifactV1),
             Self::CALL_SIGNAL_PLAINTEXT_V1 => Some(Self::CallSignalPlaintextV1),
             Self::CAPABILITY_V1 => Some(Self::CapabilityV1),
-            Self::CIRCLE_V1 => Some(Self::CircleV1),
-            Self::CIRCLE_OPERATIONS_V1 => Some(Self::CircleOperationsV1),
             Self::COMMITTED_EVENT_SUBSCRIBE_FRAME_V1 => Some(Self::CommittedEventSubscribeFrameV1),
             Self::COMMON_IDS_V1 => Some(Self::CommonIdsV1),
             Self::CONSENT_OPERATIONS_V1 => Some(Self::ConsentOperationsV1),

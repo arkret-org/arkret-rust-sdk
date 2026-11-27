@@ -19,7 +19,7 @@ pub mod admin_scopes {
     pub const AUTHORITY_HANDOFF: &str = "authority.handoff";
     /// Trigger retention-aware commit-log compaction.
     pub const COMMIT_LOG_COMPACT: &str = "commit_log.compact";
-    /// Repair a damaged independent Realm/Circle/Sidecar stream.
+    /// Repair a damaged independent Realm/Sidecar stream.
     pub const STREAM_REPAIR: &str = "stream.repair";
     /// Read admin-scoped collection surfaces (accounts, spaces, etc.).
     pub const ADMIN_READ: &str = "admin.read";

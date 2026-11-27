@@ -3,8 +3,8 @@
 use serde::{Deserialize, Serialize, de};
 
 use crate::{
-    BlobRef, CircleId, DidCoreId, EventId, InviteId, MessageId, MorphId, PolicyId, RealmId,
-    RelationId, Result, ScopeRef, SpaceId, StrandId, ViewId, WireError,
+    BlobRef, DidCoreId, EventId, InviteId, MessageId, MorphId, PolicyId, RealmId, RelationId,
+    Result, ScopeRef, SpaceId, StrandId, ViewId, WireError,
 };
 
 /// Opaque object reference wire scalar (`ak:object:...` and friends).
@@ -16,7 +16,6 @@ pub type ObjectRef = String;
 pub enum ResourceSelectorKind {
     Realm,
     Space,
-    Circle,
     Strand,
     Message,
     Morph,
@@ -70,8 +69,6 @@ pub struct WireResourceSelector {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub space_id: Option<SpaceId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub circle_id: Option<CircleId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub object_kind: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub object_ref: Option<ObjectRef>,
@@ -111,7 +108,6 @@ impl WireResourceSelector {
             kind,
             realm_id,
             space_id: None,
-            circle_id: None,
             object_kind: None,
             object_ref: None,
             strand_id: None,
@@ -159,28 +155,18 @@ impl WireResourceSelector {
         selector
     }
 
-    pub fn circle(realm_id: RealmId, circle_id: CircleId) -> Self {
-        let mut selector = Self::for_kind(ResourceSelectorKind::Circle, Some(realm_id));
-        selector.circle_id = Some(circle_id);
-        selector
-    }
-
     pub fn strand(realm_id: RealmId, strand_id: StrandId) -> Self {
         let mut selector = Self::for_kind(ResourceSelectorKind::Strand, Some(realm_id));
         selector.strand_id = Some(strand_id);
         selector
     }
 
-    /// Name exactly one Realm or Circle installation scope. The registered
+    /// Name exactly one Realm installation scope. The registered
     /// default for an omitted match_scope is exact; realm_wide and additional
     /// identifying fields cannot be normalized into that scope.
     pub fn is_exact_scope(&self, scope: &ScopeRef) -> bool {
         let expected = match scope {
             ScopeRef::Realm { realm_id } => Self::realm(realm_id.clone()),
-            ScopeRef::Circle {
-                realm_id,
-                circle_id,
-            } => Self::circle(realm_id.clone(), circle_id.clone()),
             _ => return false,
         };
         if !matches!(self.match_scope, None | Some(ResourceMatchScope::Exact)) {
@@ -195,7 +181,6 @@ impl WireResourceSelector {
         let realm_scoped = matches!(
             self.kind,
             ResourceSelectorKind::Space
-                | ResourceSelectorKind::Circle
                 | ResourceSelectorKind::Strand
                 | ResourceSelectorKind::Message
                 | ResourceSelectorKind::Morph
@@ -245,8 +230,6 @@ struct ResourceSelectorWire {
     #[serde(default)]
     space_id: Option<SpaceId>,
     #[serde(default)]
-    circle_id: Option<CircleId>,
-    #[serde(default)]
     object_kind: Option<String>,
     #[serde(default)]
     object_ref: Option<ObjectRef>,
@@ -290,7 +273,6 @@ impl<'de> Deserialize<'de> for WireResourceSelector {
             kind: wire.kind,
             realm_id: wire.realm_id,
             space_id: wire.space_id,
-            circle_id: wire.circle_id,
             object_kind: wire.object_kind,
             object_ref: wire.object_ref,
             strand_id: wire.strand_id,
@@ -356,36 +338,18 @@ mod tests {
     fn exact_scope_preserves_default_exact_and_refuses_wide_or_other_identifiers() {
         let event = EventId::from_digest(crate::canonical::DigestSuite::Sha256, [231; 32]);
         let realm = RealmId::from_event_id(&event);
-        let circle = CircleId::from_event_id(&event);
-        for scope in [
-            ScopeRef::Realm {
-                realm_id: realm.clone(),
-            },
-            ScopeRef::Circle {
-                realm_id: realm.clone(),
-                circle_id: circle.clone(),
-            },
-        ] {
-            let mut selector = match &scope {
-                ScopeRef::Realm { realm_id } => WireResourceSelector::realm(realm_id.clone()),
-                ScopeRef::Circle {
-                    realm_id,
-                    circle_id,
-                } => WireResourceSelector::circle(realm_id.clone(), circle_id.clone()),
-                _ => unreachable!(),
-            };
-            assert!(selector.is_exact_scope(&scope));
-            selector.match_scope = Some(ResourceMatchScope::Exact);
-            assert!(selector.is_exact_scope(&scope));
-            selector.match_scope = Some(ResourceMatchScope::RealmWide);
-            assert!(!selector.is_exact_scope(&scope));
-            selector.match_scope = None;
-            selector.strand_id = Some(StrandId::from_event_id(&event));
-            assert!(!selector.is_exact_scope(&scope));
-        }
-        let scope = ScopeRef::Circle {
+        let scope = ScopeRef::realm(realm.clone());
+        let mut selector = WireResourceSelector::realm(realm.clone());
+        assert!(selector.is_exact_scope(&scope));
+        selector.match_scope = Some(ResourceMatchScope::Exact);
+        assert!(selector.is_exact_scope(&scope));
+        selector.match_scope = Some(ResourceMatchScope::RealmWide);
+        assert!(!selector.is_exact_scope(&scope));
+        selector.match_scope = None;
+        selector.strand_id = Some(StrandId::from_event_id(&event));
+        assert!(!selector.is_exact_scope(&scope));
+        let scope = ScopeRef::RealmControl {
             realm_id: realm.clone(),
-            circle_id: circle,
         };
         assert!(!WireResourceSelector::realm(realm).is_exact_scope(&scope));
     }

@@ -7,7 +7,7 @@ use arkret_canonical::binding_contexts;
 use arkret_models_crypto::encrypted_envelope::EncryptedEnvelope;
 use arkret_models_crypto::protected_payload::MlsPayloadType;
 use arkret_wire::{
-    ActorId, Base64UrlString, CircleId, DeviceId, Did, DidCoreId, DidUrl, Hash, MorphId,
+    ActorId, Base64UrlString, DeviceId, Did, DidCoreId, DidUrl, Hash, MorphId,
     ObjectStage, ObjectState, PolicyId, RealmId, Result, SchemaId, StrandId, TrustDomainId,
     WireError, canonical, project_did_to_core_id,
 };
@@ -312,14 +312,6 @@ pub struct Morph {
     pub id: Option<MorphId>,
     pub schema: String,
     pub realm_id: RealmId,
-    /// AKP-0007 (spec b7d35be) — optional Circle scope binding. Morphs that
-    /// carry confidential synthesis fields can be bound to a Circle so their
-    /// payload is encrypted inside that Circle's MLS group.
-    ///
-    /// Declaration order mirrors `morph.schema.json`: `realm_id`,
-    /// `scope_circle_id`, `schema_refs`, …
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub scope_circle_id: Option<CircleId>,
     /// Authoritative, create-locked schema set for Morph fields. Reducers MUST
     /// validate Morph fields against exactly these refs; `morph_kind` / `facets`
     /// are not a replacement.
@@ -383,7 +375,7 @@ impl Morph {
             id: Some(id),
             schema: SchemaId::MORPH_V1.to_owned(),
             realm_id,
-            scope_circle_id: None,
+
             schema_refs: vec![SchemaId::MORPH_V1.to_owned()],
             morph_kind: morph_kind.into(),
             facets: BTreeMap::new(),

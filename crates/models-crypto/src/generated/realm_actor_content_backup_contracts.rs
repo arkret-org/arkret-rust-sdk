@@ -5,13 +5,10 @@
 // sha256=61c5e64619b36a92bd52168fefe55f7643dbee653acdca81f37cde5e0398c420
 //
 // Input: schemas/key-backup.schema.json
-// sha256=4b8a4368dbd297cce51d4537eb81c70a0a9fcf8bbccc486b03ccd795218d6da6
+// sha256=d7efe393feafd41785b281ecaca6dcc1ad3f2430de42e37f8a8804d61a01bdf0
 //
 // Input: schemas/keys-operations.schema.json
-// sha256=6ae4e3efa09f689cad8f3cf498111d3e9bee6e48017194dfac443320d01b37b7
-//
-// Input: schemas/common-ids.schema.json
-// sha256=81b18acd21f4382860d5cab2384d9bb78ee5dbc23629752a6cc74ce384186149
+// sha256=467d79a9356f4fae8d1c3b8278c0fe07740fa8e43258bb354441d12b9cf1b4c5
 //
 // Input: schemas/authorization-operations.schema.json
 // sha256=b367d60aeb13aa9e524c5201cc1857d8ac9defd5c78293f696a4f4c0a5d4450b
@@ -25,14 +22,17 @@
 // Input: schemas/time.schema.json
 // sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
 //
+// Input: schemas/common-ids.schema.json
+// sha256=dadc47194ca411baa38f3a7f44ae8115bec7cbcd98e68a2fffd389fdfc039713
+//
 // Input: schemas/realm-actor-material.schema.json
 // sha256=1c0e4d7bc2303d040259991aa33f767d6fafd434d0cce306ad6ace5f4af25986
 //
 // Input: schemas/key-backup-unlock-proof.schema.json
-// sha256=044d45d62401cc0435f045b5931ce8c7ec54fc2c6901c5d4d2b2f1ffda3028dc
+// sha256=ea8fa14649e43570aecac018e53834b1f5d73e1b18ad01eafb9e514d09646b95
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=5c71516a86f6e77bf88bd907edc9f7002dddfcc4a5457d0ba636150543e5b28e
+// sha256=a78e63d1f3a48c87115a3e40e578dc4aeb5f619833613e5eb9fae1be319bff29
 
 /// Counterpart: `realm-actor.schema.json#/$defs/content_backup_recipient/properties/hpke_suite`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -105,9 +105,6 @@ pub enum KeysBackupsListQueryOneOf1Purpose {
 pub struct RealmActorBackupHeadQuery {
     pub purpose: KeysBackupsListQueryOneOf1Purpose,
     pub realm_actor_id: arkret_wire::RealmActorId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
-    pub circle_id: Option<arkret_wire::CircleId>,
 }
 
 /// Counterpart:

@@ -233,7 +233,7 @@ impl AuthorityCommitStore for MemoryAuthorityCommitStore {
 #[cfg(test)]
 mod tests {
     use arkret_canonical::DigestSuite;
-    use arkret_identifiers::{CircleId, DidCoreId, EventId, RealmCommitId, RealmId};
+    use arkret_identifiers::{SidecarId, DidCoreId, EventId, RealmCommitId, RealmId};
     use arkret_wire::{
         ActorId, Base64UrlString, DetachedObjectSignature, DetachedSignatureAlgorithm,
         DetachedSignatureContext, DidUrl, EventKind, Hash, RealmCommitAuthorityRef, ScopeRef,
@@ -299,38 +299,29 @@ mod tests {
     }
 
     #[test]
-    fn realm_and_circle_advance_independently() {
+    fn realm_and_sidecar_advance_independently() {
         let store = MemoryAuthorityCommitStore::default();
         let realm_stream = CommitStreamRef::Realm { realm_id: realm() };
-        let circle_stream = CommitStreamRef::Circle {
+        let sidecar_stream = CommitStreamRef::Sidecar {
             realm_id: realm(),
-            circle_id: CircleId::from_event_id(&EventId::from_digest(DigestSuite::Sha256, [2; 32])),
+            sidecar_id: SidecarId::from_event_id(&EventId::from_digest(DigestSuite::Sha256, [2; 32])),
         };
         let realm_event = event(3, ScopeRef::Realm { realm_id: realm() });
-        let circle_event = event(
-            4,
-            ScopeRef::Circle {
-                realm_id: realm(),
-                circle_id: match &circle_stream {
-                    CommitStreamRef::Circle { circle_id, .. } => circle_id.clone(),
-                    _ => unreachable!(),
-                },
-            },
-        );
+        let sidecar_event = event(4, sidecar_stream.scope_ref());
         let realm_commit = commit(5, &realm_event, realm_stream.clone(), 0, None);
-        let circle_commit = commit(6, &circle_event, circle_stream.clone(), 0, None);
+        let sidecar_commit = commit(6, &sidecar_event, sidecar_stream.clone(), 0, None);
 
         assert!(matches!(
             store.append(&realm_event, realm_commit),
             Ok(AppendOutcome::Committed(_))
         ));
         assert!(matches!(
-            store.append(&circle_event, circle_commit),
+            store.append(&sidecar_event, sidecar_commit),
             Ok(AppendOutcome::Committed(_))
         ));
         assert_eq!(store.stream_head(&realm_stream).unwrap().stream_position, 0);
         assert_eq!(
-            store.stream_head(&circle_stream).unwrap().stream_position,
+            store.stream_head(&sidecar_stream).unwrap().stream_position,
             0
         );
     }
@@ -403,20 +394,20 @@ mod tests {
         let first = commit(11, &first_event, realm_stream, 0, None);
         store.append(&first_event, first.clone()).unwrap();
 
-        let circle_id =
-            CircleId::from_event_id(&EventId::from_digest(DigestSuite::Sha256, [12; 32]));
-        let circle_stream = CommitStreamRef::Circle {
+        let sidecar_id =
+            SidecarId::from_event_id(&EventId::from_digest(DigestSuite::Sha256, [12; 32]));
+        let sidecar_stream = CommitStreamRef::Sidecar {
             realm_id: realm(),
-            circle_id: circle_id.clone(),
+            sidecar_id: sidecar_id.clone(),
         };
         let second_event = event(
             13,
-            ScopeRef::Circle {
+            ScopeRef::Sidecar {
                 realm_id: realm(),
-                circle_id,
+                sidecar_id,
             },
         );
-        let invalid = commit(14, &second_event, circle_stream, 1, Some(first.commit_id));
+        let invalid = commit(14, &second_event, sidecar_stream, 1, Some(first.commit_id));
         assert_eq!(
             store.append(&second_event, invalid),
             Err(CommitLogError::HeadConflict)

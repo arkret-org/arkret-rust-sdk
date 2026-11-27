@@ -17,9 +17,6 @@ use arkret_models_collaboration::contact_operations::{
     ContactRejectRequestBody, ContactScopeUpdateRequestBody, ContactTombstoneRequestBody,
 };
 use arkret_models_collaboration::device_pairing::AccountDevicePairRequestBody;
-use arkret_models_collaboration::governance::circle::{
-    CircleCreateRequestBody, CircleMemberDeleteRequestBody, CircleMemberRequestBody,
-};
 use arkret_models_collaboration::message_authoring::MessageSubmitRequestBody;
 use arkret_models_collaboration::objects::read_receipts::ReadCursorAdvanceRequestBody;
 use arkret_models_collaboration::sidecar_operations::SidecarEnsureRequestBody;
@@ -202,24 +199,6 @@ request!(
     self,
     vec![&self.audit_submission.event],
     self.validate()
-);
-request!(
-    CircleCreateRequestBody,
-    self,
-    vec![&self.create_event.event],
-    canonical_shape(self)
-);
-request!(
-    CircleMemberRequestBody,
-    self,
-    vec![&self.member_event.event],
-    canonical_shape(self)
-);
-request!(
-    CircleMemberDeleteRequestBody,
-    self,
-    vec![&self.member_event.event],
-    canonical_shape(self)
 );
 request!(
     AgentProvisionRequestBody,

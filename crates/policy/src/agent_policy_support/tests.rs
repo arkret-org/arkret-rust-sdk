@@ -1,7 +1,7 @@
 use arkret_models_collaboration::governance::operation_wire::{
     ManagementOperation, ManagementReviewRequirement, PolicyResourceSelector,
 };
-use arkret_wire::{AccountId, ActorId, CircleId, EventId, RealmId, SpaceId, StrandId};
+use arkret_wire::{AccountId, ActorId, PolicyEffect, EventId, RealmId, SpaceId, StrandId};
 use serde_json::json;
 
 use super::*;
@@ -44,7 +44,6 @@ fn kind(result: Result<(), AgentPolicySupportError>) -> &'static str {
         Err(E::InvalidPolicy(_)) => "syntax",
         Err(E::NotAgentPolicy) => "family",
         Err(E::GovernanceScope) => "scope",
-        Err(E::CircleReview) => "circle_review",
         Err(E::RuleKind) => "rule",
         Err(E::UnknownAction) => "unknown_action",
         Err(E::AggregateAdminAction) => "aggregate_action",
@@ -60,19 +59,10 @@ fn cases() -> Vec<(String, Policy, ScopeRef, &'static str)> {
     let base = policy();
     let realm = base.realm_id.clone().unwrap();
     let mut cases = Vec::new();
-    for circle in [false, true] {
-        let scope = if circle {
-            ScopeRef::Circle {
-                realm_id: realm.clone(),
-                circle_id: CircleId::from_event_id(&event(12)),
-            }
-        } else {
-            ScopeRef::Realm {
-                realm_id: realm.clone(),
-            }
-        };
+    {
+        let scope = ScopeRef::Realm { realm_id: realm.clone() };
         let mut add = |name: &str, p: Policy, expected| {
-            cases.push((format!("{circle}/{name}"), p, scope.clone(), expected));
+            cases.push((name.to_owned(), p, scope.clone(), expected));
         };
         for operation in [
             AgentPolicyOperation::Join,
@@ -111,7 +101,7 @@ fn cases() -> Vec<(String, Policy, ScopeRef, &'static str)> {
             add(
                 &format!("review/{operation:?}"),
                 p,
-                if circle { "circle_review" } else { "ok" },
+                "ok",
             );
             let mut p = base.clone();
             p.rules[0].agent_operations = Some(vec![operation]);
@@ -128,7 +118,7 @@ fn cases() -> Vec<(String, Policy, ScopeRef, &'static str)> {
         add(
             "default_review",
             p,
-            if circle { "circle_review" } else { "ok" },
+            "ok",
         );
         let mut p = base.clone();
         p.rules[0].agent_operations = Some(vec![AgentPolicyOperation::Execute]);
@@ -241,7 +231,8 @@ fn cases() -> Vec<(String, Policy, ScopeRef, &'static str)> {
 #[test]
 fn reference_backend_configuration_matrix_has_typed_rejections() {
     let cases = cases();
-    assert!(cases.len() > 100);
+    assert!(cases.iter().any(|(_, _, _, result)| *result == "ok"));
+    assert!(cases.iter().any(|(_, _, _, result)| *result == "syntax"));
     for (name, p, scope, expected) in &cases {
         assert_eq!(
             kind(validate_agent_policy_support(
@@ -259,13 +250,9 @@ fn reference_backend_configuration_matrix_has_typed_rejections() {
 #[test]
 fn declared_backend_support_never_overrides_protocol_review_legality() {
     let support = AgentPolicyBackendSupport {
-        circle_review: true,
     };
     let mut p = policy();
-    let scope = ScopeRef::Circle {
-        realm_id: p.realm_id.clone().unwrap(),
-        circle_id: CircleId::from_event_id(&event(12)),
-    };
+    let scope = ScopeRef::Realm { realm_id: p.realm_id.clone().unwrap() };
     p.rules[0].effect = PolicyEffect::RequireReview;
     p.rules[0].review_requirement = Some(requirement());
     assert!(validate_agent_policy_support(&p, &scope, &support).is_ok());
@@ -279,7 +266,6 @@ fn declared_backend_support_never_overrides_protocol_review_legality() {
 #[test]
 fn backend_review_support_cannot_turn_service_or_admin_into_content() {
     let support = AgentPolicyBackendSupport {
-        circle_review: true,
     };
     for (name, p, scope, expected) in cases().into_iter().filter(|(_, _, _, expected)| {
         matches!(

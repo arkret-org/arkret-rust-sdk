@@ -101,7 +101,6 @@ pub fn agent_grant_scope_within_provision(
             kind,
             "realm"
                 | "space"
-                | "circle"
                 | "strand"
                 | "message"
                 | "morph"
@@ -164,7 +163,6 @@ pub fn agent_grant_scope_within_provision(
             [
                 "resource_ref",
                 "space_id",
-                "circle_id",
                 "strand_id",
                 "message_id",
                 "morph_id",

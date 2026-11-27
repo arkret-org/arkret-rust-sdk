@@ -1301,7 +1301,7 @@ mod tests {
         for value in [
             "state-slot:ak.component.realm.genesis.v1:ak:realm:550e8400-e29b-41d4-a716-446655440000",
             "state-slot:ak.component.realm.authority_root.v1:ak:realm:550e8400-e29b-41d4-a716-446655440000",
-            crate::AuthoritySourceId::SIDECAR_PARENT_BOOTSTRAP_V1,
+            crate::AuthoritySourceId::SIDECAR_HOME_BOOTSTRAP_V1,
             "ak:grant:not-a-uuid",
             "did:web:alice.example",
             "future.authorization.source.v1",

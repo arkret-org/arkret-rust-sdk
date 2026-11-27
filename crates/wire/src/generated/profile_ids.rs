@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: profiles/conformance-profiles.json;
-//! sha256=43fb1ac0cf02ac1440d48bdd1516f566b6629e86c33b718e72c644621416a9fc Entries: profile_ids=77
+//! sha256=0d3bd8d75d4deb0ae8b7282af7894846f9788b0fe3e6d7a71300393c620b8326 Entries: profile_ids=76
 
 use serde::{Deserialize, Serialize};
 
@@ -27,7 +27,6 @@ pub enum ProfileId {
     CalendarEventV1,
     CalendarNotificationDispatchV1,
     ChatMvpV1,
-    CircleConformanceV1,
     ConstraintApprovalWorkflowV1,
     ConstraintClaimBasedV1,
     ConstraintEncryptionRequirementV1,
@@ -146,7 +145,6 @@ impl ProfileId {
         Self::CalendarEventV1,
         Self::CalendarNotificationDispatchV1,
         Self::ChatMvpV1,
-        Self::CircleConformanceV1,
         Self::ConstraintApprovalWorkflowV1,
         Self::ConstraintClaimBasedV1,
         Self::ConstraintEncryptionRequirementV1,
@@ -227,7 +225,6 @@ impl ProfileId {
     pub const CALENDAR_NOTIFICATION_DISPATCH_V1: &'static str =
         "ak.profile.calendar_notification_dispatch.v1";
     pub const CHAT_MVP_V1: &'static str = "ak.profile.chat_mvp.v1";
-    pub const CIRCLE_CONFORMANCE_V1: &'static str = "ak.profile.circle_conformance.v1";
     pub const CONSTRAINT_APPROVAL_WORKFLOW_V1: &'static str =
         "ak.profile.constraint.approval_workflow.v1";
     pub const CONSTRAINT_CLAIM_BASED_V1: &'static str = "ak.profile.constraint.claim_based.v1";
@@ -324,7 +321,6 @@ impl ProfileId {
             Self::CalendarEventV1 => Self::CALENDAR_EVENT_V1,
             Self::CalendarNotificationDispatchV1 => Self::CALENDAR_NOTIFICATION_DISPATCH_V1,
             Self::ChatMvpV1 => Self::CHAT_MVP_V1,
-            Self::CircleConformanceV1 => Self::CIRCLE_CONFORMANCE_V1,
             Self::ConstraintApprovalWorkflowV1 => Self::CONSTRAINT_APPROVAL_WORKFLOW_V1,
             Self::ConstraintClaimBasedV1 => Self::CONSTRAINT_CLAIM_BASED_V1,
             Self::ConstraintEncryptionRequirementV1 => Self::CONSTRAINT_ENCRYPTION_REQUIREMENT_V1,
@@ -408,7 +404,6 @@ impl ProfileId {
             Self::CalendarEventV1 => ProfileRole::Client,
             Self::CalendarNotificationDispatchV1 => ProfileRole::Server,
             Self::ChatMvpV1 => ProfileRole::Client,
-            Self::CircleConformanceV1 => ProfileRole::Interop,
             Self::ConstraintApprovalWorkflowV1 => ProfileRole::Admin,
             Self::ConstraintClaimBasedV1 => ProfileRole::Admin,
             Self::ConstraintEncryptionRequirementV1 => ProfileRole::Admin,
@@ -497,7 +492,6 @@ impl ProfileId {
             Self::CALENDAR_EVENT_V1 => Some(Self::CalendarEventV1),
             Self::CALENDAR_NOTIFICATION_DISPATCH_V1 => Some(Self::CalendarNotificationDispatchV1),
             Self::CHAT_MVP_V1 => Some(Self::ChatMvpV1),
-            Self::CIRCLE_CONFORMANCE_V1 => Some(Self::CircleConformanceV1),
             Self::CONSTRAINT_APPROVAL_WORKFLOW_V1 => Some(Self::ConstraintApprovalWorkflowV1),
             Self::CONSTRAINT_CLAIM_BASED_V1 => Some(Self::ConstraintClaimBasedV1),
             Self::CONSTRAINT_ENCRYPTION_REQUIREMENT_V1 => {

@@ -266,7 +266,6 @@
     "realm-actor-material.schema.json#/$defs/content_backup_next_prepare_input": "arkret_models_crypto::ContentBackupNextPrepareInput",
     "common-ids.schema.json#/$defs/realm_actor_id": "arkret_wire::RealmActorId",
     "common-ids.schema.json#/$defs/realm_actor": "arkret_wire::ActorId",
-    "common-ids.schema.json#/$defs/circle_id": "arkret_wire::CircleId",
     "common-ids.schema.json#/$defs/device_id": "arkret_wire::DeviceId",
     "common-ids.schema.json#/$defs/realm_commit_id": "arkret_wire::RealmCommitId",
     "authority-commit-operations.schema.json#/$defs/historical_producer_signer_fact": "arkret_models_collaboration::authority_commit::HistoricalProducerSignerFact",
@@ -339,7 +338,6 @@
     "principal-operations.schema.json#/$defs/participation_bits": "arkret_models_identity::ParticipationBits",
     "principal-operations.schema.json#/$defs/participation_scope": "arkret_models_identity::ParticipationScope",
     "principal-operations.schema.json#/$defs/realm_id": "arkret_wire::RealmId",
-    "principal-operations.schema.json#/$defs/circle_id": "arkret_wire::CircleId",
     "principal-operations.schema.json#/$defs/strand_id": "arkret_wire::StrandId",
     "agent-operations.schema.json#/$defs/agent_participation": "arkret_models_identity::ParticipationBits",
     "agent-operations.schema.json#/$defs/agent_participation_scope": "arkret_models_identity::ParticipationScope",
@@ -2488,69 +2486,6 @@
       ]
     },
     {
-      "output": "crates/models-collaboration/src/events_payloads/generated/circle_contracts.rs",
-      "inline": true,
-      "types": [
-        {
-          "name": "CircleCreatePayload",
-          "schema": "event-payload.schema.json#/$defs/circle_create_payload",
-          "rust": {
-            "signature": "pub struct CircleCreatePayload",
-            "attributes": [
-              "/// Counterpart for",
-              "/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/circle_create_payload`.",
-              "#[derive(Clone, Debug, Serialize, Deserialize)]",
-              "#[serde(deny_unknown_fields)]",
-              "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]"
-            ],
-            "members": {
-              "object": {
-                "name": "object",
-                "visibility": "pub",
-                "type": "Circle",
-                "attributes": []
-              }
-            }
-          }
-        },
-        {
-          "name": "CirclePatchPayload",
-          "schema": "event-payload.schema.json#/$defs/circle_patch_payload",
-          "rust": {
-            "signature": "pub struct CirclePatchPayload",
-            "attributes": [
-              "/// Counterpart for",
-              "/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/circle_patch_payload`.",
-              "#[derive(Clone, Debug, Serialize, Deserialize)]",
-              "#[serde(deny_unknown_fields)]"
-            ],
-            "members": {
-              "circle_id": {
-                "name": "circle_id",
-                "visibility": "pub",
-                "type": "CircleId",
-                "attributes": []
-              },
-              "patch": {
-                "name": "patch",
-                "visibility": "pub",
-                "type": "Patch",
-                "attributes": []
-              },
-              "expected_state_digest": {
-                "name": "expected_state_digest",
-                "visibility": "pub",
-                "type": "Option<Hash>",
-                "attributes": [
-                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
-                ]
-              }
-            }
-          }
-        }
-      ]
-    },
-    {
       "output": "crates/models-collaboration/src/events_payloads/generated/consent_contracts.rs",
       "inline": true,
       "types": [
@@ -3439,7 +3374,7 @@
           "rust": {
             "signature": "pub struct CurrentScopeReadReceiptPolicy",
             "attributes": [
-              "/// Verified current value of exactly one Realm/Circle scope. Call validate before consumption.",
+              "/// Verified current value of exactly one Realm scope. Call validate before consumption.",
               "#[derive(Clone, Debug, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
             ],
@@ -4022,14 +3957,6 @@
               "#[serde(deny_unknown_fields)]"
             ],
             "members": {
-              "scope_circle_id": {
-                "name": "scope_circle_id",
-                "visibility": "pub",
-                "type": "Option<CircleId>",
-                "attributes": [
-                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
-                ]
-              },
               "relation_kind": {
                 "name": "relation_kind",
                 "visibility": "pub",
@@ -5554,7 +5481,7 @@
               "/// Strong type for `object_lifecycle_payload`",
               "/// (`event-payload.schema.json#/$defs/object_lifecycle_payload`).",
               "///",
-              "/// Generic archive / restore / tombstone-style payload for Strand, Circle, and",
+              "/// Generic archive / restore / tombstone-style payload for Strand and",
               "/// Morph lifecycle events (e.g. `ak.strand.archive` / `ak.strand.restore`). The",
               "/// target object is single-sourced by `target_ref`. Required: `target_ref`.",
               "/// `additionalProperties:false`.",
@@ -5713,36 +5640,6 @@
                 "name": "encrypted_content",
                 "visibility": "pub",
                 "type": "Option<EncryptedEnvelope>",
-                "attributes": [
-                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
-                ]
-              }
-            }
-          }
-        },
-        {
-          "name": "DisplaySymbol",
-          "schema": "circle.schema.json#/$defs/display/properties/symbol",
-          "rust": {
-            "signature": "pub struct DisplaySymbol",
-            "attributes": [
-              "/// Counterpart for `spec/v1/artifacts/schemas/circle.schema.json#/$defs/display`.",
-              "#[derive(Clone, Debug, Serialize, Deserialize)]",
-              "#[serde(deny_unknown_fields)]"
-            ],
-            "members": {
-              "emoji": {
-                "name": "emoji",
-                "visibility": "pub",
-                "type": "Option<String>",
-                "attributes": [
-                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
-                ]
-              },
-              "glyph": {
-                "name": "glyph",
-                "visibility": "pub",
-                "type": "Option<String>",
                 "attributes": [
                   "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
                 ]
@@ -7067,14 +6964,6 @@
                 "visibility": "pub",
                 "type": "Vec<RealmId>",
                 "attributes": []
-              },
-              "circle_ids": {
-                "name": "circle_ids",
-                "visibility": "pub",
-                "type": "Option<Vec<CircleId>>",
-                "attributes": [
-                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
-                ]
               },
               "constraints": {
                 "name": "constraints",
@@ -9613,8 +9502,7 @@
           "rust": {
             "signature": "pub struct SidecarStreamHead",
             "attributes": [
-              "/// Accepted refs of one Sidecar's control stream. Circle membership and Sidecar",
-              "/// selection refs are forbidden here.",
+              "/// Accepted refs of one Sidecar's control stream. Only committed refs from that stream are accepted.",
               "#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]",
               "#[cfg_attr(feature = \"openapi\", derive(salvo_oapi::ToSchema))]"
@@ -9653,7 +9541,7 @@
               "/// `governance_generation` names which governance generation materialized these",
               "/// entries, and `stream_heads` is the per-stream position each entry was",
               "/// materialized at. There is deliberately no single \"Realm position\" here: a",
-              "/// Realm's own stream, its Circles and its Sidecars advance independently, and",
+              "/// Realm's own stream and its personal Sidecars advance independently, and",
               "/// one number could not state where this result stands in all of them.",
               "///",
               "/// Convergence is by stable domain selector plus `expected_commit_id` CAS, so a",
@@ -9700,7 +9588,7 @@
             "attributes": [
               "/// How much of one Realm a current-state read actually covered.",
               "///",
-              "/// Every Realm, Circle and Sidecar keeps its own commit stream, so coverage is",
+              "/// Every Realm and Sidecar keeps its own commit stream, so coverage is",
               "/// a set of per-stream heads and never a single global position.",
               "/// `complete_for_authorized_streams` is scoped exactly as its name says: it",
               "/// asserts that the reader saw every stream it is authorized to read, never",
@@ -18868,14 +18756,6 @@
                 "visibility": "pub",
                 "type": "arkret_wire::RealmActorId",
                 "attributes": []
-              },
-              "circle_id": {
-                "name": "circle_id",
-                "visibility": "pub",
-                "type": "Option<arkret_wire::CircleId>",
-                "attributes": [
-                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
-                ]
               }
             }
           }
@@ -21544,12 +21424,6 @@
   },
   "retained_models": [
     {
-      "rust_type": "crates/models-collaboration/src/events_payloads/circle.rs::CircleMemberStatePayload",
-      "schema": "event-payload.schema.json#/$defs/circle_member_state_payload",
-      "category": "domain_semantics",
-      "reason": "CircleMemberStatePayload uses its existing serde try_from/into wire adapter to enforce branch presence or transition invariants during decoding; generating that adapter from member sets would erase its domain rejection order."
-    },
-    {
       "rust_type": "crates/models-collaboration/src/events_payloads/event_wire.rs::Message",
       "schema": "message.schema.json",
       "category": "domain_semantics",
@@ -21788,12 +21662,6 @@
       "schema_field_set": "accepted",
       "category": "domain_semantics",
       "reason": "KeyPackagesUploadRequestBody flattens its human-device/Agent publisher XOR; schema accepted-field projection excludes intended_realm_id in every legal branch. The handwritten domain decoder enforces that closure and publisher validation."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/circle.rs::Circle",
-      "schema": "circle.schema.json",
-      "category": "artifact_expression",
-      "reason": "Circle is an open schema object (additionalProperties is allowed or omitted); the SDK projects documented core fields and retains the existing extension/opaque data semantics. Treating its named properties as a closed object would narrow the protocol."
     },
     {
       "rust_type": "crates/models-collaboration/src/governance/grant_constraint.rs::ConditionSubjectSelector",
@@ -22847,48 +22715,6 @@
       "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
     },
     {
-      "rust_type": "crates/models-collaboration/src/governance/circle.rs::CircleView",
-      "schema": "circle-operations.schema.json#/$defs/circle_view",
-      "category": "domain_semantics",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/circle.rs::CirclePreview",
-      "schema": "circle-operations.schema.json#/$defs/circle_preview",
-      "category": "domain_semantics",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/circle.rs::CircleCreateRequestBody",
-      "schema": "circle-operations.schema.json#/$defs/circle_create_request_body",
-      "category": "domain_semantics",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/circle.rs::CircleList",
-      "schema": "circle-operations.schema.json#/$defs/circle_list",
-      "category": "domain_semantics",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/circle.rs::CircleMemberRequestBody",
-      "schema": "circle-operations.schema.json#/$defs/circle_member_request_body",
-      "category": "domain_semantics",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/circle.rs::CircleMemberDeleteRequestBody",
-      "schema": "circle-operations.schema.json#/$defs/circle_member_delete_request_body",
-      "category": "domain_semantics",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/circle.rs::CircleMembershipResponseBody",
-      "schema": "circle-operations.schema.json#/$defs/circle_membership_response_body",
-      "category": "domain_semantics",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
-    },
-    {
       "rust_type": "crates/models-collaboration/src/governance/erasure.rs::ErasureReceiptPackage",
       "schema": "erasure-receipt-operations.schema.json#/$defs/erasure_receipt_package",
       "category": "domain_semantics",
@@ -23044,12 +22870,6 @@
     {
       "rust_type": "crates/models-collaboration/src/governance/realm_lifecycle.rs::HistoryAccessPayload",
       "schema": "event-payload.schema.json#/$defs/history_access_payload",
-      "category": "domain_semantics",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/realm_lifecycle.rs::CircleHistoryAccessPayload",
-      "schema": "event-payload.schema.json#/$defs/circle_history_access_payload",
       "category": "domain_semantics",
       "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
     },
@@ -23227,12 +23047,6 @@
     {
       "rust_type": "crates/models-collaboration/src/objects/media.rs::CallMediaTokenExchangeResponseBody",
       "schema": "service-operation-dtos.schema.json#/$defs/CallMediaTokenExchangeResponseBody",
-      "category": "domain_semantics",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/objects/object_facets.rs::Display",
-      "schema": "circle.schema.json#/$defs/display",
       "category": "domain_semantics",
       "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
     },
@@ -24690,12 +24504,6 @@
     {
       "rust_type": "crates/wire/src/authority_commit.rs::MemberStateValue",
       "schema": "current-state.schema.json#/$defs/member_state_value",
-      "category": "domain_semantics",
-      "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
-    },
-    {
-      "rust_type": "crates/wire/src/authority_commit.rs::CircleMemberStateValue",
-      "schema": "current-state.schema.json#/$defs/circle_member_state_value",
       "category": "domain_semantics",
       "reason": "Retain the existing public declaration, serde behavior and domain methods at its owning module. The shared exact field-set and scalar-encoding gate now checks this canonical counterpart; generation must not silently replace these existing APIs."
     },

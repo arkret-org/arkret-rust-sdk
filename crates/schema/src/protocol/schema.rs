@@ -991,7 +991,6 @@ fn morph_schema_document() -> Value {
             "schema": { "type": "string" },
             "id": { "type": "string" },
             "realm_id": { "type": "string" },
-            "scope_circle_id": { "type": "string" },
             "schema_refs": { "type": "array", "minItems": 1, "uniqueItems": true },
             "morph_kind": { "type": "string" },
             "facets": { "type": "object" },
@@ -1042,7 +1041,7 @@ fn morph_schema_document() -> Value {
             "updated_by": { "type": "string" },
             "updated_at": { "type": "string" }
         },
-        "additionalProperties": true
+        "additionalProperties": false
     })
 }
 
@@ -1051,23 +1050,30 @@ fn space_schema_document() -> Value {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "$id": SchemaId::SPACE_V1,
         "type": "object",
-        "required": ["schema", "id", "space_id", "kind", "title", "created_by", "created_at"],
+        "required": ["schema", "realm_id", "kind", "created_by", "created_at"],
         "properties": {
             "schema": { "type": "string" },
             "id": { "type": "string" },
-            "space_id": { "type": "string" },
+            "realm_id": { "type": "string" },
+            "child_scope_policy": { "type": "boolean" },
+            "schema_refs": { "type": "array" },
+            "summary": { "type": "string" },
+            "labels": { "type": "array" },
+            "avatar_blob_ref": { "type": "string" },
+            "encrypted_metadata": { "type": "object" },
+            "fields": { "type": "object" },
             "kind": { "type": "string" },
             "title": { "type": "string" },
             "parent_space_id": { "type": "string" },
             "rank": { "type": "string" },
             "state": { "type": "string" },
             "state_changed_at": { "type": "string" },
-            "created_by": { "type": "string" },
+            "created_by": { "type": "object" },
             "created_at": { "type": "string" },
-            "updated_by": { "type": "string" },
+            "updated_by": { "type": "object" },
             "updated_at": { "type": "string" }
         },
-        "additionalProperties": true
+        "additionalProperties": false
     })
 }
 

@@ -47,8 +47,7 @@ pub fn derived_object_ids_for_kind(kind: &str, event_id: &EventId) -> Vec<String
 /// producer-carried object id before a closed payload schema reduces the error
 /// to a generic additional-property failure. The target id kind is declared,
 /// never inferred from the Event kind's middle segment: `ak.profile.create`
-/// makes an `ak:actor_profile:`, and `ak.circle.create` says nothing about the
-/// object it creates.
+/// creates an `ak:actor_profile:` object.
 pub fn event_derived_id_kinds_for_kind(kind: &str) -> &'static [&'static str] {
     let Some(contract) = event_runtime_contract(kind) else {
         return &[];

@@ -2,8 +2,8 @@
 //!
 //! Bootstrap produces content-bound Events which a producer signs. The current
 //! governance Station validates those immutable Events and appends one
-//! [`arkret_wire::RealmCommit`] per Event to the appropriate independent Realm,
-//! Circle, or Sidecar stream.
+//! [`arkret_wire::RealmCommit`] per Event to the appropriate independent Realm
+//! or Sidecar stream.
 
 mod agent;
 mod agent_provision;

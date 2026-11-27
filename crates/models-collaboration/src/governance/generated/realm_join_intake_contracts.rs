@@ -2,16 +2,16 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/realm-join-intake.schema.json
-// sha256=5f60fd349c8d1906aa85281625a05025ed25b95dabc360de6acf44842869af43
+// sha256=017876ee53d49e4e03cbb894250e78f79c548210d691e88103ae4db35df2d7de
 //
 // Input: schemas/realm-commit.schema.json
-// sha256=6feb8f90ab444004084e457cc4c52193dbfc9d630f4739eda7712c21257af590
+// sha256=6619ed2e2fa0e9e7c8620a7d0a53426240b5cd3cf82f1fa7f086834a355eea19
 //
 // Input: schemas/agent-operations.schema.json
 // sha256=9aa8e4ac8e3674122e0db9ede934930c6a5b515932794fb4e352562d8ba1cf26
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=5c71516a86f6e77bf88bd907edc9f7002dddfcc4a5457d0ba636150543e5b28e
+// sha256=a78e63d1f3a48c87115a3e40e578dc4aeb5f619833613e5eb9fae1be319bff29
 
 /// Counterpart: `realm-join-intake.schema.json#/$defs/peer_bootstrap_request_body`.
 /// A candidate names the authority-signed RealmCommit that admitted its

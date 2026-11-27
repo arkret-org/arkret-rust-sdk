@@ -27,7 +27,7 @@ use arkret_models_collaboration::governance::realm_invite_link::{
     RealmInviteLinkAcceptPayload, RealmInviteLinkCreatePayload, RealmInviteLinkRevokePayload,
 };
 use arkret_models_collaboration::governance::realm_lifecycle::{
-    CircleHistoryAccessPayload, HistoryAccessPayload, ObjectLifecyclePayload, RealmArchivePayload,
+    HistoryAccessPayload, ObjectLifecyclePayload, RealmArchivePayload,
     RealmAssetPrivacyPolicyPayload, RealmDestroyPayload, RealmDiscoveryPayload,
     RealmJoinRulePayload, RealmSchemaPayload, RealmTombstonePayload,
 };
@@ -226,17 +226,10 @@ event_payload_accessors! {
     event_spec::RealmUnfreeze => (as_realm_unfreeze, RealmFreezePayload),
     event_spec::RealmTombstone => (as_realm_tombstone, RealmTombstonePayload),
     event_spec::RealmDestroy => (as_realm_destroy, RealmDestroyPayload),
-    event_spec::CircleCreate => (as_circle_create, CircleCreatePayload),
     event_spec::SidecarMemberState => (as_sidecar_member_state, SidecarMemberStatePayload),
     event_spec::SidecarCreate => (as_sidecar_create, SidecarCreatePayload),
     event_spec::SidecarContextAttach => (as_sidecar_context_attach, SidecarContextAttachPayload, SidecarContextAttachPayload::validate),
     event_spec::AgentSidecarExchangeControl => (as_agent_sidecar_exchange_control, AgentSidecarExchangeControlPayload),
-    event_spec::CircleUpdate => (as_circle_update, CirclePatchPayload),
-    event_spec::CircleHistoryAccess => (as_circle_history_access, CircleHistoryAccessPayload, CircleHistoryAccessPayload::validate),
-    event_spec::CircleArchive => (as_circle_archive, ObjectLifecyclePayload),
-    event_spec::CircleRestore => (as_circle_restore, ObjectLifecyclePayload),
-    event_spec::CircleTombstone => (as_circle_tombstone, ObjectLifecyclePayload),
-    event_spec::CircleMemberState => (as_circle_member_state, CircleMemberStatePayload, CircleMemberStatePayload::validate),
     event_spec::IdentityAccountabilityGrant => (as_identity_accountability_grant, AccountabilityGrantPayload),
     event_spec::MemberState => (as_member_state, MembershipPayload),
     event_spec::MemberIdentityUpdate => (as_member_identity_update, MemberIdentityUpdatePayload),

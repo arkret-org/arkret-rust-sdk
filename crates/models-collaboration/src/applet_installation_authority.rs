@@ -57,7 +57,7 @@ impl AppletCommittedEvent {
             && self.event.actor_id.as_realm_actor_id().is_some()
             && matches!(
                 self.event.scope_ref,
-                arkret_wire::ScopeRef::Realm { .. } | arkret_wire::ScopeRef::Circle { .. }
+                arkret_wire::ScopeRef::Realm { .. }
             );
         if realm_device != self.producer_signer_fact.is_some() {
             return Err(WireError::Protocol(
@@ -252,7 +252,7 @@ impl AppletAuthorityMaterialRequestBody {
     pub fn validate(&self) -> Result<()> {
         if !matches!(
             self.effective_scope,
-            arkret_wire::ScopeRef::Realm { .. } | arkret_wire::ScopeRef::Circle { .. }
+            arkret_wire::ScopeRef::Realm { .. }
         ) || !(1..=64).contains(&self.grant_ids.len())
             || self
                 .grant_ids
@@ -261,7 +261,7 @@ impl AppletAuthorityMaterialRequestBody {
                 .any(|(index, id)| self.grant_ids[..index].contains(id))
         {
             return Err(WireError::Protocol(
-                "Applet authority material request requires a Realm/Circle scope and 1..64 unique grant IDs".into(),
+                "Applet authority material request requires a Realm scope and 1..64 unique grant IDs".into(),
             ));
         }
         Ok(())
@@ -493,12 +493,12 @@ impl AppletAuthorityMaterialResponseBody {
     pub fn validate_structural(&self) -> Result<()> {
         if !matches!(
             self.effective_scope,
-            arkret_wire::ScopeRef::Realm { .. } | arkret_wire::ScopeRef::Circle { .. }
+            arkret_wire::ScopeRef::Realm { .. }
         ) || !(1..=64).contains(&self.grant_events.len())
             || self.current_states.len() > 256
         {
             return Err(WireError::Protocol(
-                "Applet authority material requires a Realm/Circle scope and grant Events".into(),
+                "Applet authority material requires a Realm scope and grant Events".into(),
             ));
         }
         self.registration.validate_structural()?;
@@ -840,7 +840,7 @@ mod authority_material_current_tests {
     }
 
     #[test]
-    fn grant_material_keeps_realm_governance_for_realm_and_circle_effects_without_owned_agent_gate()
+    fn grant_material_keeps_realm_governance_for_realm_effects_without_owned_agent_gate()
     {
         let artifacts = arkret_schema_conformance::default_spec_artifacts_dir().unwrap();
         let fixture: Value = serde_json::from_slice(
@@ -889,69 +889,12 @@ mod authority_material_current_tests {
         };
         validate_present_current_states_for_scope(&scope, &decode(&json!([value])).unwrap())
             .unwrap();
-        let circle_scope = arkret_wire::ScopeRef::Circle {
-            realm_id: realm,
-            circle_id: arkret_wire::CircleId::from_event_id(&arkret_wire::EventId::from_digest(
-                arkret_canonical::DigestSuite::Sha256,
-                [83; 32],
-            )),
-        };
-        // The effect scope can be Circle, while the accepted Grant current and
-        // its covering head remain on the same Realm governance stream.
-        let mut circle_value = value.clone();
-        let arkret_wire::ScopeRef::Circle {
-            realm_id,
-            circle_id,
-        } = &circle_scope
-        else {
-            unreachable!("Circle effect scope constructed above")
-        };
-        circle_value["current_state"]["value"]["resources"] =
-            json!([arkret_wire::WireResourceSelector::circle(
-                realm_id.clone(),
-                circle_id.clone()
-            )]);
-        validate_present_current_states_for_scope(
-            &circle_scope,
-            &decode(&json!([circle_value.clone()])).unwrap(),
-        )
-        .unwrap();
-        let circle_stream = arkret_wire::CommitStreamRef::from_scope(&circle_scope, None).unwrap();
-        let mut wrong_source = circle_value.clone();
-        wrong_source["current_state"]["source_stream_ref"] = json!(circle_stream);
-        assert!(
-            validate_present_current_states_for_scope(
-                &circle_scope,
-                &decode(&json!([wrong_source])).unwrap()
-            )
-            .is_err()
-        );
-        let mut wrong_cover = circle_value.clone();
-        wrong_cover["current_state"]["source_stream_ref"] = json!(circle_stream);
-        wrong_cover["effective_stream_head"]["stream_ref"] = json!(circle_stream);
-        for requested_scope in [&scope, &circle_scope] {
-            assert!(
-                validate_present_current_states_for_scope(
-                    requested_scope,
-                    &decode(&json!([wrong_cover.clone()])).unwrap()
-                )
-                .is_err()
-            );
-        }
-        let foreign_scope = arkret_wire::ScopeRef::Circle {
-            realm_id: arkret_wire::RealmId::from_event_id(&arkret_wire::EventId::from_digest(
-                arkret_canonical::DigestSuite::Sha256,
-                [85; 32],
-            )),
-            circle_id: circle_id.clone(),
-        };
-        assert!(
-            validate_present_current_states_for_scope(
-                &foreign_scope,
-                &decode(&json!([circle_value])).unwrap()
-            )
-            .is_err()
-        );
+        let foreign = arkret_wire::RealmId::from_event_id(&arkret_wire::EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [85;32]));
+        let foreign_scope = arkret_wire::ScopeRef::Realm { realm_id: foreign.clone() };
+        assert!(validate_present_current_states_for_scope(&foreign_scope, &decode(&json!([value.clone()])).unwrap()).is_err());
+        let mut wrong_source = value.clone();
+        wrong_source["current_state"]["source_stream_ref"] = json!(arkret_wire::CommitStreamRef::Realm { realm_id: foreign });
+        assert!(validate_present_current_states_for_scope(&scope, &decode(&json!([wrong_source])).unwrap()).is_err());
         let mut wrong_id = value;
         wrong_id["current_state"]["value"]["id"] = json!(arkret_wire::GrantId::from_event_id(
             &arkret_wire::EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [84; 32],)

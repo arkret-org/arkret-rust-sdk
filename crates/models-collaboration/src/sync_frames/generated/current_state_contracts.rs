@@ -5,7 +5,7 @@
 // sha256=b21766ffb5b612a5397c34b45369a766a7fdef8f60c316c11cf72db55e70b340
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=5c71516a86f6e77bf88bd907edc9f7002dddfcc4a5457d0ba636150543e5b28e
+// sha256=a78e63d1f3a48c87115a3e40e578dc4aeb5f619833613e5eb9fae1be319bff29
 
 /// Counterpart: `account-state-view.schema.json#/$defs/current`.
 /// The Account Station's view of one Realm's authority-committed current state.
@@ -14,7 +14,7 @@
 /// `governance_generation` names which governance generation materialized these
 /// entries, and `stream_heads` is the per-stream position each entry was
 /// materialized at. There is deliberately no single "Realm position" here: a
-/// Realm's own stream, its Circles and its Sidecars advance independently, and
+/// Realm's own stream and its personal Sidecars advance independently, and
 /// one number could not state where this result stands in all of them.
 ///
 /// Convergence is by stable domain selector plus `expected_commit_id` CAS, so a
@@ -35,7 +35,7 @@ pub struct AccountStateView {
 /// Counterpart: `account-state-view.schema.json#/$defs/coverage`.
 /// How much of one Realm a current-state read actually covered.
 ///
-/// Every Realm, Circle and Sidecar keeps its own commit stream, so coverage is
+/// Every Realm and Sidecar keeps its own commit stream, so coverage is
 /// a set of per-stream heads and never a single global position.
 /// `complete_for_authorized_streams` is scoped exactly as its name says: it
 /// asserts that the reader saw every stream it is authorized to read, never

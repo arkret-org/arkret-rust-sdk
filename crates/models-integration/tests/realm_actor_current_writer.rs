@@ -9,7 +9,7 @@ use arkret_models_integration::{
 };
 use arkret_schema_conformance::spec_json_artifact;
 use arkret_wire::{
-    ActorId, CircleId, CurrentSelector, DidCoreId, Event, EventId, EventKind, GrantId,
+    ActorId, CurrentSelector, DidCoreId, Event, EventId, EventKind, GrantId,
     RealmActorBackupKind, ScopeRef,
 };
 use serde_json::json;
@@ -77,23 +77,16 @@ fn native_series_writer_binds_complete_actor_and_scope() {
     };
     assert!(validate_realm_actor_current_writer(&wrong_actor, &event).is_err());
     let realm = actor_id.as_realm_actor_id().unwrap().realm_id.clone();
-    let circle = ScopeRef::Circle {
-        realm_id: realm,
-        circle_id: CircleId::from_event_id(&EventId::from_digest(DigestSuite::Sha256, [97; 32])),
-    };
-    let circle_selector = CurrentSelector::RealmActorKeyBackupActiveSeries {
+    let foreign = ScopeRef::Realm { realm_id: arkret_wire::RealmId::from_event_id(&EventId::from_digest(DigestSuite::Sha256, [97; 32])) };
+    let foreign_selector = CurrentSelector::RealmActorKeyBackupActiveSeries {
         actor_id: actor_id.clone(),
-        effective_scope: circle.clone(),
+        effective_scope: foreign.clone(),
         backup_kind: RealmActorBackupKind::SecretStorage,
     };
-    assert!(validate_realm_actor_current_writer(&circle_selector, &event).is_err());
-    // This is only a writer-mapping projection; the modified Event is not
-    // presented as a cryptographically accepted original.
-    let mut circle_event = event.clone();
-    circle_event
-        .payload
-        .insert("effective_scope".into(), json!(circle));
-    validate_realm_actor_current_writer(&circle_selector, &circle_event).unwrap();
+    assert!(validate_realm_actor_current_writer(&foreign_selector, &event).is_err());
+    let mut rebound = event.clone();
+    rebound.payload.insert("effective_scope".into(), json!(foreign));
+    assert!(validate_realm_actor_current_writer(&foreign_selector, &rebound).is_err());
     let mut wrong_target = event;
     wrong_target.payload.insert(
         "actor_id".into(),

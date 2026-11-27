@@ -22,8 +22,8 @@
 //! The `required_constraints` of the exercised action's registry row are
 //! enforced regardless of the grant author's declarations: a required
 //! shorthand the grant does not declare leaves the grant unsatisfied, except
-//! the self-service windows whose absence means unbounded (§14.2) and a Circle
-//! or Strand scope shorthand whose narrowing the covering resource selector
+//! the self-service windows whose absence means unbounded (§14.2) and a
+//! Strand scope shorthand whose narrowing the covering resource selector
 //! already expresses (`authz/resource-selector-grammar.md` §2.2).
 
 use arkret_models_collaboration::governance::grant_constraint::{
@@ -52,7 +52,6 @@ pub struct OperationFacts {
     /// Frozen source and destination List Spaces for a placement operation.
     pub from_container_id: Option<String>,
     pub to_container_id: Option<String>,
-    pub circle_id: Option<String>,
     pub view_id: Option<String>,
     /// The Strand track the operation targets (`discussion` for Messages).
     pub track: Option<String>,
@@ -1173,7 +1172,6 @@ impl OperationFacts {
     fn selector_kind_name(target: &WireResourceSelector) -> Option<&'static str> {
         Some(match target.kind {
             ResourceSelectorKind::Space => "space",
-            ResourceSelectorKind::Circle => "circle",
             ResourceSelectorKind::Strand => "strand",
             ResourceSelectorKind::Message => "message",
             ResourceSelectorKind::Morph => "morph",
@@ -1214,14 +1212,6 @@ fn space_id(operation: &AuthorizationOperation<'_>) -> Option<String> {
         .space_id
         .clone()
         .or_else(|| operation.target.space_id.as_ref().map(ToString::to_string))
-}
-
-fn circle_id(operation: &AuthorizationOperation<'_>) -> Option<String> {
-    operation
-        .facts
-        .circle_id
-        .clone()
-        .or_else(|| operation.target.circle_id.as_ref().map(ToString::to_string))
 }
 
 fn view_id(operation: &AuthorizationOperation<'_>) -> Option<String> {
@@ -1402,11 +1392,6 @@ fn scope_limitation_admits(
     if scope_limitation_undecidable(constraint) {
         return Tri::Unknown;
     }
-    let circles = constraint
-        .allowed_circle_ids
-        .iter()
-        .map(ToString::to_string)
-        .collect::<Vec<_>>();
     allow_list(
         &constraint.allowed_strand_ids,
         strand_id(operation).as_deref(),
@@ -1415,7 +1400,6 @@ fn scope_limitation_admits(
         &constraint.allowed_space_ids,
         space_id(operation).as_deref(),
     ))
-    .and(allow_list(&circles, circle_id(operation).as_deref()))
     .and(allow_list(
         &constraint.allowed_view_ids,
         view_id(operation).as_deref(),
@@ -1596,13 +1580,6 @@ fn action_requirements_declared(
             // §14.2: no declared window is an unbounded window.
             "message_edit_window" | "message_redact_window" => true,
             "expires_at" => capability_constraints_expires_at(constraints).is_some(),
-            "allowed_circle_ids" => {
-                constraint_declares_for_action(constraints, action, shorthand)
-                    || all_resources_narrowed(resources, |resource| {
-                        resource.kind == ResourceSelectorKind::Circle
-                            && resource.circle_id.is_some()
-                    })
-            }
             "allowed_strand_ids" => {
                 constraint_declares_for_action(constraints, action, shorthand)
                     || all_resources_narrowed(resources, |resource| {
@@ -1638,10 +1615,6 @@ fn constraint_declares_for_action(
                 "allowed_write_fields" => {
                     constraint.constraint_kind == Kind::FieldAccess
                         && !constraint.allowed_write_fields.is_empty()
-                }
-                "allowed_circle_ids" => {
-                    constraint.constraint_kind == Kind::ScopeLimitation
-                        && !constraint.allowed_circle_ids.is_empty()
                 }
                 "allowed_strand_ids" => {
                     constraint.constraint_kind == Kind::ScopeLimitation
@@ -1844,7 +1817,6 @@ pub fn resource_selector_covers(
             child.kind,
             ResourceSelectorKind::Realm
                 | ResourceSelectorKind::Space
-                | ResourceSelectorKind::Circle
                 | ResourceSelectorKind::Strand
                 | ResourceSelectorKind::Message
                 | ResourceSelectorKind::Morph

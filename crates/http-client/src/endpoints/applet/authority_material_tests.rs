@@ -22,16 +22,6 @@ fn fixture() -> (
     AppletAuthorityMaterialRequestBody,
     AppletAuthorityMaterialResponseBody,
 ) {
-    fixture_with_circle(None)
-}
-
-fn fixture_with_circle(
-    circle: Option<arkret_wire::CircleId>,
-) -> (
-    AppletId,
-    AppletAuthorityMaterialRequestBody,
-    AppletAuthorityMaterialResponseBody,
-) {
     let now: DateTime<Utc> = "2026-10-21T01:00:00.000Z".parse().unwrap();
     let applet: AppletId = "ak:applet:01964137-0000-7000-8000-000000000081"
         .parse()
@@ -44,13 +34,7 @@ fn fixture_with_circle(
     let scope = ScopeRef::Realm {
         realm_id: realm.clone(),
     };
-    let effect_scope = circle.map_or_else(
-        || scope.clone(),
-        |circle_id| ScopeRef::Circle {
-            realm_id: realm.clone(),
-            circle_id,
-        },
-    );
+    let effect_scope = scope.clone();
     let root = EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [31; 32]);
     let method = arkret_wire::DidUrl::new("did:web:applet.example#admin").unwrap();
     let signer = arkret_test_kit::seeded_signer("did:web:applet.example".parse().unwrap(), method);
@@ -76,10 +60,7 @@ fn fixture_with_circle(
         None,
     )
     .unwrap();
-    let mut resources = vec![effect_scope.clone()];
-    if matches!(effect_scope, ScopeRef::Circle { .. }) {
-        resources.push(scope.clone());
-    }
+    let resources = vec![effect_scope.clone()];
     let body = json!({
         "schema":"ak.schema.capability.v1","realm_id":realm,"issuer_id":service,"subject":service,
         "actions":["ak.message.create"],"resources":resources,
@@ -235,19 +216,15 @@ fn active_binding_keeps_same_scope_cut_and_service_but_can_renew_the_historical_
 }
 
 #[test]
-fn circle_material_keeps_realm_governance_and_independent_exact_resources() {
-    let circle = arkret_wire::CircleId::from_event_id(&EventId::from_digest(
-        arkret_canonical::DigestSuite::Sha256,
-        [83; 32],
-    ));
-    let (applet, request, outcome) = fixture_with_circle(Some(circle));
+fn realm_material_binds_governance_and_exact_resources() {
+    let (applet, request, outcome) = fixture();
     outcome.validate_for_request(&applet, &request).unwrap();
     assert_eq!(
         outcome.grant_events[0].event.payload["grant"]["resources"]
             .as_array()
             .unwrap()
             .len(),
-        2
+        1
     );
     let governance = ScopeRef::realm(request.effective_scope.realm_id().clone());
     for original in &outcome.grant_events {
@@ -260,13 +237,10 @@ fn circle_material_keeps_realm_governance_and_independent_exact_resources() {
         );
     }
     let mut different_scope = request.clone();
-    different_scope.effective_scope = ScopeRef::Circle {
-        realm_id: request.effective_scope.realm_id().clone(),
-        circle_id: arkret_wire::CircleId::from_event_id(&EventId::from_digest(
+    different_scope.effective_scope = ScopeRef::Realm { realm_id: arkret_wire::RealmId::from_event_id(&EventId::from_digest(
             arkret_canonical::DigestSuite::Sha256,
             [89; 32],
-        )),
-    };
+        )) };
     let mut different_response_scope = outcome.clone();
     different_response_scope.effective_scope = different_scope.effective_scope.clone();
     assert!(

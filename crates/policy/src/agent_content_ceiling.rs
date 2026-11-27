@@ -69,7 +69,7 @@ pub fn require_key_scope_content_ceiling(
     }
 }
 
-/// EventRead projects content in an explicitly registered Strand/Circle scope.
+/// EventRead projects content in an explicitly registered Strand scope.
 /// Facts must come from the accepted producer at the caller's authority cut.
 /// This is not generic selector inheritance or an independent read grant.
 fn event_projection_scope_covers(
@@ -96,14 +96,6 @@ fn event_projection_scope_covers(
                     .as_ref()
                     .is_none_or(|target| target == strand)
         }),
-        Kind::Circle => resource.circle_id.as_ref().is_some_and(|circle| {
-            operation.facts.circle_id.as_deref() == Some(circle.as_str())
-                && operation
-                    .target
-                    .circle_id
-                    .as_ref()
-                    .is_none_or(|target| target == circle)
-        }),
         _ => false,
     }
 }
@@ -116,7 +108,6 @@ pub fn concrete_content_target(target: &arkret_wire::WireResourceSelector) -> bo
     match target.kind {
         Kind::Realm | Kind::Notification | Kind::ReadCursor => target.realm_id.is_some(),
         Kind::Space => target.space_id.is_some(),
-        Kind::Circle => target.circle_id.is_some(),
         Kind::Strand => target.strand_id.is_some(),
         Kind::Message => target.message_id.is_some(),
         Kind::Morph => target.morph_id.is_some(),
@@ -174,7 +165,6 @@ pub fn key_scope_content_selector(
     let kind = match resource.kind {
         ScopeKind::Realm => Kind::Realm,
         ScopeKind::Space => Kind::Space,
-        ScopeKind::Circle => Kind::Circle,
         ScopeKind::Strand => Kind::Strand,
         ScopeKind::Message => Kind::Message,
         ScopeKind::Morph => Kind::Morph,
@@ -197,7 +187,6 @@ pub fn key_scope_content_selector(
         kind,
         realm_id: resource.realm_id.clone(),
         space_id: None,
-        circle_id: None,
         object_kind: None,
         object_ref: None,
         strand_id: None,
@@ -233,9 +222,6 @@ pub fn key_scope_content_selector(
                 selector.realm_id = Some(realm);
             }
             ScopeKind::Space => selector.space_id = Some(reference.parse().map_err(|_| invalid())?),
-            ScopeKind::Circle => {
-                selector.circle_id = Some(reference.parse().map_err(|_| invalid())?)
-            }
             ScopeKind::Strand => {
                 selector.strand_id = Some(reference.parse().map_err(|_| invalid())?)
             }

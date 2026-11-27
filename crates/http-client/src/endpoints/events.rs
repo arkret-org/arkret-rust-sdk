@@ -7,7 +7,7 @@
 //! previous Commit of *its own* [`CommitStreamRef`]. So the tail read here is
 //! [`Client::scan_commit_stream_tail`], addressed by
 //! `(realm_id, stream_ref, after_position)`, and there is no call that returns
-//! "the Realm's position": a Realm's Circles and Sidecars are separate streams
+//! "the Realm's position": a Realm and its personal Sidecars are separate streams
 //! and a single number could not name a point in all of them.
 
 use arkret_identity::VerifiedSubmission;
@@ -299,7 +299,7 @@ impl Client {
 
     /// Read one authorized stream's tail from `after_position` forward.
     ///
-    /// `stream_ref` is the closed [`CommitStreamRef`] — `Realm`, `Circle` or
+    /// `stream_ref` is the closed [`CommitStreamRef`] — `Realm` or
     /// `Sidecar` — so the caller states which stream it is catching up on.
     /// `after_position` of `None` starts at that stream's retained floor.
     pub async fn scan_commit_stream_tail(

@@ -24,7 +24,7 @@ below cites one of them.
   produces an authority-signed RealmCommit. Only the RealmCommit carries
   `previous_commit_ref`, at the same stream position exactly `+1`, and it names
   exactly one `event_ref` (`realm-commit.schema.json`).
-- Realm, each Circle and each Sidecar own independent commit streams. There is
+- Realm and each Sidecar own independent commit streams. There is
   no global chain and no global position.
 - The single submission DTO is `EventAdmissionSubmission { event }`
   (`crates/wire/src/authority_commit.rs`).

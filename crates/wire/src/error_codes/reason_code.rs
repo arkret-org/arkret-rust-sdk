@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/error-code-registry.json;
-//! sha256=ed6f316b287008a6fda34fc5b2812550f606c3a52ec74481c722868ff4e5072d
-//! Entries: reason_codes=285, reserved_not_emitted=66
+//! sha256=c73eadfe884d33501ba1ad155f6a43c013cb849c4d777c8a38ad5d77e3b5c5d4
+//! Entries: reason_codes=280, reserved_not_emitted=62
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -54,10 +54,6 @@ pub enum ReasonCode {
     ChallengeExpired,
     ChallengeFailed,
     ChallengeProofInvalid,
-    CircleCountExceeded,
-    CircleMemberMustBeRealmMember,
-    CircleNotActive,
-    CircleRealmMismatch,
     ClaimInvalid,
     ConsentRevoked,
     ConsentWithdrawn,
@@ -229,7 +225,6 @@ pub enum ReasonCode {
     RsvpBasisMalformed,
     RsvpOccurrenceNotCanonical,
     RuntimeKeyMissing,
-    ScopeRebindForbidden,
     ScopeRefMismatch,
     SegmentBoundsInvalid,
     SegmentReplay,
@@ -360,11 +355,6 @@ impl ReasonCode {
     pub const CHALLENGE_EXPIRED: &'static str = "challenge_expired";
     pub const CHALLENGE_FAILED: &'static str = "challenge_failed";
     pub const CHALLENGE_PROOF_INVALID: &'static str = "challenge_proof_invalid";
-    pub const CIRCLE_COUNT_EXCEEDED: &'static str = "circle_count_exceeded";
-    pub const CIRCLE_MEMBER_MUST_BE_REALM_MEMBER: &'static str =
-        "circle_member_must_be_realm_member";
-    pub const CIRCLE_NOT_ACTIVE: &'static str = "circle_not_active";
-    pub const CIRCLE_REALM_MISMATCH: &'static str = "circle_realm_mismatch";
     pub const CLAIM_INVALID: &'static str = "claim_invalid";
     pub const CONSENT_REVOKED: &'static str = "consent_revoked";
     pub const CONSENT_WITHDRAWN: &'static str = "consent_withdrawn";
@@ -574,7 +564,6 @@ impl ReasonCode {
     pub const RSVP_BASIS_MALFORMED: &'static str = "rsvp_basis_malformed";
     pub const RSVP_OCCURRENCE_NOT_CANONICAL: &'static str = "rsvp_occurrence_not_canonical";
     pub const RUNTIME_KEY_MISSING: &'static str = "runtime_key_missing";
-    pub const SCOPE_REBIND_FORBIDDEN: &'static str = "scope_rebind_forbidden";
     pub const SCOPE_REF_MISMATCH: &'static str = "scope_ref_mismatch";
     pub const SEGMENT_BOUNDS_INVALID: &'static str = "segment_bounds_invalid";
     pub const SEGMENT_REPLAY: &'static str = "segment_replay";
@@ -700,10 +689,6 @@ impl ReasonCode {
             Self::ChallengeExpired => Self::CHALLENGE_EXPIRED,
             Self::ChallengeFailed => Self::CHALLENGE_FAILED,
             Self::ChallengeProofInvalid => Self::CHALLENGE_PROOF_INVALID,
-            Self::CircleCountExceeded => Self::CIRCLE_COUNT_EXCEEDED,
-            Self::CircleMemberMustBeRealmMember => Self::CIRCLE_MEMBER_MUST_BE_REALM_MEMBER,
-            Self::CircleNotActive => Self::CIRCLE_NOT_ACTIVE,
-            Self::CircleRealmMismatch => Self::CIRCLE_REALM_MISMATCH,
             Self::ClaimInvalid => Self::CLAIM_INVALID,
             Self::ConsentRevoked => Self::CONSENT_REVOKED,
             Self::ConsentWithdrawn => Self::CONSENT_WITHDRAWN,
@@ -913,7 +898,6 @@ impl ReasonCode {
             Self::RsvpBasisMalformed => Self::RSVP_BASIS_MALFORMED,
             Self::RsvpOccurrenceNotCanonical => Self::RSVP_OCCURRENCE_NOT_CANONICAL,
             Self::RuntimeKeyMissing => Self::RUNTIME_KEY_MISSING,
-            Self::ScopeRebindForbidden => Self::SCOPE_REBIND_FORBIDDEN,
             Self::ScopeRefMismatch => Self::SCOPE_REF_MISMATCH,
             Self::SegmentBoundsInvalid => Self::SEGMENT_BOUNDS_INVALID,
             Self::SegmentReplay => Self::SEGMENT_REPLAY,
@@ -1045,10 +1029,6 @@ impl ReasonCode {
             Self::CHALLENGE_EXPIRED => Self::ChallengeExpired,
             Self::CHALLENGE_FAILED => Self::ChallengeFailed,
             Self::CHALLENGE_PROOF_INVALID => Self::ChallengeProofInvalid,
-            Self::CIRCLE_COUNT_EXCEEDED => Self::CircleCountExceeded,
-            Self::CIRCLE_MEMBER_MUST_BE_REALM_MEMBER => Self::CircleMemberMustBeRealmMember,
-            Self::CIRCLE_NOT_ACTIVE => Self::CircleNotActive,
-            Self::CIRCLE_REALM_MISMATCH => Self::CircleRealmMismatch,
             Self::CLAIM_INVALID => Self::ClaimInvalid,
             Self::CONSENT_REVOKED => Self::ConsentRevoked,
             Self::CONSENT_WITHDRAWN => Self::ConsentWithdrawn,
@@ -1258,7 +1238,6 @@ impl ReasonCode {
             Self::RSVP_BASIS_MALFORMED => Self::RsvpBasisMalformed,
             Self::RSVP_OCCURRENCE_NOT_CANONICAL => Self::RsvpOccurrenceNotCanonical,
             Self::RUNTIME_KEY_MISSING => Self::RuntimeKeyMissing,
-            Self::SCOPE_REBIND_FORBIDDEN => Self::ScopeRebindForbidden,
             Self::SCOPE_REF_MISMATCH => Self::ScopeRefMismatch,
             Self::SEGMENT_BOUNDS_INVALID => Self::SegmentBoundsInvalid,
             Self::SEGMENT_REPLAY => Self::SegmentReplay,
@@ -1462,12 +1441,12 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::AGENT_PARTICIPATION_CEILING_UNRESOLVED,
         applies_to: &["event_envelope", "auth_decision", "service_call"],
-        description: "An Agent action or mention fanout requires the current target-local deployment/Realm/Circle/Strand participation policy, but one or more required layers are stale, unavailable, or unverifiable. The action-time gate treats the unresolved policy as all false. The controller's private selection remains stored unchanged. See zh/authz/capabilities.md §5.4.",
+        description: "An Agent action or mention fanout requires the current target-local deployment/Realm/Strand participation policy, but one or more required layers are stale, unavailable, or unverifiable. The action-time gate treats the unresolved policy as all false. The controller's private selection remains stored unchanged. See zh/authz/capabilities.md §5.4.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::AGENT_PARTICIPATION_CEILING_WIDEN,
         applies_to: &["state_resolution"],
-        description: "Sub-reason for failed_precondition when a Realm/Circle/Strand agent_participation ceiling write would widen (enable a bit disabled by) its parent ceiling. The deployment âŠ‡ Realm âŠ‡ Circle âŠ‡ Strand ceiling chain is tighten-only (monotone). See zh/models/realm-and-space.md, zh/models/circle.md, zh/authz/capabilities.md §5.4.",
+        description: "A participation setting cannot enable an action disabled by the deployment or the enclosing Realm. See zh/authz/capabilities.md.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::AGENT_PAUSED,
@@ -1630,26 +1609,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "A runtime challenge proof attached to `ak.member.state{join}.gate_proofs[]` fails verification (signature / freshness / verifier domain). Freshness here is the replay/binding freshness carried by the proof itself; a proof issued beyond max_proof_age is challenge_expired instead, and the two reasons are mutually exclusive. See zh/governance/join-policy.md §4.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::CIRCLE_COUNT_EXCEEDED,
-        applies_to: &["event_envelope", "state_resolution"],
-        description: "Reducer rejected a `ak.circle.create` exceeding the per-Realm active Circle cap, or a `ak.circle.member.state -> join` that would exceed the per-actor active MLS-backed Circle cap. Caps bound cascade/delivery fanout and the M+R MLS-rotation amplification of a single membership change (zh/conformance/scalability-constraints.md §5, zh/models/circle.md §10).",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::CIRCLE_MEMBER_MUST_BE_REALM_MEMBER,
-        applies_to: &["state_resolution"],
-        description: "Sub-reason for failed_precondition on ak.circle.member.state -> join when, in the accepting cut, the target actor's parent Realm member_state current is not `join` or its typed revision differs from the payload's parent_membership_revision. Circle.members ⊆ Realm.members is a hard invariant bound to the exact current parent join. See zh/models/circle.md §9.1.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::CIRCLE_NOT_ACTIVE,
-        applies_to: &["state_resolution"],
-        description: "Sub-reason for failed_precondition when scope_circle_id points at a Circle whose state is archived or tombstoned. See zh/models/circle.md §6.1.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::CIRCLE_REALM_MISMATCH,
-        applies_to: &["schema_validation", "state_resolution"],
-        description: "Sub-reason for schema_violation when an object's scope_circle_id references a Circle whose realm_id does not match the object's realm_id. See zh/models/circle.md §6.1.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::CLAIM_INVALID,
         applies_to: &["event_envelope", "auth_decision"],
         description: "A claim, attestation, or invite / binding proof submitted for membership or invitation admission is malformed, unverifiable, or fails policy checks.",
@@ -1797,7 +1756,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::EFFECTIVE_SCOPE_REDUCER_MANAGED,
         applies_to: &["schema_validation"],
-        description: "Sub-reason for schema_violation when an actor-supplied payload illegally carries `effective_scope` where the object schema reserves that name for a read-only materialized projection. Both surfaces are decided by schema: the create shape bans the member (event-payload.schema.json#/$defs/relation_create_object), and the update shape bans the `effective_scope` / `effective_scope.*` patch paths (#/$defs/relation_update_payload), registered in registry/reducer-managed-path-registry.json. The Event envelope instead requires producer-signed `scope_ref`; the receiver derives the scope from payload and frozen pre-state, verifies exact equality, and only then may copy it into the object's effective_scope projection. See zh/models/circle.md §6.2.",
+        description: "Sub-reason for schema_violation when an actor-supplied payload illegally carries `effective_scope` where the object schema reserves that name for a read-only materialized projection. Both surfaces are decided by schema: the create shape bans the member (event-payload.schema.json#/$defs/relation_create_object), and the update shape bans the `effective_scope` / `effective_scope.*` patch paths (#/$defs/relation_update_payload), registered in registry/reducer-managed-path-registry.json. The Event envelope instead requires producer-signed `scope_ref`; the receiver derives the scope from payload and frozen pre-state, verifies exact equality, and only then may copy it into the object's effective_scope projection. See zh/models/relation.md.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::EGRESS_POLICY_DENIED,
@@ -1966,7 +1925,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::INVALID_MEMBERSHIP_TRANSITION,
         applies_to: &["authz", "state_resolution"],
-        description: "Realm or Circle membership admission rejects an illegal FSM edge with failed_precondition and zero writes; see models/common-fields.md section 4.5.",
+        description: "Realm membership admission rejects an illegal FSM edge with failed_precondition and zero writes; see models/common-fields.md section 4.5.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::INVITE_ALREADY_TERMINAL,
@@ -2126,12 +2085,12 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::MLS_ACTIVATION_IRREVERSIBLE,
         applies_to: &["state_resolution"],
-        description: "Sub-reason for failed_precondition when an Event would deactivate, replace or re-run the accepted ak.mls.genesis of an already activated Realm, Circle or Sidecar scope. Activation is a one-way transition with no protocol path back to plaintext. See zh/models/realm-and-space.md section 2.3.",
+        description: "Sub-reason for failed_precondition when an Event would deactivate, replace or re-run the accepted ak.mls.genesis of an already activated Realm, Sidecar scope. Activation is a one-way transition with no protocol path back to plaintext. See zh/models/realm-and-space.md section 2.3.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::MLS_ACTIVATION_REQUIRED,
         applies_to: &["state_resolution"],
-        description: "Sub-reason for failed_precondition when a Strand / Message / Morph / Blob content or metadata write carries plaintext into a scope whose ak.mls.genesis is already accepted. An activated scope accepts only RFC 9420 application ciphertext. See zh/models/circle.md section 7.",
+        description: "Sub-reason for failed_precondition when a Strand / Message / Morph / Blob content or metadata write carries plaintext into a scope whose ak.mls.genesis is already accepted. An activated scope accepts only RFC 9420 application ciphertext. See zh/crypto-media/encryption-and-audit.md.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::MLS_GOVERNANCE_BINDING_STALE,
@@ -2518,14 +2477,9 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "Closed generic Agent readiness blocker: no active accepted runtime key exists. It is durable subject-level readiness state and MUST NOT be inferred from a missing session or target-Realm grant.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::SCOPE_REBIND_FORBIDDEN,
-        applies_to: &["state_resolution"],
-        description: "Sub-reason for failed_precondition when scope_circle_id rebind is attempted without an explicitly profile-permitted audited-high-risk path. Default reducer rejects rebinds to prevent silent historical-discussion migration. See zh/models/circle.md §6.1.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::SCOPE_REF_MISMATCH,
         applies_to: &["event_envelope", "auth_decision", "state_resolution"],
-        description: "The signed Event `scope_ref` does not equal the security scope deterministically resolved from the target or referenced accepted object state. Receiver MUST reject the Event and MUST NOT rewrite or reducer-stamp the signed scope. See zh/models/circle.md §6.1.",
+        description: "The signed Event `scope_ref` does not equal the security scope deterministically resolved from the target or referenced accepted object state. Receiver MUST reject the Event and MUST NOT rewrite or reducer-stamp the signed scope. See zh/models/event-and-patch.md.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::SEGMENT_BOUNDS_INVALID,
@@ -2675,7 +2629,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::STREAM_TAIL_MISSING,
         applies_to: &["client_sync"],
-        description: "One authorized commit stream cannot be continued from the caller's durable cursor: the tail range between that cursor and the stream's current head is unavailable to this service (retention or history floor reached, or the durable range is otherwise not servable). It is per-stream and scoped to exactly one stream_ref, so the client re-acquires the snapshot and tail for that stream alone and MUST NOT reset other Realm / Circle / Sidecar streams, the account baseline or to-device ACKs. It is NOT the same as an empty tail: an authorized stream that is simply at its head returns zero items and `accepted`. emitting this code for a stream the caller may not read, or for one that does not exist, would turn that anti-enumeration bucket into an oracle. Only a stream the caller is currently authorized to read may be reported with it. See zh/sync/client-sync.md section 3.",
+        description: "One authorized commit stream cannot be continued from the caller's durable cursor: the tail range between that cursor and the stream's current head is unavailable to this service (retention or history floor reached, or the durable range is otherwise not servable). It is per-stream and scoped to exactly one stream_ref, so the client re-acquires the snapshot and tail for that stream alone and MUST NOT reset other Realm / Sidecar streams, the account baseline or to-device ACKs. It is NOT the same as an empty tail: an authorized stream that is simply at its head returns zero items and `accepted`. emitting this code for a stream the caller may not read, or for one that does not exist, would turn that anti-enumeration bucket into an oracle. Only a stream the caller is currently authorized to read may be reported with it. See zh/sync/client-sync.md section 3.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::STRUCTURE_DEPTH_EXCEEDED,

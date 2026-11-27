@@ -1241,7 +1241,7 @@ fn validate_peer_claim_fields(
             && (request.claim_purpose != PeerKeyPackageClaimPurpose::RealmMembership
                 || !matches!(
                     request.effective_scope,
-                    ScopeRef::Realm { .. } | ScopeRef::Circle { .. }
+                    ScopeRef::Realm { .. }
                 ))
     {
         return Err(PeerKeyPackageClaimShapeError::InvalidAuthorizationModel);

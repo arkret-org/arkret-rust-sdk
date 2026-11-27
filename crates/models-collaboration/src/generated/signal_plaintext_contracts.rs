@@ -8,13 +8,13 @@
 // sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
 //
 // Input: schemas/signal-typing.schema.json
-// sha256=d92f677628318c885606b06efe06ec636c7c9f0904974effe04c669d6a412545
+// sha256=b0e915e473b900ebcaf808aef0f3543a3cbe50a0cb06e15ce3b230f3c49adc8d
 //
 // Input: schemas/read-receipt.schema.json
-// sha256=989122536e827d56f7f2c0eaea5395316bcc3e4058f4b4a22b2eadbb3e40a632
+// sha256=ba161613a7e312f6744b8445bce85c748aa03d2a2e0cd2e40ac1daa3153fdc43
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=5c71516a86f6e77bf88bd907edc9f7002dddfcc4a5457d0ba636150543e5b28e
+// sha256=a78e63d1f3a48c87115a3e40e578dc4aeb5f619833613e5eb9fae1be319bff29
 
 /// Counterpart: `signal-presence.schema.json`.
 /// Counterpart for `spec/v1/artifacts/schemas/signal-presence.schema.json`

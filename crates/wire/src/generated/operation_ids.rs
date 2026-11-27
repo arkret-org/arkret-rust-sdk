@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json;
-//! sha256=1d326e38cd652bea30ae35bddd0e89f0887505dd36c4cc7ccfdd344af12d096d Entries: registered=221
+//! sha256=1bde71b428c1fcbf12de2072f155a3a0191e1d6bacec46b421c85bf2e07938c5 Entries: registered=215
 
 use serde::{Deserialize, Serialize};
 
@@ -146,12 +146,6 @@ pub enum ServiceOperationId {
     SelfBlobUploadCreateV1,
     SelfCallInvitationCommandSendV1,
     SelfCallMediaExchangeIssueTokenV1,
-    SelfCircleCommandCreateV1,
-    SelfCircleCommandRotateScopeV1,
-    SelfCircleMemberCommandAddV1,
-    SelfCircleMemberResourceDeleteV1,
-    SelfCircleReadListV1,
-    SelfCircleResourceGetV1,
     SelfCommittedEventReadScanV1,
     SelfCommittedEventResourceGetV1,
     SelfCommittedEventStreamSubscribeV1,
@@ -370,12 +364,6 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_BLOB_UPLOAD_CREATE_V1,
     ServiceOperationId::SELF_CALL_INVITATION_COMMAND_SEND_V1,
     ServiceOperationId::SELF_CALL_MEDIA_EXCHANGE_ISSUE_TOKEN_V1,
-    ServiceOperationId::SELF_CIRCLE_COMMAND_CREATE_V1,
-    ServiceOperationId::SELF_CIRCLE_COMMAND_ROTATE_SCOPE_V1,
-    ServiceOperationId::SELF_CIRCLE_MEMBER_COMMAND_ADD_V1,
-    ServiceOperationId::SELF_CIRCLE_MEMBER_RESOURCE_DELETE_V1,
-    ServiceOperationId::SELF_CIRCLE_READ_LIST_V1,
-    ServiceOperationId::SELF_CIRCLE_RESOURCE_GET_V1,
     ServiceOperationId::SELF_COMMITTED_EVENT_READ_SCAN_V1,
     ServiceOperationId::SELF_COMMITTED_EVENT_RESOURCE_GET_V1,
     ServiceOperationId::SELF_COMMITTED_EVENT_STREAM_SUBSCRIBE_V1,
@@ -636,12 +624,6 @@ impl ServiceOperationId {
         Self::SelfBlobUploadCreateV1,
         Self::SelfCallInvitationCommandSendV1,
         Self::SelfCallMediaExchangeIssueTokenV1,
-        Self::SelfCircleCommandCreateV1,
-        Self::SelfCircleCommandRotateScopeV1,
-        Self::SelfCircleMemberCommandAddV1,
-        Self::SelfCircleMemberResourceDeleteV1,
-        Self::SelfCircleReadListV1,
-        Self::SelfCircleResourceGetV1,
         Self::SelfCommittedEventReadScanV1,
         Self::SelfCommittedEventResourceGetV1,
         Self::SelfCommittedEventStreamSubscribeV1,
@@ -960,15 +942,6 @@ impl ServiceOperationId {
         "ak.self.call.invitation.command.send.v1";
     pub const SELF_CALL_MEDIA_EXCHANGE_ISSUE_TOKEN_V1: &'static str =
         "ak.self.call.media.exchange.issue_token.v1";
-    pub const SELF_CIRCLE_COMMAND_CREATE_V1: &'static str = "ak.self.circle.command.create.v1";
-    pub const SELF_CIRCLE_COMMAND_ROTATE_SCOPE_V1: &'static str =
-        "ak.self.circle.command.rotate_scope.v1";
-    pub const SELF_CIRCLE_MEMBER_COMMAND_ADD_V1: &'static str =
-        "ak.self.circle.member.command.add.v1";
-    pub const SELF_CIRCLE_MEMBER_RESOURCE_DELETE_V1: &'static str =
-        "ak.self.circle.member.resource.delete.v1";
-    pub const SELF_CIRCLE_READ_LIST_V1: &'static str = "ak.self.circle.read.list.v1";
-    pub const SELF_CIRCLE_RESOURCE_GET_V1: &'static str = "ak.self.circle.resource.get.v1";
     pub const SELF_COMMITTED_EVENT_READ_SCAN_V1: &'static str =
         "ak.self.committed_event.read.scan.v1";
     pub const SELF_COMMITTED_EVENT_RESOURCE_GET_V1: &'static str =
@@ -1320,12 +1293,6 @@ impl ServiceOperationId {
             Self::SelfCallMediaExchangeIssueTokenV1 => {
                 Self::SELF_CALL_MEDIA_EXCHANGE_ISSUE_TOKEN_V1
             }
-            Self::SelfCircleCommandCreateV1 => Self::SELF_CIRCLE_COMMAND_CREATE_V1,
-            Self::SelfCircleCommandRotateScopeV1 => Self::SELF_CIRCLE_COMMAND_ROTATE_SCOPE_V1,
-            Self::SelfCircleMemberCommandAddV1 => Self::SELF_CIRCLE_MEMBER_COMMAND_ADD_V1,
-            Self::SelfCircleMemberResourceDeleteV1 => Self::SELF_CIRCLE_MEMBER_RESOURCE_DELETE_V1,
-            Self::SelfCircleReadListV1 => Self::SELF_CIRCLE_READ_LIST_V1,
-            Self::SelfCircleResourceGetV1 => Self::SELF_CIRCLE_RESOURCE_GET_V1,
             Self::SelfCommittedEventReadScanV1 => Self::SELF_COMMITTED_EVENT_READ_SCAN_V1,
             Self::SelfCommittedEventResourceGetV1 => Self::SELF_COMMITTED_EVENT_RESOURCE_GET_V1,
             Self::SelfCommittedEventStreamSubscribeV1 => {
@@ -1724,14 +1691,6 @@ impl ServiceOperationId {
             Self::SELF_CALL_MEDIA_EXCHANGE_ISSUE_TOKEN_V1 => {
                 Some(Self::SelfCallMediaExchangeIssueTokenV1)
             }
-            Self::SELF_CIRCLE_COMMAND_CREATE_V1 => Some(Self::SelfCircleCommandCreateV1),
-            Self::SELF_CIRCLE_COMMAND_ROTATE_SCOPE_V1 => Some(Self::SelfCircleCommandRotateScopeV1),
-            Self::SELF_CIRCLE_MEMBER_COMMAND_ADD_V1 => Some(Self::SelfCircleMemberCommandAddV1),
-            Self::SELF_CIRCLE_MEMBER_RESOURCE_DELETE_V1 => {
-                Some(Self::SelfCircleMemberResourceDeleteV1)
-            }
-            Self::SELF_CIRCLE_READ_LIST_V1 => Some(Self::SelfCircleReadListV1),
-            Self::SELF_CIRCLE_RESOURCE_GET_V1 => Some(Self::SelfCircleResourceGetV1),
             Self::SELF_COMMITTED_EVENT_READ_SCAN_V1 => Some(Self::SelfCommittedEventReadScanV1),
             Self::SELF_COMMITTED_EVENT_RESOURCE_GET_V1 => {
                 Some(Self::SelfCommittedEventResourceGetV1)
@@ -5138,140 +5097,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
             branch_contract_json: None,
         }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfCircleCommandCreateV1,
-        http_method: "POST",
-        http_path: "/_arkret/self/circles",
-        grpc: Some("SelfCircle/Create"),
-        mq: Some("self.circle.command.create"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("none"),
-        retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/circle-operations.schema.json#/$defs/circle_create_request_body",
-        ),
-        response_schema_ref: Some("schemas/circle-operations.schema.json#/$defs/circle_view"),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.circle.read.list.v1\",\"strategy\":\"query_operation\"}",
-        ),
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::EventLog,
-            target: Some(DurableEventTarget::Static(&["ak.circle.create"])),
-            rationale: None,
-            branch_contract_json: None,
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfCircleCommandRotateScopeV1,
-        http_method: "POST",
-        http_path: "/_arkret/self/circles/{circle_id}/scope-rotate",
-        grpc: Some("SelfCircle/ScopeRotate"),
-        mq: Some("self.circle.command.rotate_scope"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "schema_resource",
-        idempotency_mechanism: Some("canonical_hash"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/authority-commit-operations.schema.json#/$defs/client_mls_commit_submission",
-        ),
-        response_schema_ref: Some(
-            "schemas/authority-commit-operations.schema.json#/$defs/submit_response_body",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::EventLog,
-            target: Some(DurableEventTarget::Static(&["ak.mls.commit"])),
-            rationale: None,
-            branch_contract_json: None,
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfCircleMemberCommandAddV1,
-        http_method: "POST",
-        http_path: "/_arkret/self/circles/{circle_id}/members",
-        grpc: Some("SelfCircle/MemberAdd"),
-        mq: Some("self.circle.member.command.add"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("object_id"),
-        retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/circle-operations.schema.json#/$defs/circle_member_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/circle-operations.schema.json#/$defs/circle_membership_response_body",
-        ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.circle.resource.get.v1\",\"strategy\":\"query_operation\"}",
-        ),
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::EventLog,
-            target: Some(DurableEventTarget::Static(&["ak.circle.member.state"])),
-            rationale: None,
-            branch_contract_json: None,
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfCircleMemberResourceDeleteV1,
-        http_method: "DELETE",
-        http_path: "/_arkret/self/circles/{circle_id}/members/{actor_id}",
-        grpc: Some("SelfCircle/MemberRemove"),
-        mq: Some("self.circle.member.resource.delete"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("object_id"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/circle-operations.schema.json#/$defs/circle_member_delete_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/circle-operations.schema.json#/$defs/circle_membership_response_body",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::EventLog,
-            target: Some(DurableEventTarget::Static(&["ak.circle.member.state"])),
-            rationale: None,
-            branch_contract_json: None,
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfCircleReadListV1,
-        http_method: "GET",
-        http_path: "/_arkret/self/circles",
-        grpc: Some("SelfCircle/List"),
-        mq: Some("self.circle.query.list"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: None,
-        response_schema_ref: Some("schemas/circle-operations.schema.json#/$defs/circle_list"),
-        uncertain_outcome: None,
-        durable_effect: None,
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfCircleResourceGetV1,
-        http_method: "GET",
-        http_path: "/_arkret/self/circles/{circle_id}",
-        grpc: Some("SelfCircle/Get"),
-        mq: Some("self.circle.resource.get"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: None,
-        response_schema_ref: Some("schemas/circle-operations.schema.json#/$defs/circle_read_view"),
-        uncertain_outcome: None,
-        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfCommittedEventReadScanV1,

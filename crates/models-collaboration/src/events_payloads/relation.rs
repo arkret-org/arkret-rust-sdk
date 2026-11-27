@@ -11,7 +11,7 @@ fn schema_violation<T>(message: impl Into<String>) -> Result<T> {
 }
 
 fn relation_update_path_allowed(path: &str) -> bool {
-    ["scope_circle_id", "rank", "fields"]
+    ["rank", "fields"]
         .iter()
         .any(|root| path == *root || path.starts_with(&format!("{root}.")))
 }
@@ -97,7 +97,7 @@ impl RelationUpdatePayload {
             .find(|path| !relation_update_path_allowed(path))
         {
             return schema_violation(format!(
-                "Relation identity is create-locked; update path '{path}' is not one of scope_circle_id, rank, or fields"
+                "Relation identity is create-locked; update path '{path}' is not one of rank, or fields"
             ));
         }
         Ok(())

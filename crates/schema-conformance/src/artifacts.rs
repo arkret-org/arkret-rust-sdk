@@ -572,7 +572,6 @@ pub const SUPPORTED_ID_KINDS: &[&str] = &[
     "call",
     "capability",
     "chunk",
-    "circle",
     "claim",
     "collision_variant_record",
     "consent",

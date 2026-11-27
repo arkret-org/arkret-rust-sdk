@@ -2,14 +2,14 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/principal-operations.schema.json
-// sha256=51276d41d5ca6dde5257d686a51b678c57467c4377417653060861c8ec8fb854
+// sha256=d20daf5798bec9d03e5c36c21b63f77844c021e545c55d3d7f85ddb2377d2217
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=5c71516a86f6e77bf88bd907edc9f7002dddfcc4a5457d0ba636150543e5b28e
+// sha256=a78e63d1f3a48c87115a3e40e578dc4aeb5f619833613e5eb9fae1be319bff29
 
 /// Counterpart: `principal-operations.schema.json#/$defs/sidecar_stream_head`.
-/// Accepted refs of one Sidecar's control stream. Circle membership and Sidecar
-/// selection refs are forbidden here.
+/// Accepted refs of one Sidecar's control stream. Only committed refs from that stream are
+/// accepted.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

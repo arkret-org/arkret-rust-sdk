@@ -7,7 +7,7 @@ use arkret_models_collaboration::governance::agent_participation::AgentParticipa
 use arkret_models_collaboration::objects::profiles::StrandTrack;
 use arkret_models_collaboration::objects::strand::StrandMetadata;
 use arkret_models_crypto::encrypted_envelope::EncryptedEnvelope;
-use arkret_wire::{ActorId, CircleId, ObjectStage, ObjectState, RealmId, SchemaId, StrandId};
+use arkret_wire::{ActorId, ObjectStage, ObjectState, RealmId, SchemaId, StrandId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -27,8 +27,6 @@ pub struct StrandCreateObject {
     pub id: Option<StrandId>,
     pub schema: String,
     pub realm_id: RealmId,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub scope_circle_id: Option<CircleId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub agent_participation: Option<AgentParticipationPolicy>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -63,7 +61,6 @@ impl StrandCreateObject {
             id: None,
             schema: SchemaId::STRAND_V1.to_owned(),
             realm_id,
-            scope_circle_id: None,
             agent_participation: None,
             metadata: None,
             encrypted_metadata: None,
@@ -101,10 +98,7 @@ impl StrandCreateObject {
         self
     }
 
-    pub fn with_scope_circle_id(mut self, circle_id: CircleId) -> Self {
-        self.scope_circle_id = Some(circle_id);
-        self
-    }
+
 
     pub fn with_track(mut self, name: impl Into<String>, track: StrandTrack) -> Self {
         self.tracks.insert(name.into(), track);

@@ -145,13 +145,12 @@ pub fn validate_realm_actor_backup_scope(
     actor.validate()?;
     match scope {
         arkret_wire::ScopeRef::Realm { realm_id }
-        | arkret_wire::ScopeRef::Circle { realm_id, .. }
             if realm_id == &actor.realm_id =>
         {
             Ok(())
         }
         _ => Err(WireError::Protocol(
-            "native backup requires the actor's exact Realm or Circle".into(),
+            "native backup requires the actor's exact Realm".into(),
         )),
     }
 }
@@ -198,24 +197,15 @@ impl ContentBackupNextPrepareInput {
 }
 
 impl RealmActorBackupHeadQuery {
-    pub fn new(actor: arkret_wire::RealmActorId, circle: Option<arkret_wire::CircleId>) -> Self {
+    pub fn new(actor: arkret_wire::RealmActorId) -> Self {
         Self {
             purpose: KeysBackupsListQueryOneOf1Purpose::Value,
             realm_actor_id: actor,
-            circle_id: circle,
         }
     }
 
     pub fn effective_scope(&self) -> arkret_wire::ScopeRef {
-        match &self.circle_id {
-            Some(circle_id) => arkret_wire::ScopeRef::Circle {
-                realm_id: self.realm_actor_id.realm_id.clone(),
-                circle_id: circle_id.clone(),
-            },
-            None => arkret_wire::ScopeRef::Realm {
-                realm_id: self.realm_actor_id.realm_id.clone(),
-            },
-        }
+        arkret_wire::ScopeRef::realm(self.realm_actor_id.realm_id.clone())
     }
 }
 
@@ -236,7 +226,7 @@ impl KeysBackupsListParameters {
     pub fn from_query_pairs<K: AsRef<str>, V: AsRef<str>>(
         pairs: impl IntoIterator<Item = (K, V)>,
     ) -> Result<Self> {
-        use arkret_wire::{CircleId, DidCoreId, RealmActorId, RealmId};
+        use arkret_wire::{DidCoreId, RealmActorId, RealmId};
         let mut values = std::collections::BTreeMap::new();
         for (key, value) in pairs {
             if values
@@ -260,10 +250,7 @@ impl KeysBackupsListParameters {
                 let actor = RealmActorId::new(RealmId::new(realm)?, DidCoreId::new(principal)?);
                 actor.validate()?;
                 if purpose.as_deref() == Some("series_predecessor") {
-                    Self::Device(RealmActorBackupHeadQuery::new(
-                        actor,
-                        values.remove("circle_id").map(CircleId::new).transpose()?,
-                    ))
+                    Self::Device(RealmActorBackupHeadQuery::new(actor))
                 } else {
                     let mut query = RealmActorArchiveInventoryQuery::new(actor);
                     query.cursor = values
@@ -358,9 +345,6 @@ impl KeysBackupsListParameters {
                     "realm_actor_id[principal_id]",
                     q.realm_actor_id.principal_id.to_string(),
                 );
-                if let Some(id) = &q.circle_id {
-                    push("circle_id", id.to_string());
-                }
             }
             Self::Manager(q) => {
                 push("purpose", "archive_inventory".into());
@@ -760,7 +744,7 @@ mod tests {
             serde_json::from_value(fixture()["native_packet"]["actor_id"]["realm_actor_id"].clone())
                 .unwrap()
         });
-        let query = KeysBackupsListParameters::Device(RealmActorBackupHeadQuery::new(actor, None));
+        let query = KeysBackupsListParameters::Device(RealmActorBackupHeadQuery::new(actor));
         let pairs = query.to_query_pairs().unwrap();
         assert_eq!(
             serde_json::to_value(
@@ -769,7 +753,7 @@ mod tests {
             .unwrap(),
             serde_json::to_value(query).unwrap()
         );
-        for key in ["agent_id", "realm_actor_id", "cursor", "limit", "unknown"] {
+        for key in ["circle_id", "agent_id", "realm_actor_id", "cursor", "limit", "unknown"] {
             let mut bad = pairs.clone();
             bad.push((key.into(), "x".into()));
             assert!(

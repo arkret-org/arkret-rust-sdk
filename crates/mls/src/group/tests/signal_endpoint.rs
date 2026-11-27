@@ -34,7 +34,6 @@ fn signal(group: &mut ArkretMlsGroup, plaintext: &[u8]) -> (SignalEnvelope, Stat
         sender_actor_id: actor.clone(),
         sender_device_id: device,
         authority_commit_id: RealmCommitId::from_digest([31; 32]),
-        parent_realm_authority_commit_id: None,
         signal_class: arkret_wire::SignalClass::Session,
         sent_at: "2026-11-11T00:00:00Z".parse().unwrap(),
         expires_at: "2026-11-11T00:00:20Z".parse().unwrap(),

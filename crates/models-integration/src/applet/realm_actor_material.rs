@@ -708,6 +708,7 @@ pub fn validate_realm_actor_current_writer(
             let record: arkret_models_collaboration::events_payloads::KeyBackupActiveSeries =
                 serde_json::from_value(serde_json::to_value(&event.payload)?)?;
             record.actor_id == *actor
+                && matches!(effective_scope, ScopeRef::Realm { realm_id } if realm_id == &subject.realm_id)
                 && record.effective_scope.as_ref() == Some(effective_scope)
                 && record.backup_kind == arkret_models_crypto::BackupKind::SecretStorage
                 && *backup_kind == arkret_wire::RealmActorBackupKind::SecretStorage

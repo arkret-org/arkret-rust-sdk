@@ -4,7 +4,7 @@
 //! coordinate; those two are the whole vocabulary this surface exposes.
 
 pub use arkret_wire::{
-    CircleMemberStateValue, CurrentRevision, CurrentSelector, CurrentState, MemberStateValue,
+    CurrentRevision, CurrentSelector, CurrentState, MemberStateValue,
     MembershipState, MlsGroupValue,
 };
 use arkret_wire::{CommitStreamHead, RealmId, Result, WireError};

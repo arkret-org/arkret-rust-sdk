@@ -9,8 +9,6 @@ use chrono::{DateTime, TimeDelta, Utc};
 use super::*;
 
 const REALM: &str = "ak:realm:AUGIFvQctz4TjQTmvvO4Wdy-xdc5XP2ZnJ5Qpbh4s8Ru";
-const CIRCLE_A: &str = "ak:circle:AcsXlJSItqSzy43Swu0nFz2ijj4Yaf0RgjmoTeivRt8M";
-const CIRCLE_B: &str = "ak:circle:AT2LoQ65P6bU2ZDxq9XbubTSMDrqzlK8EFJNmM_pxt62";
 const STRAND_A: &str = "ak:strand:AZ6GqZWWvnQ2KFwbBD-MenomzWNz-31MUAuKzBXIP0zv";
 const STRAND_B: &str = "ak:strand:Aa-h0nYxlvhQk1U9H0yQTY4hZEVTz0be75pj6U70n7qy";
 const LIST_A: &str = "ak:space:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7";
@@ -85,21 +83,6 @@ fn action_requirements_keep_admission_and_description_exercise_aligned() {
 
 #[test]
 fn action_requirements_preserve_closed_selector_and_unbounded_window_exceptions() {
-    assert!(capability_grant_action_requirements_declared(
-        "ak.circle.member.manage",
-        &[circle(CIRCLE_A)],
-        &[]
-    ));
-    assert!(!capability_grant_action_requirements_declared(
-        "ak.circle.member.manage",
-        &[circle(CIRCLE_A), realm()],
-        &[]
-    ));
-    assert!(!capability_grant_action_requirements_declared(
-        "ak.circle.member.manage",
-        &[],
-        &[]
-    ));
     assert!(capability_grant_action_requirements_declared(
         "ak.agent.sidecar.write",
         &[strand(STRAND_A)],
@@ -276,9 +259,7 @@ fn realm() -> WireResourceSelector {
     selector(serde_json::json!({"kind": "realm", "realm_id": REALM}))
 }
 
-fn circle(id: &str) -> WireResourceSelector {
-    selector(serde_json::json!({"kind": "circle", "realm_id": REALM, "circle_id": id}))
-}
+
 
 fn strand(id: &str) -> WireResourceSelector {
     selector(serde_json::json!({"kind": "strand", "realm_id": REALM, "strand_id": id}))
@@ -463,14 +444,7 @@ fn constraint(kind: GrantConstraintKind, effect: GrantConstraintEffect) -> Grant
     GrantConstraint::new(kind, effect)
 }
 
-fn circles(ids: &[&str]) -> GrantConstraint {
-    let mut constraint = constraint(
-        GrantConstraintKind::ScopeLimitation,
-        GrantConstraintEffect::Allow,
-    );
-    constraint.allowed_circle_ids = ids.iter().map(|id| id.parse().unwrap()).collect();
-    constraint
-}
+
 
 fn now() -> DateTime<Utc> {
     at("2026-09-21T12:00:00Z")
@@ -530,73 +504,7 @@ fn placement_grant_checks_both_resolved_containers() {
     )));
 }
 
-#[test]
-fn circle_management_is_narrowed_by_allowed_circle_ids_or_a_circle_selector() {
-    let facts = OperationFacts::default();
-    let listed = [grant(
-        1,
-        &[CapabilityActionId::CIRCLE_MANAGE],
-        realm_wide(),
-        vec![circles(&[CIRCLE_A])],
-    )];
-    assert!(allowed(&evaluate(
-        &listed,
-        CapabilityActionId::CIRCLE_MANAGE,
-        &circle(CIRCLE_A),
-        &facts,
-        now()
-    )));
-    assert!(matches!(
-        evaluate(
-            &listed,
-            CapabilityActionId::CIRCLE_MANAGE,
-            &circle(CIRCLE_B),
-            &facts,
-            now()
-        ),
-        GrantEvaluation::Unsatisfied
-    ));
-    // A Realm target names no Circle, so the Circle list cannot admit it.
-    assert!(!allowed(&evaluate(
-        &listed,
-        CapabilityActionId::CIRCLE_MANAGE,
-        &realm(),
-        &facts,
-        now()
-    )));
 
-    // The registry requires the narrowing: a Realm-wide grant without it is
-    // not a normal authorization shape.
-    let unnarrowed = [grant(
-        2,
-        &[CapabilityActionId::CIRCLE_MEMBER_MANAGE],
-        realm_wide(),
-        Vec::new(),
-    )];
-    assert!(matches!(
-        evaluate(
-            &unnarrowed,
-            CapabilityActionId::CIRCLE_MEMBER_MANAGE,
-            &circle(CIRCLE_A),
-            &facts,
-            now()
-        ),
-        GrantEvaluation::Unsatisfied
-    ));
-    let selector_narrowed = [grant(
-        3,
-        &[CapabilityActionId::CIRCLE_MEMBER_MANAGE],
-        serde_json::json!([{"kind": "circle", "realm_id": REALM, "circle_id": CIRCLE_A}]),
-        Vec::new(),
-    )];
-    assert!(allowed(&evaluate(
-        &selector_narrowed,
-        CapabilityActionId::CIRCLE_MEMBER_MANAGE,
-        &circle(CIRCLE_A),
-        &facts,
-        now()
-    )));
-}
 
 #[test]
 fn a_refusal_of_any_named_grant_cannot_be_bleached_by_another_grant() {
@@ -1780,8 +1688,7 @@ fn managed_source_contributions_cover_actions_resources_and_full_identity() {
         Err(AuthorityError::Coverage)
     );
     c.subject = CapabilitySubject::Actor(ActorId::realm(arkret_wire::RealmActorId {
-        realm_id: CIRCLE_B
-            .replacen("ak:circle:", "ak:realm:", 1)
+        realm_id: "ak:realm:AT2LoQ65P6bU2ZDxq9XbubTSMDrqzlK8EFJNmM_pxt62"
             .parse()
             .unwrap(),
         principal_id: "ak:did_core:webvh:zRealmGhostFixture".parse().unwrap(),

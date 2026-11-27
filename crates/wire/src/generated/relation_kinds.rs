@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/relation-kind-registry.json;
-//! sha256=4f889da64898b788dd7eba8f612545f7d563ae8fe26437fa25b6052046151b63 Entries: standard=15
+//! sha256=22f06348daaa7a27321fea1fb05a570d726a6a02d28a5f9dfd091e09b482b18f Entries: standard=14
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -11,7 +11,6 @@ pub enum RelationKind {
     AttachedTo,
     BelongsTo,
     Blocks,
-    ConfidentialDiscussionOf,
     Contains,
     DependsOn,
     DerivedFrom,
@@ -49,7 +48,6 @@ impl RelationKind {
         Self::AttachedTo,
         Self::BelongsTo,
         Self::Blocks,
-        Self::ConfidentialDiscussionOf,
         Self::Contains,
         Self::DependsOn,
         Self::DerivedFrom,
@@ -68,7 +66,6 @@ impl RelationKind {
             Self::AttachedTo => "attached_to",
             Self::BelongsTo => "belongs_to",
             Self::Blocks => "blocks",
-            Self::ConfidentialDiscussionOf => "confidential_discussion_of",
             Self::Contains => "contains",
             Self::DependsOn => "depends_on",
             Self::DerivedFrom => "derived_from",
@@ -89,7 +86,6 @@ impl RelationKind {
             "attached_to" => Self::AttachedTo,
             "belongs_to" => Self::BelongsTo,
             "blocks" => Self::Blocks,
-            "confidential_discussion_of" => Self::ConfidentialDiscussionOf,
             "contains" => Self::Contains,
             "depends_on" => Self::DependsOn,
             "derived_from" => Self::DerivedFrom,
@@ -161,14 +157,6 @@ pub const RELATION_KIND_DESCRIPTORS: &[RelationKindDescriptor] = &[
         default_cardinality: "many_to_many",
         primary_conflict_domain: "tuple",
         direct_write_primary_conflict_domain: Some("tuple"),
-        truth_source_class: RelationTruthSourceClass::Canonical,
-        weak_semantic: true,
-    },
-    RelationKindDescriptor {
-        canonical_id: "confidential_discussion_of",
-        default_cardinality: "many_to_one",
-        primary_conflict_domain: "from",
-        direct_write_primary_conflict_domain: Some("from"),
         truth_source_class: RelationTruthSourceClass::Canonical,
         weak_semantic: true,
     },

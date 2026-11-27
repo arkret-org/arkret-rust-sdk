@@ -2,19 +2,16 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/strand.schema.json
-// sha256=6df510ee9e4a7c34c16c911cbd038b5c6f075e682853835bdb524b0f282b1c6a
+// sha256=6730b70c528b57a0f7340fc42882d080ae2ff51e6c1b2140fb952f64fa6afd27
 //
 // Input: schemas/morph.schema.json
-// sha256=b3cac6f2589c477119aadd54227858dbe16aa35dae1b4fd1047ce6afd0aec24f
+// sha256=3b7a02e62782f7e5c3ccad7e3321d0df3f2d54026c76fe81b22159f6572a0ca3
 //
 // Input: schemas/encrypted-envelope.schema.json
 // sha256=79f44b93062a197a5ed0854fa6ae7b113f028dd8e38369f40276457d00d93e0b
 //
-// Input: schemas/circle.schema.json
-// sha256=0a8320e175daa78c70a9d859ed38b44b4753098e780b7f6509678268ee19c733
-//
 // Bindings: tools/closed-model-bindings.json
-// sha256=5c71516a86f6e77bf88bd907edc9f7002dddfcc4a5457d0ba636150543e5b28e
+// sha256=a78e63d1f3a48c87115a3e40e578dc4aeb5f619833613e5eb9fae1be319bff29
 
 /// Counterpart: `strand.schema.json#/$defs/strand_track`.
 /// Counterpart for `spec/v1/artifacts/schemas/strand.schema.json#/$defs/strand_track`.
@@ -41,17 +38,4 @@ pub struct StrandTrack {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
     pub encrypted_content: Option<EncryptedEnvelope>,
-}
-
-/// Counterpart: `circle.schema.json#/$defs/display/properties/symbol`.
-/// Counterpart for `spec/v1/artifacts/schemas/circle.schema.json#/$defs/display`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DisplaySymbol {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
-    pub emoji: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
-    pub glyph: Option<String>,
 }

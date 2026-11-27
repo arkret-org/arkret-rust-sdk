@@ -105,7 +105,7 @@ pub fn evaluate_applet_management(
 
 /// `None` means unknown/stale/incomplete, not an absent Policy. `Some(&[])`
 /// is valid only after the caller has proved complete current absence across
-/// every applicable Realm/Circle/Strand layer. Never construct it from a cache miss.
+/// every applicable Realm/Strand layer. Never construct it from a cache miss.
 pub fn select_applet_management(
     policies: Option<&[Policy]>,
     context: &AppletManagementContext<'_>,

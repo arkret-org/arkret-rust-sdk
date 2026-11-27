@@ -234,7 +234,7 @@ impl std::fmt::Display for MlsProposalRejection {
 }
 
 /// Run steps 4 through 7 of the fixed admission order for one Proposal carried
-/// inline by `ak.mls.commit` on a Realm, Circle or Sidecar effective scope.
+/// inline by `ak.mls.commit` on a Realm or Sidecar effective scope.
 ///
 /// Steps 1 through 3 belong to the caller and must already have passed: payload
 /// schema; decode, digest, group id and base epoch equality; PublicMessage wire

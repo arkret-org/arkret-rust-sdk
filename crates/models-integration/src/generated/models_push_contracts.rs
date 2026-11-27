@@ -2,10 +2,10 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/push-operations.schema.json
-// sha256=378ef4e1ba5cffae61cbc7414daefb7c77d9399c8cb6abcfa3ea1ee53d955637
+// sha256=3ce209feeed97d0daef11fc72787d94f9b47e2e9c01223675be6981fda33055f
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=5c71516a86f6e77bf88bd907edc9f7002dddfcc4a5457d0ba636150543e5b28e
+// sha256=a78e63d1f3a48c87115a3e40e578dc4aeb5f619833613e5eb9fae1be319bff29
 
 /// Counterpart: `push-operations.schema.json#/$defs/push_gateway_submission_outcome`.
 /// Counterpart for

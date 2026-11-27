@@ -1,7 +1,7 @@
 //! MLS governance and Commit Event payloads for the authority-commit protocol.
 
 use arkret_wire::{
-    BlobRef, CircleId, ErrorCode, EventId, Hash, MlsGroupId, RealmId, Result, ScopeRef, SidecarId,
+    BlobRef, ErrorCode, EventId, Hash, MlsGroupId, RealmId, Result, ScopeRef, SidecarId,
     WireError,
 };
 use serde::{Deserialize, Serialize};
@@ -79,26 +79,6 @@ impl MlsGovernanceBindingPayload {
         )
     }
 
-    pub fn circle(
-        realm_id: RealmId,
-        circle_id: CircleId,
-        base_group_state_ref: Option<EventId>,
-        previous_epoch: u64,
-        next_epoch: u64,
-        key_access_revision: u64,
-    ) -> Result<Self> {
-        Self::new(
-            ScopeRef::Circle {
-                realm_id,
-                circle_id,
-            },
-            base_group_state_ref,
-            previous_epoch,
-            next_epoch,
-            key_access_revision,
-        )
-    }
-
     pub fn sidecar(
         realm_id: RealmId,
         sidecar_id: SidecarId,
@@ -153,7 +133,7 @@ impl MlsGovernanceBindingPayload {
             }
             _ if self.participant_authority_digest.is_some() => {
                 return schema_violation(
-                    "Realm and Circle MLS bindings forbid the Sidecar participant authority digest",
+                    "Realm MLS bindings forbid the Sidecar participant authority digest",
                 );
             }
             _ => {}
@@ -171,14 +151,14 @@ impl MlsGovernanceBindingPayload {
     }
 
     /// Validation for consumers whose MLS history surface is intentionally
-    /// restricted to Realm and Circle groups.
-    pub fn validate_realm_or_circle_scope(&self) -> Result<()> {
+    /// restricted to Realm groups.
+    pub fn validate_realm_scope(&self) -> Result<()> {
         self.validate()?;
         if !matches!(
             self.effective_scope,
-            ScopeRef::Realm { .. } | ScopeRef::Circle { .. }
+            ScopeRef::Realm { .. }
         ) {
-            return protocol("MLS history scope must be Realm or Circle");
+            return protocol("MLS history scope must be Realm");
         }
         Ok(())
     }

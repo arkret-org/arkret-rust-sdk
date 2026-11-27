@@ -277,16 +277,6 @@ fn agent_event_projection_ceiling_uses_exact_accepted_collection_facts() {
     facts.track = Some("discussion".into());
     bounded.constraints = serde_json::from_value(serde_json::json!([{"constraint_kind":"scope_limitation","effect":"deny","denied_tracks":["discussion"]}])).unwrap();
     assert!(require_key_scope_content_ceiling(&bounded, &read(&actor, &event, &facts)).is_err());
-    let circle = "ak:circle:AcsXlJSItqSzy43Swu0nFz2ijj4Yaf0RgjmoTeivRt8M";
-    let circle_scope = serde_json::from_value(serde_json::json!({"actions":["ak.event.read"],"resources":[{"kind":"circle","realm_id":REALM,"resource_ref":circle}]})).unwrap();
-    facts.circle_id = Some(circle.into());
-    assert!(
-        require_key_scope_content_ceiling(&circle_scope, &read(&actor, &event, &facts)).is_ok()
-    );
-    facts.circle_id = None;
-    assert!(
-        require_key_scope_content_ceiling(&circle_scope, &read(&actor, &event, &facts)).is_err()
-    );
 }
 
 #[test]

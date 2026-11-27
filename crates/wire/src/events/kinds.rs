@@ -46,8 +46,6 @@ pub enum EventProductClass {
     Audit,
     Authz,
     Call,
-    /// AKP-0007 (spec b7d35be) — Circle lifecycle / membership events.
-    Circle,
     Consent,
     /// AKP-0015 contact enhancement — contact-request lifecycle and the
     /// direct-conversation Realm binding it produces.
@@ -119,13 +117,6 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         EventKind::CallCreate | EventKind::CallRecordingStart | EventKind::CallState => {
             EventProductClass::Call
         }
-        EventKind::CircleCreate
-        | EventKind::CircleUpdate
-        | EventKind::CircleArchive
-        | EventKind::CircleRestore
-        | EventKind::CircleTombstone
-        | EventKind::CircleHistoryAccess
-        | EventKind::CircleMemberState => EventProductClass::Circle,
         EventKind::ConsentReplace => EventProductClass::Consent,
         EventKind::ContactRequested
         | EventKind::ContactAccepted

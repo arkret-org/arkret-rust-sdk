@@ -157,13 +157,10 @@ fn native_snapshot_rejects_sibling_heads_floors_and_current_rows() {
     let realm = own.context.effective_scope.realm_id().clone();
     let stream = CommitStreamRef::from_scope(&own.context.effective_scope, None).unwrap();
     let sibling = CommitStreamRef::from_scope(
-        &ScopeRef::Circle {
-            realm_id: realm.clone(),
-            circle_id: arkret_wire::CircleId::from_event_id(&EventId::from_digest(
+        &ScopeRef::Realm { realm_id: arkret_wire::RealmId::from_event_id(&EventId::from_digest(
                 arkret_canonical::DigestSuite::Sha256,
                 [128; 32],
-            )),
-        },
+            )) },
         None,
     )
     .unwrap();
@@ -218,8 +215,8 @@ fn native_snapshot_rejects_sibling_heads_floors_and_current_rows() {
     assert!(own.check_snapshot_scope(&realm, &snapshot).is_err());
     snapshot.current_state_entries.clear();
     snapshot.current_state_entries.push(CurrentState::Value {
-        selector: arkret_wire::CurrentSelector::Circle {
-            circle_id: arkret_wire::CircleId::from_event_id(&EventId::from_digest(
+        selector: arkret_wire::CurrentSelector::Strand {
+            strand_id: arkret_wire::StrandId::from_event_id(&EventId::from_digest(
                 arkret_canonical::DigestSuite::Sha256,
                 [131; 32],
             )),

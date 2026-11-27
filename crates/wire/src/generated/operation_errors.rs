@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/operations-error-mapping.json;
-//! sha256=3a15a8cee6c873851ef488f418f0ff5dcef01d6c4c1cdaa9447bafabe5c142ce Input: registry/
-//! contract-registry.json; sha256=1d326e38cd652bea30ae35bddd0e89f0887505dd36c4cc7ccfdd344af12d096d
+//! sha256=be1c60c4478a6bbe02edef2f6d38b2b1fff412f118ef0a651c37577a4468da61 Input: registry/
+//! contract-registry.json; sha256=1bde71b428c1fcbf12de2072f155a3a0191e1d6bacec46b421c85bf2e07938c5
 //! Input: registry/error-code-registry.json;
-//! sha256=ed6f316b287008a6fda34fc5b2812550f606c3a52ec74481c722868ff4e5072d Entries: operations=221
+//! sha256=c73eadfe884d33501ba1ad155f6a43c013cb849c4d777c8a38ad5d77e3b5c5d4 Entries: operations=215
 
 use crate::{ErrorCode, ReasonCode, ServiceOperationId};
 
@@ -648,30 +648,6 @@ pub const OPERATION_SPECIFIC_ERRORS: &[&[OperationSpecificError]] = &[
         OperationSpecificError::Reason(ReasonCode::MediaPlaintextServiceNotAuthorised),
         OperationSpecificError::Reason(ReasonCode::MediaServiceFociRequired),
     ],
-    &[OperationSpecificError::Reason(
-        ReasonCode::SnapshotCapacityExceeded,
-    )],
-    &[
-        OperationSpecificError::Code(ErrorCode::DuplicateConflict),
-        OperationSpecificError::Code(ErrorCode::EpochMismatch),
-        OperationSpecificError::Code(ErrorCode::FailedPrecondition),
-        OperationSpecificError::Code(ErrorCode::RealmFrozen),
-        OperationSpecificError::Reason(ReasonCode::SnapshotCapacityExceeded),
-        OperationSpecificError::Reason(ReasonCode::ApprovalCarrierUnregistered),
-        OperationSpecificError::Code(ErrorCode::DeviceUnauthorized),
-        OperationSpecificError::Code(ErrorCode::DeviceRevoked),
-        OperationSpecificError::Code(ErrorCode::DeviceRevocationPending),
-        OperationSpecificError::Code(ErrorCode::DeviceGenerationFenced),
-        OperationSpecificError::Code(ErrorCode::DependencyMissing),
-    ],
-    &[OperationSpecificError::Reason(
-        ReasonCode::SnapshotCapacityExceeded,
-    )],
-    &[OperationSpecificError::Reason(
-        ReasonCode::SnapshotCapacityExceeded,
-    )],
-    &[],
-    &[OperationSpecificError::Code(ErrorCode::NotFound)],
     &[],
     &[OperationSpecificError::Code(ErrorCode::NotFound)],
     &[

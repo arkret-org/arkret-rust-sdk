@@ -2,7 +2,7 @@
 //!
 //! Authority ordering is deliberately absent. A producer creates and signs an
 //! Event; the current governance Station later places that immutable Event in
-//! exactly one Realm, Circle, or Sidecar commit stream.
+//! exactly one Realm or Sidecar commit stream.
 
 use std::collections::BTreeMap;
 

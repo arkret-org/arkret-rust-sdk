@@ -323,7 +323,7 @@ impl PeerRealmJoinBootstrapRequestBody {
     pub fn validate_selectors(&self) -> Result<()> {
         if let Some(stream) = &self.history_stream_ref
             && (stream.realm_id() != &self.realm_id
-                || matches!(stream, CommitStreamRef::Sidecar { .. }))
+                || !matches!(stream, CommitStreamRef::Realm { .. }))
         {
             return Err(WireError::Protocol(
                 "invalid project history selector".into(),
@@ -331,9 +331,9 @@ impl PeerRealmJoinBootstrapRequestBody {
         }
         if let Some(intent) = &self.content_intent
             && (self.history_stream_ref.is_some()
-                || matches!(
+                || !matches!(
                     intent.effective_scope,
-                    arkret_wire::ScopeRef::Sidecar { .. }
+                    arkret_wire::ScopeRef::Realm { .. }
                 )
                 || intent.effective_scope.realm_id_opt() != Some(&self.realm_id)
                 || self.member_account_id.station_id != intent.controller_account_id.station_id
@@ -367,7 +367,7 @@ impl PeerRealmJoinBootstrapRequestBody {
         self.validate_selectors()?;
         let actor = arkret_wire::ActorId::account(self.member_account_id.clone());
         if snapshot
-            .parent_membership_revision(&actor)
+            .active_realm_member_revision(&actor)
             .is_none_or(|r| r.commit_id != self.membership_commit_id)
         {
             return Err(WireError::Protocol(

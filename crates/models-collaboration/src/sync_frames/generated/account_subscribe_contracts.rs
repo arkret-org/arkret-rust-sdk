@@ -2,10 +2,10 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/account-subscribe-frame.schema.json
-// sha256=ba4f9b067a14c0f6a204ce7687fb39e115823811a98c15438e533e2094139809
+// sha256=48a324e92b530353a9ed88132e43855789e4f60f6af2368682c7e84de5e552f1
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=5c71516a86f6e77bf88bd907edc9f7002dddfcc4a5457d0ba636150543e5b28e
+// sha256=a78e63d1f3a48c87115a3e40e578dc4aeb5f619833613e5eb9fae1be319bff29
 
 /// Counterpart: `account-subscribe-frame.schema.json#/$defs/account_filter`.
 /// The Account subscribe filter,

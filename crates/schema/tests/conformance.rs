@@ -26,6 +26,32 @@ fn required_profiles() -> [ConformanceProfile; 11] {
 }
 
 #[test]
+fn default_space_schema_enforces_the_realm_placement_policy() {
+    let registry = ProtocolSchemaRegistry::default();
+    let mut space = serde_json::json!({
+        "schema": SchemaId::SPACE_V1,
+        "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
+        "kind": "folder",
+        "title": "Planning",
+        "created_by": {"kind":"account","account_id":{
+            "principal_id":"ak:did_core:web:alice.example",
+            "station_id":"ak:did_core:web:station.example"
+        }},
+        "created_at": "2026-01-01T00:00:00Z"
+    });
+    registry.validate_value(SchemaId::SPACE_V1, &space).unwrap();
+    for policy in [true, false] {
+        space["child_scope_policy"] = serde_json::json!(policy);
+        registry.validate_value(SchemaId::SPACE_V1, &space).unwrap();
+    }
+    space["child_scope_policy"] = serde_json::json!({});
+    assert!(registry.validate_value(SchemaId::SPACE_V1, &space).is_err());
+    space["child_scope_policy"] = serde_json::json!(true);
+    space["scope_circle_id"] = serde_json::json!("retired");
+    assert!(registry.validate_value(SchemaId::SPACE_V1, &space).is_err());
+}
+
+#[test]
 fn protocol_schema_registry_publishes_core_json_schemas() {
     let registry = ProtocolSchemaRegistry::default();
     for schema_id in [

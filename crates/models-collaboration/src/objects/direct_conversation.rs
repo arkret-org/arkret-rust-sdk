@@ -213,7 +213,6 @@ pub fn direct_conversation_main_strand_create_payload(
         STRAND_TRACK_NAME_DISCUSSION.to_owned(),
         StrandTrack::discussion_primary(),
     );
-    strand.scope_circle_id = None;
     strand.state = Some(ObjectState::Active);
     strand.created_at = created_at;
     StrandCreatePayload { object: strand }

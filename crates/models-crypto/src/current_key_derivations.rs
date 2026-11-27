@@ -25,8 +25,7 @@ pub fn derive_key_backup_active_series_current_key(
     derive(KEY_BACKUP_ACTIVE_SERIES_DOMAIN, &(actor_id, backup_kind))
 }
 
-/// Native series are scoped: a Realm actor's Circle does not reveal another
-/// Circle's predecessor series. The legacy Account/Agent derivation is unchanged.
+/// The locator binds the Realm actor, its validated Realm scope, and the backup kind.
 pub fn derive_realm_actor_key_backup_active_series_current_key(
     actor_id: &arkret_wire::RealmActorId,
     effective_scope: &arkret_wire::ScopeRef,

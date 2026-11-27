@@ -36,8 +36,8 @@ pub fn validate_device_snapshot_scope(
     snapshot: &RealmStateSnapshot,
     scope: &ScopeRef,
 ) -> Result<()> {
-    if !matches!(scope, ScopeRef::Realm { .. } | ScopeRef::Circle { .. }) {
-        return Err(protocol("native snapshot requires a Realm or Circle"));
+    if !matches!(scope, ScopeRef::Realm { .. }) {
+        return Err(protocol("native snapshot requires a Realm"));
     }
     let expected = CommitStreamRef::from_scope(scope, None)?;
     if &snapshot.realm_id != expected.realm_id()
@@ -46,16 +46,7 @@ pub fn validate_device_snapshot_scope(
         || snapshot.retention_and_history_floor.stream_floors.len() != 1
         || snapshot.retention_and_history_floor.stream_floors[0].stream_ref != expected
         || snapshot.current_state_entries.iter().any(|row| match row {
-            // Circle object data cannot piggyback on its Realm authorization
-            // stream; that Realm source is outside a Circle-only cut as well.
-            CurrentState::Value {
-                source_stream_ref,
-                selector,
-                ..
-            } => {
-                source_stream_ref != &expected
-                    || matches!(selector, arkret_wire::CurrentSelector::Circle { .. })
-            }
+            CurrentState::Value { source_stream_ref, .. } => source_stream_ref != &expected,
         })
     {
         return Err(protocol(

@@ -6,26 +6,16 @@ use super::*;
 
 const DEVICE: &str = "ak:device:0198ff00-0000-7000-8000-000000000001";
 
-fn fixture_intent(circle: bool) -> MlsCreatorBootstrapIntent {
+fn fixture_intent(independent: bool) -> MlsCreatorBootstrapIntent {
     let actor = ActorId::account(AccountId::new(
         DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
         DidCoreId::new("ak:did_core:web:station.example").unwrap(),
     ));
-    let parent = if circle {
-        scope_create_event(fixture_intent(false).signed_scope_create_unit())
-            .unwrap()
-            .realm_id
-            .clone()
-    } else {
-        arkret_wire::RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap()
-    };
     let timestamp = Utc.with_ymd_and_hms(2026, 10, 1, 0, 0, 0).unwrap();
-    let payload = if circle {
-        json!({})
-    } else {
+    let payload = {
         let genesis = crate::events_payloads::RealmGenesis::new(
             crate::events_payloads::RealmPurpose::Collaboration,
-            arkret_wire::GenesisSalt::new(arkret_canonical::base64url_encode([5; 32])).unwrap(),
+            arkret_wire::GenesisSalt::new(arkret_canonical::base64url_encode([if independent { 6 } else { 5 }; 32])).unwrap(),
             arkret_wire::TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
             arkret_wire::SecurityClass::Standard,
             DidCoreId::new("ak:did_core:web:station.example").unwrap(),
@@ -39,16 +29,10 @@ fn fixture_intent(circle: bool) -> MlsCreatorBootstrapIntent {
         serde_json::to_value(crate::events_payloads::RealmCreatePayload::new(genesis)).unwrap()
     };
     let mut create = arkret_wire::test_support::raw_event_for_actor_at(
-        if circle {
-            "ak.circle.create"
-        } else {
+        {
             "ak.realm.create"
         },
-        if circle {
-            ScopeRef::Realm {
-                realm_id: parent.clone(),
-            }
-        } else {
+        {
             ScopeRef::RealmGenesis
         },
         actor.clone(),
@@ -74,12 +58,7 @@ fn fixture_intent(circle: bool) -> MlsCreatorBootstrapIntent {
         proof_purpose: None,
         jws: arkret_wire::test_support::structural_only_detached_jws(&digest),
     });
-    let scope = if circle {
-        ScopeRef::Circle {
-            realm_id: parent,
-            circle_id: arkret_wire::CircleId::from_event_id(&create.event_id),
-        }
-    } else {
+    let scope = {
         ScopeRef::Realm {
             realm_id: create.realm_id.clone(),
         }
@@ -96,9 +75,9 @@ fn fixture_intent(circle: bool) -> MlsCreatorBootstrapIntent {
 }
 
 #[test]
-fn realm_and_circle_intents_retain_exact_create_bytes_and_derived_group() {
-    for circle in [false, true] {
-        let original = fixture_intent(circle);
+fn realm_and_independent_intents_retain_exact_create_bytes_and_derived_group() {
+    for independent in [false, true] {
+        let original = fixture_intent(independent);
         let bytes = arkret_canonical::canonical_json_bytes(&original).unwrap();
         let restored: MlsCreatorBootstrapIntent = serde_json::from_slice(&bytes).unwrap();
         restored.validate().unwrap();
@@ -228,7 +207,7 @@ fn runtime_endpoint_does_not_classify_an_agent_account_as_a_human_device() {
 }
 
 fn current_cut(
-    circle: bool,
+    independent: bool,
 ) -> (
     ScopeRef,
     arkret_wire::CommitStreamHead,
@@ -238,7 +217,7 @@ fn current_cut(
 
     use crate::sync_frames::current_states::AccountCurrentCoverage;
 
-    let scope = fixture_intent(circle).effective_scope;
+    let scope = fixture_intent(independent).effective_scope;
     let stream = CommitStreamRef::from_scope(&scope, None).unwrap();
     let realm_id = stream.realm_id().clone();
     let realm_head = CommitStreamHead {
@@ -252,16 +231,7 @@ fn current_cut(
         .unwrap(),
     };
     let mut heads = vec![realm_head.clone()];
-    if circle {
-        heads.push(CommitStreamHead {
-            stream_ref: stream,
-            stream_position: 2,
-            commit_id: RealmCommitId::new(
-                "ak:realm_commit:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
-            )
-            .unwrap(),
-        });
-    }
+
     let cut = MlsCreatorBootstrapCurrentCut::new(
         RealmDetailBaseline {
             snapshot_cursor: "ak:cursor:creator_cut".into(),
@@ -284,9 +254,9 @@ fn current_cut(
 }
 
 #[test]
-fn complete_realm_and_circle_cuts_preserve_independent_heads_across_reload() {
-    for circle in [false, true] {
-        let (scope, head, cut) = current_cut(circle);
+fn complete_realm_and_independent_cuts_preserve_independent_heads_across_reload() {
+    for independent in [false, true] {
+        let (scope, head, cut) = current_cut(independent);
         let bytes = arkret_canonical::canonical_json_bytes(&cut).unwrap();
         let mut restored: MlsCreatorBootstrapCurrentCut = serde_json::from_slice(&bytes).unwrap();
         restored.current.stream_heads.reverse();
@@ -361,15 +331,15 @@ fn an_exact_scope_mls_current_entry_is_a_winner_even_if_its_value_is_empty() {
     assert!(cut.validate_absence_binding(&scope, 3, &head).is_err());
 }
 
-fn accepted_create(circle: bool) -> (MlsCreatorBootstrapIntent, MlsCreatorBootstrapAcceptedCreate) {
+fn accepted_create(independent: bool) -> (MlsCreatorBootstrapIntent, MlsCreatorBootstrapAcceptedCreate) {
     use arkret_wire::{
         Base64UrlString, CommitStreamHead, CommitStreamRef, DetachedObjectSignature,
         DetachedSignatureAlgorithm, DetachedSignatureContext, RealmAuthorityBundle,
         RealmAuthorityCurrentAssertion, RealmCommit, RealmCommitAuthorityRef, RealmCommitId,
     };
 
-    let intent = fixture_intent(circle);
-    let root_event = scope_create_event(fixture_intent(false).signed_scope_create_unit())
+    let intent = fixture_intent(independent);
+    let root_event = scope_create_event(intent.signed_scope_create_unit())
         .unwrap()
         .clone();
     let realm_id = root_event.realm_id.clone();
@@ -437,14 +407,7 @@ fn accepted_create(circle: bool) -> (MlsCreatorBootstrapIntent, MlsCreatorBootst
         .unwrap()
         .clone();
     let mut commit = root_commit;
-    if circle {
-        commit.previous_commit_ref = Some(commit.commit_id.clone());
-        commit.commit_id =
-            RealmCommitId::new("ak:realm_commit:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19")
-                .unwrap();
-        commit.stream_position = 1;
-        commit.event_ref = event.event_id.clone();
-    }
+
     let accepted = MlsCreatorBootstrapAcceptedCreate::new(
         &intent,
         event,
@@ -2019,27 +1982,17 @@ fn creator_record_unknown_or_incomplete_acceptance_keeps_intent_unchanged() {
     assert!(serde_json::from_value::<MlsCreatorBootstrapRecord>(changed).is_err());
 }
 
-#[test]
-fn creator_circle_absence_cannot_borrow_its_parent_realm_head() {
-    let (intent, accepted) = accepted_create(true);
-    let parent_only = absence_snapshot(&accepted);
-    assert!(validate_creator_genesis_absence_snapshot(&intent, &accepted, &parent_only).is_err());
-}
+
 
 #[test]
-fn accepted_creation_keeps_its_exact_signed_event_and_parent_authorization_stream() {
-    for circle in [false, true] {
-        let (intent, accepted) = accepted_create(circle);
+fn accepted_creation_keeps_its_exact_signed_event_and_authorization_stream() {
+    for independent in [false, true] {
+        let (intent, accepted) = accepted_create(independent);
         let bytes = arkret_canonical::canonical_json_bytes(&accepted).unwrap();
         let restored: MlsCreatorBootstrapAcceptedCreate = serde_json::from_slice(&bytes).unwrap();
         restored.validate_binding(&intent).unwrap();
         assert_eq!(accepted, restored);
-        if circle {
-            assert_ne!(
-                restored.covering_commit.stream_ref,
-                arkret_wire::CommitStreamRef::from_scope(intent.effective_scope(), None).unwrap()
-            );
-        }
+
     }
 }
 

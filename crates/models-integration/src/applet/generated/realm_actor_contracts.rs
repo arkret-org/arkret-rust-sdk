@@ -5,16 +5,16 @@
 //! sha256=61c5e64619b36a92bd52168fefe55f7643dbee653acdca81f37cde5e0398c420
 //!
 //! Input: schemas/current-state.schema.json
-//! sha256=72b3aa5374e048b1fd8bf165fcb91f6bc06d12d8d6542d44d2845089bd3a5e7c
+//! sha256=93eb6737fcbcf0a61e604b3d6c73d4a2acd4b589712947236f73d3f5cb883c90
 //!
 //! Input: schemas/event-payload.schema.json
-//! sha256=64318ce99e830ea80a893a806c5f9437c11b0153401bcf8172df22a7c2baf737
+//! sha256=961bb4df946585c3ad9cafbdcd82d199c69fb519262229d82943cca11d1641ca
 //!
 //! Input: schemas/account-operations.schema.json
 //! sha256=694f553340eeccd86deab4c0bb637d741e62e4babab325d516ffa30352ceb03d
 //!
 //! Bindings: tools/closed-model-bindings.json
-//! sha256=5c71516a86f6e77bf88bd907edc9f7002dddfcc4a5457d0ba636150543e5b28e
+//! sha256=a78e63d1f3a48c87115a3e40e578dc4aeb5f619833613e5eb9fae1be319bff29
 
 /// Counterpart: `realm-actor.schema.json#/$defs/control_scope/properties/kind`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]

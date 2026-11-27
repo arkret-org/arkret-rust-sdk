@@ -157,7 +157,7 @@ impl From<MlsGenesisEpoch> for u64 {
 }
 
 /// `ak.mls.genesis` payload. Group ordering starts when the containing Event is
-/// accepted into the scope's independent Realm/Circle/Sidecar commit stream.
+/// accepted into the scope's independent Realm/Sidecar commit stream.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]

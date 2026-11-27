@@ -83,7 +83,7 @@
       "adjudication": "manual"
     },
     {
-      "finding": "closed_dispatch:inkson/src/bin/inkson-wire/realm_fixture.rs::project:fce253a306263c65",
+      "finding": "closed_dispatch:inkson/src/bin/inkson-wire/realm_fixture.rs::project:6d97b4f5af4bcb58",
       "classification": "internal_or_fixture",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -689,17 +689,6 @@
       "lifecycle": "retained_boundary",
       "decision": "raw",
       "authority": "Option<Value>",
-      "owner_repository": "coland",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
-    },
-    {
-      "finding": "coland/crates/domain/src/reducer/projections.rs::CircleProjection.display",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Value",
       "owner_repository": "coland",
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
@@ -1475,17 +1464,6 @@
       "test": "python tools/wire_value_audit.py --check",
       "reason": "Native external witness proofs retain their original JSON signature material. The internal transaction carrier transports evidence to the authority verifier, rather than declaring an Arkret protocol structure or bypassing SDK verification.",
       "adjudication": "manual"
-    },
-    {
-      "finding": "coland/crates/storage/src/projection.rs::CircleProjectionRecord.display",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Value",
-      "owner_repository": "coland",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
       "finding": "coland/crates/storage/src/projection.rs::MorphProjectionRecord.content",
@@ -3377,14 +3355,14 @@
     },
     {
       "finding": "crates/wire/src/authority_commit.rs::RealmAuthorityBundle.producer_signer_fact",
-      "classification": "polymorphic_boundary",
+      "classification": "open_json",
       "lifecycle": "retained_boundary",
-      "decision": "raw",
+      "decision": "open",
       "authority": "realm-authority-bundle.schema.json#/properties/producer_signer_fact",
       "owner_repository": "arkret-rust-sdk",
-      "action": "Decode to the sole SDK OrganizationGenesisSignerFact before authority use; non-Org bundles omit the field. No reverse wire-to-models dependency.",
+      "action": "Retain only at the exact schema-declared open JSON boundary.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "Exact closed dependency boundary like current_route_record. The identity verifier decodes the typed immutable source and independently establishes Org intent and actual Service history before trusting G.",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
       "spec_pointer": "realm-authority-bundle.schema.json#/properties/producer_signer_fact"
     },
     {
@@ -3877,17 +3855,6 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
-      "finding": "json_authoring:coland/crates/http/src/routing/events/operations/policy.rs::ordinary_circle_create_cannot_claim_reserved_sidecar_shape:d612eed6146e8c8b",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec closed union selected by schema,state",
-      "owner_repository": "coland",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
-    },
-    {
       "finding": "json_authoring:coland/crates/http/src/routing/events/projection/event_json.rs::projection_event_json:014fda23528b2192",
       "classification": "independent",
       "lifecycle": "retained_boundary",
@@ -4025,6 +3992,17 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
+      "finding": "json_authoring:coland/crates/storage-postgres/src/account_content_delivery/agent_membership.rs::acquire:c7e649f577bd6972",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "arkret-spec closed union selected by kind",
+      "owner_repository": "coland",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
+    },
+    {
       "finding": "json_authoring:coland/crates/storage-postgres/src/agent_current_states.rs::project_agent_key_in_connection:b6cf446d65a1b634",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
@@ -4146,17 +4124,6 @@
       "test": "python tools/wire_value_audit.py --check",
       "reason": "The fragment is bound only to record @> $1. The matched saved request is decoded as SDK AppletRevokeRequestBody and the exact submitted Event, Realm and manager are rechecked; the fragment is never a submitted protocol request.",
       "adjudication": "manual"
-    },
-    {
-      "finding": "json_authoring:coland/crates/storage-postgres/src/call_state_current_states.rs::release_in_connection:7a32af1e173bbca7",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec closed union selected by kind",
-      "owner_repository": "coland",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
       "finding": "json_authoring:coland/crates/storage-postgres/src/call_state_current_states.rs::release_in_connection:f0466a5a1f7aa3c1",
@@ -4708,7 +4675,7 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
-      "finding": "json_authoring:coland/crates/storage-postgres/src/sidecar_current_states.rs::commit_in_connection:59c4762fdfcc3784",
+      "finding": "json_authoring:coland/crates/storage-postgres/src/sidecar_current_states.rs::commit_in_connection:62ad87574f522af5",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -4870,7 +4837,7 @@
       "adjudication": "manual"
     },
     {
-      "finding": "json_authoring:inkson/src/views/chat/composer/commands.rs::send_encrypted_message:a5525d8ff7042b4e",
+      "finding": "json_authoring:inkson/src/views/chat/composer/commands.rs::send_encrypted_message:9236fc067a2ae26e",
       "classification": "internal_or_fixture",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -4905,7 +4872,7 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
-      "finding": "json_authoring:inkson/src/views/chat/mod.rs::submit_source_routed_sidecar_message:1b63ec258f104620",
+      "finding": "json_authoring:inkson/src/views/chat/mod.rs::submit_source_routed_sidecar_message:5de76a17ad10ceea",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",

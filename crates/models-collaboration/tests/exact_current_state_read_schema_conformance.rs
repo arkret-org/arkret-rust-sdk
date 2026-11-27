@@ -66,15 +66,8 @@ fn policy_outcome() -> Value {
 }
 
 #[test]
-fn managed_policy_current_is_the_whole_document_in_its_realm_or_circle_stream() {
-    for circle in [false, true] {
-        let mut value = policy_outcome();
-        if circle {
-            let stream = json!({"kind":"circle", "realm_id":value["realm_id"],
-                "circle_id":"ak:circle:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9"});
-            value["current_state"]["source_stream_ref"] = stream.clone();
-            value["effective_stream_head"]["stream_ref"] = stream;
-        }
+fn managed_policy_current_is_the_whole_document_in_its_realm_stream() {
+    let value = policy_outcome();
         assert!(schema_accepts(
             "#/$defs/exact_current_state_read_response_body",
             &value
@@ -84,7 +77,6 @@ fn managed_policy_current_is_the_whole_document_in_its_realm_or_circle_stream() 
             serde_json::from_value(value.clone()).unwrap();
         outcome.validate_for_request(&request, 4).unwrap();
         assert_eq!(serde_json::to_value(outcome).unwrap(), value);
-    }
 }
 
 #[test]
@@ -195,9 +187,9 @@ fn stale_or_mismatched_same_cut_response_fails_closed() {
 
     let mut other_stream = value.clone();
     other_stream["current_state"]["source_stream_ref"] = json!({
-        "kind": "circle",
+        "kind": "sidecar",
         "realm_id": value["realm_id"].clone(),
-        "circle_id": "ak:circle:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9"
+        "sidecar_id": "ak:sidecar:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9"
     });
     assert!(schema_accepts(
         "#/$defs/exact_current_state_read_response_body",

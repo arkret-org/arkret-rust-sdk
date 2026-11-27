@@ -119,10 +119,6 @@ pub fn typing_visible(
     let target = WireResourceSelector::strand(scope.realm_id().clone(), strand.clone());
     let facts = OperationFacts {
         strand_id: Some(strand.to_string()),
-        circle_id: match scope {
-            ScopeRef::Circle { circle_id, .. } => Some(circle_id.to_string()),
-            _ => None,
-        },
         track: Some("discussion".into()),
         object_kind: Some("strand".into()),
         ..Default::default()
@@ -152,14 +148,9 @@ pub fn call_invitation_allowed(
 ) -> bool {
     let target = match scope {
         ScopeRef::Realm { realm_id } => WireResourceSelector::realm(realm_id.clone()),
-        ScopeRef::Circle {
-            realm_id,
-            circle_id,
-        } => WireResourceSelector::circle(realm_id.clone(), circle_id.clone()),
         _ => return false,
     };
     let facts = OperationFacts {
-        circle_id: scope.circle_id().map(ToString::to_string),
         object_kind: Some("call".into()),
         ..Default::default()
     };
@@ -186,10 +177,6 @@ fn strand_actions_allowed(
     let target = WireResourceSelector::strand(scope.realm_id().clone(), strand.clone());
     let facts = OperationFacts {
         strand_id: Some(strand.to_string()),
-        circle_id: match scope {
-            ScopeRef::Circle { circle_id, .. } => Some(circle_id.to_string()),
-            _ => None,
-        },
         track: Some("discussion".into()),
         object_kind: object_kind.map(str::to_owned),
         ..Default::default()
@@ -447,7 +434,6 @@ mod tests {
         };
         SignalProductAuthority {
             authority_commit_id: head.commit_id.clone(),
-            parent_realm_authority_commit_id: None,
             current_realm_head: head.clone(),
             current_scope_head: head,
             sent_at: at(),
@@ -521,20 +507,11 @@ mod tests {
     #[test]
     fn call_invitation_requires_the_exact_actor_scope_and_original_current_grant() {
         let sender = actor("ak:did_core:web:station-a.example");
-        let scope = ScopeRef::Circle {
-            realm_id: REALM.parse().unwrap(),
-            circle_id: arkret_wire::CircleId::from_event_id(&arkret_wire::EventId::from_digest(
-                arkret_canonical::DigestSuite::Sha256,
-                [21; 32],
-            )),
-        };
+        let scope = ScopeRef::Realm { realm_id: REALM.parse().unwrap() };
         let mut evidence = material();
         evidence.current_scope_head.stream_ref = CommitStreamRef::from_scope(&scope, None).unwrap();
         evidence.grants[0].actions = vec![CapabilityActionId::CALL_SIGNAL_SEND.into()];
-        evidence.grants[0].resources = vec![WireResourceSelector::circle(
-            scope.realm_id().clone(),
-            scope.circle_id().unwrap().clone(),
-        )];
+        evidence.grants[0].resources = vec![WireResourceSelector::realm(scope.realm_id().clone())];
         evidence.current_grants = evidence.grants.clone();
         let gate = |evidence: &SignalProductAuthority| {
             call_invitation_allowed(evidence, &sender, &scope, at())
@@ -558,13 +535,7 @@ mod tests {
         );
         assert!(!gate(&denied));
         let mut denied = evidence.clone();
-        denied.current_grants[0].resources = vec![WireResourceSelector::circle(
-            scope.realm_id().clone(),
-            arkret_wire::CircleId::from_event_id(&arkret_wire::EventId::from_digest(
-                arkret_canonical::DigestSuite::Sha256,
-                [23; 32],
-            )),
-        )];
+        denied.current_grants[0].resources = vec![WireResourceSelector::realm(arkret_wire::RealmId::from_event_id(&arkret_wire::EventId::from_digest(arkret_canonical::DigestSuite::Sha256,[23;32])))];
         assert!(!gate(&denied));
         evidence.current_product_policies.push(policy(
             serde_json::json!([{"rule_id":"deny_call","kind":"action","effect":"deny","actions":[CapabilityActionId::CALL_SIGNAL_SEND]}]), "allow",

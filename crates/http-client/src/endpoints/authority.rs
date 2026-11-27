@@ -76,7 +76,7 @@ impl Client {
         Ok(outcome)
     }
 
-    /// Read one authorized independent Realm, Circle, or Sidecar stream.
+    /// Read one authorized independent Realm or Sidecar stream.
     pub async fn scan_commit_stream(
         &self,
         request: &StreamScanRequestBody,

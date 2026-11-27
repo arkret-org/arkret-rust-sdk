@@ -28,7 +28,7 @@ pub struct SpacePatchPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expected_state_digest: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub child_scope_policy: Option<ChildScopePolicy>,
+    pub child_scope_policy: Option<bool>,
 }
 
 #[derive(Deserialize)]
@@ -40,7 +40,7 @@ struct SpacePatchPayloadWire {
     #[serde(default, deserialize_with = "deserialize_non_null_optional")]
     expected_state_digest: Option<Hash>,
     #[serde(default, deserialize_with = "deserialize_non_null_optional")]
-    child_scope_policy: Option<ChildScopePolicy>,
+    child_scope_policy: Option<bool>,
 }
 
 impl TryFrom<SpacePatchPayloadWire> for SpacePatchPayload {

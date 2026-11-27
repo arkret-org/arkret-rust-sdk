@@ -17,7 +17,7 @@ fn spec_artifact(relative_path: &str) -> Option<Value> {
 }
 
 #[test]
-fn presence_manifest_summary_matches_targets_and_has_one_explicit_distinct_sdk_target() {
+fn presence_manifest_summary_matches_every_registered_tristate_target() {
     let Some(manifest) = spec_artifact(PROPERTY_PRESENCE_MANIFEST) else {
         return;
     };
@@ -28,7 +28,7 @@ fn presence_manifest_summary_matches_targets_and_has_one_explicit_distinct_sdk_t
         .as_object()
         .expect("tristate_sdk_dispositions must be an object");
     let dispositions = ["absent_null_equivalent", "condition_guarded", "distinct"];
-    assert_eq!(summary.len(), dispositions.len());
+    assert!(summary.keys().all(|key| dispositions.contains(&key.as_str())));
     assert!(targets.iter().all(|target| {
         dispositions.contains(&target["sdk_disposition"].as_str().unwrap_or_default())
     }));
@@ -37,16 +37,9 @@ fn presence_manifest_summary_matches_targets_and_has_one_explicit_distinct_sdk_t
             .iter()
             .filter(|target| target["sdk_disposition"] == disposition)
             .count() as u64;
-        assert_eq!(summary[disposition].as_u64(), Some(actual));
+        assert_eq!(summary.get(disposition).and_then(Value::as_u64).unwrap_or(0), actual);
     }
-    let distinct = targets
-        .iter()
-        .filter(|target| target["sdk_disposition"] == "distinct")
-        .collect::<Vec<_>>();
-    assert_eq!(distinct.len(), 1);
-    assert_eq!(distinct[0]["schema_file"], "event-payload.schema.json");
-    assert_eq!(distinct[0]["shape"], "/$defs/circle_member_state_payload");
-    assert_eq!(distinct[0]["instance_path"], "/expected_membership");
+
 }
 
 #[test]

@@ -5,10 +5,10 @@
 // sha256=4b5d4e97c751e4aff7f8ada839580db5e16cfbb27ca8a8ba6d60d9e235c0d9fb
 //
 // Input: schemas/message.schema.json
-// sha256=279cc187893bea352ae89e4718237a618b5b1852d5778b54a29b94a1769c3fbd
+// sha256=395b49fc93d22a55cb40aba0d7e17aae146d9dac513c72c690b0a67663a545e7
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=5c71516a86f6e77bf88bd907edc9f7002dddfcc4a5457d0ba636150543e5b28e
+// sha256=a78e63d1f3a48c87115a3e40e578dc4aeb5f619833613e5eb9fae1be319bff29
 
 /// Counterpart: `content-block-poll.schema.json#/$defs/poll_answer`.
 /// Counterpart for `spec/v1/artifacts/schemas/content-block-poll.schema.json#/$defs/poll_answer`.

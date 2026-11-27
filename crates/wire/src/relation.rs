@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{
-    ActorId, CircleId, EventId, RealmId, ReasonCode, RelationId, RelationKind, RelationState,
+    ActorId, EventId, RealmId, ReasonCode, RelationId, RelationKind, RelationState,
     RelationTruthSourceClass, Result, SchemaId, ScopeRef, WireError,
 };
 
@@ -129,8 +129,6 @@ pub struct Relation {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub id: Option<RelationId>,
     pub realm_id: RealmId,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub scope_circle_id: Option<CircleId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effective_scope: Option<ScopeRef>,
     pub relation_kind: RelationKind,
@@ -212,11 +210,7 @@ impl RelationPrimaryConflictDomainKind {
 /// The unique current-state subject for one directly writable Relation
 /// domain.
 ///
-/// The Realm is deliberately not a member: an Event takes it from its own
-/// envelope and a read takes it from the request selector. A Circle is not a
-/// component either — it authorizes reads, it does not partition the conflict
-/// key, and admitting it would let a hidden candidate be excluded from the
-/// group by moving it into another Circle.
+/// The Event envelope or the authenticated read request supplies the Realm.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct RelationPrimaryConflictDomain {
@@ -402,22 +396,13 @@ impl Relation {
         domain: &RelationPrimaryConflictDomain,
     ) -> Result<()> {
         domain.validate_for_definition(&RelationDefinition {
-            scope_circle_id: self.scope_circle_id.clone(),
             relation_kind: self.relation_kind.clone(),
             from_ref: self.from_ref.clone(),
             to_ref: self.to_ref.clone(),
             rank: self.rank.clone(),
             fields: self.fields.clone(),
         })?;
-        let scope = match &self.scope_circle_id {
-            Some(circle_id) => ScopeRef::Circle {
-                realm_id: realm_id.clone(),
-                circle_id: circle_id.clone(),
-            },
-            None => ScopeRef::Realm {
-                realm_id: realm_id.clone(),
-            },
-        };
+        let scope = ScopeRef::realm(realm_id.clone());
         if self.schema != Self::SCHEMA
             || &self.realm_id != realm_id
             || self.id.is_none()

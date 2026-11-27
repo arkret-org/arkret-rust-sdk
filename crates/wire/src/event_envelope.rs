@@ -29,8 +29,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_identifiers::{
-    AppletId, CircleId, Did, DidCoreId, EventId, GrantId, Hash, RealmId, SidecarId,
-    project_did_to_core_id,
+    AppletId, Did, DidCoreId, EventId, GrantId, Hash, RealmId, SidecarId, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -620,7 +619,7 @@ impl TryFrom<EventWire> for Event {
     }
 }
 
-/// Security scope binding used by the protocol wherever a Realm, Circle or Sidecar
+/// Security scope binding used by the protocol wherever a Realm or Sidecar
 /// scope is named (`schemas/event-envelope.schema.json` `$defs.scope_ref` and
 /// the byte-identical `effective_scope` definitions of the object schemas).
 ///
@@ -631,7 +630,6 @@ impl TryFrom<EventWire> for Event {
 ///
 /// The wire form is an internally-tagged JSON object on `kind`:
 /// - `{ "kind": "realm", "realm_id": "ak:realm:..." }`
-/// - `{ "kind": "circle", "realm_id": "ak:realm:...", "circle_id": "ak:circle:..." }`
 /// - `{ "kind": "sidecar", "realm_id": "ak:realm:...", "sidecar_id": "ak:sidecar:..." }`
 ///
 /// `#[non_exhaustive]`: a future spec revision may register additional scope
@@ -660,11 +658,6 @@ pub enum ScopeRef {
     Realm { realm_id: RealmId },
     /// Private Applet actor control stream, never an MLS or business scope.
     RealmControl { realm_id: RealmId },
-    /// The named Circle's security scope inside `realm_id`.
-    Circle {
-        realm_id: RealmId,
-        circle_id: CircleId,
-    },
     /// The named Agent Sidecar scope inside `realm_id`.
     Sidecar {
         realm_id: RealmId,
@@ -685,18 +678,8 @@ impl ScopeRef {
 
     /// Byte-exact v1 MLS security-scope key.
     ///
-    /// Realm and Circle identifiers are already type-separated canonical IDs:
-    /// each is globally unique, self-prefixed with its own kind and fixed
-    /// length, so the id alone determines the scope and a `realm_id` prefix
-    /// would add no separation. A Sidecar group additionally binds its parent
-    /// Realm, separated by the ASCII Unit Separator byte, because its scope key
-    /// was defined that way before this derivation existed. Genesis has no
-    /// executable MLS scope.
-    ///
-    /// The same byte string is the MLS-Exporter context in
-    /// `registry/exporter-label-registry.json`, so prefixing the Circle branch,
-    /// dropping the Sidecar prefix or reordering the Sidecar components is not
-    /// a `group_id`-only change — it silently re-keys every exported secret.
+    /// Realm uses its canonical id bytes. Sidecar binds its home Realm and id
+    /// with ASCII Unit Separator. MLS-Exporter uses this same byte string.
     pub fn canonical_effective_scope_key_bytes(&self) -> Result<Vec<u8>> {
         match self {
             Self::RealmGenesis | Self::RealmControl { .. } => Err(WireError::Protocol(
@@ -704,7 +687,6 @@ impl ScopeRef {
                     .to_owned(),
             )),
             Self::Realm { realm_id } => Ok(realm_id.as_str().as_bytes().to_vec()),
-            Self::Circle { circle_id, .. } => Ok(circle_id.as_str().as_bytes().to_vec()),
             Self::Sidecar {
                 realm_id,
                 sidecar_id,
@@ -728,7 +710,7 @@ impl ScopeRef {
     ///
     /// The digest is one-way by design (`zh/models/realm-and-space.md` section
     /// 2.2): a `group_id` observed on the delivery path MUST NOT reveal which
-    /// Realm, Circle or Sidecar it belongs to. Nothing may recover the scope
+    /// Realm or Sidecar it belongs to. Nothing may recover the scope
     /// from it — a consumer that needs the scope has to be told, not decode.
     /// SHA-256 is fixed here and does **not** follow the Realm
     /// `digest_algorithm`.
@@ -759,7 +741,7 @@ impl ScopeRef {
 
     /// The RFC handshake wire format required by this effective scope.
     ///
-    /// Realm/Circle use the public-handshake contract. Sidecar independently
+    /// Realms use the public-handshake contract. Sidecar independently
     /// requires PublicMessage within its restricted disclosure and participant
     /// authority contract; this never grants a parent Realm member access.
     /// The hashed group id carries no scope or policy information.
@@ -769,7 +751,7 @@ impl ScopeRef {
                 "genesis and Realm control streams have no executable MLS security scope"
                     .to_owned(),
             )),
-            Self::Realm { .. } | Self::Circle { .. } | Self::Sidecar { .. } => Ok(true),
+            Self::Realm { .. } | Self::Sidecar { .. } => Ok(true),
         }
     }
 
@@ -782,7 +764,6 @@ impl ScopeRef {
             Self::RealmGenesis => None,
             Self::Realm { realm_id }
             | Self::RealmControl { realm_id }
-            | Self::Circle { realm_id, .. }
             | Self::Sidecar { realm_id, .. } => Some(realm_id),
         }
     }
@@ -797,25 +778,11 @@ impl ScopeRef {
             .expect("realm genesis scope carries no realm_id; use realm_id_opt")
     }
 
-    /// The Circle id when this scope is a Circle, otherwise `None`.
-    pub fn circle_id(&self) -> Option<&CircleId> {
-        match self {
-            Self::RealmGenesis
-            | Self::Realm { .. }
-            | Self::RealmControl { .. }
-            | Self::Sidecar { .. } => None,
-            Self::Circle { circle_id, .. } => Some(circle_id),
-        }
-    }
-
     /// The Sidecar id when this scope is a native Sidecar, otherwise `None`.
     pub fn sidecar_id(&self) -> Option<&SidecarId> {
         match self {
             Self::Sidecar { sidecar_id, .. } => Some(sidecar_id),
-            Self::RealmGenesis
-            | Self::Realm { .. }
-            | Self::RealmControl { .. }
-            | Self::Circle { .. } => None,
+            Self::RealmGenesis | Self::Realm { .. } | Self::RealmControl { .. } => None,
         }
     }
 }
@@ -852,26 +819,14 @@ mod scope_mls_group_id_tests {
         assert_eq!(serde_json::from_value::<ScopeRef>(value).unwrap(), private);
     }
 
-    /// The three scopes of `fixtures/mls-group-id-derivation-fixture.json`.
-    ///
-    /// The Circle and Sidecar cases deliberately share one 44-character
-    /// payload under two different kind prefixes: the typed IDs are
-    /// self-describing and fixed length, so the two scopes must not collide
-    /// even though only the Sidecar branch carries a `realm_id`.
-    fn kat_scopes() -> (ScopeRef, ScopeRef, ScopeRef) {
+    fn kat_scopes() -> (ScopeRef, ScopeRef) {
         let realm_id =
             RealmId::new("ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5").unwrap();
-        let circle_id =
-            CircleId::new("ak:circle:AUD2WOhX-Xh47vBHtRJPMRfXRQXGiOWQqOrJGJnE8CaI").unwrap();
         let sidecar_id =
             SidecarId::new("ak:sidecar:AUD2WOhX-Xh47vBHtRJPMRfXRQXGiOWQqOrJGJnE8CaI").unwrap();
         (
             ScopeRef::Realm {
                 realm_id: realm_id.clone(),
-            },
-            ScopeRef::Circle {
-                realm_id: realm_id.clone(),
-                circle_id,
             },
             ScopeRef::Sidecar {
                 realm_id,
@@ -886,18 +841,13 @@ mod scope_mls_group_id_tests {
     /// a changed constant instead of passing silently.
     #[test]
     fn group_id_derivation_matches_the_spec_known_answer_tests() {
-        let (realm, circle, sidecar) = kat_scopes();
+        let (realm, sidecar) = kat_scopes();
 
         for (scope, scope_key_hex, group_id) in [
             (
                 &realm,
                 "616b3a7265616c6d3a41633161434b386151646e6b59496d7664483344466a71346a4443503139387058595743477a477556796a35",
                 "QjKOSorlqs3IquY7OikTUTy_Z0mMiL0X2mK4jAOT4R4",
-            ),
-            (
-                &circle,
-                "616b3a636972636c653a41554432574f68582d5868343776424874524a504d52665852515847694f5751714f724a474a6e4538436149",
-                "mnoZ_saVPf3fDTNZYVjrFGJxJwRL6QkkU1EzZRYPzm4",
             ),
             (
                 &sidecar,
@@ -923,12 +873,6 @@ mod scope_mls_group_id_tests {
             );
             assert_eq!(scope.canonical_mls_group_id().unwrap().as_str().len(), 43);
         }
-
-        // One 44-character payload, two kind prefixes, two distinct groups.
-        assert_ne!(
-            circle.canonical_mls_group_id().unwrap(),
-            sidecar.canonical_mls_group_id().unwrap()
-        );
     }
 
     /// `ak.vector.mls.group_id_reversible_formula_rejected.v1`: the pre-2218
@@ -953,9 +897,8 @@ mod scope_mls_group_id_tests {
 
     #[test]
     fn handshake_visibility_is_a_property_of_the_scope_not_of_the_group_id() {
-        let (realm, circle, sidecar) = kat_scopes();
+        let (realm, sidecar) = kat_scopes();
         assert!(realm.requires_public_mls_handshake().unwrap());
-        assert!(circle.requires_public_mls_handshake().unwrap());
         assert!(sidecar.requires_public_mls_handshake().unwrap());
         assert!(
             ScopeRef::RealmGenesis
@@ -1590,7 +1533,7 @@ impl Event {
 #[cfg(test)]
 mod event_wire_surface_tests {
     //! Guard the compact producer Event surface. Authority ordering lives in
-    //! `RealmCommit`, independently for Realm, Circle and Sidecar streams.
+    //! `RealmCommit`, independently for Realm and Sidecar streams.
 
     use serde_json::json;
 
@@ -1847,9 +1790,9 @@ mod event_wire_surface_tests {
             .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
             .unwrap();
         let mut rescoped = event;
-        rescoped.scope_ref = ScopeRef::Circle {
+        rescoped.scope_ref = ScopeRef::Sidecar {
             realm_id: realm(),
-            circle_id: CircleId::from_event_id(&EventId::from_digest(
+            sidecar_id: SidecarId::from_event_id(&EventId::from_digest(
                 arkret_canonical::DigestSuite::Sha256,
                 [0x1c; 32],
             )),

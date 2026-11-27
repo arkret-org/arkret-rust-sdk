@@ -117,18 +117,6 @@
       "schema": "event-payload.schema.json#/$defs/capability_relinquish_payload"
     },
     {
-      "rust_type": "crates/models-collaboration/src/events_payloads/generated/circle_contracts.rs::CircleCreatePayload",
-      "schema": "event-payload.schema.json#/$defs/circle_create_payload"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/events_payloads/circle.rs::CircleMemberStatePayload",
-      "schema": "event-payload.schema.json#/$defs/circle_member_state_payload"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/events_payloads/generated/circle_contracts.rs::CirclePatchPayload",
-      "schema": "event-payload.schema.json#/$defs/circle_patch_payload"
-    },
-    {
       "rust_type": "crates/models-collaboration/src/events_payloads/generated/contact_contracts.rs::ContactAcceptedPayload",
       "schema": "event-payload.schema.json#/$defs/contact_accepted_payload"
     },
@@ -1276,10 +1264,6 @@
       "schema": "event-payload.schema.json#/$defs/strand_watch_set_payload/properties/expected_value/oneOf/1"
     },
     {
-      "rust_type": "crates/models-collaboration/src/governance/circle.rs::Circle",
-      "schema": "circle.schema.json"
-    },
-    {
       "rust_type": "crates/models-collaboration/src/governance/generated/erasure_contracts.rs::ErasurePeerReceipt",
       "schema": "erasure-receipt.schema.json#/properties/peer_receipts/items"
     },
@@ -1294,10 +1278,6 @@
     {
       "rust_type": "crates/models-collaboration/src/objects/generated/blob_contracts.rs::SignatureValue",
       "schema": "blob-operations.schema.json#/$defs/signature"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/objects/generated/object_facets_contracts.rs::DisplaySymbol",
-      "schema": "circle.schema.json#/$defs/display/properties/symbol"
     },
     {
       "rust_type": "crates/models-integration/src/generated/artifacts_applet_contracts.rs::ExternalRef",
@@ -2346,34 +2326,6 @@
       "schema": "authorization-operations.schema.json#/$defs/authorization_invite_page"
     },
     {
-      "rust_type": "crates/models-collaboration/src/governance/circle.rs::CircleView",
-      "schema": "circle-operations.schema.json#/$defs/circle_view"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/circle.rs::CirclePreview",
-      "schema": "circle-operations.schema.json#/$defs/circle_preview"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/circle.rs::CircleCreateRequestBody",
-      "schema": "circle-operations.schema.json#/$defs/circle_create_request_body"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/circle.rs::CircleList",
-      "schema": "circle-operations.schema.json#/$defs/circle_list"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/circle.rs::CircleMemberRequestBody",
-      "schema": "circle-operations.schema.json#/$defs/circle_member_request_body"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/circle.rs::CircleMemberDeleteRequestBody",
-      "schema": "circle-operations.schema.json#/$defs/circle_member_delete_request_body"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/circle.rs::CircleMembershipResponseBody",
-      "schema": "circle-operations.schema.json#/$defs/circle_membership_response_body"
-    },
-    {
       "rust_type": "crates/models-collaboration/src/governance/erasure.rs::ErasureReceiptPackage",
       "schema": "erasure-receipt-operations.schema.json#/$defs/erasure_receipt_package"
     },
@@ -2482,10 +2434,6 @@
     {
       "rust_type": "crates/models-collaboration/src/governance/realm_lifecycle.rs::HistoryAccessPayload",
       "schema": "event-payload.schema.json#/$defs/history_access_payload"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/realm_lifecycle.rs::CircleHistoryAccessPayload",
-      "schema": "event-payload.schema.json#/$defs/circle_history_access_payload"
     },
     {
       "rust_type": "crates/models-collaboration/src/message_authoring.rs::MessageEncryptionContext",
@@ -2608,10 +2556,6 @@
     {
       "rust_type": "crates/models-collaboration/src/objects/media.rs::CallMediaTokenExchangeResponseBody",
       "schema": "service-operation-dtos.schema.json#/$defs/CallMediaTokenExchangeResponseBody"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/objects/object_facets.rs::Display",
-      "schema": "circle.schema.json#/$defs/display"
     },
     {
       "rust_type": "crates/models-collaboration/src/objects/object_facets.rs::MorphCustomerRisk",
@@ -3590,10 +3534,6 @@
     {
       "rust_type": "crates/wire/src/authority_commit.rs::MemberStateValue",
       "schema": "current-state.schema.json#/$defs/member_state_value"
-    },
-    {
-      "rust_type": "crates/wire/src/authority_commit.rs::CircleMemberStateValue",
-      "schema": "current-state.schema.json#/$defs/circle_member_state_value"
     },
     {
       "rust_type": "crates/wire/src/authority_commit.rs::EventDisclosure",

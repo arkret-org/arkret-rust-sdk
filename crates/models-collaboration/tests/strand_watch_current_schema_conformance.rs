@@ -268,9 +268,9 @@ fn malformed_or_mismatched_outcome_fails_closed() {
 
     let mut other_stream = current(Value::Null);
     other_stream["current_state"]["source_stream_ref"] = json!({
-        "kind": "circle",
+        "kind": "sidecar",
         "realm_id": REALM,
-        "circle_id": "ak:circle:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9"
+        "sidecar_id": "ak:sidecar:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9"
     });
     assert!(schema_accepts(
         "#/$defs/StrandWatchCurrentResponseBody",

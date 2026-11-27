@@ -311,7 +311,6 @@ pub enum AgentKeyApprovalEvidenceKind {
 pub enum AgentKeyScopeResourceKind {
     Realm,
     Space,
-    Circle,
     Strand,
     Message,
     Morph,

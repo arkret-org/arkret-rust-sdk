@@ -787,7 +787,6 @@ pub enum NotificationState {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum ReadScopeKind {
     Realm,
-    Circle,
     Space,
     Strand,
     Thread,
@@ -800,7 +799,6 @@ impl ReadScopeKind {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Realm => "realm",
-            Self::Circle => "circle",
             Self::Space => "space",
             Self::Strand => "strand",
             Self::Thread => "thread",
@@ -811,11 +809,11 @@ impl ReadScopeKind {
     }
 
     /// Read-scope kinds valid for a `ak.read_cursor` object
-    /// (`read-cursor.schema.json`: realm/circle/space/strand/thread).
+    /// (`read-cursor.schema.json`: realm/space/strand/thread).
     pub fn valid_for_read_cursor(&self) -> bool {
         matches!(
             self,
-            Self::Realm | Self::Circle | Self::Space | Self::Strand | Self::Thread
+            Self::Realm | Self::Space | Self::Strand | Self::Thread
         )
     }
 
@@ -865,13 +863,6 @@ impl ReadCursorScope {
         }
     }
 
-    pub fn circle(circle_id: impl Into<String>) -> Self {
-        Self {
-            kind: ReadScopeKind::Circle,
-            container_ref: Some(circle_id.into()),
-            track: None,
-        }
-    }
 
     pub fn space(space_id: impl Into<String>) -> Self {
         Self {

@@ -1,7 +1,7 @@
 //! Account-aggregate subscription frames.
 //!
-//! The account cursor orders delivery of aggregate frames only. Durable Realm,
-//! Circle, and Sidecar data remains in independent governance-authority commit
+//! The account cursor orders delivery of aggregate frames only. Durable Realm
+//! and Sidecar data remains in independent governance-authority commit
 //! streams; each timeline item retains its own `CommitStreamRef` coordinate.
 
 use std::collections::{BTreeMap, BTreeSet};

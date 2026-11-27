@@ -7,7 +7,7 @@
 //! authority; the joiner then scans each permitted stream itself, from the
 //! floor the snapshot already covers up to the advertised head.
 //!
-//! Realm, each Circle and each Sidecar own independent commit streams. There is
+//! Realm and each personal Sidecar own independent commit streams. There is
 //! no global chain and no global position, so catching up is one contiguity
 //! check per stream, never one ordering across streams.
 
@@ -215,7 +215,7 @@ impl RealmJoinBootstrapAssembly {
 #[cfg(test)]
 mod tests {
     use arkret_wire::{
-        Base64UrlString, CircleId, DetachedObjectSignature, DetachedSignatureAlgorithm,
+        Base64UrlString, SidecarId, DetachedObjectSignature, DetachedSignatureAlgorithm,
         DetachedSignatureContext, DidCoreId, DidUrl, Event, EventId, EventKind, Hash,
         HistoryAccess, RealmAuthorityBundle, RealmAuthorityCurrentAssertion, RealmCommit,
         RealmCommitAuthorityRef, RealmCommitId, RealmId, RealmSnapshotId, RealmStateSnapshot,
@@ -233,10 +233,10 @@ mod tests {
         ))
     }
 
-    fn circle_stream(realm: &RealmId) -> CommitStreamRef {
-        CommitStreamRef::Circle {
+    fn sidecar_stream(realm: &RealmId) -> CommitStreamRef {
+        CommitStreamRef::Sidecar {
             realm_id: realm.clone(),
-            circle_id: CircleId::from_event_id(&EventId::from_digest(
+            sidecar_id: SidecarId::from_event_id(&EventId::from_digest(
                 arkret_canonical::DigestSuite::Sha256,
                 [0x22; 32],
             )),
@@ -270,13 +270,6 @@ mod tests {
         match stream_ref {
             CommitStreamRef::Realm { realm_id } => ScopeRef::Realm {
                 realm_id: realm_id.clone(),
-            },
-            CommitStreamRef::Circle {
-                realm_id,
-                circle_id,
-            } => ScopeRef::Circle {
-                realm_id: realm_id.clone(),
-                circle_id: circle_id.clone(),
             },
             CommitStreamRef::Sidecar {
                 realm_id,
@@ -461,13 +454,13 @@ mod tests {
         let realm_stream = CommitStreamRef::Realm {
             realm_id: realm.clone(),
         };
-        let circle = circle_stream(&realm);
+        let sidecar = sidecar_stream(&realm);
         let mut assembly = RealmJoinBootstrapAssembly::new(outcome(
             &realm,
             vec![head(realm_stream.clone(), 0, 0x01)],
             vec![
                 head(realm_stream.clone(), 2, 0x03),
-                head(circle.clone(), 0, 0x09),
+                head(sidecar.clone(), 0, 0x09),
             ],
         ))
         .unwrap();
@@ -484,7 +477,7 @@ mod tests {
         assert_eq!(assembly.incomplete_streams().len(), 1);
         assert!(assembly.finish().is_err());
 
-        assembly.append(&item(&circle, 0, None, 0x09)).unwrap();
+        assembly.append(&item(&sidecar, 0, None, 0x09)).unwrap();
         assert!(assembly.incomplete_streams().is_empty());
         assembly.finish().unwrap();
     }
@@ -495,7 +488,7 @@ mod tests {
         let realm_stream = CommitStreamRef::Realm {
             realm_id: realm.clone(),
         };
-        let circle = circle_stream(&realm);
+        let sidecar = sidecar_stream(&realm);
         let mut assembly = RealmJoinBootstrapAssembly::new(outcome(
             &realm,
             vec![head(realm_stream.clone(), 0, 0x01)],
@@ -510,7 +503,7 @@ mod tests {
             "a gap must not be buffered"
         );
         assert!(
-            assembly.append(&item(&circle, 0, None, 0x09)).is_err(),
+            assembly.append(&item(&sidecar, 0, None, 0x09)).is_err(),
             "an unadvertised stream must not be accepted"
         );
         assembly
@@ -542,7 +535,7 @@ mod tests {
         let realm_stream = CommitStreamRef::Realm {
             realm_id: realm.clone(),
         };
-        let circle = circle_stream(&realm);
+        let sidecar = sidecar_stream(&realm);
 
         assert!(
             RealmJoinBootstrapAssembly::new(outcome(&realm, Vec::new(), Vec::new())).is_err(),
@@ -560,7 +553,7 @@ mod tests {
         assert!(
             RealmJoinBootstrapAssembly::new(outcome(
                 &realm,
-                vec![head(realm_stream.clone(), 0, 0x01), head(circle, 0, 0x09),],
+                vec![head(realm_stream.clone(), 0, 0x01), head(sidecar, 0, 0x09),],
                 vec![head(realm_stream.clone(), 2, 0x03)],
             ))
             .is_err(),

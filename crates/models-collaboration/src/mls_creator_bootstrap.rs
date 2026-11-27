@@ -147,14 +147,8 @@ impl MlsCreatorBootstrapIntent {
                 if create.kind == EventKind::RealmCreate
                     && &create.realm_id == realm_id
                     && *realm_id == arkret_wire::RealmId::from_event_id(&create.event_id) => {}
-            ScopeRef::Circle {
-                realm_id,
-                circle_id,
-            } if create.kind == EventKind::CircleCreate
-                && &create.realm_id == realm_id
-                && *circle_id == arkret_wire::CircleId::from_event_id(&create.event_id) => {}
             _ => return Err(WireError::Protocol(
-                "creator intent requires its own exact Realm or Circle create; Sidecar is excluded"
+                "creator intent requires its own exact Realm create; Sidecar is excluded"
                     .into(),
             )),
         }
@@ -217,12 +211,12 @@ impl MlsCreatorBootstrapCurrentCut {
         use arkret_wire::{CommitStreamRef, CurrentSelector};
 
         let stream = match scope {
-            ScopeRef::Realm { .. } | ScopeRef::Circle { .. } => {
+            ScopeRef::Realm { .. } => {
                 CommitStreamRef::from_scope(scope, None)?
             }
             _ => {
                 return Err(WireError::Protocol(
-                    "creator current cut requires a Realm or Circle scope".into(),
+                    "creator current cut requires a Realm scope".into(),
                 ));
             }
         };

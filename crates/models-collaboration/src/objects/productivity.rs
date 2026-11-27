@@ -2256,7 +2256,6 @@ fn validate_object_ref_string(field: &str, value: &str) -> Result<()> {
         "ak:morph:",
         "ak:relation:",
         "ak:view:",
-        "ak:circle:",
         "ak:event:",
     ]
     .iter()

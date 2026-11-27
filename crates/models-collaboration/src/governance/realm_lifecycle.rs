@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    CircleId, DidCoreId, HistoryAccess, ObjectRef, RealmId, Result, SchemaId, WireError,
+    DidCoreId, HistoryAccess, ObjectRef, RealmId, Result, SchemaId, WireError,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -424,31 +424,6 @@ impl HistoryAccessPayload {
         self.validate()?;
         serde_json::to_value(self)
             .map_err(|err| WireError::Protocol(format!("history access payload serialize: {err}")))
-    }
-}
-
-/// Circle-local history-access transition. Circle state is independent of the
-/// parent Realm history-access state.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CircleHistoryAccessPayload {
-    pub circle_id: CircleId,
-    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_required_nullable")]
-    pub from: Option<HistoryAccess>,
-    pub to: HistoryAccess,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
-}
-
-impl CircleHistoryAccessPayload {
-    pub fn validate(&self) -> Result<()> {
-        HistoryAccessPayload {
-            from: self.from,
-            to: self.to,
-            reason: self.reason.clone(),
-        }
-        .validate()
     }
 }
 

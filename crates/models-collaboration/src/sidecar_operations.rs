@@ -24,8 +24,7 @@ pub const SIDECAR_CONTEXT_ATTACH_EVENT_KIND: &str =
 
 pub use arkret_wire::SidecarContextRef;
 
-// Accepted refs of one Sidecar's control stream. Circle membership and Sidecar
-// selection refs are forbidden here.
+// Accepted refs of one Sidecar's control stream. Only committed refs from that stream are accepted.
 // Field declaration order is byte-for-byte the properties order of
 // principal-operations.schema.json#/$defs/sidecar_stream_head.
 

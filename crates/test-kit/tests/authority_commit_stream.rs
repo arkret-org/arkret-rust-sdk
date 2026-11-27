@@ -30,9 +30,9 @@ fn signed_authority_material_preserves_independent_streams_and_refuses_bad_succe
     let realm = ScopeRef::Realm {
         realm_id: subjects::realm_id(),
     };
-    let circle = ScopeRef::Circle {
+    let sidecar = ScopeRef::Sidecar {
         realm_id: subjects::realm_id(),
-        circle_id: "ak:circle:ATJ_DJ_0dc3yFbBW3UWM7qysprZ6zJPZzhxGzqahfHEA"
+        sidecar_id: "ak:sidecar:ATJ_DJ_0dc3yFbBW3UWM7qysprZ6zJPZzhxGzqahfHEA"
             .parse()
             .unwrap(),
     };
@@ -49,7 +49,7 @@ fn signed_authority_material_preserves_independent_streams_and_refuses_bad_succe
         None,
     )
     .unwrap();
-    let private_genesis = event(circle, 0);
+    let private_genesis = event(sidecar, 0);
     let private_first = signed_commit(
         &method,
         &authority,

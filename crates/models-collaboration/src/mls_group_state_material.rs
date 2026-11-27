@@ -39,13 +39,11 @@ pub struct MlsGroupStateMaterialRequestBody {
 impl MlsGroupStateMaterialRequestBody {
     pub fn validate(&self) -> Result<()> {
         match &self.effective_scope {
-            ScopeRef::Realm { realm_id }
-            | ScopeRef::Circle { realm_id, .. }
-            | ScopeRef::Sidecar { realm_id, .. }
+            ScopeRef::Realm { realm_id } | ScopeRef::Sidecar { realm_id, .. }
                 if realm_id == &self.realm_id => {}
             _ => {
                 return Err(WireError::Protocol(
-                    "MLS group-state material requires a matching Realm, Circle or Sidecar scope"
+                    "MLS group-state material requires a matching Realm or Sidecar scope"
                         .to_owned(),
                 ));
             }

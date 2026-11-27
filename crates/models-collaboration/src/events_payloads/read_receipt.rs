@@ -29,17 +29,10 @@ impl ReadReceiptPolicyPayload {
 impl CurrentScopeReadReceiptPolicy {
     /// Enforce the selector/source binding after current proof verification.
     pub fn validate(&self) -> Result<()> {
-        let CurrentSelector::ScopeReadReceiptPolicy { scope_ref } = &self.selector else {
-            return Err(WireError::Protocol(
-                "read receipt policy selector required".to_owned(),
-            ));
-        };
-        if !matches!(scope_ref, ScopeRef::Realm { .. } | ScopeRef::Circle { .. })
-            || &self.source_stream_ref.scope_ref() != scope_ref
+        if self.selector != CurrentSelector::ScopeReadReceiptPolicy
+            || !matches!(self.source_stream_ref, arkret_wire::CommitStreamRef::Realm { .. })
         {
-            return Err(WireError::Protocol(
-                "read receipt policy scope/source mismatch".to_owned(),
-            ));
+            return Err(WireError::Protocol("receipt policy requires its Realm stream".to_owned()));
         }
         self.value.validate()
     }
@@ -54,9 +47,9 @@ mod tests {
     #[test]
     fn current_binds_the_exact_scope_and_resolves_only_its_own_defaults() {
         let realm = "ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5";
-        let scope = json!({"kind":"circle","realm_id":realm,"circle_id":"ak:circle:AUD2WOhX-Xh47vBHtRJPMRfXRQXGiOWQqOrJGJnE8CaI"});
+        let scope = json!({"kind":"realm","realm_id":realm});
         let wire = json!({
-            "selector":{"kind":"scope_read_receipt_policy","scope_ref":scope},
+            "selector":{"kind":"scope_read_receipt_policy"},
             "source_stream_ref":scope,
             "revision":{"commit_id":"ak:realm_commit:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5","stream_position":1},
             "value":{"visibility":"private"}
@@ -73,7 +66,7 @@ mod tests {
             ReadReceiptVisibility::Private
         );
         let mut wrong_stream = wire.clone();
-        wrong_stream["source_stream_ref"] = json!({"kind":"realm","realm_id":realm});
+        wrong_stream["source_stream_ref"] = json!({"kind":"realm_control","realm_id":realm});
         let current: CurrentScopeReadReceiptPolicy = serde_json::from_value(wrong_stream).unwrap();
         assert!(current.validate().is_err());
         let mut empty = wire;

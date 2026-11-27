@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json;
-//! sha256=1d326e38cd652bea30ae35bddd0e89f0887505dd36c4cc7ccfdd344af12d096d Entries: registered=162
+//! sha256=1bde71b428c1fcbf12de2072f155a3a0191e1d6bacec46b421c85bf2e07938c5 Entries: registered=156
 
 use serde::{Deserialize, Serialize};
 
@@ -38,12 +38,6 @@ pub enum CapabilityActionId {
     CapabilityGrant,
     CapabilityRelinquish,
     CapabilityRevoke,
-    CircleAudit,
-    CircleCreate,
-    CircleManage,
-    CircleMemberAdd,
-    CircleMemberAddOthers,
-    CircleMemberManage,
     ConsentReplace,
     ContactScopeUpdate,
     EventRead,
@@ -204,12 +198,6 @@ impl CapabilityActionId {
         Self::CapabilityGrant,
         Self::CapabilityRelinquish,
         Self::CapabilityRevoke,
-        Self::CircleAudit,
-        Self::CircleCreate,
-        Self::CircleManage,
-        Self::CircleMemberAdd,
-        Self::CircleMemberAddOthers,
-        Self::CircleMemberManage,
         Self::ConsentReplace,
         Self::ContactScopeUpdate,
         Self::EventRead,
@@ -368,12 +356,6 @@ impl CapabilityActionId {
     pub const CAPABILITY_GRANT: &'static str = "ak.capability.grant";
     pub const CAPABILITY_RELINQUISH: &'static str = "ak.capability.relinquish";
     pub const CAPABILITY_REVOKE: &'static str = "ak.capability.revoke";
-    pub const CIRCLE_AUDIT: &'static str = "ak.circle.audit";
-    pub const CIRCLE_CREATE: &'static str = "ak.circle.create";
-    pub const CIRCLE_MANAGE: &'static str = "ak.circle.manage";
-    pub const CIRCLE_MEMBER_ADD: &'static str = "ak.circle.member.add";
-    pub const CIRCLE_MEMBER_ADD_OTHERS: &'static str = "ak.circle.member.add.others";
-    pub const CIRCLE_MEMBER_MANAGE: &'static str = "ak.circle.member.manage";
     pub const CONSENT_REPLACE: &'static str = "ak.consent.replace";
     pub const CONTACT_SCOPE_UPDATE: &'static str = "ak.contact.scope.update";
     pub const EVENT_READ: &'static str = "ak.event.read";
@@ -546,12 +528,6 @@ impl CapabilityActionId {
             Self::CapabilityGrant => Self::CAPABILITY_GRANT,
             Self::CapabilityRelinquish => Self::CAPABILITY_RELINQUISH,
             Self::CapabilityRevoke => Self::CAPABILITY_REVOKE,
-            Self::CircleAudit => Self::CIRCLE_AUDIT,
-            Self::CircleCreate => Self::CIRCLE_CREATE,
-            Self::CircleManage => Self::CIRCLE_MANAGE,
-            Self::CircleMemberAdd => Self::CIRCLE_MEMBER_ADD,
-            Self::CircleMemberAddOthers => Self::CIRCLE_MEMBER_ADD_OTHERS,
-            Self::CircleMemberManage => Self::CIRCLE_MEMBER_MANAGE,
             Self::ConsentReplace => Self::CONSENT_REPLACE,
             Self::ContactScopeUpdate => Self::CONTACT_SCOPE_UPDATE,
             Self::EventRead => Self::EVENT_READ,
@@ -723,12 +699,6 @@ impl CapabilityActionId {
             Self::CAPABILITY_GRANT => Some(Self::CapabilityGrant),
             Self::CAPABILITY_RELINQUISH => Some(Self::CapabilityRelinquish),
             Self::CAPABILITY_REVOKE => Some(Self::CapabilityRevoke),
-            Self::CIRCLE_AUDIT => Some(Self::CircleAudit),
-            Self::CIRCLE_CREATE => Some(Self::CircleCreate),
-            Self::CIRCLE_MANAGE => Some(Self::CircleManage),
-            Self::CIRCLE_MEMBER_ADD => Some(Self::CircleMemberAdd),
-            Self::CIRCLE_MEMBER_ADD_OTHERS => Some(Self::CircleMemberAddOthers),
-            Self::CIRCLE_MEMBER_MANAGE => Some(Self::CircleMemberManage),
             Self::CONSENT_REPLACE => Some(Self::ConsentReplace),
             Self::CONTACT_SCOPE_UPDATE => Some(Self::ContactScopeUpdate),
             Self::EVENT_READ => Some(Self::EventRead),

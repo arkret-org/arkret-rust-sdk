@@ -1378,7 +1378,7 @@ impl AppletInstallRequestBody {
 
     /// The existing installation originals that record explicit MLS consent.
     /// This checks declarations only. Acceptance must independently verify the
-    /// admin, original Event proofs, exact grants and current Realm/Circle Policy.
+    /// admin, original Event proofs, exact grants and current Realm Policy.
     pub fn e2ee_join_authorization_refs(&self) -> Result<Vec<EventId>> {
         let package = &self.applet_package;
         if package.e2ee_policy.mls_join_requested != Some(true) {
@@ -1498,7 +1498,7 @@ impl AppletManagedDeviceMetadata {
         }
         if !matches!(
             self.effective_scope,
-            ScopeRef::Realm { .. } | ScopeRef::Circle { .. }
+            ScopeRef::Realm { .. }
         ) {
             return Err(WireError::Protocol(
                 "managed Device needs business scope".into(),

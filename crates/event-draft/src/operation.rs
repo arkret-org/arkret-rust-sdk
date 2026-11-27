@@ -344,7 +344,7 @@ impl MlsEnvelopeOperationExt for MlsWelcomeEnvelope {
 mod committed_projection_tests {
     use arkret_models_collaboration::events_payloads::{ContentBlock, MessageCreatePayload};
     use arkret_wire::{
-        AccountId, CircleId, CommitStreamRef, CommittedEventRef, DidCoreId, RealmCommitId,
+        AccountId, CommitStreamRef, CommittedEventRef, DidCoreId, RealmCommitId,
         StrandId, event_spec,
     };
     use chrono::TimeZone;
@@ -355,12 +355,8 @@ mod committed_projection_tests {
         RealmId::new("ak:realm:ARQRpvtCGBgQfVQzTK4_Hgbg0D0HSnc3gPCvXOQUICir").unwrap()
     }
 
-    fn circle_scope() -> ScopeRef {
-        ScopeRef::Circle {
-            realm_id: realm(),
-            circle_id: CircleId::new("ak:circle:AUiSHUfqumU5_UtRrOIga2jjSmucw5MpSQdam3TtzPQu")
-                .unwrap(),
-        }
+    fn foreign_scope() -> ScopeRef {
+        ScopeRef::Realm { realm_id: "ak:realm:AUiSHUfqumU5_UtRrOIga2jjSmucw5MpSQdam3TtzPQu".parse().unwrap() }
     }
 
     fn authored_projection(scope: ScopeRef, body: &str) -> (Event, ProjectedEventOperation) {
@@ -406,8 +402,8 @@ mod committed_projection_tests {
     }
 
     #[test]
-    fn matching_realm_and_circle_commit_context_preserves_canonical_event_facts() {
-        for scope in [ScopeRef::Realm { realm_id: realm() }, circle_scope()] {
+    fn matching_realm_and_foreign_commit_context_preserves_canonical_event_facts() {
+        for scope in [ScopeRef::Realm { realm_id: realm() }, foreign_scope()] {
             let (event, operation) = authored_projection(scope, "accepted message");
             let preimage =
                 arkret_canonical::canonical_json_bytes(&event.digest_payload().unwrap()).unwrap();
@@ -434,7 +430,7 @@ mod committed_projection_tests {
         let (event, operation) =
             authored_projection(ScopeRef::Realm { realm_id: realm() }, "realm message");
         let mismatches = [
-            CommitStreamRef::from_scope(&circle_scope(), None).unwrap(),
+            CommitStreamRef::from_scope(&foreign_scope(), None).unwrap(),
             CommitStreamRef::Realm {
                 realm_id: RealmId::new("ak:realm:AR8FzptqPhujyMqtDIr2CTaKC301-QQGktovEDdHy_6R")
                     .unwrap(),
@@ -448,12 +444,12 @@ mod committed_projection_tests {
                 Err(EventDraftError::Protocol(_))
             ));
         }
-        let (circle_event, circle_operation) =
-            authored_projection(circle_scope(), "circle message");
-        let mut reference = accepting_ref(&circle_event);
+        let (foreign_event, foreign_operation) =
+            authored_projection(foreign_scope(), "foreign message");
+        let mut reference = accepting_ref(&foreign_event);
         reference.stream_ref = CommitStreamRef::Realm { realm_id: realm() };
         assert!(matches!(
-            circle_operation.with_committed_ref(reference),
+            foreign_operation.with_committed_ref(reference),
             Err(EventDraftError::Protocol(_))
         ));
     }

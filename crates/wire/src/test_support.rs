@@ -30,7 +30,6 @@ pub fn structural_signal_envelope_at(
         sender_actor_id,
         sender_device_id: Some(sender_device_id),
         authority_commit_id,
-        parent_realm_authority_commit_id: None,
         signal_class,
         sent_at,
         expires_at,

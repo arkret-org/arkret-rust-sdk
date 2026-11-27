@@ -14,7 +14,7 @@ use arkret_models_integration::{
 };
 use arkret_schema::ProtocolSchemaRegistry;
 use arkret_wire::{
-    ActorId, AppletId, CircleId, CommitStreamRef, CommittedEventRef, Did, DidCoreId, DidUrl, Event,
+    ActorId, AppletId, CommitStreamRef, CommittedEventRef, Did, DidCoreId, DidUrl, Event,
     EventId, Hash, PayloadSignature, PayloadSigner, PlanId, ProducerEventProof, RealmCommitId,
     RealmId, Result as WireResult, ScopeRef, SidecarId,
 };
@@ -690,13 +690,11 @@ fn install_plan_digest_excludes_itself_and_scope_round_trips() {
 }
 
 #[test]
-fn committed_applet_refs_preserve_independent_circle_and_sidecar_streams() {
+fn committed_applet_refs_preserve_independent_realm_and_sidecar_streams() {
     let realm_id = realm();
-    let circle_ref = committed_ref(
-        CommitStreamRef::Circle {
+    let realm_ref = committed_ref(
+        CommitStreamRef::Realm {
             realm_id: realm_id.clone(),
-            circle_id: CircleId::new("ak:circle:ARIqxK3jWXYxpb544UphWaZm_ti9wclu9_0-eSuyZ2e_")
-                .unwrap(),
         },
         7,
         4,
@@ -714,7 +712,7 @@ fn committed_applet_refs_preserve_independent_circle_and_sidecar_streams() {
     let e2ee = E2eeEffect {
         mls_join_required: true,
         plaintext_access: "none".to_owned(),
-        authorization_refs: Some(vec![circle_ref.clone()]),
+        authorization_refs: Some(vec![realm_ref.clone()]),
     };
     let widget = WidgetEffect {
         widget_allowed: true,
@@ -725,7 +723,7 @@ fn committed_applet_refs_preserve_independent_circle_and_sidecar_streams() {
 
     assert_eq!(
         e2ee_wire["authorization_refs"][0]["stream_ref"]["kind"],
-        "circle"
+        "realm"
     );
     assert_eq!(widget_wire["policy_event_ref"], json!(sidecar_ref.event_id));
     assert!(
@@ -737,14 +735,14 @@ fn committed_applet_refs_preserve_independent_circle_and_sidecar_streams() {
     );
 
     let outcome = AppletTransactionResponseBody::Accepted {
-        committed_event_refs: vec![circle_ref],
+        committed_event_refs: vec![realm_ref],
         rejections: Vec::new(),
         retry_after_ms: None,
     };
     let outcome_wire = serde_json::to_value(outcome).unwrap();
     assert_eq!(
         outcome_wire["committed_event_refs"][0]["stream_ref"]["kind"],
-        "circle"
+        "realm"
     );
 }
 

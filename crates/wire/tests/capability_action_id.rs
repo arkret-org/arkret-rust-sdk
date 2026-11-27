@@ -2,15 +2,15 @@ use arkret_wire::CapabilityActionId;
 
 #[test]
 fn capability_action_id_uses_registry_wire_string() {
-    let action = CapabilityActionId::CircleManage;
+    let action = CapabilityActionId::SpaceCreate;
 
-    assert_eq!(action.to_string(), "ak.circle.manage");
+    assert_eq!(action.to_string(), "ak.space.create");
     assert_eq!(
         serde_json::to_string(&action).expect("serialize capability action"),
-        r#""ak.circle.manage""#
+        r#""ak.space.create""#
     );
     assert_eq!(
-        serde_json::from_str::<CapabilityActionId>(r#""ak.circle.manage""#)
+        serde_json::from_str::<CapabilityActionId>(r#""ak.space.create""#)
             .expect("deserialize capability action"),
         action
     );

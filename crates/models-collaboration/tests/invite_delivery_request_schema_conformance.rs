@@ -212,14 +212,14 @@ fn invite_commit_must_address_the_invite_event_on_its_realm_stream() {
     assert!(sdk_parse(&other_event).is_ok());
     assert!(!sdk_accepts(&other_event), "commit for another Event");
 
-    let mut circle_stream = delivery_body();
-    circle_stream["invite_commit"]["stream_ref"] = json!({
-        "kind": "circle",
-        "realm_id": circle_stream["invite_event"]["realm_id"],
-        "circle_id": "ak:circle:ASo6zC5lXw3GKOieKXlXJYfKoQKng4sYXtvdUAaE9WRB"
+    let mut private_stream = delivery_body();
+    private_stream["invite_commit"]["stream_ref"] = json!({
+        "kind": "sidecar",
+        "realm_id": private_stream["invite_event"]["realm_id"],
+        "sidecar_id": "ak:sidecar:ASo6zC5lXw3GKOieKXlXJYfKoQKng4sYXtvdUAaE9WRB"
     });
-    assert!(sdk_parse(&circle_stream).is_ok());
-    assert!(!sdk_accepts(&circle_stream), "commit on a Circle stream");
+    assert!(sdk_parse(&private_stream).is_ok());
+    assert!(!sdk_accepts(&private_stream), "commit on a private Sidecar stream");
 }
 
 #[test]

@@ -13,14 +13,6 @@ use crate::objects::productivity::{
     SearchPolicy,
 };
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Display {
-    pub short_name: String,
-    pub color_token: String,
-    pub symbol: DisplaySymbol,
-}
-
 /// Counterpart for `spec/v1/artifacts/schemas/morph-customer-risk.schema.json#/properties/fields`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MorphCustomerRiskFields {

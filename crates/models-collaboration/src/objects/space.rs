@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_models_crypto::encrypted_envelope::EncryptedEnvelope;
 use arkret_wire::{
-    ActorId, BlobRef, CircleId, RealmId, Result, SchemaId, SpaceId, SpaceState, WireError,
+    ActorId, BlobRef, RealmId, Result, SchemaId, SpaceId, SpaceState, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -26,7 +26,7 @@ pub fn validate_space_target(
     Ok(())
 }
 
-/// Resolved structural facts, independent of presentation or Circle filters.
+/// Resolved structural facts, independent of presentation filters.
 pub struct SpaceStructureNode<'a> {
     pub realm_id: &'a str,
     pub parent_space_id: Option<&'a str>,
@@ -71,16 +71,10 @@ pub struct Space {
     pub id: Option<SpaceId>,
     pub schema: String,
     pub realm_id: RealmId,
-    /// AKP-0007 (spec b7d35be) — optional Circle scope binding on the Space
-    /// (container). Authorization-transparent: never carries its own
-    /// membership/policy/E2EE group; this field places the Space's metadata
-    /// inside an existing Circle encryption scope.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub scope_circle_id: Option<CircleId>,
     /// AKP-0007 — reducer-enforced constraint on how child resources may
     /// pick their scope.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub child_scope_policy: Option<ChildScopePolicy>,
+    pub child_scope_policy: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub parent_space_id: Option<SpaceId>,
     // Declaration order mirrors `spec/v1/artifacts/schemas/space.schema.json`
@@ -122,24 +116,6 @@ pub struct Space {
     pub updated_at: Option<DateTime<Utc>>,
 }
 
-/// AKP-0007 (spec b7d35be) — Space `child_scope_policy` discriminator.
-///
-/// Mirrors `spec/v1/artifacts/schemas/space.schema.json` `$defs.child_scope_policy`.
-/// The `require_scope_circle_id` variant carries the required Circle id.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-pub enum ChildScopePolicy {
-    /// Any scope is accepted, including unscoped.
-    AllowAny {},
-    /// Child resources MUST live in an E2EE scope (any Circle or the
-    /// Realm-default E2EE scope).
-    RequireE2ee {},
-    /// Child resources MUST share the parent Space's `scope_circle_id`.
-    RequireSameScope {},
-    /// Child resources MUST set `scope_circle_id` to the named Circle.
-    RequireScopeCircleId { scope_circle_id: CircleId },
-}
-
 impl Space {
     pub const SCHEMA: &'static str = SchemaId::SPACE_V1;
     pub fn new(
@@ -153,7 +129,7 @@ impl Space {
             id: Some(id),
             schema: SchemaId::SPACE_V1.to_owned(),
             realm_id,
-            scope_circle_id: None,
+
             child_scope_policy: None,
             parent_space_id: None,
             kind: kind.into(),
@@ -192,7 +168,7 @@ impl Space {
             id: None,
             schema: SchemaId::SPACE_V1.to_owned(),
             realm_id,
-            scope_circle_id: None,
+
             child_scope_policy: None,
             parent_space_id: None,
             kind: kind.into(),

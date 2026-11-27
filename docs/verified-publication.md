@@ -17,7 +17,6 @@ unverified request cannot supply that trust.
 | Sidecar ensure | Empty prepare, create plus attach commit, or exact attach Event |
 | Contact request/respond/reject/scope/tombstone | Empty prepare or the exact signed commit Event |
 | Consent complete replacement | The embedded admission submission |
-| Circle create/member add/remove/scope rotation | Every embedded producer Event |
 | Self and peer Watch first admission | The audit submission Event, including the peer path |
 | Applet managed Bot/Ghost provisioning | Provision, PCR genesis, accountability grant and Profile originals |
 | Applet install/revoke/transaction | All explicit registration/grant/revoke/membership/Event originals and source Commits; a pure authoring request remains a draft |

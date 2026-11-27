@@ -953,9 +953,9 @@ fn current_coverage_is_per_stream_and_never_a_single_position() {
                 realm_stream_head(REALM_A),
                 {
                     "stream_ref": {
-                        "kind": "circle",
+                        "kind": "sidecar",
                         "realm_id": REALM_A,
-                        "circle_id": REALM_B.replace("ak:realm:", "ak:circle:"),
+                        "sidecar_id": REALM_B.replace("ak:realm:", "ak:sidecar:"),
                     },
                     "stream_position": 3,
                     "commit_id": COMMIT_A,
@@ -1369,7 +1369,7 @@ fn websocket_account_open_parameters_keep_the_wait_for_branch_order() {
     assert_eq!(declaration_order(&parameters), branch_properties);
 }
 
-const CIRCLE_B: &str = "ak:circle:AdP2S6y0Ms7yp9-GNvXZ3sVfvTEo8mtnV3G_RfApIOn0";
+const SIDECAR_B: &str = "ak:sidecar:AdP2S6y0Ms7yp9-GNvXZ3sVfvTEo8mtnV3G_RfApIOn0";
 
 fn sidecar_id(seed: u8) -> String {
     arkret_wire::SidecarId::from_event_id(&arkret_wire::EventId::from_digest(
@@ -1384,7 +1384,7 @@ fn full_account_filter() -> Value {
         "realm_ids": [REALM_A, REALM_B],
         "stream_refs": [
             {"kind": "realm", "realm_id": REALM_A},
-            {"kind": "circle", "realm_id": REALM_B, "circle_id": CIRCLE_B},
+            {"kind": "sidecar", "realm_id": REALM_B, "sidecar_id": SIDECAR_B},
         ],
         "max_window_event_count": 100,
         "lazy_load_members": false,

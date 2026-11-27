@@ -5,10 +5,10 @@
 // sha256=290ceb17aae10a0e049b79a8ae3d108b24cabc9f232d290dc1303634576b84e9
 //
 // Input: schemas/strand.schema.json
-// sha256=6df510ee9e4a7c34c16c911cbd038b5c6f075e682853835bdb524b0f282b1c6a
+// sha256=6730b70c528b57a0f7340fc42882d080ae2ff51e6c1b2140fb952f64fa6afd27
 //
 // Input: schemas/common-ids.schema.json
-// sha256=81b18acd21f4382860d5cab2384d9bb78ee5dbc23629752a6cc74ce384186149
+// sha256=dadc47194ca411baa38f3a7f44ae8115bec7cbcd98e68a2fffd389fdfc039713
 //
 // Input: schemas/time.schema.json
 // sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
@@ -17,7 +17,7 @@
 // sha256=f31a32e76dd6026205c48226af03e5b860c147c87335da0ff60ea481c9755729
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=5c71516a86f6e77bf88bd907edc9f7002dddfcc4a5457d0ba636150543e5b28e
+// sha256=a78e63d1f3a48c87115a3e40e578dc4aeb5f619833613e5eb9fae1be319bff29
 
 /// Counterpart: `identity-link.schema.json`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_models_crypto::encrypted_envelope::EncryptedEnvelope;
 use arkret_wire::{
-    ActorId, CircleId, ObjectStage, ObjectState, RealmId, Result, SchemaId, SpaceId, StrandId,
+    ActorId, ObjectStage, ObjectState, RealmId, Result, SchemaId, SpaceId, StrandId,
     WireError,
 };
 use chrono::{DateTime, Utc};
@@ -189,17 +189,6 @@ pub struct Strand {
     pub id: Option<StrandId>,
     pub schema: String,
     pub realm_id: RealmId,
-    /// AKP-0007 (spec b7d35be) — optional Circle scope binding. When set, all
-    /// Strand tracks share the referenced Circle's MLS group, membership and
-    /// history visibility; when unset the Strand lives in the Realm-default
-    /// scope. Rebinding `scope_circle_id` is forbidden by default (reducer
-    /// reason `scope_rebind_forbidden`). The Circle's parent Realm MUST
-    /// equal the Strand's Realm.
-    ///
-    /// Declaration order mirrors `spec/v1/artifacts/schemas/strand.schema.json`
-    /// (common-fields §3.2): `id, schema, realm_id, scope_circle_id, …`.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub scope_circle_id: Option<CircleId>,
     /// Authoritative schema set for profile-defined `metadata.fields` subtrees,
     /// and the only profile activation axis: `metadata.fields.profile` and
     /// `profile_refs` are forbidden impostors.
@@ -285,7 +274,7 @@ impl Strand {
             id: None,
             schema: SchemaId::STRAND_V1.to_owned(),
             realm_id,
-            scope_circle_id: None,
+
             schema_refs: None,
             agent_participation: None,
             metadata: Some(StrandMetadata::with_title(title)),

@@ -4,7 +4,6 @@ use arkret_wire::ScopeRef;
 
 use super::*;
 use crate::events_payloads::audit::{AuditAccessedKind, AuditAccessedPayload};
-use crate::events_payloads::circle::CircleMemberStatePayload;
 use crate::events_payloads::strand::{StrandWatchLevel, StrandWatchSetPayload};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -65,22 +64,6 @@ impl AuditPairedEventUnitSubmission {
                     payload.strand_id.to_string(),
                 )
             }
-            EventKind::CircleMemberState => {
-                let payload: CircleMemberStatePayload =
-                    serde_json::from_value(serde_json::to_value(&business.payload)?)?;
-                payload.validate()?;
-                if !matches!(&business.scope_ref, ScopeRef::Circle { circle_id, .. } if circle_id == &payload.circle_id)
-                {
-                    return Err(pair_refusal(
-                        "Circle membership pair must use the target Circle stream",
-                    ));
-                }
-                (
-                    AuditAccessedKind::CircleMemberSetOthers,
-                    payload.member_id,
-                    payload.circle_id.to_string(),
-                )
-            }
             _ => return Err(pair_refusal("unregistered business kind for an audit pair")),
         };
         if audit.kind != EventKind::AuditAccessed {
@@ -105,9 +88,9 @@ impl AuditPairedEventUnitSubmission {
             .collect();
         if !matches!(
             business.scope_ref,
-            ScopeRef::Realm { .. } | ScopeRef::Circle { .. }
+            ScopeRef::Realm { .. }
         ) {
-            return Err(pair_refusal("audit pair requires a Realm or Circle stream"));
+            return Err(pair_refusal("audit pair requires a Realm stream"));
         }
         if target == business.actor_id
             || business.event_id == audit.event_id
@@ -394,17 +377,12 @@ pub fn is_audit_paired_event_slot(event: &Event) -> Result<bool> {
                 serde_json::from_value(serde_json::to_value(&event.payload)?)?;
             payload.watcher_actor_id != event.actor_id
         }
-        EventKind::CircleMemberState => {
-            let payload: CircleMemberStatePayload =
-                serde_json::from_value(serde_json::to_value(&event.payload)?)?;
-            payload.member_id != event.actor_id
-        }
         EventKind::AuditAccessed => {
             let payload: AuditAccessedPayload =
                 serde_json::from_value(serde_json::to_value(&event.payload)?)?;
             matches!(
                 payload.access_kind,
-                AuditAccessedKind::WatchSetOthers | AuditAccessedKind::CircleMemberSetOthers
+                AuditAccessedKind::WatchSetOthers
             )
         }
         _ => false,

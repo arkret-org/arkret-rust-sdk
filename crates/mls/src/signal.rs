@@ -2,7 +2,7 @@
 //!
 //! Signals never export, retain, or distribute prior-epoch material. The
 //! key is derived directly from the current MLS exporter and the envelope is
-//! bound to the exact head of its Realm/Circle/Sidecar commit stream.
+//! bound to the exact head of its Realm/Sidecar commit stream.
 
 use std::mem::size_of;
 

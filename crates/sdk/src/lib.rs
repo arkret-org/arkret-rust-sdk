@@ -2,7 +2,7 @@
 //!
 //! This crate exposes Arkret protocol concepts directly. Producers sign
 //! immutable Events; the current governance Station accepts and orders them in
-//! the Realm, Circle, or Sidecar authority stream selected by `scope_ref`.
+//! the Realm or Sidecar authority stream selected by `scope_ref`.
 //!
 //! # Examples
 //!
@@ -97,7 +97,7 @@ pub use arkret_http_client::service_resolution_fetcher::{
 pub use arkret_identifiers as identifiers;
 pub use arkret_identifiers::{
     ActorProfileId, AppletId, BackupId, BackupSeriesId, BatchId, BlobId, BlobRef, BlockId, CallId,
-    CallRecordingId, CapabilityId, ChunkId, CircleId, ClaimId, ConsentId, DeviceId,
+    CallRecordingId, CapabilityId, ChunkId, ClaimId, ConsentId, DeviceId,
     DeviceMessageId, DeviceMessageTransactionId, Did, DidCoreId, EventId, FilterId, FrameId,
     GrantId, Hash, Hlc, InviteId, InviteLocatorId, MessageId, MessageStreamId, MorphId,
     NotificationId, NotificationProjectionId, OperationId, PolicyId, PresentationId,
@@ -177,7 +177,7 @@ pub use arkret_models_collaboration::governance::agent_membership_cascade::*;
 pub use arkret_models_collaboration::governance::agent_participation::*;
 pub use arkret_models_collaboration::governance::audit::{AccessKind, AuditPolicyAccessPayload};
 pub use arkret_models_collaboration::governance::authorization::*;
-pub use arkret_models_collaboration::governance::circle::*;
+pub use arkret_models_collaboration::governance::mls_activation::*;
 pub use arkret_models_collaboration::governance::erasure::*;
 pub use arkret_models_collaboration::governance::grant_constraint::*;
 pub use arkret_models_collaboration::governance::invite_addressing::*;

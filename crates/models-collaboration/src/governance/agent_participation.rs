@@ -2,7 +2,7 @@
 //!
 //! Five orthogonal autonomous-behavior bits an Agent's
 //! controller may enable in a scope, each capped by a monotone
-//! `deployment ⊇ Realm ⊇ Circle ⊇ Strand` ceiling. The effective
+//! `deployment ⊇ Realm ⊇ Strand` ceiling. The effective
 //! participation in a scope is `effective_ceiling ∩ controller_selection`,
 //! where `effective_ceiling` is the bitwise AND of every enclosing
 //! level's ceiling (AKP-0010 §3–§5).
@@ -31,7 +31,7 @@ pub struct ParticipationReplaceRequestBody {
     pub expected_version: u64,
 }
 
-/// Governance object shape used by Realm, Circle and Strand schemas.
+/// Governance object shape used by Realm and Strand schemas.
 /// Agent permissions are explicitly namespaced so future
 /// applet-agent policy cannot be confused with this ceiling.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]

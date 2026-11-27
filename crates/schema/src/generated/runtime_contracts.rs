@@ -2,11 +2,11 @@
 //! Generator: tools/spec-codegen
 //! Input: registry/agent-runtime-scope-registry.json;
 //! sha256=c19999dee0337692d6415cb6631373e0fec3b60cf47e6aa892afab259ab3d995 Input: registry/
-//! contract-registry.json; sha256=1d326e38cd652bea30ae35bddd0e89f0887505dd36c4cc7ccfdd344af12d096d
+//! contract-registry.json; sha256=1bde71b428c1fcbf12de2072f155a3a0191e1d6bacec46b421c85bf2e07938c5
 //! Input: deployment-probes.json;
 //! sha256=d460713a703e79c05fe21df3844650be21b201c32e5673df81460ea132d48c89
 //! Entries: capability_sets=2, layers=3, feature_additions=1, bootstrap_profiles=2,
-//! operation_surface_groups=34
+//! operation_surface_groups=33
 
 use arkret_wire::{ServiceOperationId, event_kind_str};
 
@@ -122,7 +122,7 @@ pub enum RealmBootstrapIdSource {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum RealmBootstrapCondition {
     DeclaredPlaintextServiceVisibility,
-    MainStrandAndScopeCircleIdIsNull,
+    MainStrandInOrdinaryRealm,
     SubjectIsGenesisActorAndMembershipIsJoin,
     SubjectIsPeerParticipantAndMembershipIsJoin,
 }
@@ -242,7 +242,7 @@ const DIRECT_CONVERSATION_BOOTSTRAP_SLOTS: &[RealmBootstrapSlotDescriptor] = &[
         event_kind: event_kind_str::STRAND_CREATE,
         presence: RealmBootstrapPresence::Required,
         id_source: Some(RealmBootstrapIdSource::EventDerived),
-        condition: Some(RealmBootstrapCondition::MainStrandAndScopeCircleIdIsNull),
+        condition: Some(RealmBootstrapCondition::MainStrandInOrdinaryRealm),
         expected_commit_id: None,
     },
 ];
@@ -436,19 +436,6 @@ pub const REGISTERED_OPERATION_SURFACE_GROUPS: &[OperationSurfaceGroupDescriptor
             ServiceOperationId::SelfInviteLocatorCommandRotateV1,
             ServiceOperationId::SelfInviteLocatorCommandRevokeV1,
             ServiceOperationId::SelfDirectConversationReadResolveV1,
-        ],
-    },
-    OperationSurfaceGroupDescriptor {
-        surface: "circle_management",
-        surface_class: "extension",
-        profile: None,
-        operations: &[
-            ServiceOperationId::SelfCircleCommandCreateV1,
-            ServiceOperationId::SelfCircleReadListV1,
-            ServiceOperationId::SelfCircleResourceGetV1,
-            ServiceOperationId::SelfCircleMemberCommandAddV1,
-            ServiceOperationId::SelfCircleMemberResourceDeleteV1,
-            ServiceOperationId::SelfCircleCommandRotateScopeV1,
         ],
     },
     OperationSurfaceGroupDescriptor {

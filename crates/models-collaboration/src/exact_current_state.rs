@@ -33,7 +33,7 @@ impl ExactModerationTargetRef {
         let pattern = OBJECT_REF.get_or_init(|| {
             Regex::new(concat!(
                 r"^((?:ak:realm:[A-Za-z0-9_-]{44}|",
-                r"ak:(circle|space|actor_profile|strand|message|morph|relation|view|event|grant|invite|realm_invite_link|call|report):[A-Za-z0-9_-]{44}|",
+                r"ak:(space|actor_profile|strand|message|morph|relation|view|event|grant|invite|realm_invite_link|call|report):[A-Za-z0-9_-]{44}|",
                 r"ak:(policy|blob):[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})|",
                 r"ak:blob:(sha256|blake3):[0-9a-f]{64}|did:[^\s]+|(sha256|blake3):[0-9a-f]{64})$"
             ))
@@ -517,7 +517,6 @@ impl ExactCurrentState {
                 if &entry.selector.policy_id != entry.value.policy_id()
                     || !matches!(&entry.source_stream_ref,
                         CommitStreamRef::Realm { realm_id: source }
-                        | CommitStreamRef::Circle { realm_id: source, .. }
                         if source == realm_id)
                 {
                     return Err(WireError::Protocol(
@@ -764,10 +763,7 @@ pub fn validate_calendar_current_pairs(
                 let source: arkret_wire::CalendarScheduleSourceValue = serde_json::from_value(value.clone())?;
                 source.validate_for_current(realm, stream, basis)?;
                 let strand: crate::objects::strand::Strand = serde_json::from_value(strand_value.clone())?;
-                let scope = match &strand.scope_circle_id {
-                    Some(circle_id) => arkret_wire::ScopeRef::Circle { realm_id: strand.realm_id.clone(), circle_id: circle_id.clone() },
-                    None => arkret_wire::ScopeRef::Realm { realm_id: strand.realm_id.clone() },
-                };
+                let scope = arkret_wire::ScopeRef::realm(strand.realm_id.clone());
                 if source.effective_scope != scope { return Err(reject("Calendar source scope differs from its Strand")); }
                 match (&strand.encrypted_metadata, &source.metadata_context) {
                     (Some(envelope), Some(context)) if envelope.payload_digest()? == context.payload_digest => {},

@@ -23,15 +23,6 @@ fn scopes(realm: &RealmId) -> Vec<ScopeRef> {
         ScopeRef::Realm {
             realm_id: realm.clone(),
         },
-        ScopeRef::Circle {
-            realm_id: realm.clone(),
-            circle_id: arkret_wire::CircleId::new(realm.as_str().replacen(
-                "ak:realm:",
-                "ak:circle:",
-                1,
-            ))
-            .unwrap(),
-        },
         ScopeRef::Sidecar {
             realm_id: realm.clone(),
             sidecar_id: arkret_wire::SidecarId::new(realm.as_str().replacen(
@@ -189,7 +180,7 @@ fn both_carriers_reject_missing_null_or_renamed_scope() {
 }
 
 #[test]
-fn realm_actor_target_and_requester_keep_their_realm_or_circle_scope_ceiling() {
+fn realm_actor_target_and_requester_keep_their_realm_scope_ceiling() {
     let f = spec_json_artifact("fixtures/realm-actor-signature-kat-fixture.json").unwrap();
     let target: PeerKeyPackagesClaimFields =
         serde_json::from_value(f["mls_claim_handoff"]["claim_receipt"]["request"].clone()).unwrap();

@@ -4,7 +4,7 @@
 //! event payloads, and sync frames, organized as semantic
 //! module directories. Phase 1A seeded the governance module with the
 //! receive-policy, audit, and plaintext-classification wire shapes;
-//! phase 1B-c2 lands the governance domain (realm governance, circle,
+//! phase 1B-c2 lands the governance domain (Realm governance,
 //! invite addressing, moderation, and grant constraints)
 //! plus the first event-payload faces migrated from the `arkret` umbrella.
 

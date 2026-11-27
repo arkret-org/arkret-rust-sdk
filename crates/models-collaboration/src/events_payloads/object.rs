@@ -25,7 +25,7 @@ macro_rules! impl_protocol_create_object {
     };
 }
 
-impl_protocol_create_object!(ActorProfile, Circle, Morph, Realm, Space);
+impl_protocol_create_object!(ActorProfile, Morph, Realm, Space);
 
 /// Generic create-event payload used by Realm / Space / Strand / Morph creates.
 ///
@@ -50,6 +50,6 @@ impl<T: ProtocolCreateObject> ObjectCreatePayload<T> {
 }
 
 // `object_lifecycle_payload` now has a strong type:
-// `models::operation_payloads::ObjectLifecyclePayload` (generic Strand / Circle /
+// `models::operation_payloads::ObjectLifecyclePayload` (generic Strand /
 // Morph archive·restore·tombstone shape, single-sourced by `target_ref`;
 // `additionalProperties:false`).

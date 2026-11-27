@@ -967,13 +967,10 @@ fn private_current_writer_accepts_only_the_exact_native_series_writer() {
     assert!(validate_realm_actor_current_writer(&wrong_actor, &event).is_err());
     let wrong_scope = CurrentSelector::RealmActorKeyBackupActiveSeries {
         actor_id: actor_id.clone(),
-        effective_scope: ScopeRef::Circle {
-            realm_id: event.realm_id.clone(),
-            circle_id: CircleId::from_event_id(&EventId::from_digest(
+        effective_scope: ScopeRef::Realm { realm_id: arkret_wire::RealmId::from_event_id(&EventId::from_digest(
                 DigestSuite::Sha256,
                 [92; 32],
-            )),
-        },
+            )) },
         backup_kind: *backup_kind,
     };
     assert!(validate_realm_actor_current_writer(&wrong_scope, &event).is_err());

@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 
 use arkret_wire::serde_helpers::{canonical_timestamp, optional_canonical_timestamp};
 use arkret_wire::{
-    AccountId, ActorId, AppletId, CircleId, DidCoreId, EncryptionProfile, EvaluationClass, EventId,
+    AccountId, ActorId, AppletId, DidCoreId, EncryptionProfile, EvaluationClass, EventId,
     Facet, GrantId, Hash, HistoryAccess, RealmId, Result, SchemaId, WireError,
     WireResourceSelector, XExtensionMap,
 };
@@ -430,8 +430,6 @@ pub struct GrantConstraint {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub denied_space_ids: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub allowed_circle_ids: Vec<CircleId>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[serde(deserialize_with = "arkret_wire::deserialize_bounded_non_typed_identifiers")]
     pub allowed_session_ids: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -608,7 +606,7 @@ impl GrantConstraint {
             denied_strand_ids: Vec::new(),
             allowed_space_ids: Vec::new(),
             denied_space_ids: Vec::new(),
-            allowed_circle_ids: Vec::new(),
+
             allowed_session_ids: Vec::new(),
             allowed_view_kinds: Vec::new(),
             allowed_view_renderers: Vec::new(),

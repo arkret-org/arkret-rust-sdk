@@ -1,6 +1,6 @@
 //! Poll responses reduced from one verified authority Commit stream.
 //!
-//! A response belongs to a complete Realm/Circle, poll and Actor partition.
+//! A response belongs to a complete Realm, poll and Actor partition.
 //! Its vote is ordered only by its accepted RealmCommit position. Producer
 //! replacement declarations are checked at admission, never used to pick a
 //! winner. The caller verifies the Commit chain and supplies whether its scan

@@ -26,7 +26,7 @@ fn history_scope_validator_rejects_sidecar_without_rejecting_sidecar_mls() {
     )
     .unwrap();
     binding.validate().unwrap();
-    assert!(binding.validate_realm_or_circle_scope().is_err());
+    assert!(binding.validate_realm_scope().is_err());
 }
 
 #[test]
@@ -74,20 +74,7 @@ fn sidecar_participant_digest_is_closed_and_bound_by_cbor() {
     assert!(realm.validate().is_err());
     realm.participant_authority_digest = None;
 
-    let mut circle = MlsGovernanceBindingPayload::circle(
-        realm.effective_scope().realm_id().clone(),
-        CircleId::new("ak:circle:AcQajqaKFvyDoMpqpSlBvMh0d4gheZsVPhbHaTlqXtkV").unwrap(),
-        None,
-        0,
-        0,
-        0,
-    )
-    .unwrap();
-    circle.participant_authority_digest = binding.participant_authority_digest.clone();
-    assert!(circle.validate().is_err());
-    circle.participant_authority_digest = None;
-
-    for scope_binding in [binding, realm, circle] {
+    for scope_binding in [binding, realm] {
         for forbidden in [Value::Null, serde_json::json!([event(1)])] {
             let mut value = serde_json::to_value(&scope_binding).unwrap();
             value["authority_stream_head"] = forbidden;

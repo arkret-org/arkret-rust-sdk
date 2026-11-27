@@ -50,7 +50,6 @@ impl ParticipationScope {
     pub fn realm_id(&self) -> &arkret_wire::RealmId {
         match self {
             Self::Realm { realm_id }
-            | Self::Circle { realm_id, .. }
             | Self::Strand { realm_id, .. } => realm_id,
         }
     }
@@ -64,10 +63,6 @@ impl ParticipationScope {
     pub fn scope_key(&self) -> String {
         match self {
             Self::Realm { realm_id } => format!("realm:{realm_id}"),
-            Self::Circle {
-                realm_id,
-                circle_id,
-            } => format!("circle:{realm_id}:{circle_id}"),
             Self::Strand {
                 realm_id,
                 strand_id,

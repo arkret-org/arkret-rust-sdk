@@ -490,7 +490,7 @@ impl ServiceHistoricalSigningKey {
         })?;
         if !matches!(
             self.effective_scope,
-            arkret_wire::ScopeRef::Realm { .. } | arkret_wire::ScopeRef::Circle { .. }
+            arkret_wire::ScopeRef::Realm { .. }
         ) || self.registration_ref.stream_ref.realm_id() != realm
             || self.authorization_ref.stream_ref.realm_id() != realm
         {

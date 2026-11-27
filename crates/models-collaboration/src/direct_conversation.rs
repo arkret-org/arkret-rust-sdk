@@ -60,7 +60,7 @@ pub fn direct_conversation_structure_admits(
     }
     let topic = |space: &Space| {
         space.realm_id == event.realm_id
-            && space.scope_circle_id.is_none()
+
             && space.kind == "topic"
             && space.parent_space_id.is_none()
     };
@@ -189,7 +189,7 @@ pub fn direct_conversation_structure_admits(
 
 fn direct_conversation_chat_in_realm(strand: &Strand, realm: &RealmId) -> bool {
     &strand.realm_id == realm
-        && strand.scope_circle_id.is_none()
+
         && crate::objects::profiles::resolve_primary_track(&strand.tracks, None)
             .ok()
             .flatten()

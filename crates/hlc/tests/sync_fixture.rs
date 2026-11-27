@@ -124,7 +124,7 @@ fn client_sync_fixture_surface_is_pinned() {
 
 #[test]
 fn the_account_stream_carries_no_global_or_realm_position() {
-    // Realm, Circle and Sidecar each keep an independent commit stream. The
+    // Realm and Sidecar each keep an independent commit stream. The
     // account aggregate only orders delivery of frames, so neither a global
     // chain position nor a per-Realm position exists to be compared.
     let fixture = fixture();
@@ -218,7 +218,7 @@ fn a_stream_tail_is_accepted_exactly_when_it_is_continuous() {
         assert_eq!(flag(case, "to_device_acks_reset"), Some(false));
     }
 
-    for kind in ["realm", "circle", "sidecar"] {
+    for kind in ["realm", "sidecar"] {
         assert!(
             kinds.iter().any(|seen| seen == kind),
             "the fixture must exercise the independent {kind} stream"

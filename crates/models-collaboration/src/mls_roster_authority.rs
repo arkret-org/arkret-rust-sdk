@@ -79,7 +79,7 @@ impl MlsAddAuthorityAttestation {
         if self.effective_scope.realm_id_opt() != Some(&self.realm_id)
             || !matches!(
                 &self.effective_scope,
-                ScopeRef::Realm { .. } | ScopeRef::Circle { .. } | ScopeRef::Sidecar { .. }
+                ScopeRef::Realm { .. } | ScopeRef::Sidecar { .. }
             )
             || self.commit_stream_position == 0
             || self.epoch == 0
@@ -101,7 +101,7 @@ impl MlsAddAuthorityAttestation {
             if actor.realm_id != self.realm_id
                 || !matches!(
                     &self.effective_scope,
-                    ScopeRef::Realm { .. } | ScopeRef::Circle { .. }
+                    ScopeRef::Realm { .. }
                 )
                 || !matches!(&self.endpoint, MlsWelcomeRecipientEndpoint::Device { .. })
                 || self.claim_authority_ref.is_none()
@@ -252,7 +252,7 @@ impl MlsMemberRosterAuthorityReadRequestBody {
         if self.effective_scope.realm_id_opt() != Some(&self.realm_id)
             || !matches!(
                 &self.effective_scope,
-                ScopeRef::Realm { .. } | ScopeRef::Circle { .. } | ScopeRef::Sidecar { .. }
+                ScopeRef::Realm { .. } | ScopeRef::Sidecar { .. }
             )
             || self
                 .cursor
@@ -305,7 +305,7 @@ impl MlsRosterAuthorityReadRequestBody {
         if self.effective_scope.realm_id_opt() != Some(&self.realm_id)
             || !matches!(
                 &self.effective_scope,
-                ScopeRef::Realm { .. } | ScopeRef::Circle { .. } | ScopeRef::Sidecar { .. }
+                ScopeRef::Realm { .. } | ScopeRef::Sidecar { .. }
             )
             || (self.target_epoch == 0 && self.target_commit_event_ref != self.genesis_event_ref)
             || self

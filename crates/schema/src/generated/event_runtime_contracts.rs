@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json;
-//! sha256=1d326e38cd652bea30ae35bddd0e89f0887505dd36c4cc7ccfdd344af12d096d
-//! Entries: active_events=143
+//! sha256=1bde71b428c1fcbf12de2072f155a3a0191e1d6bacec46b421c85bf2e07938c5
+//! Entries: active_events=136
 
 use arkret_wire::event_kind_str;
 
@@ -121,41 +121,6 @@ pub const EVENT_RUNTIME_CONTRACTS: &[EventRuntimeContractDescriptor] = &[
     },
     EventRuntimeContractDescriptor {
         event_kind: event_kind_str::CAPABILITY_REVOKE,
-        id_source: None,
-        derived_id_kinds: &[],
-    },
-    EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::CIRCLE_ARCHIVE,
-        id_source: None,
-        derived_id_kinds: &[],
-    },
-    EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::CIRCLE_CREATE,
-        id_source: Some(EventIdSource::EventDerived),
-        derived_id_kinds: &["circle"],
-    },
-    EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::CIRCLE_HISTORY_ACCESS,
-        id_source: None,
-        derived_id_kinds: &[],
-    },
-    EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::CIRCLE_MEMBER_STATE,
-        id_source: None,
-        derived_id_kinds: &[],
-    },
-    EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::CIRCLE_RESTORE,
-        id_source: None,
-        derived_id_kinds: &[],
-    },
-    EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::CIRCLE_TOMBSTONE,
-        id_source: None,
-        derived_id_kinds: &[],
-    },
-    EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::CIRCLE_UPDATE,
         id_source: None,
         derived_id_kinds: &[],
     },

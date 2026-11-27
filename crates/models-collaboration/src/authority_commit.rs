@@ -60,7 +60,7 @@ impl OwnedAgentStreamScanRequestBody {
                 | ObjectReadHistory
                 | ObjectReadMetadata
                 | StrandRead
-        ) || matches!(self.scan.stream_ref, CommitStreamRef::Sidecar { .. })
+        ) || !matches!(intent.effective_scope, arkret_wire::ScopeRef::Realm { .. })
             || intent.effective_scope != self.scan.stream_ref.scope_ref()
             || self.scan.stream_ref.realm_id() != &self.scan.realm_id
             || intent.controller_account_id.station_id != self.member_account_id.station_id
@@ -236,7 +236,7 @@ impl ServiceHistoricalSignerFact {
                 event.scope_ref != arkret_wire::ScopeRef::realm(event.realm_id.clone())
                     || !matches!(
                         self.key.effective_scope,
-                        arkret_wire::ScopeRef::Realm { .. } | arkret_wire::ScopeRef::Circle { .. }
+                        arkret_wire::ScopeRef::Realm { .. }
                     )
                     || self.key.effective_scope.realm_id_opt() != Some(&event.realm_id)
             } else {
@@ -2713,7 +2713,7 @@ impl RealmDeviceHistoricalSignerFact {
                 != Some(&self.verification_method)
             || !matches!(
                 event.scope_ref,
-                arkret_wire::ScopeRef::Realm { .. } | arkret_wire::ScopeRef::Circle { .. }
+                arkret_wire::ScopeRef::Realm { .. }
             )
         {
             return Err(WireError::Protocol(

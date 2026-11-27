@@ -201,8 +201,8 @@ fn bounded<T: Serialize>(value: &T) -> Result<()> {
 }
 
 fn validate_selection(scope: &ScopeRef, selection: &AppletConfigurationSelection) -> Result<()> {
-    if !matches!(scope, ScopeRef::Realm { .. } | ScopeRef::Circle { .. }) {
-        return Err(invalid("configuration requires a Realm or Circle scope"));
+    if !matches!(scope, ScopeRef::Realm { .. }) {
+        return Err(invalid("configuration requires a Realm scope"));
     }
     match selection {
         AppletConfigurationSelection::NewBot { display_name } => {
@@ -258,7 +258,6 @@ impl AppletConfigurationExecutionIntent {
             || !matches!(
                 self.registration_ref.stream_ref,
                 arkret_wire::CommitStreamRef::Realm { .. }
-                    | arkret_wire::CommitStreamRef::Circle { .. }
             )
         {
             return Err(invalid("originator or registration scope binding differs"));

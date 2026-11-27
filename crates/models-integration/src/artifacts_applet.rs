@@ -9,7 +9,7 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    AppletId, CircleId, CommittedEventRef, DidCoreId, DidUrl, EventId, EventProofAudience, Hash,
+    AppletId, CommittedEventRef, DidCoreId, DidUrl, EventId, EventProofAudience, Hash,
     RealmId, ReasonCode, SemanticRef, WebOrigin, WireResourceSelector, XExtensionMap,
 };
 use chrono::{DateTime, Utc};

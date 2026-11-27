@@ -47,7 +47,7 @@ fn approval_submission_carrier_accepts_omission_or_array_but_rejects_null() {
         [31; 32],
     ));
     // Codec shape only; actual signature admission is tested by consumers.
-    let event = circle_item(realm, 1).event;
+    let event = sidecar_item(realm, 1).event;
     let mut value = serde_json::to_value(EventAdmissionSubmission::new(event)).unwrap();
     let omitted: EventAdmissionSubmission = serde_json::from_value(value.clone()).unwrap();
     assert!(omitted.approval_signatures.is_none());
@@ -795,180 +795,11 @@ fn agent_current_selectors_round_trip_closed_shapes() {
 }
 
 #[test]
-fn parent_membership_revision_requires_exact_realm_actor_and_join() {
-    let parent = realm(41);
-    let member = ActorId::account(AccountId::new(
-        DidCoreId::new("ak:did_core:web:member.example").unwrap(),
-        DidCoreId::new("ak:did_core:web:station.example").unwrap(),
-    ));
-    let revision = CurrentRevision {
-        commit_id: RealmCommitId::from_digest([42; 32]),
-        stream_position: 7,
-    };
-    let row = CurrentState::Value {
-        selector: CurrentSelector::MemberState {
-            actor_id: member.clone(),
-        },
-        source_stream_ref: CommitStreamRef::Realm {
-            realm_id: parent.clone(),
-        },
-        revision: revision.clone(),
-        value: json!({"membership":"join"}),
-    };
-    assert_eq!(
-        row.parent_membership_revision(&parent, &member),
-        Some(revision)
-    );
-    let other_station = ActorId::account(AccountId::new(
-        DidCoreId::new("ak:did_core:web:member.example").unwrap(),
-        DidCoreId::new("ak:did_core:web:other-station.example").unwrap(),
-    ));
-    assert!(
-        row.parent_membership_revision(&parent, &other_station)
-            .is_none()
-    );
-    assert!(
-        row.parent_membership_revision(&realm(43), &member)
-            .is_none()
-    );
-    for state in ["leave", "ban", "knock"] {
-        let mut excluded = row.clone();
-        let CurrentState::Value { value, .. } = &mut excluded;
-        *value = json!({"membership":state});
-        assert!(
-            excluded
-                .parent_membership_revision(&parent, &member)
-                .is_none()
-        );
-    }
-    let mut foreign_stream = row;
-    let CurrentState::Value {
-        source_stream_ref, ..
-    } = &mut foreign_stream;
-    *source_stream_ref = CommitStreamRef::Circle {
-        realm_id: parent.clone(),
-        circle_id: CircleId::from_event_id(&EventId::from_digest(
-            arkret_canonical::DigestSuite::Sha256,
-            [44; 32],
-        )),
-    };
-    assert!(
-        foreign_stream
-            .parent_membership_revision(&parent, &member)
-            .is_none()
-    );
-}
-
-#[test]
-fn circle_currents_reject_foreign_subjects_and_noncanonical_effective_time() {
-    let circle_id = CircleId::from_event_id(&EventId::from_digest(
-        arkret_canonical::DigestSuite::Sha256,
-        [42; 32],
-    ));
-    let member_actor_id = ActorId::account(AccountId::new(
-        DidCoreId::new("ak:did_core:web:member.example").unwrap(),
-        DidCoreId::new("ak:did_core:web:station.example").unwrap(),
-    ));
-    for (selector, wire) in [
-        (
-            CurrentSelector::Circle {
-                circle_id: circle_id.clone(),
-            },
-            json!({"kind":"circle","circle_id":circle_id}),
-        ),
-        (
-            CurrentSelector::CircleMemberState {
-                circle_id: circle_id.clone(),
-                member_actor_id: member_actor_id.clone(),
-            },
-            json!({"kind":"circle_member_state","circle_id":circle_id,"member_actor_id":member_actor_id}),
-        ),
-    ] {
-        assert_eq!(serde_json::to_value(&selector).unwrap(), wire);
-        assert_eq!(
-            serde_json::from_value::<CurrentSelector>(wire).unwrap(),
-            selector
-        );
-    }
-    for invalid in [
-        json!({"kind":"circle"}),
-        json!({"kind":"circle","circle_id":member_actor_id}),
-        json!({"kind":"circle","circle_id":circle_id,"member_actor_id":member_actor_id}),
-        json!({"kind":"circle_member_state","circle_id":circle_id}),
-        json!({"kind":"circle_member_state","circle_id":circle_id,"member_actor_id":member_actor_id,"realm_id":"extra"}),
-    ] {
-        assert!(
-            serde_json::from_value::<CurrentSelector>(invalid.clone()).is_err(),
-            "{invalid}"
-        );
-    }
-    let parent = json!({
-        "commit_id": "ak:realm_commit:ARNRmzDi2r78zveOLmoHOb6AephFMwVuGE1fwXmCoeo4",
-        "stream_position": 7
-    });
-    let current = json!({
-        "membership": "join",
-        "parent_membership_revision": parent,
-        "effective_at": "2026-09-27T12:00:00.000Z"
-    });
-    let parsed = serde_json::from_value::<CircleMemberStateValue>(current.clone()).unwrap();
-    assert_eq!(serde_json::to_value(&parsed).unwrap(), current);
-    let leave = json!({"membership":"leave","effective_at":"2026-09-27T12:00:00.000Z"});
-    let parsed_leave = serde_json::from_value::<CircleMemberStateValue>(leave.clone()).unwrap();
-    assert_eq!(serde_json::to_value(parsed_leave).unwrap(), leave);
-    let realm_id = realm(41);
-    let parent_revision: CurrentRevision = serde_json::from_value(parent.clone()).unwrap();
-    let realm_stream = CommitStreamRef::Realm {
-        realm_id: realm_id.clone(),
-    };
-    assert!(parsed.is_effective_under_parent(
-        &realm_id,
-        &realm_stream,
-        &parent_revision,
-        MembershipState::Join
-    ));
-    for membership in [MembershipState::Leave, MembershipState::Ban] {
-        assert!(!parsed.is_effective_under_parent(
-            &realm_id,
-            &realm_stream,
-            &parent_revision,
-            membership
-        ));
-    }
-    let rejoined = CurrentRevision {
-        commit_id: RealmCommitId::from_digest([15; 32]),
-        stream_position: 15,
-    };
-    assert!(!parsed.is_effective_under_parent(
-        &realm_id,
-        &realm_stream,
-        &rejoined,
-        MembershipState::Join
-    ));
-    let circle_stream = CommitStreamRef::Circle {
-        realm_id: realm_id.clone(),
-        circle_id,
-    };
-    assert!(!parsed.is_effective_under_parent(
-        &realm_id,
-        &circle_stream,
-        &parent_revision,
-        MembershipState::Join
-    ));
-    for invalid in [
-        json!({"membership":"join"}),
-        json!({"membership":"join","effective_at":"2026-09-27T12:00:00.000Z"}),
-        json!({"membership":"join","parent_membership_revision":null,"effective_at":"2026-09-27T12:00:00.000Z"}),
-        json!({"membership":"join","parent_membership_revision":{"commit_id":"ak:realm_commit:ARNRmzDi2r78zveOLmoHOb6AephFMwVuGE1fwXmCoeo4"},"effective_at":"2026-09-27T12:00:00.000Z"}),
-        json!({"membership":"leave","parent_membership_revision":parent,"effective_at":"2026-09-27T12:00:00.000Z"}),
-        json!({"membership":"join","parent_membership_revision":parent,"effective_at":"2026-09-27T12:00:00Z"}),
-        json!({"membership":"join","parent_membership_revision":parent,"effective_at":"2026-09-27T12:00:00.000Z","revision":1}),
-    ] {
-        assert!(
-            serde_json::from_value::<CircleMemberStateValue>(invalid.clone()).is_err(),
-            "{invalid}"
-        );
-    }
+fn retired_stream_and_selectors_are_rejected() {
+    let retired = json!({"kind":"circle","realm_id":realm(1),"circle_id":"ak:circle:AUD2WOhX-Xh47vBHtRJPMRfXRQXGiOWQqOrJGJnE8CaI"});
+    assert!(serde_json::from_value::<ScopeRef>(retired.clone()).is_err());
+    assert!(serde_json::from_value::<CommitStreamRef>(retired.clone()).is_err());
+    assert!(serde_json::from_value::<CurrentSelector>(retired).is_err());
 }
 
 #[test]
@@ -1205,27 +1036,18 @@ fn signature(context: DetachedSignatureContext) -> DetachedObjectSignature {
     }
 }
 
-fn circle_item(realm_id: RealmId, stream_position: u64) -> CommittedEventFullView {
-    let circle_id = CircleId::from_event_id(&EventId::from_digest(
+fn sidecar_item(realm_id: RealmId, stream_position: u64) -> CommittedEventFullView {
+    let sidecar_id = SidecarId::from_event_id(&EventId::from_digest(
         arkret_canonical::DigestSuite::Sha256,
         [0x22; 32],
     ));
-    let stream_ref = CommitStreamRef::Circle {
+    let stream_ref = CommitStreamRef::Sidecar {
         realm_id: realm_id.clone(),
-        circle_id,
+        sidecar_id,
     };
     let event = test_support::raw_event_at(
         EventKind::MessageCreate.as_str(),
-        match &stream_ref {
-            CommitStreamRef::Circle {
-                realm_id,
-                circle_id,
-            } => ScopeRef::Circle {
-                realm_id: realm_id.clone(),
-                circle_id: circle_id.clone(),
-            },
-            _ => unreachable!(),
-        },
+        stream_ref.scope_ref(),
         DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
         DidCoreId::new("ak:did_core:web:station.example").unwrap(),
         json!({}),
@@ -1257,7 +1079,7 @@ fn circle_item(realm_id: RealmId, stream_position: u64) -> CommittedEventFullVie
 #[test]
 fn committed_event_view_rejects_a_commit_bound_to_another_independent_stream() {
     let realm_id = realm(0x10);
-    let mut item = circle_item(realm_id.clone(), 0);
+    let mut item = sidecar_item(realm_id.clone(), 0);
     item.commit.stream_ref = CommitStreamRef::Realm { realm_id };
     assert!(item.validate_shape().is_err());
 }
@@ -1267,12 +1089,12 @@ fn scan_without_after_position_starts_at_that_streams_genesis() {
     let realm_id = realm(0x10);
     let request = StreamScanRequestBody {
         realm_id: realm_id.clone(),
-        stream_ref: circle_item(realm_id.clone(), 0).commit.stream_ref,
+        stream_ref: sidecar_item(realm_id.clone(), 0).commit.stream_ref,
         direction: StreamScanDirection::After(None),
         limit: 10,
     };
     let outcome = StreamScanResponseBody {
-        committed_events: vec![CommittedEventView::Full(circle_item(realm_id, 1))],
+        committed_events: vec![CommittedEventView::Full(sidecar_item(realm_id, 1))],
         readable_floor: None,
         truncated: false,
     };
@@ -1281,7 +1103,7 @@ fn scan_without_after_position_starts_at_that_streams_genesis() {
 
 #[test]
 fn independent_stream_gap_is_distinct_from_a_fork_or_rollback() {
-    let first = circle_item(realm(0x10), 0).commit;
+    let first = sidecar_item(realm(0x10), 0).commit;
     let mut next = first.clone();
     next.stream_position = 2;
     next.previous_commit_ref = Some(first.commit_id.clone());
@@ -1313,7 +1135,6 @@ fn every_stream_rejects_gaps_duplicate_positions_and_foreign_predecessors() {
         CommitStreamRef::Realm {
             realm_id: collaboration.clone(),
         },
-        circle_item(collaboration.clone(), 0).commit.stream_ref,
         CommitStreamRef::Sidecar {
             realm_id: collaboration,
             sidecar_id: SidecarId::from_event_id(&EventId::from_digest(
@@ -1324,7 +1145,7 @@ fn every_stream_rejects_gaps_duplicate_positions_and_foreign_predecessors() {
         CommitStreamRef::Realm { realm_id: pcr },
     ];
     for stream in &streams {
-        let mut first = circle_item(stream.realm_id().clone(), 0).commit;
+        let mut first = sidecar_item(stream.realm_id().clone(), 0).commit;
         first.stream_ref = stream.clone();
         first.validate_shape().unwrap();
         let mut next = first.clone();
@@ -1357,7 +1178,7 @@ fn every_stream_rejects_gaps_duplicate_positions_and_foreign_predecessors() {
 #[test]
 fn scan_request_has_exactly_one_present_direction_even_when_null() {
     let realm_id = realm(0x10);
-    let stream_ref = circle_item(realm_id.clone(), 0).commit.stream_ref;
+    let stream_ref = sidecar_item(realm_id.clone(), 0).commit.stream_ref;
     for direction in [
         StreamScanDirection::After(None),
         StreamScanDirection::Before(None),
@@ -1407,7 +1228,7 @@ fn scan_request_has_exactly_one_present_direction_even_when_null() {
 fn before_scan_requires_descending_chain_and_verifiable_floor() {
     let realm_id = realm(0x10);
     let rows =
-        [6, 5, 4].map(|position| CommittedEventView::Full(circle_item(realm_id.clone(), position)));
+        [6, 5, 4].map(|position| CommittedEventView::Full(sidecar_item(realm_id.clone(), position)));
     let request = StreamScanRequestBody {
         realm_id,
         stream_ref: rows[0].commit().stream_ref.clone(),
@@ -1457,7 +1278,7 @@ fn before_scan_requires_descending_chain_and_verifiable_floor() {
 
 #[test]
 fn committed_event_view_has_only_full_and_withheld_wire_branches() {
-    let full = circle_item(realm(0x10), 0);
+    let full = sidecar_item(realm(0x10), 0);
     let full_value = serde_json::to_value(CommittedEventView::Full(full.clone())).unwrap();
     assert!(full_value.get("event").is_some());
     assert!(full_value.get("event_disclosure").is_none());
@@ -1577,10 +1398,10 @@ fn realm_stream_list_enforces_order_floor_and_continuation() {
     });
     assert!(floor_past_head.validate().is_err());
 
-    let circle_row = RealmStreamView {
-        stream_ref: CommitStreamRef::Circle {
+    let sidecar_row = RealmStreamView {
+        stream_ref: CommitStreamRef::Sidecar {
             realm_id,
-            circle_id: "ak:circle:AUifoAUG8AEOHYXp999WnI7WlLt19ByDoqYUsFwbw4A4"
+            sidecar_id: "ak:sidecar:AUifoAUG8AEOHYXp999WnI7WlLt19ByDoqYUsFwbw4A4"
                 .parse()
                 .unwrap(),
         },
@@ -1589,7 +1410,7 @@ fn realm_stream_list_enforces_order_floor_and_continuation() {
         readable_floor: None,
     };
     let mut ordered = page.clone();
-    ordered.streams = vec![circle_row, realm_row.clone()];
+    ordered.streams = vec![sidecar_row, realm_row.clone()];
     let first = canonical_json_bytes_for_test(&ordered.streams[0].stream_ref);
     let second = canonical_json_bytes_for_test(&ordered.streams[1].stream_ref);
     if first > second {
@@ -1603,9 +1424,9 @@ fn realm_stream_list_enforces_order_floor_and_continuation() {
             token[0] = 1;
             token[1..9].copy_from_slice(&index.to_be_bytes());
             let mut row = realm_row.clone();
-            row.stream_ref = CommitStreamRef::Circle {
+            row.stream_ref = CommitStreamRef::Sidecar {
                 realm_id: full_cut.realm_id.clone(),
-                circle_id: CircleId::from_event_id(&EventId::from_token_bytes(token).unwrap()),
+                sidecar_id: SidecarId::from_event_id(&EventId::from_token_bytes(token).unwrap()),
             };
             row
         })
@@ -1712,26 +1533,12 @@ fn list_wip_approval_context_is_closed_and_revision_bound() {
 }
 
 #[test]
-fn read_receipt_policy_selector_requires_an_exact_realm_or_circle_scope() {
-    let realm = "ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5";
-    let circle = "ak:circle:AUD2WOhX-Xh47vBHtRJPMRfXRQXGiOWQqOrJGJnE8CaI";
-    for scope in [
-        json!({"kind":"realm","realm_id":realm}),
-        json!({"kind":"circle","realm_id":realm,"circle_id":circle}),
-    ] {
-        let wire = json!({"kind":"scope_read_receipt_policy","scope_ref":scope});
-        let selector: CurrentSelector = serde_json::from_value(wire.clone()).unwrap();
-        assert_eq!(serde_json::to_value(selector).unwrap(), wire);
-    }
-    for wire in [
-        json!({"kind":"realm_read_receipt_policy"}),
-        json!({"kind":"scope_read_receipt_policy"}),
-        json!({"kind":"scope_read_receipt_policy","scope_ref":{"kind":"realm_genesis"}}),
-        json!({"kind":"scope_read_receipt_policy","scope_ref":{"kind":"circle","realm_id":realm}}),
-        json!({"kind":"scope_read_receipt_policy","scope_ref":{"kind":"realm","realm_id":realm,"circle_id":circle}}),
-    ] {
-        assert!(serde_json::from_value::<CurrentSelector>(wire).is_err());
-    }
+fn read_receipt_policy_is_a_realm_singleton() {
+    let wire = json!({"kind":"scope_read_receipt_policy"});
+    let selector = serde_json::from_value::<CurrentSelector>(wire.clone()).unwrap();
+    assert_eq!(serde_json::to_value(selector).unwrap(), wire);
+    let legacy = json!({"kind":"scope_read_receipt_policy","scope_ref":{"kind":"realm","realm_id":realm(1)}});
+    assert!(serde_json::from_value::<CurrentSelector>(legacy).is_err());
 }
 
 #[test]
@@ -1789,9 +1596,9 @@ fn snapshot_history_purpose_binds_coverage_and_never_replaces_current() {
     assert!(serde_json::from_value::<RealmStateSnapshot>(null_basis).is_err());
     snapshot = original;
     snapshot.visible_stream_heads.push(CommitStreamHead {
-        stream_ref: CommitStreamRef::Circle {
+        stream_ref: CommitStreamRef::Sidecar {
             realm_id,
-            circle_id: CircleId::from_event_id(&event),
+            sidecar_id: SidecarId::from_event_id(&event),
         },
         stream_position: 0,
         commit_id: RealmCommitId::from_digest([94; 32]),

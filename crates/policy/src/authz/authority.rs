@@ -39,7 +39,7 @@ use arkret_models_collaboration::governance::grant_constraint::GrantConstraintSu
 pub use arkret_models_collaboration::governance::grant_constraint::IssuerAuthorityRef;
 #[cfg(test)]
 use arkret_wire::AccountId;
-use arkret_wire::{ActorId, AppletId, CircleId, Hash};
+use arkret_wire::{ActorId, AppletId, Hash};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -101,7 +101,7 @@ pub struct Grant {
 /// serde_json::Value }` weakly-typed form has been removed (no backwards
 /// compat). All call sites construct one of these variants directly.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-#[serde(tag = "constraint_kind", rename_all = "snake_case")]
+#[serde(tag = "constraint_kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum GrantConstraint {
     /// Hard decision constraint used by coland to attach explicit
     /// allow/deny/quarantine/require_review verdicts to a grant
@@ -136,16 +136,6 @@ pub enum GrantConstraint {
         message_redact_window: Option<ConstraintDuration>,
         #[serde(default, skip_serializing_if = "is_false")]
         redact_after_window_allowed: bool,
-    },
-    /// AKP-0007 (spec b7d35be) — narrow a Circle-management capability
-    /// (`ak.circle.manage`, `ak.circle.member.manage`,
-    /// `ak.circle.member.add.others`, `ak.circle.audit`) to a specific set
-    /// of Circle ids. Spec `capability-action-registry.json` declares
-    /// `required_constraints=["allowed_circle_ids"]` on each gated
-    /// action; unconstrained Realm-wide grants for these actions MUST be
-    /// rejected by the grant-issue guard.
-    AllowedCircleIds {
-        allowed_circle_ids: BTreeSet<CircleId>,
     },
     /// Limits applet interop-session writes to explicit session ids.
     AllowedSessionIds {
@@ -194,8 +184,6 @@ pub enum GrantConstraint {
         allowed_tracks: Vec<String>,
         #[serde(default)]
         denied_tracks: Vec<String>,
-        #[serde(default)]
-        allowed_circle_ids: BTreeSet<CircleId>,
         #[serde(default)]
         allowed_session_ids: BTreeSet<String>,
     },
@@ -815,19 +803,13 @@ mod tests {
     }
 
     #[test]
-    fn allowed_circle_ids_constraint_round_trips_through_serde() {
-        let circle =
-            CircleId::new("ak:circle:ARuquux-GRSwGPPZ0lJor6JUmVSERFPzPWlj1mjx8JCX".to_owned())
-                .expect("valid CircleId");
-        let constraint = GrantConstraint::AllowedCircleIds {
-            allowed_circle_ids: BTreeSet::from([circle]),
-        };
-        let json = serde_json::to_string(&constraint).expect("serde round trip");
-        assert!(json.contains("allowed_circle_ids"));
-        assert!(json.contains("ak:circle:ARuquux-GRSwGPPZ0lJor6JUmVSERFPzPWlj1mjx8JCX"));
-        let round_tripped: GrantConstraint =
-            serde_json::from_str(&json).expect("deserialize typed");
-        assert_eq!(constraint, round_tripped);
+    fn retired_scope_constraints_are_refused() {
+        for wire in [
+            serde_json::json!({"constraint_kind":"allowed_circle_ids","allowed_circle_ids":[]}),
+            serde_json::json!({"constraint_kind":"scope_limitation","effect":"allow","allowed_circle_ids":[]}),
+        ] {
+            assert!(serde_json::from_value::<GrantConstraint>(wire).is_err());
+        }
     }
 
     #[test]

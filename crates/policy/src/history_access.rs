@@ -29,7 +29,7 @@ pub const fn position_visible(
 
 /// Decide visibility using only the target stream's committed positions.
 ///
-/// Positions from Realm, Circle, and Sidecar streams are never compared with
+/// Positions from Realm and Sidecar streams are never compared with
 /// one another; callers must obtain both positions from the same stream.
 pub const fn readable(access: HistoryAccess, event_position: u64, reader: ReaderStanding) -> bool {
     reader.membership_active

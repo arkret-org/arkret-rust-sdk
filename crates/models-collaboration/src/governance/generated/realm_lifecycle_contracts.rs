@@ -2,16 +2,16 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/event-payload.schema.json
-// sha256=64318ce99e830ea80a893a806c5f9437c11b0153401bcf8172df22a7c2baf737
+// sha256=961bb4df946585c3ad9cafbdcd82d199c69fb519262229d82943cca11d1641ca
 //
 // Input: schemas/account-operations.schema.json
 // sha256=694f553340eeccd86deab4c0bb637d741e62e4babab325d516ffa30352ceb03d
 //
 // Input: schemas/realm.schema.json
-// sha256=35728a845915202ab93b3c5efa4e3f7680d1b43ead072dd22fc1530dc6d16c26
+// sha256=6c54f96fef6152f72c4f69985d7e35acaaba6677e45fee5172c3e8a96138ffc7
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=5c71516a86f6e77bf88bd907edc9f7002dddfcc4a5457d0ba636150543e5b28e
+// sha256=a78e63d1f3a48c87115a3e40e578dc4aeb5f619833613e5eb9fae1be319bff29
 
 /// Counterpart: `event-payload.schema.json#/$defs/realm_join_rule_payload`.
 /// Strong payload for `ak.realm.join_rule`, whose wire schema is
@@ -90,7 +90,7 @@ pub struct RealmDestroyPayload {
 /// Strong type for `object_lifecycle_payload`
 /// (`event-payload.schema.json#/$defs/object_lifecycle_payload`).
 ///
-/// Generic archive / restore / tombstone-style payload for Strand, Circle, and
+/// Generic archive / restore / tombstone-style payload for Strand and
 /// Morph lifecycle events (e.g. `ak.strand.archive` / `ak.strand.restore`). The
 /// target object is single-sourced by `target_ref`. Required: `target_ref`.
 /// `additionalProperties:false`.

@@ -503,10 +503,10 @@ fn all_effective_scopes_use_station_verifiable_handshakes() {
     let realm_id = RealmId::new("ak:realm:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FV").unwrap();
     for scope in [
         realm_scope(),
-        ScopeRef::Circle {
+        ScopeRef::Sidecar {
             realm_id: realm_id.clone(),
-            circle_id: arkret_wire::CircleId::new(
-                "ak:circle:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FV",
+            sidecar_id: arkret_wire::SidecarId::new(
+                "ak:sidecar:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FV",
             )
             .unwrap(),
         },
@@ -1893,7 +1893,6 @@ fn signal_same_actor_devices_separate_key_nonce_and_replay_domains() {
         sender_actor_id: &actor,
         sender_device_id: Some(device_id),
         authority_commit_id: &authority_head,
-        parent_realm_authority_commit_id: None,
         signal_class: SignalClass::Session,
         sent_at: "2026-11-08T00:00:00Z".parse().unwrap(),
         expires_at: "2026-11-08T00:00:20Z".parse().unwrap(),

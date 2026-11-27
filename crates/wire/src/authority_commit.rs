@@ -1,10 +1,10 @@
 //! Single-authority commit-log wire types.
 //!
-//! A Realm, each Circle, and each Sidecar own separate linear streams. There
+//! A Realm and each Sidecar own separate linear streams. There
 //! is deliberately no Realm-global position or ordering across those streams.
 
 use arkret_identifiers::{
-    ActorProfileId, AppletId, CallId, CallRecordingId, CircleId, Did, DidCoreId, EventId, GrantId,
+    ActorProfileId, AppletId, CallId, CallRecordingId, Did, DidCoreId, EventId, GrantId,
     Hash, InviteId, KeypackageClaimId, MessageId, MlsWelcomeDeliveryId, PolicyId,
     RealmAuthorityHandoffId, RealmCommitId, RealmId, RealmSnapshotId, RelationId, SidecarId,
     SpaceId, StrandId,
@@ -22,7 +22,6 @@ use uuid::Uuid;
 pub enum PinScope {
     Strand { id: StrandId },
     Realm { id: RealmId },
-    Circle { id: CircleId },
     Space { id: SpaceId },
 }
 
@@ -42,10 +41,6 @@ pub enum CommitStreamRef {
     RealmControl {
         realm_id: RealmId,
     },
-    Circle {
-        realm_id: RealmId,
-        circle_id: CircleId,
-    },
     Sidecar {
         realm_id: RealmId,
         sidecar_id: SidecarId,
@@ -57,7 +52,6 @@ impl CommitStreamRef {
         match self {
             Self::Realm { realm_id }
             | Self::RealmControl { realm_id }
-            | Self::Circle { realm_id, .. }
             | Self::Sidecar { realm_id, .. } => realm_id,
         }
     }
@@ -71,13 +65,6 @@ impl CommitStreamRef {
             },
             Self::RealmControl { realm_id } => ScopeRef::RealmControl {
                 realm_id: realm_id.clone(),
-            },
-            Self::Circle {
-                realm_id,
-                circle_id,
-            } => ScopeRef::Circle {
-                realm_id: realm_id.clone(),
-                circle_id: circle_id.clone(),
             },
             Self::Sidecar {
                 realm_id,
@@ -103,13 +90,6 @@ impl CommitStreamRef {
             }),
             ScopeRef::RealmControl { realm_id } => Ok(Self::RealmControl {
                 realm_id: realm_id.clone(),
-            }),
-            ScopeRef::Circle {
-                realm_id,
-                circle_id,
-            } => Ok(Self::Circle {
-                realm_id: realm_id.clone(),
-                circle_id: circle_id.clone(),
             }),
             ScopeRef::Sidecar {
                 realm_id,
@@ -977,9 +957,6 @@ impl RealmStateSnapshot {
         };
         let parent = match &basis.stream_ref {
             CommitStreamRef::Realm { .. } => None,
-            CommitStreamRef::Circle { circle_id, .. } => Some(CurrentSelector::Circle {
-                circle_id: circle_id.clone(),
-            }),
             CommitStreamRef::Sidecar { sidecar_id, .. } => Some(CurrentSelector::Sidecar {
                 sidecar_id: sidecar_id.clone(),
             }),
@@ -1006,7 +983,7 @@ impl RealmStateSnapshot {
             if source_stream_ref == &basis.stream_ref {
                 if matches!(
                     selector,
-                    CurrentSelector::Circle { .. } | CurrentSelector::Sidecar { .. }
+                    CurrentSelector::Sidecar { .. }
                 ) {
                     return Err(reject());
                 }
@@ -1060,15 +1037,14 @@ impl RealmStateSnapshot {
         }
         Ok(())
     }
+}
 
-    /// The exact typed revision of `member`'s current parent Realm
-    /// `member_state` join in this snapshot's cut -- the value a Circle join
-    /// signs as `parent_membership_revision` (`zh/models/circle.md` section
-    /// 9.1). `None` unless that current is `join` on this Realm's stream.
-    pub fn parent_membership_revision(&self, member: &ActorId) -> Option<CurrentRevision> {
+impl RealmStateSnapshot {
+    /// Current join revision for this exact Realm and complete actor identity.
+    pub fn active_realm_member_revision(&self, member: &ActorId) -> Option<CurrentRevision> {
         self.current_state_entries
             .iter()
-            .find_map(|entry| entry.parent_membership_revision(&self.realm_id, member))
+            .find_map(|entry| entry.active_realm_member_revision(&self.realm_id, member))
     }
 }
 
@@ -1770,10 +1746,7 @@ pub enum CurrentSelector {
     RealmHistoryAccess,
     RealmPreviewPolicy,
     RealmAssetPrivacyPolicy,
-    ScopeReadReceiptPolicy {
-        #[serde(deserialize_with = "deserialize_read_receipt_policy_scope")]
-        scope_ref: ScopeRef,
-    },
+    ScopeReadReceiptPolicy,
     RealmTombstone,
     RealmArchive,
     RealmFreeze,
@@ -1861,15 +1834,6 @@ pub enum CurrentSelector {
     /// Registered child placement policy of one Space.
     SpaceChildScopePolicy {
         space_id: SpaceId,
-    },
-    /// The registered Circle object current, keyed by its create-derived id.
-    Circle {
-        circle_id: CircleId,
-    },
-    /// One Circle's exact member Actor current, including its effective time.
-    CircleMemberState {
-        circle_id: CircleId,
-        member_actor_id: ActorId,
     },
     MessageRevision {
         message_id: MessageId,
@@ -2053,10 +2017,7 @@ enum FlatCurrentSelector {
     RealmHistoryAccess,
     RealmPreviewPolicy,
     RealmAssetPrivacyPolicy,
-    ScopeReadReceiptPolicy {
-        #[serde(deserialize_with = "deserialize_read_receipt_policy_scope")]
-        scope_ref: ScopeRef,
-    },
+    ScopeReadReceiptPolicy {},
     RealmTombstone,
     RealmArchive,
     RealmFreeze,
@@ -2124,13 +2085,6 @@ enum FlatCurrentSelector {
     },
     SpaceChildScopePolicy {
         space_id: SpaceId,
-    },
-    Circle {
-        circle_id: CircleId,
-    },
-    CircleMemberState {
-        circle_id: CircleId,
-        member_actor_id: ActorId,
     },
     MessageRevision {
         message_id: MessageId,
@@ -2410,10 +2364,10 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                                 "native series requires Realm actor",
                             ));
                         };
-                        if !matches!(&effective_scope, ScopeRef::Realm { realm_id } | ScopeRef::Circle { realm_id, .. } if realm_id == &realm_actor_id.realm_id)
+                        if !matches!(&effective_scope, ScopeRef::Realm { realm_id } if realm_id == &realm_actor_id.realm_id)
                         {
                             return Err(serde::de::Error::custom(
-                                "native series requires the actor's Realm or Circle",
+                                "native series requires the actor's Realm",
                             ));
                         }
                         Self::RealmActorKeyBackupActiveSeries {
@@ -2459,8 +2413,8 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                     FlatCurrentSelector::RealmHistoryAccess => Self::RealmHistoryAccess,
                     FlatCurrentSelector::RealmPreviewPolicy => Self::RealmPreviewPolicy,
                     FlatCurrentSelector::RealmAssetPrivacyPolicy => Self::RealmAssetPrivacyPolicy,
-                    FlatCurrentSelector::ScopeReadReceiptPolicy { scope_ref } => {
-                        Self::ScopeReadReceiptPolicy { scope_ref }
+                    FlatCurrentSelector::ScopeReadReceiptPolicy {} => {
+                        Self::ScopeReadReceiptPolicy
                     }
                     FlatCurrentSelector::RealmTombstone => Self::RealmTombstone,
                     FlatCurrentSelector::RealmArchive => Self::RealmArchive,
@@ -2539,14 +2493,6 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                     FlatCurrentSelector::SpaceChildScopePolicy { space_id } => {
                         Self::SpaceChildScopePolicy { space_id }
                     }
-                    FlatCurrentSelector::Circle { circle_id } => Self::Circle { circle_id },
-                    FlatCurrentSelector::CircleMemberState {
-                        circle_id,
-                        member_actor_id,
-                    } => Self::CircleMemberState {
-                        circle_id,
-                        member_actor_id,
-                    },
                     FlatCurrentSelector::MessageRevision { message_id } => {
                         Self::MessageRevision { message_id }
                     }
@@ -2651,19 +2597,6 @@ impl<'de> Deserialize<'de> for CurrentSelector {
             }
         }
     }
-}
-
-/// Restrict receipt policy selectors to the two registered independent scopes.
-fn deserialize_read_receipt_policy_scope<'de, D: Deserializer<'de>>(
-    deserializer: D,
-) -> std::result::Result<ScopeRef, D::Error> {
-    let scope = ScopeRef::deserialize(deserializer)?;
-    if !matches!(scope, ScopeRef::Realm { .. } | ScopeRef::Circle { .. }) {
-        return Err(serde::de::Error::custom(
-            "read receipt policy requires a Realm or Circle scope",
-        ));
-    }
-    Ok(scope)
 }
 
 /// The two `policy_action` subject namespaces cannot share one optional-field
@@ -2773,105 +2706,6 @@ pub struct MemberStateValue {
     pub joined_at: Option<DateTime<Utc>>,
 }
 
-/// The existing `circle_member_state_value` schema's complete current value.
-///
-/// A `join` value carries the producer-signed `parent_membership_revision`
-/// copied verbatim from the accepted Event; every other value forbids it.
-/// Deserialization enforces that conditional, so no invalid register exists.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(try_from = "CircleMemberStateValueWire")]
-pub struct CircleMemberStateValue {
-    pub membership: MembershipState,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub parent_membership_revision: Option<CurrentRevision>,
-    #[serde(with = "crate::serde_helpers::canonical_timestamp")]
-    pub effective_at: DateTime<Utc>,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct CircleMemberStateValueWire {
-    membership: MembershipState,
-    #[serde(default, deserialize_with = "deserialize_present_revision")]
-    parent_membership_revision: Option<CurrentRevision>,
-    #[serde(with = "crate::serde_helpers::canonical_timestamp")]
-    effective_at: DateTime<Utc>,
-}
-
-fn deserialize_present_revision<'de, D>(
-    deserializer: D,
-) -> std::result::Result<Option<CurrentRevision>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    CurrentRevision::deserialize(deserializer).map(Some)
-}
-
-impl TryFrom<CircleMemberStateValueWire> for CircleMemberStateValue {
-    type Error = WireError;
-
-    fn try_from(value: CircleMemberStateValueWire) -> Result<Self> {
-        let current = Self {
-            membership: value.membership,
-            parent_membership_revision: value.parent_membership_revision,
-            effective_at: value.effective_at,
-        };
-        current.validate()?;
-        Ok(current)
-    }
-}
-
-impl CircleMemberStateValue {
-    /// `parent_membership_revision` is present exactly on a `join` value.
-    pub fn validate(&self) -> Result<()> {
-        validate_parent_membership_revision(
-            self.membership == MembershipState::Join,
-            self.parent_membership_revision.is_some(),
-        )
-    }
-
-    /// Conditions (a) and (b) of effective Circle membership
-    /// (`zh/models/circle.md` section 9.1): this canonical value is `join`
-    /// and the parent Realm `member_state` current of the same actor, read in
-    /// the same durable cut, is `join` on the parent Realm stream at exactly
-    /// the bound revision. The comparison is by the content-addressed Commit
-    /// identity together with its parent Realm stream position, never by a
-    /// position number shared with a Circle stream. Condition (c), the rest of
-    /// the parent Realm effective membership, stays with the caller.
-    pub fn is_effective_under_parent(
-        &self,
-        realm_id: &RealmId,
-        parent_source_stream_ref: &CommitStreamRef,
-        parent_revision: &CurrentRevision,
-        parent_membership: MembershipState,
-    ) -> bool {
-        self.membership == MembershipState::Join
-            && parent_membership == MembershipState::Join
-            && matches!(
-                parent_source_stream_ref,
-                CommitStreamRef::Realm { realm_id: parent_realm } if parent_realm == realm_id
-            )
-            && self.parent_membership_revision.as_ref() == Some(parent_revision)
-    }
-}
-
-/// Shared presence rule of `parent_membership_revision` on the
-/// `ak.circle.member.state` payload and on its current value.
-pub fn validate_parent_membership_revision(is_join: bool, present: bool) -> Result<()> {
-    match (is_join, present) {
-        (true, true) | (false, false) => Ok(()),
-        (true, false) => Err(WireError::ProtocolCode {
-            code: crate::ErrorCode::SchemaViolation,
-            message: "a Circle join requires parent_membership_revision".to_owned(),
-        }),
-        (false, true) => Err(WireError::ProtocolCode {
-            code: crate::ErrorCode::SchemaViolation,
-            message: "only a Circle join carries parent_membership_revision".to_owned(),
-        }),
-    }
-}
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MlsGroupValue {
@@ -2905,10 +2739,10 @@ pub enum CurrentState {
     },
 }
 
+
 impl CurrentState {
-    /// Circle join basis from one already verified parent Realm current row.
-    /// The complete ActorId and exact Realm stream must match; only join qualifies.
-    pub fn parent_membership_revision(
+    /// Current join revision for this exact Realm and complete actor identity.
+    pub fn active_realm_member_revision(
         &self,
         parent_realm: &RealmId,
         member: &ActorId,
@@ -3195,25 +3029,10 @@ impl CommittedEventView {
         }
     }
 
-    /// Scope of the actual disclosed resource. Circle creation uses a Realm
-    /// authorization shell, while its full private object belongs to the Circle.
+    /// Scope of the disclosed resource, derived from its commit stream.
     /// This structural projection does not authenticate or authorize the source.
     pub fn disclosure_scope(&self) -> Result<ScopeRef> {
         self.validate_shape()?;
-        if let Self::Full(view) = self
-            && view.event.kind == crate::EventKind::CircleCreate
-        {
-            if !matches!(&view.event.scope_ref, ScopeRef::Realm { realm_id } if realm_id==&view.event.realm_id)
-            {
-                return Err(WireError::Protocol(
-                    "Circle creation requires its Realm authorization shell".into(),
-                ));
-            }
-            return Ok(ScopeRef::Circle {
-                realm_id: view.event.realm_id.clone(),
-                circle_id: CircleId::from_event_id(&view.event.event_id),
-            });
-        }
         Ok(self.commit().stream_ref.scope_ref())
     }
 
@@ -3221,18 +3040,7 @@ impl CommittedEventView {
     /// promote withheld bytes; retain the exact Commit when only its stream is
     /// in scope. Other scopes yield no result rather than a partial Full Event.
     pub fn into_effective_scope(self, scope: &ScopeRef) -> Result<Option<Self>> {
-        if self.disclosure_scope()? == *scope {
-            return Ok(Some(self));
-        }
-        if self.commit().stream_ref.scope_ref() != *scope {
-            return Ok(None);
-        }
-        Ok(Some(Self::Withheld(CommittedEventWithheldView {
-            commit: self.commit().clone(),
-            event_disclosure: EventDisclosure {
-                status: EventDisclosureStatus::Withheld,
-            },
-        })))
+        Ok((self.disclosure_scope()? == *scope).then_some(self))
     }
 
     #[must_use]

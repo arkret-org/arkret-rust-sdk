@@ -99,7 +99,7 @@ impl RealmActorCreatePayload {
             || self.creation_scope.realm_id_opt() != Some(&actor.realm_id)
             || !matches!(
                 &self.creation_scope,
-                ScopeRef::Realm { .. } | ScopeRef::Circle { .. }
+                ScopeRef::Realm { .. }
             )
             || !(22..=128).contains(&self.request_id.len())
             || !self

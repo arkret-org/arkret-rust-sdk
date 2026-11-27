@@ -1,14 +1,14 @@
 {
-  "total": 168,
+  "total": 163,
   "counts": {
-    "internal": 45,
-    "optional_has_default": 120,
+    "internal": 44,
+    "optional_has_default": 116,
     "required": 3
   },
   "sites": [
     {
       "file": "crates/event-draft/src/payloads.rs",
-      "line": 54,
+      "line": 52,
       "struct_name": "StrandCreateObject",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -80,7 +80,7 @@
     },
     {
       "file": "crates/models-collaboration/src/agent_sidecar.rs",
-      "line": 59,
+      "line": 60,
       "struct_name": "AgentSidecar",
       "field_name": "state_changed_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -92,7 +92,7 @@
     },
     {
       "file": "crates/models-collaboration/src/agent_sidecar.rs",
-      "line": 67,
+      "line": 68,
       "struct_name": "AgentSidecar",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -161,30 +161,6 @@
       "schema_pointer": "call-recording-artifact.schema.json#/$defs/call_recording_deletion_audit",
       "schema_source": "def-index",
       "classification": "optional_has_default"
-    },
-    {
-      "file": "crates/models-collaboration/src/events_payloads/circle.rs",
-      "line": 32,
-      "struct_name": "CircleMemberStatePayload",
-      "field_name": "effective_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": "event-payload.schema.json#/$defs/circle_member_state_payload",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
-    },
-    {
-      "file": "crates/models-collaboration/src/events_payloads/circle.rs",
-      "line": 52,
-      "struct_name": "CircleMemberStatePayloadWire",
-      "field_name": "effective_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": false,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/event_wire.rs",
@@ -547,42 +523,6 @@
       "classification": "optional_has_default"
     },
     {
-      "file": "crates/models-collaboration/src/governance/circle.rs",
-      "line": 185,
-      "struct_name": "Circle",
-      "field_name": "state_changed_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": "circle.schema.json",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
-    },
-    {
-      "file": "crates/models-collaboration/src/governance/circle.rs",
-      "line": 193,
-      "struct_name": "Circle",
-      "field_name": "updated_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": "circle.schema.json",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
-    },
-    {
-      "file": "crates/models-collaboration/src/governance/circle.rs",
-      "line": 226,
-      "struct_name": "CircleView",
-      "field_name": "updated_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": "circle-operations.schema.json#/$defs/circle_view",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
-    },
-    {
       "file": "crates/models-collaboration/src/governance/erasure.rs",
       "line": 289,
       "struct_name": "ErasureReceipt",
@@ -668,7 +608,7 @@
     },
     {
       "file": "crates/models-collaboration/src/governance/grant_constraint.rs",
-      "line": 821,
+      "line": 819,
       "struct_name": "CapabilityGrant",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -680,7 +620,7 @@
     },
     {
       "file": "crates/models-collaboration/src/governance/grant_constraint.rs",
-      "line": 829,
+      "line": 827,
       "struct_name": "CapabilityGrant",
       "field_name": "revoked_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -992,7 +932,7 @@
     },
     {
       "file": "crates/models-collaboration/src/objects/profiles.rs",
-      "line": 351,
+      "line": 343,
       "struct_name": "Morph",
       "field_name": "state_changed_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1004,7 +944,7 @@
     },
     {
       "file": "crates/models-collaboration/src/objects/profiles.rs",
-      "line": 360,
+      "line": 352,
       "struct_name": "Morph",
       "field_name": "stage_changed_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1016,7 +956,7 @@
     },
     {
       "file": "crates/models-collaboration/src/objects/profiles.rs",
-      "line": 371,
+      "line": 363,
       "struct_name": "Morph",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1256,7 +1196,7 @@
     },
     {
       "file": "crates/models-collaboration/src/objects/space.rs",
-      "line": 111,
+      "line": 105,
       "struct_name": "Space",
       "field_name": "state_changed_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1268,7 +1208,7 @@
     },
     {
       "file": "crates/models-collaboration/src/objects/space.rs",
-      "line": 122,
+      "line": 116,
       "struct_name": "Space",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1280,7 +1220,7 @@
     },
     {
       "file": "crates/models-collaboration/src/objects/strand.rs",
-      "line": 245,
+      "line": 234,
       "struct_name": "Strand",
       "field_name": "state_changed_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1292,7 +1232,7 @@
     },
     {
       "file": "crates/models-collaboration/src/objects/strand.rs",
-      "line": 255,
+      "line": 244,
       "struct_name": "Strand",
       "field_name": "stage_changed_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1304,7 +1244,7 @@
     },
     {
       "file": "crates/models-collaboration/src/objects/strand.rs",
-      "line": 266,
+      "line": 255,
       "struct_name": "Strand",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1400,7 +1340,7 @@
     },
     {
       "file": "crates/models-crypto/src/generated/realm_actor_content_backup_contracts.rs",
-      "line": 236,
+      "line": 234,
       "struct_name": "RealmActorBackupMetadata",
       "field_name": "updated_at",
       "field_type": "Option<chrono::DateTime<chrono::Utc>>",
@@ -1988,7 +1928,7 @@
     },
     {
       "file": "crates/wire/src/authority_commit.rs",
-      "line": 2769,
+      "line": 2706,
       "struct_name": "MemberStateValue",
       "field_name": "joined_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -2000,7 +1940,7 @@
     },
     {
       "file": "crates/wire/src/relation.rs",
-      "line": 148,
+      "line": 146,
       "struct_name": "Relation",
       "field_name": "state_changed_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -2012,7 +1952,7 @@
     },
     {
       "file": "crates/wire/src/relation.rs",
-      "line": 159,
+      "line": 157,
       "struct_name": "Relation",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",

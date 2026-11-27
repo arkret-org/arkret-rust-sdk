@@ -163,8 +163,6 @@ pub struct SignalAeadBinding<'a> {
     /// Exact head of this scope's independent commit stream used for current
     /// sender authorization.
     pub authority_commit_id: &'a RealmCommitId,
-    /// Independent parent Realm cut, present exactly for Circle scope.
-    pub parent_realm_authority_commit_id: Option<&'a RealmCommitId>,
     pub signal_class: SignalClass,
     pub sent_at: DateTime<Utc>,
     pub expires_at: DateTime<Utc>,
@@ -191,15 +189,13 @@ impl SignalAeadBinding<'_> {
                 "signal scope_ref.realm_id must equal the envelope realm_id".to_owned(),
             ));
         }
-        match self.scope_ref {
-            ScopeRef::Circle { .. } if self.parent_realm_authority_commit_id.is_some() => {}
+        if !matches!(
+            self.scope_ref,
             ScopeRef::Realm { .. } | ScopeRef::Sidecar { .. }
-                if self.parent_realm_authority_commit_id.is_none() => {}
-            _ => {
-                return Err(WireError::Protocol(
-                    "Signal parent Realm cut must be present exactly for Circle scope".to_owned(),
-                ));
-            }
+        ) {
+            return Err(WireError::Protocol(
+                "Signal requires a content scope".to_owned(),
+            ));
         }
         if self.scheme != SIGNAL_AEAD_SCHEME {
             return Err(WireError::Protocol(format!(
@@ -266,12 +262,6 @@ impl SignalAeadBinding<'_> {
             "authority_commit_id".to_owned(),
             Value::String(self.authority_commit_id.as_str().to_owned()),
         );
-        if let Some(parent) = self.parent_realm_authority_commit_id {
-            object.insert(
-                "parent_realm_authority_commit_id".to_owned(),
-                Value::String(parent.as_str().to_owned()),
-            );
-        }
         object.insert(
             "signal_class".to_owned(),
             serde_json::to_value(self.signal_class)?,
@@ -345,12 +335,6 @@ pub struct SignalEnvelope {
     )]
     pub sender_device_id: Option<DeviceId>,
     pub authority_commit_id: RealmCommitId,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
-    )]
-    pub parent_realm_authority_commit_id: Option<RealmCommitId>,
     pub signal_class: SignalClass,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub sent_at: DateTime<Utc>,
@@ -400,7 +384,6 @@ impl SignalEnvelope {
             sender_actor_id: &self.sender_actor_id,
             sender_device_id: self.sender_device_id.as_ref(),
             authority_commit_id: &self.authority_commit_id,
-            parent_realm_authority_commit_id: self.parent_realm_authority_commit_id.as_ref(),
             signal_class: self.signal_class,
             sent_at: self.sent_at,
             expires_at: self.expires_at,
@@ -698,38 +681,12 @@ mod tests {
     }
 
     #[test]
-    fn parent_realm_cut_is_circle_only_and_binds_aad_and_proof() {
-        let mut signal = envelope(SignalClass::Session, 30);
-        let parent = RealmCommitId::from_digest([0x41; 32]);
-        let mut null = serde_json::to_value(&signal).unwrap();
-        null["parent_realm_authority_commit_id"] = Value::Null;
-        assert!(serde_json::from_value::<SignalEnvelope>(null).is_err());
-        signal.parent_realm_authority_commit_id = Some(parent);
-        assert!(signal.aead_binding().validate().is_err());
-        signal.scope_ref = ScopeRef::Circle {
-            realm_id: signal.realm_id.clone(),
-            circle_id: crate::CircleId::from_event_id(&EventId::from_digest(
-                arkret_canonical::DigestSuite::Sha256,
-                [0x42; 32],
-            )),
-        };
-        signal.aead_binding().validate().unwrap();
-        let aad = signal
-            .aead_binding()
-            .aad_bytes(&signal.encrypted_payload.nonce)
-            .unwrap();
-        let digest = signal.envelope_digest().unwrap();
-        signal.parent_realm_authority_commit_id = Some(RealmCommitId::from_digest([0x43; 32]));
-        assert_ne!(
-            aad,
-            signal
-                .aead_binding()
-                .aad_bytes(&signal.encrypted_payload.nonce)
-                .unwrap()
-        );
-        assert_ne!(digest, signal.envelope_digest().unwrap());
-        signal.parent_realm_authority_commit_id = None;
-        assert!(signal.aead_binding().validate().is_err());
+    fn signal_rejects_unregistered_parent_cut() {
+        let signal = envelope(SignalClass::Session, 30);
+        let mut wire = serde_json::to_value(signal).unwrap();
+        wire["parent_realm_authority_commit_id"] =
+            serde_json::json!(RealmCommitId::from_digest([0x41; 32]));
+        assert!(serde_json::from_value::<SignalEnvelope>(wire).is_err());
     }
 
     #[test]

@@ -323,7 +323,6 @@
       "artifacts": [
         "registry/reducer-managed-path-registry.json",
         "schemas/actor-profile.schema.json",
-        "schemas/circle.schema.json",
         "schemas/morph.schema.json",
         "schemas/relation.schema.json",
         "schemas/space.schema.json",
@@ -624,22 +623,6 @@
         "CapabilityRevokePayload",
         "CapabilityRelinquishPayload",
         "CapabilityGrantCreateBody"
-      ]
-    },
-    {
-      "generator": "closed-models",
-      "outputs": [
-        "crates/models-collaboration/src/events_payloads/generated/circle_contracts.rs"
-      ],
-      "owner": "arkret-models-collaboration",
-      "mode": "closed-schema-model",
-      "artifacts": [
-        "schemas/account-operations.schema.json",
-        "schemas/event-payload.schema.json"
-      ],
-      "provides": [
-        "CircleCreatePayload",
-        "CirclePatchPayload"
       ]
     },
     {
@@ -1044,14 +1027,12 @@
       "owner": "arkret-models-collaboration",
       "mode": "closed-schema-model",
       "artifacts": [
-        "schemas/circle.schema.json",
         "schemas/encrypted-envelope.schema.json",
         "schemas/morph.schema.json",
         "schemas/strand.schema.json"
       ],
       "provides": [
-        "StrandTrack",
-        "DisplaySymbol"
+        "StrandTrack"
       ]
     },
     {
@@ -2415,7 +2396,6 @@
         "schemas/calendar-event.schema.json",
         "schemas/call-recording-artifact.schema.json",
         "schemas/capability-grant.schema.json",
-        "schemas/circle.schema.json",
         "schemas/common-ids.schema.json",
         "schemas/contact-operations.schema.json",
         "schemas/content-encryption.schema.json",
