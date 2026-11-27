@@ -21,7 +21,7 @@
   "repositories": {
     "arkret-spec": {
       "repository": "arkret-org/arkret-spec",
-      "commit": "191de8c90ad61699bb38643a60ae39de755c83f4",
+      "commit": "3a19f1c308441f0c6e5fa70ede92a43225c34a14",
       "checkout_path": "arkret-spec",
       "roles": [
         "normative-artifacts",
@@ -31,7 +31,7 @@
     },
     "arkret-rust-sdk": {
       "repository": "arkret-org/arkret-rust-sdk",
-      "commit": "04b257d2c8418878bfc55194706b0a3d300dcee0",
+      "commit": "812b866895feedcb945ee1298a2b9b4176ee51a7",
       "checkout_path": "arkret-rust-sdk",
       "roles": [
         "public-models",
