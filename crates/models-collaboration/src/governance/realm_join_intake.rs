@@ -333,6 +333,18 @@ impl PeerRealmJoinBootstrapRequestBody {
             }
             if let Some(context) = &intent.backup_root_context {
                 context.validate()?;
+                if !matches!(
+                    intent.action,
+                    OwnedAgentContentAction::MessageCreate
+                        | OwnedAgentContentAction::MessageRedactOwn
+                        | OwnedAgentContentAction::MessageReviseOwn
+                        | OwnedAgentContentAction::ReactionAdd
+                        | OwnedAgentContentAction::ReactionRemove
+                ) {
+                    return Err(WireError::Protocol(
+                        "backup context requires an Agent content write".into(),
+                    ));
+                }
                 if context.effective_scope != intent.effective_scope
                     || !matches!(
                         intent.effective_scope,

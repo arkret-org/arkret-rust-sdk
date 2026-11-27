@@ -109,7 +109,7 @@
 //! Input: schemas/realm-invite-link.schema.json
 //! sha256=6d144a134c62df7c2942ffd42694f387d312b6f026e652b017af28389156a816
 //! Input: schemas/realm-join-intake.schema.json
-//! sha256=801000dd431fb2edbe217b7e31a70b89b7a4af63ba8e9dbf818334c96d536623
+//! sha256=fe2be6985231d89d6aa1c1f41c19a38563ca6a06eddf5e6ba12b63757d61e590
 //! Input: schemas/realm-profile.schema.json
 //! sha256=8fdd2a4fa6e60a5bfd53bc9e31047cb020379e8b92c341030b092bfd83b245a7
 //! Input: schemas/realm.schema.json

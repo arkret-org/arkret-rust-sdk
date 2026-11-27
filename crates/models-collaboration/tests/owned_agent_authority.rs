@@ -170,3 +170,57 @@ fn agent_rule_cannot_hide_generic_conditions_or_cross_kind_fields() {
             .is_err()
     );
 }
+
+#[test]
+fn bootstrap_backup_root_requires_a_write_to_the_same_sidecar() {
+    use arkret_models_collaboration::governance::realm_join_intake::{
+        OwnedAgentContentAction, PeerRealmJoinBootstrapRequestBody,
+    };
+    use serde_json::json;
+
+    let artifacts = arkret_schema_conformance::default_spec_artifacts_dir().unwrap();
+    let fixture: Value = serde_json::from_slice(
+        &std::fs::read(artifacts.join("fixtures/content-history-fixture.json")).unwrap(),
+    )
+    .unwrap();
+    let mut context = fixture["root_backup"]["envelope"]["contents"][0]["root_context"].clone();
+    let realm = context["effective_scope"].clone();
+    let sidecar = json!({
+        "kind": "sidecar", "realm_id": realm["realm_id"],
+        "sidecar_id": "ak:sidecar:AUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFB"
+    });
+    context["effective_scope"] = sidecar.clone();
+    let mut request: PeerRealmJoinBootstrapRequestBody = serde_json::from_value(json!({
+        "request_id": "ak:request:01964137-0000-7000-8000-000000000001",
+        "realm_id": realm["realm_id"],
+        "membership_commit_id": "ak:realm_commit:AUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFB",
+        "member_account_id": {"principal_id":"ak:did_core:web:agent.example","station_id":"ak:did_core:web:home.example"},
+        "content_intent": {
+            "controller_account_id": {"principal_id":"ak:did_core:web:owner.example","station_id":"ak:did_core:web:home.example"},
+            "controller_membership_commit_id": "ak:realm_commit:AUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFB",
+            "agent_key_authorization_ref": context["genesis_event_ref"],
+            "action": "ak.message.create", "effective_scope": sidecar,
+            "request_digest": format!("sha256:{}", "a".repeat(64)),
+            "backup_root_context": context
+        }
+    })).unwrap();
+
+    request.validate_selectors().unwrap();
+    let mut read = request.clone();
+    read.content_intent.as_mut().unwrap().action = OwnedAgentContentAction::ObjectReadContent;
+    assert!(read.validate_selectors().is_err());
+    read.content_intent.as_mut().unwrap().backup_root_context = None;
+    read.validate_selectors().unwrap();
+
+    let mut other_sidecar = sidecar;
+    let other_create =
+        arkret_wire::EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [30; 32]);
+    other_sidecar["sidecar_id"] = json!(arkret_wire::SidecarId::from_event_id(&other_create));
+    request.content_intent.as_mut().unwrap().effective_scope =
+        serde_json::from_value(other_sidecar).unwrap();
+    assert!(request.validate_selectors().is_err());
+
+    request.content_intent.as_mut().unwrap().effective_scope =
+        serde_json::from_value(realm).unwrap();
+    assert!(request.validate_selectors().is_err());
+}
