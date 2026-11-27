@@ -17,7 +17,7 @@
 // sha256=734acbd160b1f7cf05a971cfc53a81a83990704c8e3d144c8fd7796767b57394
 //
 // Input: schemas/authority-commit-operations.schema.json
-// sha256=a54d3a63eae6e9a9cb6599130ef06d42358f93ed17148c0db82da086f4865afe
+// sha256=00d3a12bd72ead88ae9bcbf9035493dad680a02c0488c57e5cfc462c8d7ef941
 //
 // Input: schemas/time.schema.json
 // sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61

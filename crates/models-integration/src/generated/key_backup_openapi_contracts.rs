@@ -27,7 +27,7 @@
 //! Input: schemas/approval-signature.schema.json
 //! sha256=77133a188e56f1f9e021a41239d0f5c362276a840c78ea052b0cc85cdb8c04e1
 //! Input: schemas/authority-commit-operations.schema.json
-//! sha256=a54d3a63eae6e9a9cb6599130ef06d42358f93ed17148c0db82da086f4865afe
+//! sha256=00d3a12bd72ead88ae9bcbf9035493dad680a02c0488c57e5cfc462c8d7ef941
 //! Input: schemas/authorization-operations.schema.json
 //! sha256=b367d60aeb13aa9e524c5201cc1857d8ac9defd5c78293f696a4f4c0a5d4450b
 //! Input: schemas/blob-operations.schema.json

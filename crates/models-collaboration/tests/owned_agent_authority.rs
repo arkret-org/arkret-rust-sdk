@@ -224,3 +224,35 @@ fn bootstrap_backup_root_requires_a_write_to_the_same_sidecar() {
         serde_json::from_value(realm).unwrap();
     assert!(request.validate_selectors().is_err());
 }
+
+#[test]
+fn owned_agent_scan_validates_the_requested_page() {
+    use arkret_models_collaboration::authority_commit::OwnedAgentStreamScanRequestBody;
+    use arkret_wire::{EventId, RealmCommitId, RealmId};
+
+    let key = EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [17; 32]);
+    let realm = RealmId::from_event_id(&key);
+    let home = "ak:did_core:web:home.example";
+    let scope = serde_json::json!({"kind":"realm","realm_id":realm});
+    let mut request: OwnedAgentStreamScanRequestBody = serde_json::from_value(serde_json::json!({
+        "request_id":"ak:request:0190c6aa-1234-7000-8000-000000000001",
+        "member_account_id":{"principal_id":"ak:did_core:web:agent.example","station_id":home},
+        "membership_commit_id":RealmCommitId::from_digest([19; 32]),
+        "content_intent":{
+            "controller_account_id":{"principal_id":"ak:did_core:web:controller.example","station_id":home},
+            "controller_membership_commit_id":RealmCommitId::from_digest([20; 32]),
+            "agent_key_authorization_ref":key, "action":"ak.event.read", "effective_scope":scope,
+            "request_digest":arkret_canonical::canonical_sha256(&scope).unwrap()
+        },
+        "session_grant_id":"ak:session_grant:0190c6aa-1234-7000-8000-000000000002",
+        "scan":{"realm_id":realm,"stream_ref":scope,"after_position":null,"limit":1}
+    })).unwrap();
+    for limit in [1, 1000] {
+        request.scan.limit = limit;
+        request.validate_binding().unwrap();
+    }
+    for limit in [0, 1001] {
+        request.scan.limit = limit;
+        assert!(request.validate_binding().is_err());
+    }
+}

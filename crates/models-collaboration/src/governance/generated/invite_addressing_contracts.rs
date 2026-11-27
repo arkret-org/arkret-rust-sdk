@@ -8,7 +8,7 @@
 // sha256=6531a160938267207388e432e7bc92aa1b888635d08be9ab7b70e9d0585ffa96
 //
 // Input: schemas/authority-commit-operations.schema.json
-// sha256=a54d3a63eae6e9a9cb6599130ef06d42358f93ed17148c0db82da086f4865afe
+// sha256=00d3a12bd72ead88ae9bcbf9035493dad680a02c0488c57e5cfc462c8d7ef941
 //
 // Bindings: tools/closed-model-bindings.json
 // sha256=db60be1849d8bc93becf15639c6e3cafbbddfe2c4d0967db90cec73027764425

@@ -7,6 +7,7 @@
 
 mod audit_atomic;
 mod organization_genesis;
+mod sidecar_ensure;
 use arkret_models_identity::{
     AgentProducerEvidence, ForwardAccountDeviceSignerEvidence, ResolvedSignerKey,
 };
@@ -24,6 +25,7 @@ pub use audit_atomic::*;
 use chrono::{DateTime, Utc};
 pub use organization_genesis::*;
 use serde::{Deserialize, Serialize};
+pub use sidecar_ensure::*;
 use uuid::Uuid;
 
 use crate::objects::direct_conversation::DirectConversationFoundingAuthorityEvidence;
@@ -50,6 +52,7 @@ pub struct OwnedAgentStreamScanRequestBody {
 impl OwnedAgentStreamScanRequestBody {
     pub fn validate_binding(&self) -> Result<()> {
         use crate::governance::realm_join_intake::OwnedAgentContentAction::*;
+        self.scan.validate()?;
         let intent = &self.content_intent;
         if !matches!(
             intent.action,
@@ -61,7 +64,6 @@ impl OwnedAgentStreamScanRequestBody {
                 | StrandRead
         ) || intent.backup_root_context.is_some()
             || intent.effective_scope != self.scan.stream_ref.scope_ref()
-            || self.scan.stream_ref.realm_id() != &self.scan.realm_id
             || intent.controller_account_id.station_id != self.member_account_id.station_id
             || intent.controller_account_id == self.member_account_id
         {
@@ -1463,6 +1465,7 @@ pub enum PeerAuthoritySubmitRequestBody {
     AuthorityForwardEvent(PeerAuthorityForwardEventRequestBody),
     AuthorityForwardMls(PeerAuthorityForwardMlsRequestBody),
     AuthorityForwardAtomic(PeerAuthorityForwardAtomicRequestBody),
+    AuthorityForwardSidecarEnsure(PeerSidecarEnsureForwardRequestBody),
     CommittedReplication(PeerCommittedReplicationRequestBody),
     RegisteredAtomicUnit(PeerRegisteredAtomicUnitRequestBody),
 }
@@ -1473,6 +1476,7 @@ impl PeerAuthoritySubmitRequestBody {
             Self::AuthorityForwardEvent(value) => value.validate(),
             Self::AuthorityForwardMls(value) => value.validate(),
             Self::AuthorityForwardAtomic(value) => value.validate(),
+            Self::AuthorityForwardSidecarEnsure(value) => value.validate(),
             Self::CommittedReplication(value) => {
                 if value.replications.is_empty() || value.replications.len() > 100 {
                     return Err(WireError::Protocol(
@@ -1837,6 +1841,13 @@ impl PeerAuthoritySubmitResponseBody {
                     ..
                 }),
             ) => Ok(()),
+            (
+                PeerAuthoritySubmitRequestBody::AuthorityForwardSidecarEnsure(request),
+                Self::AuthorityForward(PeerAuthorityForwardResponseBody {
+                    response_body: ForwardedAuthorityResponseBody::SidecarEnsure(outcome),
+                    ..
+                }),
+            ) => outcome.validate_for_request(&request.atomic_submission),
             (
                 PeerAuthoritySubmitRequestBody::AuthorityForwardAtomic(request),
                 Self::AuthorityForward(PeerAuthorityForwardResponseBody {
