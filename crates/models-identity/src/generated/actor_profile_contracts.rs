@@ -14,7 +14,7 @@
 // sha256=79f44b93062a197a5ed0854fa6ae7b113f028dd8e38369f40276457d00d93e0b
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=db60be1849d8bc93becf15639c6e3cafbbddfe2c4d0967db90cec73027764425
+// sha256=5c71516a86f6e77bf88bd907edc9f7002dddfcc4a5457d0ba636150543e5b28e
 
 /// Counterpart: `actor-profile.schema.json#/$defs/actor_profile_definition`.
 /// The closed author region of `ak.profile.create`

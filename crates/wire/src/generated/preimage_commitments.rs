@@ -1,9 +1,9 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json;
-//! sha256=5c058a69f171a2d6b6855e4937a84d6a84ce8357ac31ce151dbdfa359f982c18 Input: reachable event
-//! schema closure; sha256=1c156614044fac3c92d2ceb720ece7086a423aa83657bddd00b5f2c92fe4297e Entries:
-//! preimage_commitments=51
+//! sha256=1d326e38cd652bea30ae35bddd0e89f0887505dd36c4cc7ccfdd344af12d096d Input: reachable event
+//! schema closure; sha256=b004cd1d903ac0832337f85d149f3f009e425c750d1a2a8df1545ccbc37afded Entries:
+//! preimage_commitments=52
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PreimageCommitment {
@@ -246,6 +246,11 @@ pub const PREIMAGE_COMMITMENT_FIELDS: &[PreimageCommitmentField] = &[
     PreimageCommitmentField {
         schema_file: "schemas/event-payload.schema.json",
         json_pointer: "/$defs/sidecar_context_attach_payload/properties/predecessor_event_ref",
+        commitment: PreimageCommitment::FixedEvent,
+    },
+    PreimageCommitmentField {
+        schema_file: "schemas/event-payload.schema.json",
+        json_pointer: "/$defs/sidecar_member_state_payload/properties/predecessor_event_ref",
         commitment: PreimageCommitment::FixedEvent,
     },
     PreimageCommitmentField {

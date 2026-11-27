@@ -5,7 +5,7 @@
 // sha256=c7a083aa62c18c4cf306e26c13bf43f0f5d95620a4ee5a9f2f8e56e288189c78
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=db60be1849d8bc93becf15639c6e3cafbbddfe2c4d0967db90cec73027764425
+// sha256=5c71516a86f6e77bf88bd907edc9f7002dddfcc4a5457d0ba636150543e5b28e
 
 /// Counterpart:
 /// `applet-authority-material.schema.json#/$defs/applet_authority_material_request_body`.

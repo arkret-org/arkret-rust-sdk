@@ -47,3 +47,57 @@ impl SidecarContextAttachPayload {
 // event-payload.schema.json#/$defs/agent_sidecar_exchange_control_payload.
 
 include!("generated/sidecar_contracts.rs");
+
+/// Controller-signed enrollment in a single home-governed Sidecar.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(try_from = "SidecarMemberStateFields")]
+pub struct SidecarMemberStatePayload {
+    pub agent_account_id: arkret_wire::AccountId,
+    pub membership: SidecarMembership,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub predecessor_event_ref: Option<EventId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub private_reply_allowed: Option<bool>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SidecarMemberStateFields {
+    agent_account_id: arkret_wire::AccountId,
+    membership: SidecarMembership,
+    #[serde(
+        default,
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    predecessor_event_ref: Option<EventId>,
+    #[serde(
+        default,
+        deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional"
+    )]
+    private_reply_allowed: Option<bool>,
+}
+
+impl TryFrom<SidecarMemberStateFields> for SidecarMemberStatePayload {
+    type Error = &'static str;
+    fn try_from(value: SidecarMemberStateFields) -> std::result::Result<Self, Self::Error> {
+        if value.private_reply_allowed.is_some()
+            && (value.membership != SidecarMembership::Join
+                || value.private_reply_allowed != Some(true))
+        {
+            return Err("private reply permission requires an explicit join");
+        }
+        Ok(Self {
+            agent_account_id: value.agent_account_id,
+            membership: value.membership,
+            predecessor_event_ref: value.predecessor_event_ref,
+            private_reply_allowed: value.private_reply_allowed,
+        })
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SidecarMembership {
+    Join,
+    Leave,
+}

@@ -274,6 +274,7 @@ fn manifest() -> (
         cursor: None,
     };
     let manifest = MlsRosterAuthorityManifest {
+        sidecar_backup_strategy: None,
         governance_station_id: station,
         realm_id,
         effective_scope: request.effective_scope.clone(),

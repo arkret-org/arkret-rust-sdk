@@ -227,6 +227,7 @@ event_payload_accessors! {
     event_spec::RealmTombstone => (as_realm_tombstone, RealmTombstonePayload),
     event_spec::RealmDestroy => (as_realm_destroy, RealmDestroyPayload),
     event_spec::CircleCreate => (as_circle_create, CircleCreatePayload),
+    event_spec::SidecarMemberState => (as_sidecar_member_state, SidecarMemberStatePayload),
     event_spec::SidecarCreate => (as_sidecar_create, SidecarCreatePayload),
     event_spec::SidecarContextAttach => (as_sidecar_context_attach, SidecarContextAttachPayload, SidecarContextAttachPayload::validate),
     event_spec::AgentSidecarExchangeControl => (as_agent_sidecar_exchange_control, AgentSidecarExchangeControlPayload),

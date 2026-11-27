@@ -736,6 +736,43 @@ pub fn verify_mls_member_roster_authority_pages(
     Ok(peer)
 }
 
+/// Resolve a personal group's content basis using the home Station's signed
+/// endpoint-bound roster. The controller's private PCR need not be disclosed.
+pub fn verified_sidecar_root_context(
+    pages: &[MlsSelfRosterAuthorityReadResponseBody],
+    request: &arkret_models_collaboration::mls_roster_authority::MlsMemberRosterAuthorityReadRequestBody,
+    cipher_suite: &str,
+) -> Result<arkret_models_crypto::ContentRootContext, WireError> {
+    let verified = verify_mls_member_roster_authority_pages(pages, request)?;
+    let manifest = &pages[0].roster.manifest;
+    let strategy = manifest
+        .sidecar_backup_strategy
+        .ok_or_else(|| roster_error("missing home Sidecar strategy"))?;
+    if !matches!(
+        request.effective_scope,
+        arkret_wire::ScopeRef::Sidecar { .. }
+    ) || !request
+        .caller_actor_id
+        .as_account_id()
+        .is_some_and(|a| a.station_id == manifest.governance_station_id)
+    {
+        return Err(roster_error(
+            "Sidecar requires its participant's home Station",
+        ));
+    }
+    let context = arkret_models_crypto::ContentRootContext {
+        effective_scope: request.effective_scope.clone(),
+        genesis_event_ref: verified.genesis_event_ref,
+        group_state_ref: request.target_commit_event_ref.clone(),
+        epoch: request.target_epoch,
+        cipher_suite: cipher_suite.to_owned(),
+        encryption_backup_strategy: strategy,
+        backup_strategy_ref: request.realm_id.event_id(),
+    };
+    context.validate()?;
+    Ok(context)
+}
+
 pub fn verify_mls_self_roster_authority_pages(
     pages: &[MlsSelfRosterAuthorityReadResponseBody],
     request: &MlsRosterAuthorityReadRequestBody,

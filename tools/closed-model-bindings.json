@@ -4081,16 +4081,18 @@
           "rust": {
             "signature": "pub struct SidecarCreatePayload",
             "attributes": [
-              "/// Counterpart for `event-payload.schema.json#/$defs/sidecar_create_payload`.",
-              "///",
-              "/// The payload is empty: `sidecar_id` is derived from the Event id, and",
-              "/// `realm_id`, `controller_account_id`, `state` and the timestamps are",
-              "/// reducer-derived from the accepted envelope. The Sidecar scope activates",
-              "/// standard RFC 9420 through its own accepted `ak.mls.genesis`.",
-              "#[derive(Clone, Debug, Default, Serialize, Deserialize)]",
+              "/// Controller-signed association with the source project.",
+              "#[derive(Clone, Debug, Serialize, Deserialize)]",
               "#[serde(deny_unknown_fields)]"
             ],
-            "members": {}
+            "members": {
+              "source_realm_id": {
+                "name": "source_realm_id",
+                "visibility": "pub",
+                "type": "arkret_wire::RealmId",
+                "attributes": []
+              }
+            }
           }
         },
         {
@@ -9836,14 +9838,6 @@
                 "visibility": "pub",
                 "type": "arkret_wire::Hash",
                 "attributes": []
-              },
-              "backup_root_context": {
-                "name": "backup_root_context",
-                "visibility": "pub",
-                "type": "Option<arkret_models_crypto::content_history::ContentRootContext>",
-                "attributes": [
-                  "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
-                ]
               },
               "strand_id": {
                 "name": "strand_id",

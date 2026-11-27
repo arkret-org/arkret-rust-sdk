@@ -2,10 +2,10 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/mls-roster-authority.schema.json
-// sha256=604f3952669062046a31da0efbf09a9d6ce3ff089e909eadb2f68044a7ea8ea4
+// sha256=dee63e65a130d3197a1eae05184a89637332e74a32b63bdad23c9e44f3f37981
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=db60be1849d8bc93becf15639c6e3cafbbddfe2c4d0967db90cec73027764425
+// sha256=5c71516a86f6e77bf88bd907edc9f7002dddfcc4a5457d0ba636150543e5b28e
 
 /// Counterpart: `mls-roster-authority.schema.json#/$defs/roster_recovery_signing_key`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

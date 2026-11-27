@@ -21,7 +21,7 @@
   "repositories": {
     "arkret-spec": {
       "repository": "arkret-org/arkret-spec",
-      "commit": "9ef7f9278afad2ae2d057cf02c3f8cfca6d1c590",
+      "commit": "64ed3b9fa7064016094e0aa07fbae9f370e56425",
       "checkout_path": "arkret-spec",
       "roles": [
         "normative-artifacts",

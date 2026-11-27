@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json;
-//! sha256=5c058a69f171a2d6b6855e4937a84d6a84ce8357ac31ce151dbdfa359f982c18 Entries: registered=5
+//! sha256=1d326e38cd652bea30ae35bddd0e89f0887505dd36c4cc7ccfdd344af12d096d Entries: registered=5
 
 use serde::{Deserialize, Serialize};
 
@@ -11,7 +11,7 @@ pub enum AuthoritySourceId {
     DirectConversationParticipantV1,
     DirectConversationRepairV1,
     MembershipCompensationV1,
-    SidecarParentBootstrapV1,
+    SidecarHomeBootstrapV1,
 }
 
 impl AuthoritySourceId {
@@ -20,7 +20,7 @@ impl AuthoritySourceId {
         Self::DirectConversationParticipantV1,
         Self::DirectConversationRepairV1,
         Self::MembershipCompensationV1,
-        Self::SidecarParentBootstrapV1,
+        Self::SidecarHomeBootstrapV1,
     ];
 
     pub const DIRECT_CONVERSATION_BOOTSTRAP_PARTICIPANT_V1: &'static str =
@@ -30,8 +30,7 @@ impl AuthoritySourceId {
     pub const DIRECT_CONVERSATION_REPAIR_V1: &'static str =
         "ak.authority.direct_conversation_repair.v1";
     pub const MEMBERSHIP_COMPENSATION_V1: &'static str = "ak.authority.membership_compensation.v1";
-    pub const SIDECAR_PARENT_BOOTSTRAP_V1: &'static str =
-        "ak.authority.sidecar_parent_bootstrap.v1";
+    pub const SIDECAR_HOME_BOOTSTRAP_V1: &'static str = "ak.authority.sidecar_home_bootstrap.v1";
 
     pub const fn as_str(self) -> &'static str {
         match self {
@@ -41,7 +40,7 @@ impl AuthoritySourceId {
             Self::DirectConversationParticipantV1 => Self::DIRECT_CONVERSATION_PARTICIPANT_V1,
             Self::DirectConversationRepairV1 => Self::DIRECT_CONVERSATION_REPAIR_V1,
             Self::MembershipCompensationV1 => Self::MEMBERSHIP_COMPENSATION_V1,
-            Self::SidecarParentBootstrapV1 => Self::SIDECAR_PARENT_BOOTSTRAP_V1,
+            Self::SidecarHomeBootstrapV1 => Self::SIDECAR_HOME_BOOTSTRAP_V1,
         }
     }
 
@@ -53,7 +52,7 @@ impl AuthoritySourceId {
             Self::DIRECT_CONVERSATION_PARTICIPANT_V1 => Some(Self::DirectConversationParticipantV1),
             Self::DIRECT_CONVERSATION_REPAIR_V1 => Some(Self::DirectConversationRepairV1),
             Self::MEMBERSHIP_COMPENSATION_V1 => Some(Self::MembershipCompensationV1),
-            Self::SIDECAR_PARENT_BOOTSTRAP_V1 => Some(Self::SidecarParentBootstrapV1),
+            Self::SIDECAR_HOME_BOOTSTRAP_V1 => Some(Self::SidecarHomeBootstrapV1),
             _ => None,
         }
     }

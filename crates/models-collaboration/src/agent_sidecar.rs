@@ -49,6 +49,7 @@ pub struct AgentSidecar {
     pub id: SidecarId,
     pub schema: String,
     pub realm_id: RealmId,
+    pub source_realm_id: RealmId,
     pub controller_account_id: AccountId,
     pub state: AgentSidecarState,
     #[serde(

@@ -478,10 +478,10 @@ pub use mls_roster_authority::{
 pub use mls_roster_authority::{
     VerifiedMlsRosterRecoveryRecord, mls_self_roster_authority_page_encoded_size,
     project_mls_self_roster_authority_page, project_mls_self_roster_authority_page_with_recovery,
-    verify_mls_add_authority_attestation_signature, verify_mls_attest_add_request,
-    verify_mls_member_roster_authority_pages, verify_mls_roster_authority_manifest_signature,
-    verify_mls_roster_authority_pages, verify_mls_roster_authority_pages_with_recovery,
-    verify_mls_self_roster_authority_pages,
+    verified_sidecar_root_context, verify_mls_add_authority_attestation_signature,
+    verify_mls_attest_add_request, verify_mls_member_roster_authority_pages,
+    verify_mls_roster_authority_manifest_signature, verify_mls_roster_authority_pages,
+    verify_mls_roster_authority_pages_with_recovery, verify_mls_self_roster_authority_pages,
 };
 pub use push_registration_receipt::verify_push_registration_installation_receipt;
 pub use sdk_error::{Error, Result};

@@ -5,7 +5,7 @@
 // sha256=72b3aa5374e048b1fd8bf165fcb91f6bc06d12d8d6542d44d2845089bd3a5e7c
 //
 // Input: schemas/event-payload.schema.json
-// sha256=4e1f0837a10bb69eeb6039bf26613a38c9d0ec555b5048aa4a81c55670203ce9
+// sha256=64318ce99e830ea80a893a806c5f9437c11b0153401bcf8172df22a7c2baf737
 //
 // Input: schemas/account-operations.schema.json
 // sha256=694f553340eeccd86deab4c0bb637d741e62e4babab325d516ffa30352ceb03d
@@ -17,13 +17,13 @@
 // sha256=81b18acd21f4382860d5cab2384d9bb78ee5dbc23629752a6cc74ce384186149
 //
 // Input: schemas/agent-operations.schema.json
-// sha256=6e3c5ec888a579f338abc03d4aa7789d04efbd445f2e0620cce10243dca5bb0c
+// sha256=9aa8e4ac8e3674122e0db9ede934930c6a5b515932794fb4e352562d8ba1cf26
 //
 // Input: schemas/agent-membership-cascade.schema.json
 // sha256=0aeb76477ec3d0ff335ea072a019a0b7d4371ff5890add72cf986fe5167e8de3
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=db60be1849d8bc93becf15639c6e3cafbbddfe2c4d0967db90cec73027764425
+// sha256=5c71516a86f6e77bf88bd907edc9f7002dddfcc4a5457d0ba636150543e5b28e
 
 /// Counterpart: `current-state.schema.json#/$defs/invite_directed_invitee_value`.
 /// Closed value of the `invite_directed_invitee` current state

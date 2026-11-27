@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json;
-//! sha256=5c058a69f171a2d6b6855e4937a84d6a84ce8357ac31ce151dbdfa359f982c18
-//! Entries: active_events=142
+//! sha256=1d326e38cd652bea30ae35bddd0e89f0887505dd36c4cc7ccfdd344af12d096d
+//! Entries: active_events=143
 
 use arkret_wire::event_kind_str;
 
@@ -637,6 +637,11 @@ pub const EVENT_RUNTIME_CONTRACTS: &[EventRuntimeContractDescriptor] = &[
     EventRuntimeContractDescriptor {
         event_kind: event_kind_str::SIDECAR_CREATE,
         id_source: Some(EventIdSource::EventDerived),
+        derived_id_kinds: &["sidecar"],
+    },
+    EventRuntimeContractDescriptor {
+        event_kind: event_kind_str::SIDECAR_MEMBER_STATE,
+        id_source: None,
         derived_id_kinds: &["sidecar"],
     },
     EventRuntimeContractDescriptor {

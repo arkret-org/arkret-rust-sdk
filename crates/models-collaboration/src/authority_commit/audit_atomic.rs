@@ -375,7 +375,6 @@ impl AuditPairedEventFederationSubmission {
 pub enum ForwardedAuthorityResponseBody {
     Ordinary(arkret_wire::AuthoritySubmitResponseBody),
     AuditPairedEvent(AuditPairedEventAcceptanceOutcome),
-    SidecarEnsure(SidecarEnsureAcceptanceOutcome),
 }
 
 impl ForwardedAuthorityResponseBody {
@@ -383,7 +382,6 @@ impl ForwardedAuthorityResponseBody {
         match self {
             Self::Ordinary(value) => value.validate_shape(),
             Self::AuditPairedEvent(value) => value.validate(),
-            Self::SidecarEnsure(value) => value.validate(),
         }
     }
 }

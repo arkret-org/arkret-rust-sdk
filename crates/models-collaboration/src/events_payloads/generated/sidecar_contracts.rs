@@ -2,24 +2,21 @@
 // Generator: tools/generate-closed-models.py
 //
 // Input: schemas/event-payload.schema.json
-// sha256=4e1f0837a10bb69eeb6039bf26613a38c9d0ec555b5048aa4a81c55670203ce9
+// sha256=64318ce99e830ea80a893a806c5f9437c11b0153401bcf8172df22a7c2baf737
 //
 // Input: schemas/account-operations.schema.json
 // sha256=694f553340eeccd86deab4c0bb637d741e62e4babab325d516ffa30352ceb03d
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=db60be1849d8bc93becf15639c6e3cafbbddfe2c4d0967db90cec73027764425
+// sha256=5c71516a86f6e77bf88bd907edc9f7002dddfcc4a5457d0ba636150543e5b28e
 
 /// Counterpart: `event-payload.schema.json#/$defs/sidecar_create_payload`.
-/// Counterpart for `event-payload.schema.json#/$defs/sidecar_create_payload`.
-///
-/// The payload is empty: `sidecar_id` is derived from the Event id, and
-/// `realm_id`, `controller_account_id`, `state` and the timestamps are
-/// reducer-derived from the accepted envelope. The Sidecar scope activates
-/// standard RFC 9420 through its own accepted `ak.mls.genesis`.
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+/// Controller-signed association with the source project.
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct SidecarCreatePayload {}
+pub struct SidecarCreatePayload {
+    pub source_realm_id: arkret_wire::RealmId,
+}
 
 /// Counterpart: `event-payload.schema.json#/$defs/agent_sidecar_exchange_control_payload`.
 /// Counterpart for

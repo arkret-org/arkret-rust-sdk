@@ -900,11 +900,6 @@ fn registered_audit_carriers_roundtrip_the_actual_spec_schema() {
             .unwrap();
         let fragment = format!("#{fragment}");
         match reference {
-            refid if refid.ends_with("/sidecar_ensure_unit_submission") => {
-                assert_schema_and_serde::<
-                    arkret_models_collaboration::authority_commit::SidecarEnsureUnitSubmission,
-                >(file, &fragment, value)
-            }
             refid if refid.ends_with("/audit_paired_event_unit_submission") => {
                 assert_schema_and_serde::<AuditPairedEventUnitSubmission>(file, &fragment, value)
             }
@@ -990,103 +985,6 @@ fn audited_read_derives_selector_only_from_the_signed_intent() {
     assert!(serde_json::from_value::<WatchAuditReadRequestBody>(unsigned).is_err());
 }
 
-fn device_proofs_for_pair(
-    slots: &[EventAdmissionSubmission; 2],
-    evidence: &mut [arkret_models_collaboration::authority_commit::AtomicSlotProducerEvidence; 2],
-    digest: &arkret_wire::Hash,
-) {
-    for (slot, evidence) in slots.iter().zip(evidence) {
-        let mut source = producer_device_evidence();
-        let producer = slot.event.account_device_producer().unwrap().unwrap();
-        let core = &mut source.device_projection_attestation.attestation;
-        core.account_id = producer.account_id;
-        core.device_id = producer.device_id;
-        core.event_authorization.event_id = slot.event.event_id.clone();
-        core.event_authorization.verification_method = slot
-            .event
-            .producer_proof
-            .as_ref()
-            .unwrap()
-            .verification_method
-            .clone();
-        core.event_authorization.forward_body_digest = digest.clone();
-        *evidence =
-            arkret_models_collaboration::authority_commit::AtomicSlotProducerEvidence::Device {
-                producer_device_evidence: source,
-            };
-    }
-}
-
-#[test]
-fn sidecar_first_ensure_binds_both_controller_originals_and_two_device_slots() {
-    use arkret_models_collaboration::authority_commit::{
-        AtomicSlotProducerEvidence, AuthorityForwardBranch, PeerSidecarEnsureForwardRequestBody,
-        SidecarEnsureUnitSubmission, authority_forward_body_digest,
-    };
-    let fixture = audit_fixture();
-    let value = fixture["schema_validation_cases"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|case| case["name"] == "closed_sidecar_first_ensure")
-        .unwrap()["instance"]
-        .clone();
-    let unit: SidecarEnsureUnitSubmission = serde_json::from_value(value.clone()).unwrap();
-    unit.validate().unwrap();
-    let mut request = PeerSidecarEnsureForwardRequestBody {
-        branch: AuthorityForwardBranch::AuthorityForward,
-        atomic_submission: unit,
-        atomic_producer_evidence: [
-            AtomicSlotProducerEvidence::Service {},
-            AtomicSlotProducerEvidence::Service {},
-        ],
-    };
-    let digest = authority_forward_body_digest(&request).unwrap();
-    device_proofs_for_pair(
-        &request.atomic_submission.events,
-        &mut request.atomic_producer_evidence,
-        &digest,
-    );
-    request.validate().unwrap();
-    let body = serde_json::to_value(&request).unwrap();
-    let schema = "authority-commit-operations.schema.json";
-    let fragment = "#/$defs/peer_submit_request_body";
-    validate_fragment(schema, fragment, &body);
-    let decoded: PeerAuthoritySubmitRequestBody = serde_json::from_value(body.clone()).unwrap();
-    assert!(matches!(
-        decoded,
-        PeerAuthoritySubmitRequestBody::AuthorityForwardSidecarEnsure(_)
-    ));
-    let mut reordered = request.clone();
-    reordered.atomic_producer_evidence.swap(0, 1);
-    assert!(reordered.validate().is_err());
-    let mut wrong_order = body.clone();
-    wrong_order["atomic_submission"]["events"]
-        .as_array_mut()
-        .unwrap()
-        .swap(0, 1);
-    let mut extra = body.clone();
-    extra["content_backup_sources"] = json!([]);
-    let mut service = body.clone();
-    service["atomic_producer_evidence"][0] = json!({});
-    let mut successor = body.clone();
-    successor["atomic_submission"]["events"][1]["event"]["payload"]["version"] = json!(2);
-    let mut attributed = body.clone();
-    attributed["atomic_submission"]["events"][0]["event"]["executed_by"] =
-        body["atomic_submission"]["events"][0]["event"]["actor_id"].clone();
-    let mut missing_create_ref = body.clone();
-    missing_create_ref["atomic_submission"]["events"][1]["event"].as_object_mut().unwrap().remove("semantic_refs");
-    let mut approval = body;
-    approval["atomic_submission"]["events"][0]["approval_signatures"] = json!([]);
-    for bad in [wrong_order, extra, service, successor, approval, attributed, missing_create_ref] {
-        assert!(schema_rejects(schema, fragment, &bad));
-        assert!(
-            serde_json::from_value::<PeerAuthoritySubmitRequestBody>(bad)
-                .map_or(true, |v| v.validate().is_err())
-        );
-    }
-}
-
 #[test]
 fn atomic_forward_slot_bindings_share_one_origin_cut_and_whole_body_digest() {
     use arkret_models_collaboration::authority_commit::{
@@ -1107,11 +1005,31 @@ fn atomic_forward_slot_bindings_share_one_origin_cut_and_whole_body_digest() {
     let mut request: PeerAuthorityForwardAtomicRequestBody =
         serde_json::from_value(case["instance"].clone()).unwrap();
     let digest = authority_forward_body_digest(&request).unwrap();
-    device_proofs_for_pair(
-        &request.atomic_submission.events,
-        &mut request.atomic_producer_evidence,
-        &digest,
-    );
+    for (slot, evidence) in request
+        .atomic_submission
+        .events
+        .iter()
+        .zip(&mut request.atomic_producer_evidence)
+    {
+        let mut source = producer_device_evidence();
+        let producer = slot.event.account_device_producer().unwrap().unwrap();
+        let core = &mut source.device_projection_attestation.attestation;
+        core.account_id = producer.account_id;
+        core.device_id = producer.device_id;
+        core.event_authorization.event_id = slot.event.event_id.clone();
+        core.event_authorization.verification_method = slot
+            .event
+            .producer_proof
+            .as_ref()
+            .unwrap()
+            .verification_method
+            .clone();
+        core.event_authorization.forward_body_digest = digest.clone();
+        *evidence =
+            arkret_models_collaboration::authority_commit::AtomicSlotProducerEvidence::Device {
+                producer_device_evidence: source,
+            };
+    }
     request.validate().unwrap();
     let mut wrong_event = request.clone();
     if let arkret_models_collaboration::authority_commit::AtomicSlotProducerEvidence::Device {

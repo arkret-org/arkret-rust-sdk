@@ -7,7 +7,6 @@
 
 mod audit_atomic;
 mod organization_genesis;
-mod sidecar_ensure;
 use arkret_models_identity::{
     AgentProducerEvidence, ForwardAccountDeviceSignerEvidence, ResolvedSignerKey,
 };
@@ -25,7 +24,6 @@ pub use audit_atomic::*;
 use chrono::{DateTime, Utc};
 pub use organization_genesis::*;
 use serde::{Deserialize, Serialize};
-pub use sidecar_ensure::*;
 use uuid::Uuid;
 
 use crate::objects::direct_conversation::DirectConversationFoundingAuthorityEvidence;
@@ -62,8 +60,9 @@ impl OwnedAgentStreamScanRequestBody {
                 | ObjectReadHistory
                 | ObjectReadMetadata
                 | StrandRead
-        ) || intent.backup_root_context.is_some()
+        ) || matches!(self.scan.stream_ref, CommitStreamRef::Sidecar { .. })
             || intent.effective_scope != self.scan.stream_ref.scope_ref()
+            || self.scan.stream_ref.realm_id() != &self.scan.realm_id
             || intent.controller_account_id.station_id != self.member_account_id.station_id
             || intent.controller_account_id == self.member_account_id
         {
@@ -566,6 +565,19 @@ impl CommittedEventSubmission {
     }
 
     pub fn validate(&self) -> Result<()> {
+        let event = &self.event_submission.event;
+        if event.kind == EventKind::SidecarCreate
+            || matches!(event.scope_ref, arkret_wire::ScopeRef::Sidecar { .. })
+            || matches!(
+                self.source_commit.stream_ref,
+                CommitStreamRef::Sidecar { .. }
+            )
+        {
+            return Err(WireError::ProtocolCode {
+                code: ErrorCode::SchemaViolation,
+                message: "personal Sidecar material cannot be replicated".into(),
+            });
+        }
         self.event_submission.validate()?;
         if self.event_submission.approval_signatures.is_some() {
             return Err(WireError::ProtocolCode {
@@ -1243,6 +1255,16 @@ impl PeerAuthorityForwardEventRequestBody {
     }
 
     pub fn validate(&self) -> Result<()> {
+        if matches!(
+            self.event_submission.event.scope_ref,
+            arkret_wire::ScopeRef::Sidecar { .. }
+        ) || self.event_submission.event.kind == EventKind::SidecarCreate
+        {
+            return Err(WireError::ProtocolCode {
+                code: ErrorCode::SchemaViolation,
+                message: "personal Sidecar material cannot be forwarded".into(),
+            });
+        }
         self.event_submission.validate()?;
         if self.event_submission.event.kind == EventKind::MlsCommit {
             return Err(WireError::ProtocolCode {
@@ -1385,6 +1407,16 @@ impl PeerAuthorityForwardMlsRequestBody {
 
     /// Validate immutable carrier shape without first-admission producer evidence.
     pub fn validate_replay_shape(&self) -> Result<()> {
+        if matches!(
+            self.mls_submission.commit_event.scope_ref,
+            arkret_wire::ScopeRef::Sidecar { .. }
+        ) || self.mls_submission.commit_event.kind == EventKind::SidecarCreate
+        {
+            return Err(WireError::ProtocolCode {
+                code: ErrorCode::SchemaViolation,
+                message: "personal Sidecar material cannot be forwarded".into(),
+            });
+        }
         self.mls_submission.validate()?;
         crate::content_history::validate_backup_source_candidates(
             &[&self.mls_submission.commit_event],
@@ -1465,7 +1497,6 @@ pub enum PeerAuthoritySubmitRequestBody {
     AuthorityForwardEvent(PeerAuthorityForwardEventRequestBody),
     AuthorityForwardMls(PeerAuthorityForwardMlsRequestBody),
     AuthorityForwardAtomic(PeerAuthorityForwardAtomicRequestBody),
-    AuthorityForwardSidecarEnsure(PeerSidecarEnsureForwardRequestBody),
     CommittedReplication(PeerCommittedReplicationRequestBody),
     RegisteredAtomicUnit(PeerRegisteredAtomicUnitRequestBody),
 }
@@ -1476,7 +1507,6 @@ impl PeerAuthoritySubmitRequestBody {
             Self::AuthorityForwardEvent(value) => value.validate(),
             Self::AuthorityForwardMls(value) => value.validate(),
             Self::AuthorityForwardAtomic(value) => value.validate(),
-            Self::AuthorityForwardSidecarEnsure(value) => value.validate(),
             Self::CommittedReplication(value) => {
                 if value.replications.is_empty() || value.replications.len() > 100 {
                     return Err(WireError::Protocol(
@@ -1841,13 +1871,6 @@ impl PeerAuthoritySubmitResponseBody {
                     ..
                 }),
             ) => Ok(()),
-            (
-                PeerAuthoritySubmitRequestBody::AuthorityForwardSidecarEnsure(request),
-                Self::AuthorityForward(PeerAuthorityForwardResponseBody {
-                    response_body: ForwardedAuthorityResponseBody::SidecarEnsure(outcome),
-                    ..
-                }),
-            ) => outcome.validate_for_request(&request.atomic_submission),
             (
                 PeerAuthoritySubmitRequestBody::AuthorityForwardAtomic(request),
                 Self::AuthorityForward(PeerAuthorityForwardResponseBody {

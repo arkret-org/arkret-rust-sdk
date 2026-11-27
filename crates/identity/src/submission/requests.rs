@@ -363,12 +363,6 @@ impl PublicationRequest for PeerAuthoritySubmitRequestBody {
                 .iter()
                 .map(|slot| &slot.event)
                 .collect(),
-            Self::AuthorityForwardSidecarEnsure(value) => value
-                .atomic_submission
-                .events
-                .iter()
-                .map(|slot| &slot.event)
-                .collect(),
             Self::CommittedReplication(value) => value
                 .replications
                 .iter()
@@ -396,7 +390,7 @@ impl PublicationRequest for PeerAuthoritySubmitRequestBody {
         match self {
             Self::AuthorityForwardEvent(_) => Vec::new(),
             Self::AuthorityForwardMls(_) => Vec::new(),
-            Self::AuthorityForwardAtomic(_) | Self::AuthorityForwardSidecarEnsure(_) => Vec::new(),
+            Self::AuthorityForwardAtomic(_) => Vec::new(),
             Self::CommittedReplication(value) => value
                 .replications
                 .iter()

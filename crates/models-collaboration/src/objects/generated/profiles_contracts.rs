@@ -17,7 +17,7 @@
 // sha256=f31a32e76dd6026205c48226af03e5b860c147c87335da0ff60ea481c9755729
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=db60be1849d8bc93becf15639c6e3cafbbddfe2c4d0967db90cec73027764425
+// sha256=5c71516a86f6e77bf88bd907edc9f7002dddfcc4a5457d0ba636150543e5b28e
 
 /// Counterpart: `identity-link.schema.json`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

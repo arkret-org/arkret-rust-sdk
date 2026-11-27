@@ -445,6 +445,9 @@ impl MlsRosterRecord {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MlsRosterAuthorityManifest {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
+    pub sidecar_backup_strategy: Option<arkret_wire::EncryptionBackupStrategy>,
     pub governance_station_id: DidCoreId,
     pub realm_id: RealmId,
     pub effective_scope: ScopeRef,
@@ -482,6 +485,13 @@ impl MlsRosterAuthorityManifest {
         request.validate()?;
         crate::mls_group_state_material::material_digest_from_ref(&self.group_info_ref)?;
         crate::mls_group_state_material::material_digest_from_ref(&self.ratchet_tree_ref)?;
+        if self.sidecar_backup_strategy.is_some()
+            != matches!(self.effective_scope, ScopeRef::Sidecar { .. })
+        {
+            return Err(WireError::Protocol(
+                "backup strategy disclosure requires the native Sidecar roster".to_owned(),
+            ));
+        }
         if self.realm_id != request.realm_id
             || self.effective_scope != request.effective_scope
             || self.mls_group_id != request.mls_group_id

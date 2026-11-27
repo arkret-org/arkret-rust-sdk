@@ -321,41 +321,27 @@ impl SelfRealmJoinPrepareResponseBody {
 
 impl PeerRealmJoinBootstrapRequestBody {
     pub fn validate_selectors(&self) -> Result<()> {
-        if let Some(intent) = &self.content_intent {
-            if self.history_stream_ref.is_some()
+        if let Some(stream) = &self.history_stream_ref
+            && (stream.realm_id() != &self.realm_id
+                || matches!(stream, CommitStreamRef::Sidecar { .. }))
+        {
+            return Err(WireError::Protocol(
+                "invalid project history selector".into(),
+            ));
+        }
+        if let Some(intent) = &self.content_intent
+            && (self.history_stream_ref.is_some()
+                || matches!(
+                    intent.effective_scope,
+                    arkret_wire::ScopeRef::Sidecar { .. }
+                )
                 || intent.effective_scope.realm_id_opt() != Some(&self.realm_id)
                 || self.member_account_id.station_id != intent.controller_account_id.station_id
-                || self.member_account_id == intent.controller_account_id
-            {
-                return Err(WireError::Protocol(
-                    "invalid owned Agent bootstrap binding".into(),
-                ));
-            }
-            if let Some(context) = &intent.backup_root_context {
-                context.validate()?;
-                if !matches!(
-                    intent.action,
-                    OwnedAgentContentAction::MessageCreate
-                        | OwnedAgentContentAction::MessageRedactOwn
-                        | OwnedAgentContentAction::MessageReviseOwn
-                        | OwnedAgentContentAction::ReactionAdd
-                        | OwnedAgentContentAction::ReactionRemove
-                ) {
-                    return Err(WireError::Protocol(
-                        "backup context requires an Agent content write".into(),
-                    ));
-                }
-                if context.effective_scope != intent.effective_scope
-                    || !matches!(
-                        intent.effective_scope,
-                        arkret_wire::ScopeRef::Sidecar { .. }
-                    )
-                {
-                    return Err(WireError::Protocol(
-                        "backup context differs from Agent Sidecar".into(),
-                    ));
-                }
-            }
+                || self.member_account_id == intent.controller_account_id)
+        {
+            return Err(WireError::Protocol(
+                "invalid owned Agent project authority binding".into(),
+            ));
         }
         Ok(())
     }
@@ -378,16 +364,15 @@ impl PeerRealmJoinBootstrapRequestBody {
                 "history snapshot differs from requested coverage".into(),
             ));
         }
-        if matches!(basis.stream_ref, CommitStreamRef::Sidecar { .. }) {
-            let member = arkret_wire::ActorId::account(self.member_account_id.clone());
-            if snapshot
-                .parent_membership_revision(&member)
-                .is_none_or(|revision| revision.commit_id != self.membership_commit_id)
-            {
-                return Err(WireError::Protocol(
-                    "Sidecar history snapshot differs from the requested parent join".into(),
-                ));
-            }
+        self.validate_selectors()?;
+        let actor = arkret_wire::ActorId::account(self.member_account_id.clone());
+        if snapshot
+            .parent_membership_revision(&actor)
+            .is_none_or(|r| r.commit_id != self.membership_commit_id)
+        {
+            return Err(WireError::Protocol(
+                "history does not cover the requested project membership generation".into(),
+            ));
         }
         Ok(())
     }

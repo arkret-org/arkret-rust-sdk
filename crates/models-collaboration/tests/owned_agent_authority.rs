@@ -172,87 +172,41 @@ fn agent_rule_cannot_hide_generic_conditions_or_cross_kind_fields() {
 }
 
 #[test]
-fn bootstrap_backup_root_requires_a_write_to_the_same_sidecar() {
-    use arkret_models_collaboration::governance::realm_join_intake::{
-        OwnedAgentContentAction, PeerRealmJoinBootstrapRequestBody,
-    };
+fn project_bootstrap_rejects_private_sidecar_selectors_and_roots() {
+    use arkret_models_collaboration::governance::realm_join_intake::PeerRealmJoinBootstrapRequestBody;
     use serde_json::json;
-
     let artifacts = arkret_schema_conformance::default_spec_artifacts_dir().unwrap();
     let fixture: Value = serde_json::from_slice(
         &std::fs::read(artifacts.join("fixtures/content-history-fixture.json")).unwrap(),
     )
     .unwrap();
-    let mut context = fixture["root_backup"]["envelope"]["contents"][0]["root_context"].clone();
-    let realm = context["effective_scope"].clone();
-    let sidecar = json!({
-        "kind": "sidecar", "realm_id": realm["realm_id"],
-        "sidecar_id": "ak:sidecar:AUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFB"
+    let context = &fixture["root_backup"]["envelope"]["contents"][0]["root_context"];
+    let realm = &context["effective_scope"];
+    let sidecar = json!({"kind":"sidecar","realm_id":realm["realm_id"],"sidecar_id":"ak:sidecar:AUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFB"});
+    let mut body = json!({
+        "request_id":"ak:request:01964137-0000-7000-8000-000000000001",
+        "realm_id":realm["realm_id"],"membership_commit_id":"ak:realm_commit:AUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFB",
+        "member_account_id":{"principal_id":"ak:did_core:web:agent.example","station_id":"ak:did_core:web:home.example"},
+        "content_intent":{"controller_account_id":{"principal_id":"ak:did_core:web:owner.example","station_id":"ak:did_core:web:home.example"},
+            "controller_membership_commit_id":"ak:realm_commit:AUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFB","agent_key_authorization_ref":context["genesis_event_ref"],
+            "action":"ak.event.read","effective_scope":realm,"request_digest":format!("sha256:{}","a".repeat(64))}
     });
-    context["effective_scope"] = sidecar.clone();
-    let mut request: PeerRealmJoinBootstrapRequestBody = serde_json::from_value(json!({
-        "request_id": "ak:request:01964137-0000-7000-8000-000000000001",
-        "realm_id": realm["realm_id"],
-        "membership_commit_id": "ak:realm_commit:AUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFB",
-        "member_account_id": {"principal_id":"ak:did_core:web:agent.example","station_id":"ak:did_core:web:home.example"},
-        "content_intent": {
-            "controller_account_id": {"principal_id":"ak:did_core:web:owner.example","station_id":"ak:did_core:web:home.example"},
-            "controller_membership_commit_id": "ak:realm_commit:AUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFB",
-            "agent_key_authorization_ref": context["genesis_event_ref"],
-            "action": "ak.message.create", "effective_scope": sidecar,
-            "request_digest": format!("sha256:{}", "a".repeat(64)),
-            "backup_root_context": context
-        }
-    })).unwrap();
-
-    request.validate_selectors().unwrap();
-    let mut read = request.clone();
-    read.content_intent.as_mut().unwrap().action = OwnedAgentContentAction::ObjectReadContent;
-    assert!(read.validate_selectors().is_err());
-    read.content_intent.as_mut().unwrap().backup_root_context = None;
-    read.validate_selectors().unwrap();
-
-    let mut other_sidecar = sidecar;
-    let other_create =
-        arkret_wire::EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [30; 32]);
-    other_sidecar["sidecar_id"] = json!(arkret_wire::SidecarId::from_event_id(&other_create));
-    request.content_intent.as_mut().unwrap().effective_scope =
-        serde_json::from_value(other_sidecar).unwrap();
-    assert!(request.validate_selectors().is_err());
-
-    request.content_intent.as_mut().unwrap().effective_scope =
-        serde_json::from_value(realm).unwrap();
-    assert!(request.validate_selectors().is_err());
-}
-
-#[test]
-fn owned_agent_scan_validates_the_requested_page() {
-    use arkret_models_collaboration::authority_commit::OwnedAgentStreamScanRequestBody;
-    use arkret_wire::{EventId, RealmCommitId, RealmId};
-
-    let key = EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [17; 32]);
-    let realm = RealmId::from_event_id(&key);
-    let home = "ak:did_core:web:home.example";
-    let scope = serde_json::json!({"kind":"realm","realm_id":realm});
-    let mut request: OwnedAgentStreamScanRequestBody = serde_json::from_value(serde_json::json!({
-        "request_id":"ak:request:0190c6aa-1234-7000-8000-000000000001",
-        "member_account_id":{"principal_id":"ak:did_core:web:agent.example","station_id":home},
-        "membership_commit_id":RealmCommitId::from_digest([19; 32]),
-        "content_intent":{
-            "controller_account_id":{"principal_id":"ak:did_core:web:controller.example","station_id":home},
-            "controller_membership_commit_id":RealmCommitId::from_digest([20; 32]),
-            "agent_key_authorization_ref":key, "action":"ak.event.read", "effective_scope":scope,
-            "request_digest":arkret_canonical::canonical_sha256(&scope).unwrap()
-        },
-        "session_grant_id":"ak:session_grant:0190c6aa-1234-7000-8000-000000000002",
-        "scan":{"realm_id":realm,"stream_ref":scope,"after_position":null,"limit":1}
-    })).unwrap();
-    for limit in [1, 1000] {
-        request.scan.limit = limit;
-        request.validate_binding().unwrap();
-    }
-    for limit in [0, 1001] {
-        request.scan.limit = limit;
-        assert!(request.validate_binding().is_err());
-    }
+    let accepted = |value: &Value| {
+        serde_json::from_value::<PeerRealmJoinBootstrapRequestBody>(value.clone())
+            .is_ok_and(|r| r.validate_selectors().is_ok())
+    };
+    assert!(accepted(&body));
+    body["content_intent"]["backup_root_context"] = context.clone();
+    assert!(!accepted(&body));
+    body["content_intent"]
+        .as_object_mut()
+        .unwrap()
+        .remove("backup_root_context");
+    body["content_intent"]["effective_scope"] = sidecar.clone();
+    assert!(!accepted(&body));
+    body.as_object_mut().unwrap().remove("content_intent");
+    body["history_stream_ref"] = sidecar;
+    assert!(!accepted(&body));
+    body["history_stream_ref"] = realm.clone();
+    assert!(accepted(&body));
 }

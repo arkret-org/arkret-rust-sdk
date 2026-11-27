@@ -17,10 +17,10 @@
 // sha256=7d4e6b177c7028caef664ddbb893c09cef4ffab791f19fbff1d7d710a2104a61
 //
 // Input: schemas/service-operation-dtos.schema.json
-// sha256=82c5f11f9fa36d98b43744ed61b4e37de0a13f8ea468b80f5d05fdeb5ffd6876
+// sha256=32fd6aa3fe9e86e37518a722a80f569e7fcebb234f6e0a4a0e52e43ecee36718
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=db60be1849d8bc93becf15639c6e3cafbbddfe2c4d0967db90cec73027764425
+// sha256=5c71516a86f6e77bf88bd907edc9f7002dddfcc4a5457d0ba636150543e5b28e
 
 /// Counterpart: `mimi-operations.schema.json#/$defs/mimi_submit_message_request_body`.
 /// Counterpart for
