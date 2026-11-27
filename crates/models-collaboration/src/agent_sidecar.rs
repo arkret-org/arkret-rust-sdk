@@ -1,10 +1,8 @@
 //! Agent Sidecar: the controller-account-owned private AI workspace.
 //!
-//! A Sidecar is a first-class native protocol scope bound one-to-one to
-//! `(realm_id, controller_account_id)` — not a Circle profile, a backing Circle,
-//! or an editable membership container. Its shared MLS scope carries only
-//! `ak.mls.genesis` and `ak.mls.commit`; the exchange objects below are
-//! controller-private plaintext or device-local caches.
+//! The owner's home Station governs the private group and its signed events.
+//! Each owner/source-Realm pair has one Sidecar. Strand bindings select the
+//! displayed context. Project reads and publication use the project's authority.
 
 use arkret_wire::{
     AccountId, CommitStreamHead, DeviceId, DidCoreId, EventId, Hash, Hlc, RealmId, Result,

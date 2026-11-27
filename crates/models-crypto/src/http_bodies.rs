@@ -382,6 +382,8 @@ pub struct KeyPackagesUploadResponseBody {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PeerKeyPackageClaimPurpose {
+    /// For a personal Sidecar, the owner claims locally at H for the exact
+    /// private group and enrolled Agent under the owner's Human PCR.
     RealmMembership,
     DirectConversation,
 }
