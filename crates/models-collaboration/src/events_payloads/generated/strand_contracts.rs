@@ -8,7 +8,7 @@
 // sha256=63e18909fb55d3e68142f95c276b58ef538eea7902b9158312c89f8e8aef2365
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=a78e63d1f3a48c87115a3e40e578dc4aeb5f619833613e5eb9fae1be319bff29
+// sha256=90e21e77dae771f2c5ed933d3a57a684de6d47d3e4b73f568536e81a8e4fb8b9
 
 /// Counterpart: `event-payload.schema.json#/$defs/strand_create_payload`.
 /// Counterpart for

@@ -52,7 +52,32 @@ impl TryFrom<SpacePatchPayloadWire> for SpacePatchPayload {
 
 impl SpacePatchPayload {
     pub fn validate(&self) -> Result<()> {
-        validate_patch_semantic_safety(&self.patch)
+        validate_patch_semantic_safety(&self.patch)?;
+        for (path, _) in self.patch.iter() {
+            let root = path.split('.').next().unwrap_or(path);
+            if !matches!(
+                root,
+                "kind"
+                    | "rank"
+                    | "schema_refs"
+                    | "title"
+                    | "summary"
+                    | "labels"
+                    | "fields"
+                    | "avatar_blob_ref"
+                    | "encrypted_metadata"
+            ) || patch::reducer_managed_patch_reason("space", path).is_some()
+                || forbidden_wire::forbidden_wire_path_hard_reject(
+                    "space_patch_payload",
+                    path,
+                )
+            {
+                return Err(WireError::Protocol(format!(
+                    "Space update patch path is forbidden: {path}"
+                )));
+            }
+        }
+        Ok(())
     }
 
     pub fn to_value(&self) -> Result<Value> {
@@ -62,3 +87,26 @@ impl SpacePatchPayload {
 }
 
 include!("generated/space_contracts.rs");
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn space_update_requires_a_writable_metadata_patch() {
+        let id = "ak:space:AYqEzQ3jW02EHkMjxFQTlyeowxPQXJE4fI6JGOnzi23t";
+        for invalid in [
+            json!({"space_id": id}),
+            json!({"space_id": id, "patch": null}),
+            json!({"space_id": id, "child_scope_policy": true}),
+            json!({"space_id": id, "patch": {"child_scope_policy": {"$op": "set", "value": true}}}),
+        ] {
+            assert!(serde_json::from_value::<SpacePatchPayload>(invalid).is_err());
+        }
+        let update = json!({"space_id": id, "patch": {"rank": {"$op": "set", "value": "a"}}});
+        let payload: SpacePatchPayload = serde_json::from_value(update.clone()).unwrap();
+        assert_eq!(payload.to_value().unwrap(), update);
+    }
+}

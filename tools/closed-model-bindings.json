@@ -21433,7 +21433,7 @@
       "rust_type": "crates/models-collaboration/src/events_payloads/space.rs::SpacePatchPayload",
       "schema": "event-payload.schema.json#/$defs/space_patch_payload",
       "category": "domain_semantics",
-      "reason": "SpacePatchPayload uses its existing serde try_from/into wire adapter to enforce branch presence or transition invariants during decoding; generating that adapter from member sets would erase its domain rejection order."
+      "reason": "SpacePatchPayload validates writable metadata paths and patch operations during decoding through its serde try_from adapter."
     },
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/view.rs::ViewDefinition",
