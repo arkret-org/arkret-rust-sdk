@@ -8,7 +8,7 @@
 //! sha256=7c7522a769204b050b9711b53c1b911bc660645962ed6c0243f95fae72473f78
 //!
 //! Input: schemas/current-state.schema.json
-//! sha256=93eb6737fcbcf0a61e604b3d6c73d4a2acd4b589712947236f73d3f5cb883c90
+//! sha256=303069f3b12147816e080f5948d4877f5444a1ff82f532785c8244cc0a173e34
 //!
 //! Input: schemas/consent-operations.schema.json
 //! sha256=a367b21ca191391ab7a62c8b1413a48f9866b7cdca5692c65e5bd58c5a330b09

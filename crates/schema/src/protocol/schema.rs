@@ -1055,7 +1055,6 @@ fn space_schema_document() -> Value {
             "schema": { "type": "string" },
             "id": { "type": "string" },
             "realm_id": { "type": "string" },
-            "child_scope_policy": { "type": "boolean" },
             "schema_refs": { "type": "array" },
             "summary": { "type": "string" },
             "labels": { "type": "array" },

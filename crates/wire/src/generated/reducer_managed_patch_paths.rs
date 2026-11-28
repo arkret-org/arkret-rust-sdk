@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/reducer-managed-path-registry.json;
-//! sha256=d9d20ef9f1f1cffec613600cec5410d0187dca76fd773eced44cd03d3c810b6a Entries: objects=6,
-//! effective_paths=66, universal_paths=9
+//! sha256=ec36d00c6e6672a0b4859e48e1cc6f4e41284ad1efd68f9e36e9e02cd47ff32b Entries: objects=6,
+//! effective_paths=65, universal_paths=9
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ReducerManagedPatchPath {
@@ -296,13 +296,6 @@ pub const REDUCER_MANAGED_PATCH_OBJECTS: &[ReducerManagedPatchObject] = &[
     ReducerManagedPatchObject {
         object_kind: "space",
         forbidden_paths: &[
-            ReducerManagedPatchPath {
-                path: "child_scope_policy",
-                basis: "state_projection",
-                reason_code: "patch_path_reducer_managed",
-                owner_kind: "state_family",
-                schema_enforced: Some(true),
-            },
             ReducerManagedPatchPath {
                 path: "created_at",
                 basis: "reducer_derived",

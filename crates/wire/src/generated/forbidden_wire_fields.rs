@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/forbidden-wire-fields.json;
-//! sha256=1ee5c8c0b582837ac2bfd8634930192b89a37f7809911bbab0cac8ff02642288
-//! Entries: forbidden_wire_fields=237
+//! sha256=e83f7de09f6c7008ed97de7d19a7c06b2cd9d4c43ace584d12e4a7603e234de5
+//! Entries: forbidden_wire_fields=236
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ForbiddenWireSelector {
@@ -2168,20 +2168,6 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
         match_kind: "field",
         match_values: &["space_stream_head"],
         value_pointer: "",
-    },
-    ForbiddenWireFieldDescriptor {
-        id: "require_scope_ref",
-        context: "child_scope_policy.kind",
-        rejection_level: "hard_reject",
-        selectors: &[ForbiddenWireSelector {
-            document_kind: "schema_instance",
-            schema_ref: "space.schema.json#/$defs/child_scope_policy",
-            instance_pointer: "",
-            match_scope: "root",
-        }],
-        match_kind: "value",
-        match_values: &["require_scope_ref"],
-        value_pointer: "/kind",
     },
     ForbiddenWireFieldDescriptor {
         id: "blocks",

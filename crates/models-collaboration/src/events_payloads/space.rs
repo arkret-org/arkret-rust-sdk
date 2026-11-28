@@ -23,24 +23,18 @@ impl SpaceCreatePayload {
 #[serde(try_from = "SpacePatchPayloadWire")]
 pub struct SpacePatchPayload {
     pub space_id: SpaceId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub patch: Option<Patch>,
+    pub patch: Patch,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expected_state_digest: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub child_scope_policy: Option<bool>,
 }
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct SpacePatchPayloadWire {
     space_id: SpaceId,
-    #[serde(default, deserialize_with = "deserialize_non_null_optional")]
-    patch: Option<Patch>,
+    patch: Patch,
     #[serde(default, deserialize_with = "deserialize_non_null_optional")]
     expected_state_digest: Option<Hash>,
-    #[serde(default, deserialize_with = "deserialize_non_null_optional")]
-    child_scope_policy: Option<bool>,
 }
 
 impl TryFrom<SpacePatchPayloadWire> for SpacePatchPayload {
@@ -50,7 +44,6 @@ impl TryFrom<SpacePatchPayloadWire> for SpacePatchPayload {
             space_id: value.space_id,
             patch: value.patch,
             expected_state_digest: value.expected_state_digest,
-            child_scope_policy: value.child_scope_policy,
         };
         payload.validate()?;
         Ok(payload)
@@ -59,15 +52,7 @@ impl TryFrom<SpacePatchPayloadWire> for SpacePatchPayload {
 
 impl SpacePatchPayload {
     pub fn validate(&self) -> Result<()> {
-        if self.patch.is_none() && self.child_scope_policy.is_none() {
-            return Err(WireError::Protocol(
-                "Space update requires a metadata patch or child_scope_policy".to_owned(),
-            ));
-        }
-        if let Some(patch) = &self.patch {
-            validate_patch_semantic_safety(patch)?;
-        }
-        Ok(())
+        validate_patch_semantic_safety(&self.patch)
     }
 
     pub fn to_value(&self) -> Result<Value> {

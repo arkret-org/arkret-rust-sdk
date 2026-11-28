@@ -263,7 +263,7 @@
       "evidence": "match kind { EventKind::MessageCreate | EventKind::MessageRevise => { optional(payload, \"encrypted_content\", \"/payload\", &mut out)?; optional(payload, \"encrypted_metadata\", \"/payload\", &mut out)?; } EventKind::ReactionAdd | EventKind::ReactionRemove | EventKind::AgentSidecarEx..."
     },
     {
-      "finding": "closed_dispatch:crates/event-draft/src/metadata_send_gate.rs::project:df8092fea8c03438",
+      "finding": "closed_dispatch:crates/event-draft/src/metadata_send_gate.rs::project:2d4c16cd89259b7b",
       "category": "closed_dispatch",
       "rust_field": null,
       "crate": null,
@@ -288,7 +288,7 @@
       "evidence": "match source.kind() { EventKind::SpaceCreate => { let payload = source.typed_payload::<event_spec::SpaceCreate>()?; create( &[\"title\", \"summary\", \"labels\", \"avatar_blob_ref\"], payload.object.encrypted_metadata, )? } EventKind::StrandCreate => { let payload = source.typed_paylo..."
     },
     {
-      "finding": "closed_dispatch:inkson/src/bin/inkson-wire/realm_fixture.rs::project:6d97b4f5af4bcb58",
+      "finding": "closed_dispatch:inkson/src/bin/inkson-wire/realm_fixture.rs::project:97485958330c5a04",
       "category": "closed_dispatch",
       "rust_field": null,
       "crate": null,

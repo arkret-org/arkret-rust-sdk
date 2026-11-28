@@ -5,10 +5,10 @@
 //! sha256=61c5e64619b36a92bd52168fefe55f7643dbee653acdca81f37cde5e0398c420
 //!
 //! Input: schemas/current-state.schema.json
-//! sha256=93eb6737fcbcf0a61e604b3d6c73d4a2acd4b589712947236f73d3f5cb883c90
+//! sha256=303069f3b12147816e080f5948d4877f5444a1ff82f532785c8244cc0a173e34
 //!
 //! Input: schemas/event-payload.schema.json
-//! sha256=961bb4df946585c3ad9cafbdcd82d199c69fb519262229d82943cca11d1641ca
+//! sha256=e0be2f1fb17026ba287817056b18f05dfad07ad78d0eaccde983f0860be8db95
 //!
 //! Input: schemas/account-operations.schema.json
 //! sha256=694f553340eeccd86deab4c0bb637d741e62e4babab325d516ffa30352ceb03d

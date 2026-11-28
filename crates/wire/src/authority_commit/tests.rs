@@ -625,12 +625,6 @@ fn registered_space_current_selectors_round_trip_closed_shapes() {
             },
             "space_parent",
         ),
-        (
-            CurrentSelector::SpaceChildScopePolicy {
-                space_id: space_id.clone(),
-            },
-            "space_child_scope_policy",
-        ),
     ] {
         let wire = json!({"kind":kind,"space_id":space_id});
         assert_eq!(serde_json::to_value(&selector).unwrap(), wire);

@@ -113,13 +113,7 @@ fn project(source: MetadataSource<'_>) -> Result<Option<EventMetadataSendGate>> 
         EventKind::SpaceUpdate => {
             let payload = source.typed_payload::<event_spec::SpaceUpdate>()?;
             payload.validate()?;
-            match payload.patch {
-                Some(patch) => project_patch(&patch)?,
-                None => EventMetadataSendGate {
-                    encrypted_metadata: Vec::new(),
-                    user_metadata_present: false,
-                },
-            }
+            project_patch(&payload.patch)?
         }
         EventKind::StrandUpdate => {
             let payload = source.typed_payload::<event_spec::StrandUpdate>()?;

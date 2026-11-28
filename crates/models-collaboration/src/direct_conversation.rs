@@ -152,31 +152,28 @@ pub fn direct_conversation_structure_admits(
                     && space.encrypted_metadata.is_some()
                     && space.fields.is_empty()
                     && space.schema_refs.is_empty()
-                    && space.child_scope_policy.is_none()
             }),
         EventKind::SpaceUpdate => {
             target_topic()
                 && serde_json::from_value::<SpacePatchPayload>(payload.clone()).is_ok_and(|body| {
-                    body.child_scope_policy.is_none()
-                        && body.patch.as_ref().is_some_and(|patch| {
-                            !patch.is_empty()
-                                && patch.iter().all(|(path, op)| match path.as_str() {
-                                    "encrypted_metadata" => metadata_op(op),
-                                    "rank" => {
-                                        op.op() == PatchOpKind::Set
-                                            && op
-                                                .value()
-                                                .and_then(serde_json::Value::as_str)
-                                                .is_some_and(|rank| {
-                                                    !rank.is_empty()
-                                                        && rank.len() <= 128
-                                                        && rank
-                                                            .bytes()
-                                                            .all(|b| b.is_ascii_alphanumeric())
-                                                })
-                                    }
-                                    _ => false,
-                                })
+                    let patch = &body.patch;
+                    !patch.is_empty()
+                        && patch.iter().all(|(path, op)| match path.as_str() {
+                            "encrypted_metadata" => metadata_op(op),
+                            "rank" => {
+                                op.op() == PatchOpKind::Set
+                                    && op
+                                        .value()
+                                        .and_then(serde_json::Value::as_str)
+                                        .is_some_and(|rank| {
+                                            !rank.is_empty()
+                                                && rank.len() <= 128
+                                                && rank
+                                                    .bytes()
+                                                    .all(|b| b.is_ascii_alphanumeric())
+                                        })
+                            }
+                            _ => false,
                         })
                 })
         }

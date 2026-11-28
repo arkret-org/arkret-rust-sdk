@@ -1831,10 +1831,6 @@ pub enum CurrentSelector {
     SpaceParent {
         space_id: SpaceId,
     },
-    /// Registered child placement policy of one Space.
-    SpaceChildScopePolicy {
-        space_id: SpaceId,
-    },
     MessageRevision {
         message_id: MessageId,
     },
@@ -2081,9 +2077,6 @@ enum FlatCurrentSelector {
         space_id: SpaceId,
     },
     SpaceParent {
-        space_id: SpaceId,
-    },
-    SpaceChildScopePolicy {
         space_id: SpaceId,
     },
     MessageRevision {
@@ -2490,9 +2483,6 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                     },
                     FlatCurrentSelector::Space { space_id } => Self::Space { space_id },
                     FlatCurrentSelector::SpaceParent { space_id } => Self::SpaceParent { space_id },
-                    FlatCurrentSelector::SpaceChildScopePolicy { space_id } => {
-                        Self::SpaceChildScopePolicy { space_id }
-                    }
                     FlatCurrentSelector::MessageRevision { message_id } => {
                         Self::MessageRevision { message_id }
                     }

@@ -26,7 +26,7 @@ fn required_profiles() -> [ConformanceProfile; 11] {
 }
 
 #[test]
-fn default_space_schema_enforces_the_realm_placement_policy() {
+fn default_space_schema_rejects_retired_placement_fields() {
     let registry = ProtocolSchemaRegistry::default();
     let mut space = serde_json::json!({
         "schema": SchemaId::SPACE_V1,
@@ -42,11 +42,11 @@ fn default_space_schema_enforces_the_realm_placement_policy() {
     registry.validate_value(SchemaId::SPACE_V1, &space).unwrap();
     for policy in [true, false] {
         space["child_scope_policy"] = serde_json::json!(policy);
-        registry.validate_value(SchemaId::SPACE_V1, &space).unwrap();
+        assert!(registry.validate_value(SchemaId::SPACE_V1, &space).is_err());
     }
     space["child_scope_policy"] = serde_json::json!({});
     assert!(registry.validate_value(SchemaId::SPACE_V1, &space).is_err());
-    space["child_scope_policy"] = serde_json::json!(true);
+    space.as_object_mut().unwrap().remove("child_scope_policy");
     space["scope_circle_id"] = serde_json::json!("retired");
     assert!(registry.validate_value(SchemaId::SPACE_V1, &space).is_err());
 }

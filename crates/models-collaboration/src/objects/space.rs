@@ -71,10 +71,6 @@ pub struct Space {
     pub id: Option<SpaceId>,
     pub schema: String,
     pub realm_id: RealmId,
-    /// AKP-0007 — reducer-enforced constraint on how child resources may
-    /// pick their scope.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub child_scope_policy: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub parent_space_id: Option<SpaceId>,
     // Declaration order mirrors `spec/v1/artifacts/schemas/space.schema.json`
@@ -130,7 +126,6 @@ impl Space {
             schema: SchemaId::SPACE_V1.to_owned(),
             realm_id,
 
-            child_scope_policy: None,
             parent_space_id: None,
             kind: kind.into(),
             rank: None,
@@ -169,7 +164,6 @@ impl Space {
             schema: SchemaId::SPACE_V1.to_owned(),
             realm_id,
 
-            child_scope_policy: None,
             parent_space_id: None,
             kind: kind.into(),
             rank: None,
