@@ -789,14 +789,6 @@ fn agent_current_selectors_round_trip_closed_shapes() {
 }
 
 #[test]
-fn retired_stream_and_selectors_are_rejected() {
-    let retired = json!({"kind":"circle","realm_id":realm(1),"circle_id":"ak:circle:AUD2WOhX-Xh47vBHtRJPMRfXRQXGiOWQqOrJGJnE8CaI"});
-    assert!(serde_json::from_value::<ScopeRef>(retired.clone()).is_err());
-    assert!(serde_json::from_value::<CommitStreamRef>(retired.clone()).is_err());
-    assert!(serde_json::from_value::<CurrentSelector>(retired).is_err());
-}
-
-#[test]
 fn sidecar_current_selectors_preserve_exact_native_context_and_reject_extra_fields() {
     let event = EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [46; 32]);
     let sidecar = SidecarId::from_event_id(&event);

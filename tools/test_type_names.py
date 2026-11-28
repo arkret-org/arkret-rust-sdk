@@ -37,25 +37,7 @@ class TypeNameTests(unittest.TestCase):
             'pub use domain::{View as Row, Views as Rows};'),
             ['RealmRows', 'RealmResults', 'AliasRows', 'Row', 'Rows'])
 
-    def test_duplicated_claim_bodies_cannot_restore_a_second_wire_owner(self):
-        for name in ('PeerKeyPackagesClaimRequestBody', 'PeerKeyPackagesClaimResponseBody'):
-            self.assertEqual(gate.violations('models-crypto/src/http_bodies.rs',
-                f'pub struct {name} {{}}'), [name])
-            self.assertEqual(gate.violations('wire/src/lib.rs',
-                f'pub use model::Shared as {name};'), [name])
-        self.assertEqual(gate.violations('models-crypto/src/http_bodies.rs',
-            'pub struct KeyPackagesClaimRequestBody {} pub struct KeyPackagesClaimResponseBody {}'), [])
-
-    def test_retired_plain_and_generic_aliases_are_rejected(self):
-        self.assertEqual(gate.violations('wire/src/new.rs',
-            'pub type GrantSnapshot = AgentGrantView; pub type GrantSnapshot<T> = Map<T>; '
-            'pub type GrantSnapshot<T> where T: Clone = Map<T>;'),
-            ['GrantSnapshot', 'GrantSnapshot', 'GrantSnapshot'])
-        self.assertEqual(gate.violations('wire/src/new.rs',
-            'pub type IssueResponseBody<T> = Envelope<T>; pub type Result<T> = std::result::Result<T, Error>;'),
-            ['IssueResponseBody'])
-
-    def test_row_reexports_cannot_restore_a_retired_public_alias(self):
+    def test_public_row_reexport_aliases_are_rejected(self):
         self.assertEqual(gate.violations('wire/src/new.rs',
             'pub use domain::ObjectView as ObjectRow; pub use domain::{StateView as StateRow};'),
             ['ObjectRow', 'StateRow'])

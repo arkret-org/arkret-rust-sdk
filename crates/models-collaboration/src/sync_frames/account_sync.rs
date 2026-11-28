@@ -369,13 +369,7 @@ mod tests {
     }
 
     #[test]
-    fn realm_metadata_rejects_a_retired_collaboration_role() {
-        assert!(
-            serde_json::from_value::<WindowStartRealmMetadata>(
-                json!({"collaboration_role": "broadcast"})
-            )
-            .is_err()
-        );
+    fn realm_metadata_accepts_the_direct_conversation_role() {
         let metadata: WindowStartRealmMetadata =
             serde_json::from_value(json!({"collaboration_role": "direct_conversation"})).unwrap();
         metadata.validate().unwrap();

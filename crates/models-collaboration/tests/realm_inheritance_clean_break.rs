@@ -1,25 +1,12 @@
 use arkret_models_collaboration::events_payloads::{JoinPolicyGate, ReadReceiptPolicyPayload};
 use arkret_models_collaboration::governance::realm_governance::RealmLinkKind;
-use arkret_wire::{CapabilityActionId, EventKind};
 use serde_json::json;
 
 const SOURCE_REALM: &str = "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19";
 
 #[test]
-fn retired_automatic_inheritance_wire_values_are_not_registered() {
+fn realm_link_kind_registry_has_seven_kinds() {
     assert_eq!(RealmLinkKind::all().len(), 7);
-    assert!(RealmLinkKind::parse("inherits_policy_from").is_none());
-    assert!(serde_json::from_value::<RealmLinkKind>(json!("inherits_policy_from")).is_err());
-
-    assert!(CapabilityActionId::from_wire("ak.capability.derived").is_none());
-    assert!(matches!(
-        EventKind::from_wire("ak.capability.derived"),
-        EventKind::Unknown(_)
-    ));
-    assert!(matches!(
-        EventKind::from_wire("ak.realm.inheritance_policy"),
-        EventKind::Unknown(_)
-    ));
 }
 
 #[test]

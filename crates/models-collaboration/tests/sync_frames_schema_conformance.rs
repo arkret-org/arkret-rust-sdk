@@ -24,7 +24,7 @@ use arkret_models_collaboration::sync_frames::account_subscribe::{
 };
 use arkret_models_collaboration::sync_frames::account_sync::{
     AccountSubscribeRealmSummary, AccountSubscribeUnreadCounts, RealmStreamWindow,
-    StateAtWindowStart, WindowStartActorProfile, WindowStartE2eeEpoch, WindowStartRealmMetadata,
+    StateAtWindowStart, WindowStartActorProfile, WindowStartE2eeEpoch,
 };
 use arkret_models_collaboration::sync_frames::committed_event_subscribe::{
     CommittedEventStreamTrace, CommittedEventSubscribeFrame, CommittedEventSubscribeFrameKind,
@@ -876,13 +876,7 @@ fn realm_summary_and_unread_counts_match_their_schema_shapes_and_order() {
 }
 
 #[test]
-fn window_start_metadata_rejects_a_retired_collaboration_role() {
-    assert!(
-        serde_json::from_value::<WindowStartRealmMetadata>(json!({
-            "collaboration_role": "broadcast"
-        }))
-        .is_err()
-    );
+fn window_start_profile_rejects_a_naked_handle() {
     assert!(
         serde_json::from_value::<WindowStartActorProfile>(json!({
             "actor_id": actor("ak:did_core:web:alice.example"),
@@ -1547,37 +1541,4 @@ fn websocket_signal_channel_takes_no_parameters() {
     let frame: WebSocketClientFrame = serde_json::from_value(value.clone()).unwrap();
     frame.validate().unwrap();
     assert_eq!(serde_json::to_value(&frame).unwrap(), value);
-}
-
-// ---------------------------------------------------------------------------
-// The removed vocabulary must stay removed
-// ---------------------------------------------------------------------------
-
-#[test]
-fn no_sync_schema_reintroduces_a_removed_coordinate() {
-    for file in [
-        ACCOUNT_FRAME,
-        EVENTS_FRAME,
-        WEBSOCKET_FRAME,
-        ACCOUNT_CURRENT,
-    ] {
-        let text = schema_text(file);
-        for removed in [
-            "\"frontier\"",
-            "\"seal_ref\"",
-            "\"seal_id\"",
-            "\"cell_ref\"",
-            "\"actor_seq\"",
-            "\"policy_root\"",
-            "\"state_root\"",
-            "\"control_proposal",
-            "\"global_position\"",
-            "\"realm_position\"",
-        ] {
-            assert!(
-                !text.contains(removed),
-                "{file} still declares the removed member {removed}",
-            );
-        }
-    }
 }

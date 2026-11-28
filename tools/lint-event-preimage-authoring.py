@@ -52,8 +52,7 @@ HAND_ROLLED = re.compile(
 SKIP_DIRS = {".git", "target", "node_modules", "vendor", "dist", "artifacts"}
 # The downstream repo-local copies of this guard (inkson and coland run one in
 # their own test gate, where the sibling SDK checkout may be absent). They name
-# the forbidden shapes in order to search for them, the same self-exclusion
-# `coland/scripts/stale-literal-scan.sh` takes.
+# the shapes they scan for.
 SKIP_FILES = {"event_preimage_authoring_guard.rs"}
 
 
