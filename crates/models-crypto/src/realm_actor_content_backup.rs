@@ -144,11 +144,7 @@ pub fn validate_realm_actor_backup_scope(
 ) -> Result<()> {
     actor.validate()?;
     match scope {
-        arkret_wire::ScopeRef::Realm { realm_id }
-            if realm_id == &actor.realm_id =>
-        {
-            Ok(())
-        }
+        arkret_wire::ScopeRef::Realm { realm_id } if realm_id == &actor.realm_id => Ok(()),
         _ => Err(WireError::Protocol(
             "native backup requires the actor's exact Realm".into(),
         )),
@@ -753,7 +749,14 @@ mod tests {
             .unwrap(),
             serde_json::to_value(query).unwrap()
         );
-        for key in ["circle_id", "agent_id", "realm_actor_id", "cursor", "limit", "unknown"] {
+        for key in [
+            "circle_id",
+            "agent_id",
+            "realm_actor_id",
+            "cursor",
+            "limit",
+            "unknown",
+        ] {
             let mut bad = pairs.clone();
             bad.push((key.into(), "x".into()));
             assert!(

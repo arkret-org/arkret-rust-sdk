@@ -158,10 +158,7 @@ impl StrandWatchCurrentResponseBody {
                 Some((&current_state.source_stream_ref, &current_state.revision)),
             ),
         };
-        if !matches!(
-            &head.stream_ref,
-            CommitStreamRef::Realm { .. }
-        ) {
+        if !matches!(&head.stream_ref, CommitStreamRef::Realm { .. }) {
             return Err("watch-current head is not a Realm namespace");
         }
         if realm_id != &request.realm_id || head.stream_ref.realm_id() != &request.realm_id {
@@ -224,10 +221,7 @@ impl WatchAuditReadRequestBody {
                 "audited read requires one exact Account-produced Watch audit intent".to_owned(),
             ));
         }
-        if !matches!(
-            event.scope_ref,
-            arkret_wire::ScopeRef::Realm { .. }
-        ) {
+        if !matches!(event.scope_ref, arkret_wire::ScopeRef::Realm { .. }) {
             return Err(arkret_wire::WireError::Protocol(
                 "audited read requires a Realm stream".to_owned(),
             ));

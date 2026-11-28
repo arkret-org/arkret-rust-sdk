@@ -219,7 +219,10 @@ fn invite_commit_must_address_the_invite_event_on_its_realm_stream() {
         "sidecar_id": "ak:sidecar:ASo6zC5lXw3GKOieKXlXJYfKoQKng4sYXtvdUAaE9WRB"
     });
     assert!(sdk_parse(&private_stream).is_ok());
-    assert!(!sdk_accepts(&private_stream), "commit on a private Sidecar stream");
+    assert!(
+        !sdk_accepts(&private_stream),
+        "commit on a private Sidecar stream"
+    );
 }
 
 #[test]

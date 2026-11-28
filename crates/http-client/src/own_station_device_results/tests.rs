@@ -157,10 +157,12 @@ fn native_snapshot_rejects_sibling_heads_floors_and_current_rows() {
     let realm = own.context.effective_scope.realm_id().clone();
     let stream = CommitStreamRef::from_scope(&own.context.effective_scope, None).unwrap();
     let sibling = CommitStreamRef::from_scope(
-        &ScopeRef::Realm { realm_id: arkret_wire::RealmId::from_event_id(&EventId::from_digest(
+        &ScopeRef::Realm {
+            realm_id: arkret_wire::RealmId::from_event_id(&EventId::from_digest(
                 arkret_canonical::DigestSuite::Sha256,
                 [128; 32],
-            )) },
+            )),
+        },
         None,
     )
     .unwrap();

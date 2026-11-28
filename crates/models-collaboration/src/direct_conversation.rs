@@ -59,10 +59,7 @@ pub fn direct_conversation_structure_admits(
         return false;
     }
     let topic = |space: &Space| {
-        space.realm_id == event.realm_id
-
-            && space.kind == "topic"
-            && space.parent_space_id.is_none()
+        space.realm_id == event.realm_id && space.kind == "topic" && space.parent_space_id.is_none()
     };
     let active_topic = |id: &SpaceId| {
         spaces
@@ -162,16 +159,13 @@ pub fn direct_conversation_structure_admits(
                             "encrypted_metadata" => metadata_op(op),
                             "rank" => {
                                 op.op() == PatchOpKind::Set
-                                    && op
-                                        .value()
-                                        .and_then(serde_json::Value::as_str)
-                                        .is_some_and(|rank| {
+                                    && op.value().and_then(serde_json::Value::as_str).is_some_and(
+                                        |rank| {
                                             !rank.is_empty()
                                                 && rank.len() <= 128
-                                                && rank
-                                                    .bytes()
-                                                    .all(|b| b.is_ascii_alphanumeric())
-                                        })
+                                                && rank.bytes().all(|b| b.is_ascii_alphanumeric())
+                                        },
+                                    )
                             }
                             _ => false,
                         })
@@ -186,7 +180,6 @@ pub fn direct_conversation_structure_admits(
 
 fn direct_conversation_chat_in_realm(strand: &Strand, realm: &RealmId) -> bool {
     &strand.realm_id == realm
-
         && crate::objects::profiles::resolve_primary_track(&strand.tracks, None)
             .ok()
             .flatten()

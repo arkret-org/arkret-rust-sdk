@@ -331,10 +331,7 @@ impl PeerRealmJoinBootstrapRequestBody {
         }
         if let Some(intent) = &self.content_intent
             && (self.history_stream_ref.is_some()
-                || !matches!(
-                    intent.effective_scope,
-                    arkret_wire::ScopeRef::Realm { .. }
-                )
+                || !matches!(intent.effective_scope, arkret_wire::ScopeRef::Realm { .. })
                 || intent.effective_scope.realm_id_opt() != Some(&self.realm_id)
                 || self.member_account_id.station_id != intent.controller_account_id.station_id
                 || self.member_account_id == intent.controller_account_id)

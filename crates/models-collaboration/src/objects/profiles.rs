@@ -7,9 +7,9 @@ use arkret_canonical::binding_contexts;
 use arkret_models_crypto::encrypted_envelope::EncryptedEnvelope;
 use arkret_models_crypto::protected_payload::MlsPayloadType;
 use arkret_wire::{
-    ActorId, Base64UrlString, DeviceId, Did, DidCoreId, DidUrl, Hash, MorphId,
-    ObjectStage, ObjectState, PolicyId, RealmId, Result, SchemaId, StrandId, TrustDomainId,
-    WireError, canonical, project_did_to_core_id,
+    ActorId, Base64UrlString, DeviceId, Did, DidCoreId, DidUrl, Hash, MorphId, ObjectStage,
+    ObjectState, PolicyId, RealmId, Result, SchemaId, StrandId, TrustDomainId, WireError,
+    canonical, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

@@ -30,9 +30,14 @@ impl CurrentScopeReadReceiptPolicy {
     /// Enforce the selector/source binding after current proof verification.
     pub fn validate(&self) -> Result<()> {
         if self.selector != CurrentSelector::ScopeReadReceiptPolicy
-            || !matches!(self.source_stream_ref, arkret_wire::CommitStreamRef::Realm { .. })
+            || !matches!(
+                self.source_stream_ref,
+                arkret_wire::CommitStreamRef::Realm { .. }
+            )
         {
-            return Err(WireError::Protocol("receipt policy requires its Realm stream".to_owned()));
+            return Err(WireError::Protocol(
+                "receipt policy requires its Realm stream".to_owned(),
+            ));
         }
         self.value.validate()
     }

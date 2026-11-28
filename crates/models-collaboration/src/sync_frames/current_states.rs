@@ -3,11 +3,11 @@
 //! A selector is a domain coordinate and a revision is an authority commit
 //! coordinate; those two are the whole vocabulary this surface exposes.
 
-pub use arkret_wire::{
-    CurrentRevision, CurrentSelector, CurrentState, MemberStateValue,
-    MembershipState, MlsGroupValue,
-};
 use arkret_wire::{CommitStreamHead, RealmId, Result, WireError};
+pub use arkret_wire::{
+    CurrentRevision, CurrentSelector, CurrentState, MemberStateValue, MembershipState,
+    MlsGroupValue,
+};
 use serde::{Deserialize, Serialize};
 
 impl AccountCurrentCoverage {

@@ -259,8 +259,6 @@ fn realm() -> WireResourceSelector {
     selector(serde_json::json!({"kind": "realm", "realm_id": REALM}))
 }
 
-
-
 fn strand(id: &str) -> WireResourceSelector {
     selector(serde_json::json!({"kind": "strand", "realm_id": REALM, "strand_id": id}))
 }
@@ -444,8 +442,6 @@ fn constraint(kind: GrantConstraintKind, effect: GrantConstraintEffect) -> Grant
     GrantConstraint::new(kind, effect)
 }
 
-
-
 fn now() -> DateTime<Utc> {
     at("2026-09-21T12:00:00Z")
 }
@@ -503,8 +499,6 @@ fn placement_grant_checks_both_resolved_containers() {
         now()
     )));
 }
-
-
 
 #[test]
 fn a_refusal_of_any_named_grant_cannot_be_bleached_by_another_grant() {

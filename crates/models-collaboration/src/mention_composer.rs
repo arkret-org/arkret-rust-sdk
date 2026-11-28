@@ -194,8 +194,6 @@ mod tests {
             (Realm, vec![Some(Private)], true, false, Blocked),
             (Realm, vec![Some(Private)], false, true, Blocked),
             (Realm, vec![None], false, false, Blocked),
-
-
             (Sidecar, vec![Some(Public)], false, false, PrivateRoute),
             (Sidecar, vec![None], false, false, PrivateRoute),
             (Direct, vec![None], false, false, DirectRoute),

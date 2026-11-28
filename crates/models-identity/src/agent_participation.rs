@@ -49,8 +49,7 @@ impl ParticipationBits {
 impl ParticipationScope {
     pub fn realm_id(&self) -> &arkret_wire::RealmId {
         match self {
-            Self::Realm { realm_id }
-            | Self::Strand { realm_id, .. } => realm_id,
+            Self::Realm { realm_id } | Self::Strand { realm_id, .. } => realm_id,
         }
     }
 

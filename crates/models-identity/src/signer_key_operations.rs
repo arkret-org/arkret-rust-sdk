@@ -488,10 +488,8 @@ impl ServiceHistoricalSigningKey {
                 "Service key lacks a collaboration scope",
             )
         })?;
-        if !matches!(
-            self.effective_scope,
-            arkret_wire::ScopeRef::Realm { .. }
-        ) || self.registration_ref.stream_ref.realm_id() != realm
+        if !matches!(self.effective_scope, arkret_wire::ScopeRef::Realm { .. })
+            || self.registration_ref.stream_ref.realm_id() != realm
             || self.authorization_ref.stream_ref.realm_id() != realm
         {
             return Err(self_signer_error(

@@ -233,7 +233,7 @@ impl AuthorityCommitStore for MemoryAuthorityCommitStore {
 #[cfg(test)]
 mod tests {
     use arkret_canonical::DigestSuite;
-    use arkret_identifiers::{SidecarId, DidCoreId, EventId, RealmCommitId, RealmId};
+    use arkret_identifiers::{DidCoreId, EventId, RealmCommitId, RealmId, SidecarId};
     use arkret_wire::{
         ActorId, Base64UrlString, DetachedObjectSignature, DetachedSignatureAlgorithm,
         DetachedSignatureContext, DidUrl, EventKind, Hash, RealmCommitAuthorityRef, ScopeRef,
@@ -304,7 +304,10 @@ mod tests {
         let realm_stream = CommitStreamRef::Realm { realm_id: realm() };
         let sidecar_stream = CommitStreamRef::Sidecar {
             realm_id: realm(),
-            sidecar_id: SidecarId::from_event_id(&EventId::from_digest(DigestSuite::Sha256, [2; 32])),
+            sidecar_id: SidecarId::from_event_id(&EventId::from_digest(
+                DigestSuite::Sha256,
+                [2; 32],
+            )),
         };
         let realm_event = event(3, ScopeRef::Realm { realm_id: realm() });
         let sidecar_event = event(4, sidecar_stream.scope_ref());

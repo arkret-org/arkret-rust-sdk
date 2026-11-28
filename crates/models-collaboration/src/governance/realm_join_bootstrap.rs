@@ -215,11 +215,11 @@ impl RealmJoinBootstrapAssembly {
 #[cfg(test)]
 mod tests {
     use arkret_wire::{
-        Base64UrlString, SidecarId, DetachedObjectSignature, DetachedSignatureAlgorithm,
+        Base64UrlString, DetachedObjectSignature, DetachedSignatureAlgorithm,
         DetachedSignatureContext, DidCoreId, DidUrl, Event, EventId, EventKind, Hash,
         HistoryAccess, RealmAuthorityBundle, RealmAuthorityCurrentAssertion, RealmCommit,
         RealmCommitAuthorityRef, RealmCommitId, RealmId, RealmSnapshotId, RealmStateSnapshot,
-        RequestId, RetentionAndHistoryFloor, ScopeRef,
+        RequestId, RetentionAndHistoryFloor, ScopeRef, SidecarId,
     };
     use chrono::{TimeZone, Utc};
     use serde_json::json;

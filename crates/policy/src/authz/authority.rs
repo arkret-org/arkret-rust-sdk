@@ -101,7 +101,11 @@ pub struct Grant {
 /// serde_json::Value }` weakly-typed form has been removed (no backwards
 /// compat). All call sites construct one of these variants directly.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-#[serde(tag = "constraint_kind", rename_all = "snake_case", deny_unknown_fields)]
+#[serde(
+    tag = "constraint_kind",
+    rename_all = "snake_case",
+    deny_unknown_fields
+)]
 pub enum GrantConstraint {
     /// Hard decision constraint used by coland to attach explicit
     /// allow/deny/quarantine/require_review verdicts to a grant

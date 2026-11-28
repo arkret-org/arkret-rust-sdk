@@ -9,8 +9,8 @@ use arkret_models_integration::{
 };
 use arkret_schema_conformance::spec_json_artifact;
 use arkret_wire::{
-    ActorId, CurrentSelector, DidCoreId, Event, EventId, EventKind, GrantId,
-    RealmActorBackupKind, ScopeRef,
+    ActorId, CurrentSelector, DidCoreId, Event, EventId, EventKind, GrantId, RealmActorBackupKind,
+    ScopeRef,
 };
 use serde_json::json;
 
@@ -77,7 +77,12 @@ fn native_series_writer_binds_complete_actor_and_scope() {
     };
     assert!(validate_realm_actor_current_writer(&wrong_actor, &event).is_err());
     let realm = actor_id.as_realm_actor_id().unwrap().realm_id.clone();
-    let foreign = ScopeRef::Realm { realm_id: arkret_wire::RealmId::from_event_id(&EventId::from_digest(DigestSuite::Sha256, [97; 32])) };
+    let foreign = ScopeRef::Realm {
+        realm_id: arkret_wire::RealmId::from_event_id(&EventId::from_digest(
+            DigestSuite::Sha256,
+            [97; 32],
+        )),
+    };
     let foreign_selector = CurrentSelector::RealmActorKeyBackupActiveSeries {
         actor_id: actor_id.clone(),
         effective_scope: foreign.clone(),
@@ -85,7 +90,9 @@ fn native_series_writer_binds_complete_actor_and_scope() {
     };
     assert!(validate_realm_actor_current_writer(&foreign_selector, &event).is_err());
     let mut rebound = event.clone();
-    rebound.payload.insert("effective_scope".into(), json!(foreign));
+    rebound
+        .payload
+        .insert("effective_scope".into(), json!(foreign));
     assert!(validate_realm_actor_current_writer(&foreign_selector, &rebound).is_err());
     let mut wrong_target = event;
     wrong_target.payload.insert(

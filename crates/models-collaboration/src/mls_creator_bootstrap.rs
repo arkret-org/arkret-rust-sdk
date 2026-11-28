@@ -147,10 +147,12 @@ impl MlsCreatorBootstrapIntent {
                 if create.kind == EventKind::RealmCreate
                     && &create.realm_id == realm_id
                     && *realm_id == arkret_wire::RealmId::from_event_id(&create.event_id) => {}
-            _ => return Err(WireError::Protocol(
-                "creator intent requires its own exact Realm create; Sidecar is excluded"
-                    .into(),
-            )),
+            _ => {
+                return Err(WireError::Protocol(
+                    "creator intent requires its own exact Realm create; Sidecar is excluded"
+                        .into(),
+                ));
+            }
         }
         Ok(())
     }
@@ -211,9 +213,7 @@ impl MlsCreatorBootstrapCurrentCut {
         use arkret_wire::{CommitStreamRef, CurrentSelector};
 
         let stream = match scope {
-            ScopeRef::Realm { .. } => {
-                CommitStreamRef::from_scope(scope, None)?
-            }
+            ScopeRef::Realm { .. } => CommitStreamRef::from_scope(scope, None)?,
             _ => {
                 return Err(WireError::Protocol(
                     "creator current cut requires a Realm scope".into(),

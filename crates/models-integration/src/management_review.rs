@@ -67,22 +67,38 @@ impl ManagementReviewRequestBody {
 
     pub fn validate(&self) -> arkret_wire::Result<()> {
         let valid = match (&self.management_operation, &self.target) {
-            (ManagementOperation::CreateBot | ManagementOperation::MapGhost, ManagementReviewTarget::Event { event }) => {
-                serde_json::from_value::<crate::RealmActorCreatePayload>(serde_json::json!(&event.payload))
-                    .is_ok_and(|candidate| candidate.validate().is_ok()
-                        && event.kind == arkret_wire::EventKind::RealmActorCreate
-                        && event.actor_id == ActorId::service(candidate.service_id.clone())
-                        && event.realm_id == candidate.actor_id.as_realm_actor_id().unwrap().realm_id
-                        && event.scope_ref == (ScopeRef::RealmControl { realm_id: event.realm_id.clone() })
-                        && event.executed_by.is_none()
-                        && event.applet_id.as_ref() == Some(&candidate.applet_id)
-                        && event.authorization_ref.as_deref() == Some(candidate.creation_authorization_ref.as_str())
-                        && self.requester_actor_id == event.actor_id
-                        && candidate.creation_scope == self.effective_scope
-                        && matches!((&self.management_operation, candidate.actor_role),
-                            (ManagementOperation::CreateBot, crate::RealmActorCreatePayloadActorRole::Bot)
-                            | (ManagementOperation::MapGhost, crate::RealmActorCreatePayloadActorRole::Ghost)))
-            }
+            (
+                ManagementOperation::CreateBot | ManagementOperation::MapGhost,
+                ManagementReviewTarget::Event { event },
+            ) => serde_json::from_value::<crate::RealmActorCreatePayload>(serde_json::json!(
+                &event.payload
+            ))
+            .is_ok_and(|candidate| {
+                candidate.validate().is_ok()
+                    && event.kind == arkret_wire::EventKind::RealmActorCreate
+                    && event.actor_id == ActorId::service(candidate.service_id.clone())
+                    && event.realm_id == candidate.actor_id.as_realm_actor_id().unwrap().realm_id
+                    && event.scope_ref
+                        == (ScopeRef::RealmControl {
+                            realm_id: event.realm_id.clone(),
+                        })
+                    && event.executed_by.is_none()
+                    && event.applet_id.as_ref() == Some(&candidate.applet_id)
+                    && event.authorization_ref.as_deref()
+                        == Some(candidate.creation_authorization_ref.as_str())
+                    && self.requester_actor_id == event.actor_id
+                    && candidate.creation_scope == self.effective_scope
+                    && matches!(
+                        (&self.management_operation, candidate.actor_role),
+                        (
+                            ManagementOperation::CreateBot,
+                            crate::RealmActorCreatePayloadActorRole::Bot
+                        ) | (
+                            ManagementOperation::MapGhost,
+                            crate::RealmActorCreatePayloadActorRole::Ghost
+                        )
+                    )
+            }),
             (ManagementOperation::Join, ManagementReviewTarget::Event { event }) => {
                 event.kind.as_str() == event_kind_str::MEMBER_STATE
             }
@@ -121,10 +137,7 @@ impl ManagementReviewRequestBody {
         if self.request_id.is_empty()
             || !valid
             || !event_binding
-            || !matches!(
-                self.effective_scope,
-                ScopeRef::Realm { .. }
-            )
+            || !matches!(self.effective_scope, ScopeRef::Realm { .. })
         {
             return Err(arkret_wire::WireError::Protocol(
                 "invalid management review target".into(),

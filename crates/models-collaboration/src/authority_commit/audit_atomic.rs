@@ -86,10 +86,7 @@ impl AuditPairedEventUnitSubmission {
             .iter()
             .filter(|r| r.role == "audit_pair")
             .collect();
-        if !matches!(
-            business.scope_ref,
-            ScopeRef::Realm { .. }
-        ) {
+        if !matches!(business.scope_ref, ScopeRef::Realm { .. }) {
             return Err(pair_refusal("audit pair requires a Realm stream"));
         }
         if target == business.actor_id
@@ -380,10 +377,7 @@ pub fn is_audit_paired_event_slot(event: &Event) -> Result<bool> {
         EventKind::AuditAccessed => {
             let payload: AuditAccessedPayload =
                 serde_json::from_value(serde_json::to_value(&event.payload)?)?;
-            matches!(
-                payload.access_kind,
-                AuditAccessedKind::WatchSetOthers
-            )
+            matches!(payload.access_kind, AuditAccessedKind::WatchSetOthers)
         }
         _ => false,
     })

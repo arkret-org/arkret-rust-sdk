@@ -1239,10 +1239,7 @@ fn validate_peer_claim_fields(
     }) || request.requester_actor_id.is_some() && request.requester_account_id.is_some()
         || (realm_target || request.requester_actor_id.is_some())
             && (request.claim_purpose != PeerKeyPackageClaimPurpose::RealmMembership
-                || !matches!(
-                    request.effective_scope,
-                    ScopeRef::Realm { .. }
-                ))
+                || !matches!(request.effective_scope, ScopeRef::Realm { .. }))
     {
         return Err(PeerKeyPackageClaimShapeError::InvalidAuthorizationModel);
     }

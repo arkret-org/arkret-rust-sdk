@@ -1,7 +1,7 @@
 use arkret_models_collaboration::governance::operation_wire::{
     ManagementOperation, ManagementReviewRequirement, PolicyResourceSelector,
 };
-use arkret_wire::{AccountId, ActorId, PolicyEffect, EventId, RealmId, SpaceId, StrandId};
+use arkret_wire::{AccountId, ActorId, EventId, PolicyEffect, RealmId, SpaceId, StrandId};
 use serde_json::json;
 
 use super::*;
@@ -60,7 +60,9 @@ fn cases() -> Vec<(String, Policy, ScopeRef, &'static str)> {
     let realm = base.realm_id.clone().unwrap();
     let mut cases = Vec::new();
     {
-        let scope = ScopeRef::Realm { realm_id: realm.clone() };
+        let scope = ScopeRef::Realm {
+            realm_id: realm.clone(),
+        };
         let mut add = |name: &str, p: Policy, expected| {
             cases.push((name.to_owned(), p, scope.clone(), expected));
         };
@@ -98,11 +100,7 @@ fn cases() -> Vec<(String, Policy, ScopeRef, &'static str)> {
             p.rules[0].agent_operations = Some(vec![operation]);
             p.rules[0].effect = PolicyEffect::RequireReview;
             p.rules[0].review_requirement = Some(requirement());
-            add(
-                &format!("review/{operation:?}"),
-                p,
-                "ok",
-            );
+            add(&format!("review/{operation:?}"), p, "ok");
             let mut p = base.clone();
             p.rules[0].agent_operations = Some(vec![operation]);
             p.rules[0].actions = Some(vec!["ak.message.create".into()]);
@@ -115,11 +113,7 @@ fn cases() -> Vec<(String, Policy, ScopeRef, &'static str)> {
             ManagementOperation::Publish,
         ]);
         p.default_review_requirement = Some(requirement());
-        add(
-            "default_review",
-            p,
-            "ok",
-        );
+        add("default_review", p, "ok");
         let mut p = base.clone();
         p.rules[0].agent_operations = Some(vec![AgentPolicyOperation::Execute]);
         p.rules[0].effect = PolicyEffect::RequireReview;
@@ -249,10 +243,11 @@ fn reference_backend_configuration_matrix_has_typed_rejections() {
 
 #[test]
 fn declared_backend_support_never_overrides_protocol_review_legality() {
-    let support = AgentPolicyBackendSupport {
-    };
+    let support = AgentPolicyBackendSupport {};
     let mut p = policy();
-    let scope = ScopeRef::Realm { realm_id: p.realm_id.clone().unwrap() };
+    let scope = ScopeRef::Realm {
+        realm_id: p.realm_id.clone().unwrap(),
+    };
     p.rules[0].effect = PolicyEffect::RequireReview;
     p.rules[0].review_requirement = Some(requirement());
     assert!(validate_agent_policy_support(&p, &scope, &support).is_ok());
@@ -265,8 +260,7 @@ fn declared_backend_support_never_overrides_protocol_review_legality() {
 
 #[test]
 fn backend_review_support_cannot_turn_service_or_admin_into_content() {
-    let support = AgentPolicyBackendSupport {
-    };
+    let support = AgentPolicyBackendSupport {};
     for (name, p, scope, expected) in cases().into_iter().filter(|(_, _, _, expected)| {
         matches!(
             *expected,

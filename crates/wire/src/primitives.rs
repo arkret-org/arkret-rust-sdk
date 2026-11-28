@@ -863,7 +863,6 @@ impl ReadCursorScope {
         }
     }
 
-
     pub fn space(space_id: impl Into<String>) -> Self {
         Self {
             kind: ReadScopeKind::Space,

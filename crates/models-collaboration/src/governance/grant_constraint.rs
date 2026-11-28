@@ -6,9 +6,9 @@ use std::collections::BTreeMap;
 
 use arkret_wire::serde_helpers::{canonical_timestamp, optional_canonical_timestamp};
 use arkret_wire::{
-    AccountId, ActorId, AppletId, DidCoreId, EncryptionProfile, EvaluationClass, EventId,
-    Facet, GrantId, Hash, HistoryAccess, RealmId, Result, SchemaId, WireError,
-    WireResourceSelector, XExtensionMap,
+    AccountId, ActorId, AppletId, DidCoreId, EncryptionProfile, EvaluationClass, EventId, Facet,
+    GrantId, Hash, HistoryAccess, RealmId, Result, SchemaId, WireError, WireResourceSelector,
+    XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

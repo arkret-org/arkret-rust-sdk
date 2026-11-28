@@ -1,8 +1,6 @@
 use std::collections::BTreeMap;
 
-use arkret_wire::{
-    DidCoreId, HistoryAccess, ObjectRef, RealmId, Result, SchemaId, WireError,
-};
+use arkret_wire::{DidCoreId, HistoryAccess, ObjectRef, RealmId, Result, SchemaId, WireError};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 

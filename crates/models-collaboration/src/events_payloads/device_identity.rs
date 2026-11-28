@@ -247,10 +247,8 @@ impl AppletManagedDeviceScopes {
         }
         let mut previous: Option<Vec<u8>> = None;
         for entry in &entries {
-            if !matches!(
-                entry.effective_scope,
-                ScopeRef::Realm { .. }
-            ) || entry.actions.is_empty()
+            if !matches!(entry.effective_scope, ScopeRef::Realm { .. })
+                || entry.actions.is_empty()
                 || entry
                     .actions
                     .windows(2)

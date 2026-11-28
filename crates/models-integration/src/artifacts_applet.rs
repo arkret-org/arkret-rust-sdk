@@ -9,8 +9,8 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    AppletId, CommittedEventRef, DidCoreId, DidUrl, EventId, EventProofAudience, Hash,
-    RealmId, ReasonCode, SemanticRef, WebOrigin, WireResourceSelector, XExtensionMap,
+    AppletId, CommittedEventRef, DidCoreId, DidUrl, EventId, EventProofAudience, Hash, RealmId,
+    ReasonCode, SemanticRef, WebOrigin, WireResourceSelector, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

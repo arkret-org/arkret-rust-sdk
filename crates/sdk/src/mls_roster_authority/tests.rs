@@ -624,7 +624,9 @@ fn self_roster_preserves_original_records_and_rejects_key_or_transcript_substitu
         match field {
             "realm_id" => changed.realm_id = RealmId::from_event_id(&event()),
             "effective_scope" => {
-                changed.effective_scope = ScopeRef::Realm { realm_id: arkret_wire::RealmId::from_event_id(&event()) }
+                changed.effective_scope = ScopeRef::Realm {
+                    realm_id: arkret_wire::RealmId::from_event_id(&event()),
+                }
             }
             "mls_group_id" => {
                 changed.mls_group_id =

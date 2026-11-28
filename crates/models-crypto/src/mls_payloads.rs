@@ -1,8 +1,7 @@
 //! MLS governance and Commit Event payloads for the authority-commit protocol.
 
 use arkret_wire::{
-    BlobRef, ErrorCode, EventId, Hash, MlsGroupId, RealmId, Result, ScopeRef, SidecarId,
-    WireError,
+    BlobRef, ErrorCode, EventId, Hash, MlsGroupId, RealmId, Result, ScopeRef, SidecarId, WireError,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Number, Value};
@@ -154,10 +153,7 @@ impl MlsGovernanceBindingPayload {
     /// restricted to Realm groups.
     pub fn validate_realm_scope(&self) -> Result<()> {
         self.validate()?;
-        if !matches!(
-            self.effective_scope,
-            ScopeRef::Realm { .. }
-        ) {
+        if !matches!(self.effective_scope, ScopeRef::Realm { .. }) {
             return protocol("MLS history scope must be Realm");
         }
         Ok(())

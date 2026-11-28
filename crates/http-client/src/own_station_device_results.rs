@@ -46,7 +46,9 @@ pub fn validate_device_snapshot_scope(
         || snapshot.retention_and_history_floor.stream_floors.len() != 1
         || snapshot.retention_and_history_floor.stream_floors[0].stream_ref != expected
         || snapshot.current_state_entries.iter().any(|row| match row {
-            CurrentState::Value { source_stream_ref, .. } => source_stream_ref != &expected,
+            CurrentState::Value {
+                source_stream_ref, ..
+            } => source_stream_ref != &expected,
         })
     {
         return Err(protocol(

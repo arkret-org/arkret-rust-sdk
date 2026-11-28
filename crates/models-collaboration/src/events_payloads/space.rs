@@ -67,10 +67,7 @@ impl SpacePatchPayload {
                     | "avatar_blob_ref"
                     | "encrypted_metadata"
             ) || patch::reducer_managed_patch_reason("space", path).is_some()
-                || forbidden_wire::forbidden_wire_path_hard_reject(
-                    "space_patch_payload",
-                    path,
-                )
+                || forbidden_wire::forbidden_wire_path_hard_reject("space_patch_payload", path)
             {
                 return Err(WireError::Protocol(format!(
                     "Space update patch path is forbidden: {path}"

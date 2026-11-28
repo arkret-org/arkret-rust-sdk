@@ -14,9 +14,9 @@ use arkret_models_integration::{
 };
 use arkret_schema::ProtocolSchemaRegistry;
 use arkret_wire::{
-    ActorId, AppletId, CommitStreamRef, CommittedEventRef, Did, DidCoreId, DidUrl, Event,
-    EventId, Hash, PayloadSignature, PayloadSigner, PlanId, ProducerEventProof, RealmCommitId,
-    RealmId, Result as WireResult, ScopeRef, SidecarId,
+    ActorId, AppletId, CommitStreamRef, CommittedEventRef, Did, DidCoreId, DidUrl, Event, EventId,
+    Hash, PayloadSignature, PayloadSigner, PlanId, ProducerEventProof, RealmCommitId, RealmId,
+    Result as WireResult, ScopeRef, SidecarId,
 };
 use chrono::{DateTime, Utc};
 use serde_json::{Value, json};

@@ -4,8 +4,8 @@
 //! is deliberately no Realm-global position or ordering across those streams.
 
 use arkret_identifiers::{
-    ActorProfileId, AppletId, CallId, CallRecordingId, Did, DidCoreId, EventId, GrantId,
-    Hash, InviteId, KeypackageClaimId, MessageId, MlsWelcomeDeliveryId, PolicyId,
+    ActorProfileId, AppletId, CallId, CallRecordingId, Did, DidCoreId, EventId, GrantId, Hash,
+    InviteId, KeypackageClaimId, MessageId, MlsWelcomeDeliveryId, PolicyId,
     RealmAuthorityHandoffId, RealmCommitId, RealmId, RealmSnapshotId, RelationId, SidecarId,
     SpaceId, StrandId,
 };
@@ -981,10 +981,7 @@ impl RealmStateSnapshot {
                 return Err(reject());
             }
             if source_stream_ref == &basis.stream_ref {
-                if matches!(
-                    selector,
-                    CurrentSelector::Sidecar { .. }
-                ) {
+                if matches!(selector, CurrentSelector::Sidecar { .. }) {
                     return Err(reject());
                 }
                 continue;
@@ -2406,9 +2403,7 @@ impl<'de> Deserialize<'de> for CurrentSelector {
                     FlatCurrentSelector::RealmHistoryAccess => Self::RealmHistoryAccess,
                     FlatCurrentSelector::RealmPreviewPolicy => Self::RealmPreviewPolicy,
                     FlatCurrentSelector::RealmAssetPrivacyPolicy => Self::RealmAssetPrivacyPolicy,
-                    FlatCurrentSelector::ScopeReadReceiptPolicy {} => {
-                        Self::ScopeReadReceiptPolicy
-                    }
+                    FlatCurrentSelector::ScopeReadReceiptPolicy {} => Self::ScopeReadReceiptPolicy,
                     FlatCurrentSelector::RealmTombstone => Self::RealmTombstone,
                     FlatCurrentSelector::RealmArchive => Self::RealmArchive,
                     FlatCurrentSelector::RealmFreeze => Self::RealmFreeze,
@@ -2728,7 +2723,6 @@ pub enum CurrentState {
         value: Value,
     },
 }
-
 
 impl CurrentState {
     /// Current join revision for this exact Realm and complete actor identity.

@@ -2,7 +2,7 @@ use arkret_models_collaboration::governance::realm_join_intake::{
     AuthorityLocatorSource, RealmJoinCandidate, RealmJoinCandidateServiceKind, RealmJoinTarget,
 };
 use arkret_models_collaboration::objects::realm::Realm;
-use arkret_wire::{ActorId, SidecarId, CommitStreamRef, DidCoreId, RealmId, TrustDomainId};
+use arkret_wire::{ActorId, CommitStreamRef, DidCoreId, RealmId, SidecarId, TrustDomainId};
 
 fn realm_id() -> RealmId {
     RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap()
@@ -20,7 +20,8 @@ fn realm_and_sidecar_are_independent_commit_streams() {
     };
     let sidecar_stream = CommitStreamRef::Sidecar {
         realm_id: realm,
-        sidecar_id: SidecarId::new("ak:sidecar:AdP2S6y0Ms7yp9-GNvXZ3sVfvTEo8mtnV3G_RfApIOn0").unwrap(),
+        sidecar_id: SidecarId::new("ak:sidecar:AdP2S6y0Ms7yp9-GNvXZ3sVfvTEo8mtnV3G_RfApIOn0")
+            .unwrap(),
     };
     assert_ne!(realm_stream, sidecar_stream);
     assert_eq!(realm_stream.realm_id(), sidecar_stream.realm_id());

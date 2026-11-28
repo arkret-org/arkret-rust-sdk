@@ -9,13 +9,11 @@ use arkret_wire::{PolicyKind, ScopeRef, ServiceOperationId, WireError};
 /// Local implementation facts, not a wire object, negotiated profile or grant.
 /// A caller may declare support only when its registered consumers implement it.
 #[derive(Clone, Copy, Debug)]
-pub struct AgentPolicyBackendSupport {
-}
+pub struct AgentPolicyBackendSupport {}
 
 /// Established configuration consumers shared by the reference Station and UI.
 /// This is not a claim of complete protocol or runtime support.
-pub const REFERENCE_AGENT_POLICY_SUPPORT: AgentPolicyBackendSupport = AgentPolicyBackendSupport {
-};
+pub const REFERENCE_AGENT_POLICY_SUPPORT: AgentPolicyBackendSupport = AgentPolicyBackendSupport {};
 
 #[derive(Debug, thiserror::Error)]
 pub enum AgentPolicySupportError {

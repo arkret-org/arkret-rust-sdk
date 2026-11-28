@@ -99,10 +99,7 @@ impl MlsAddAuthorityAttestation {
             .map_err(|error| WireError::Protocol(error.to_string()))?;
         if let Some(actor) = self.actor_id.as_realm_actor_id() {
             if actor.realm_id != self.realm_id
-                || !matches!(
-                    &self.effective_scope,
-                    ScopeRef::Realm { .. }
-                )
+                || !matches!(&self.effective_scope, ScopeRef::Realm { .. })
                 || !matches!(&self.endpoint, MlsWelcomeRecipientEndpoint::Device { .. })
                 || self.claim_authority_ref.is_none()
                 || self.claim_authority_ref != self.claim_receipt.claim_authority_ref

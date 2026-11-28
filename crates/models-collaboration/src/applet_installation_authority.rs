@@ -55,10 +55,7 @@ impl AppletCommittedEvent {
         .validate_shape()?;
         let realm_device = self.event.executed_by.is_none()
             && self.event.actor_id.as_realm_actor_id().is_some()
-            && matches!(
-                self.event.scope_ref,
-                arkret_wire::ScopeRef::Realm { .. }
-            );
+            && matches!(self.event.scope_ref, arkret_wire::ScopeRef::Realm { .. });
         if realm_device != self.producer_signer_fact.is_some() {
             return Err(WireError::Protocol(
                 "Applet Realm Device producer requires exactly its original signer fact".into(),
@@ -250,10 +247,8 @@ impl<'de> Deserialize<'de> for AppletInstallationCurrentBinding {
 
 impl AppletAuthorityMaterialRequestBody {
     pub fn validate(&self) -> Result<()> {
-        if !matches!(
-            self.effective_scope,
-            arkret_wire::ScopeRef::Realm { .. }
-        ) || !(1..=64).contains(&self.grant_ids.len())
+        if !matches!(self.effective_scope, arkret_wire::ScopeRef::Realm { .. })
+            || !(1..=64).contains(&self.grant_ids.len())
             || self
                 .grant_ids
                 .iter()
@@ -491,10 +486,8 @@ impl AppletAuthorityMaterialResponseBody {
     /// Schema shape only: accepted Event proofs and current cut authority must
     /// still be authenticated by the consumer before using these materials.
     pub fn validate_structural(&self) -> Result<()> {
-        if !matches!(
-            self.effective_scope,
-            arkret_wire::ScopeRef::Realm { .. }
-        ) || !(1..=64).contains(&self.grant_events.len())
+        if !matches!(self.effective_scope, arkret_wire::ScopeRef::Realm { .. })
+            || !(1..=64).contains(&self.grant_events.len())
             || self.current_states.len() > 256
         {
             return Err(WireError::Protocol(
@@ -840,8 +833,7 @@ mod authority_material_current_tests {
     }
 
     #[test]
-    fn grant_material_keeps_realm_governance_for_realm_effects_without_owned_agent_gate()
-    {
+    fn grant_material_keeps_realm_governance_for_realm_effects_without_owned_agent_gate() {
         let artifacts = arkret_schema_conformance::default_spec_artifacts_dir().unwrap();
         let fixture: Value = serde_json::from_slice(
             &std::fs::read(artifacts.join("fixtures/agent-participation-fixture.json")).unwrap(),
@@ -889,12 +881,30 @@ mod authority_material_current_tests {
         };
         validate_present_current_states_for_scope(&scope, &decode(&json!([value])).unwrap())
             .unwrap();
-        let foreign = arkret_wire::RealmId::from_event_id(&arkret_wire::EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [85;32]));
-        let foreign_scope = arkret_wire::ScopeRef::Realm { realm_id: foreign.clone() };
-        assert!(validate_present_current_states_for_scope(&foreign_scope, &decode(&json!([value.clone()])).unwrap()).is_err());
+        let foreign = arkret_wire::RealmId::from_event_id(&arkret_wire::EventId::from_digest(
+            arkret_canonical::DigestSuite::Sha256,
+            [85; 32],
+        ));
+        let foreign_scope = arkret_wire::ScopeRef::Realm {
+            realm_id: foreign.clone(),
+        };
+        assert!(
+            validate_present_current_states_for_scope(
+                &foreign_scope,
+                &decode(&json!([value.clone()])).unwrap()
+            )
+            .is_err()
+        );
         let mut wrong_source = value.clone();
-        wrong_source["current_state"]["source_stream_ref"] = json!(arkret_wire::CommitStreamRef::Realm { realm_id: foreign });
-        assert!(validate_present_current_states_for_scope(&scope, &decode(&json!([wrong_source])).unwrap()).is_err());
+        wrong_source["current_state"]["source_stream_ref"] =
+            json!(arkret_wire::CommitStreamRef::Realm { realm_id: foreign });
+        assert!(
+            validate_present_current_states_for_scope(
+                &scope,
+                &decode(&json!([wrong_source])).unwrap()
+            )
+            .is_err()
+        );
         let mut wrong_id = value;
         wrong_id["current_state"]["value"]["id"] = json!(arkret_wire::GrantId::from_event_id(
             &arkret_wire::EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [84; 32],)

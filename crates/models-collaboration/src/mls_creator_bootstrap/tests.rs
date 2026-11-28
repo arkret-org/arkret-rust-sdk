@@ -15,7 +15,10 @@ fn fixture_intent(independent: bool) -> MlsCreatorBootstrapIntent {
     let payload = {
         let genesis = crate::events_payloads::RealmGenesis::new(
             crate::events_payloads::RealmPurpose::Collaboration,
-            arkret_wire::GenesisSalt::new(arkret_canonical::base64url_encode([if independent { 6 } else { 5 }; 32])).unwrap(),
+            arkret_wire::GenesisSalt::new(arkret_canonical::base64url_encode(
+                [if independent { 6 } else { 5 }; 32],
+            ))
+            .unwrap(),
             arkret_wire::TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
             arkret_wire::SecurityClass::Standard,
             DidCoreId::new("ak:did_core:web:station.example").unwrap(),
@@ -29,12 +32,8 @@ fn fixture_intent(independent: bool) -> MlsCreatorBootstrapIntent {
         serde_json::to_value(crate::events_payloads::RealmCreatePayload::new(genesis)).unwrap()
     };
     let mut create = arkret_wire::test_support::raw_event_for_actor_at(
-        {
-            "ak.realm.create"
-        },
-        {
-            ScopeRef::RealmGenesis
-        },
+        { "ak.realm.create" },
+        { ScopeRef::RealmGenesis },
         actor.clone(),
         payload,
         timestamp,
@@ -331,7 +330,9 @@ fn an_exact_scope_mls_current_entry_is_a_winner_even_if_its_value_is_empty() {
     assert!(cut.validate_absence_binding(&scope, 3, &head).is_err());
 }
 
-fn accepted_create(independent: bool) -> (MlsCreatorBootstrapIntent, MlsCreatorBootstrapAcceptedCreate) {
+fn accepted_create(
+    independent: bool,
+) -> (MlsCreatorBootstrapIntent, MlsCreatorBootstrapAcceptedCreate) {
     use arkret_wire::{
         Base64UrlString, CommitStreamHead, CommitStreamRef, DetachedObjectSignature,
         DetachedSignatureAlgorithm, DetachedSignatureContext, RealmAuthorityBundle,
@@ -1982,8 +1983,6 @@ fn creator_record_unknown_or_incomplete_acceptance_keeps_intent_unchanged() {
     assert!(serde_json::from_value::<MlsCreatorBootstrapRecord>(changed).is_err());
 }
 
-
-
 #[test]
 fn accepted_creation_keeps_its_exact_signed_event_and_authorization_stream() {
     for independent in [false, true] {
@@ -1992,7 +1991,6 @@ fn accepted_creation_keeps_its_exact_signed_event_and_authorization_stream() {
         let restored: MlsCreatorBootstrapAcceptedCreate = serde_json::from_slice(&bytes).unwrap();
         restored.validate_binding(&intent).unwrap();
         assert_eq!(accepted, restored);
-
     }
 }
 

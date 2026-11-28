@@ -507,7 +507,9 @@ mod tests {
     #[test]
     fn call_invitation_requires_the_exact_actor_scope_and_original_current_grant() {
         let sender = actor("ak:did_core:web:station-a.example");
-        let scope = ScopeRef::Realm { realm_id: REALM.parse().unwrap() };
+        let scope = ScopeRef::Realm {
+            realm_id: REALM.parse().unwrap(),
+        };
         let mut evidence = material();
         evidence.current_scope_head.stream_ref = CommitStreamRef::from_scope(&scope, None).unwrap();
         evidence.grants[0].actions = vec![CapabilityActionId::CALL_SIGNAL_SEND.into()];
@@ -535,7 +537,12 @@ mod tests {
         );
         assert!(!gate(&denied));
         let mut denied = evidence.clone();
-        denied.current_grants[0].resources = vec![WireResourceSelector::realm(arkret_wire::RealmId::from_event_id(&arkret_wire::EventId::from_digest(arkret_canonical::DigestSuite::Sha256,[23;32])))];
+        denied.current_grants[0].resources = vec![WireResourceSelector::realm(
+            arkret_wire::RealmId::from_event_id(&arkret_wire::EventId::from_digest(
+                arkret_canonical::DigestSuite::Sha256,
+                [23; 32],
+            )),
+        )];
         assert!(!gate(&denied));
         evidence.current_product_policies.push(policy(
             serde_json::json!([{"rule_id":"deny_call","kind":"action","effect":"deny","actions":[CapabilityActionId::CALL_SIGNAL_SEND]}]), "allow",

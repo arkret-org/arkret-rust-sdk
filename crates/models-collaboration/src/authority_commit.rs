@@ -2711,10 +2711,7 @@ impl RealmDeviceHistoricalSignerFact {
                 .as_ref()
                 .map(|proof| &proof.verification_method)
                 != Some(&self.verification_method)
-            || !matches!(
-                event.scope_ref,
-                arkret_wire::ScopeRef::Realm { .. }
-            )
+            || !matches!(event.scope_ref, arkret_wire::ScopeRef::Realm { .. })
         {
             return Err(WireError::Protocol(
                 "Realm Device historical fact differs from the exact Event".into(),

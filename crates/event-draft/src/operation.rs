@@ -344,8 +344,8 @@ impl MlsEnvelopeOperationExt for MlsWelcomeEnvelope {
 mod committed_projection_tests {
     use arkret_models_collaboration::events_payloads::{ContentBlock, MessageCreatePayload};
     use arkret_wire::{
-        AccountId, CommitStreamRef, CommittedEventRef, DidCoreId, RealmCommitId,
-        StrandId, event_spec,
+        AccountId, CommitStreamRef, CommittedEventRef, DidCoreId, RealmCommitId, StrandId,
+        event_spec,
     };
     use chrono::TimeZone;
 
@@ -356,7 +356,11 @@ mod committed_projection_tests {
     }
 
     fn foreign_scope() -> ScopeRef {
-        ScopeRef::Realm { realm_id: "ak:realm:AUiSHUfqumU5_UtRrOIga2jjSmucw5MpSQdam3TtzPQu".parse().unwrap() }
+        ScopeRef::Realm {
+            realm_id: "ak:realm:AUiSHUfqumU5_UtRrOIga2jjSmucw5MpSQdam3TtzPQu"
+                .parse()
+                .unwrap(),
+        }
     }
 
     fn authored_projection(scope: ScopeRef, body: &str) -> (Event, ProjectedEventOperation) {

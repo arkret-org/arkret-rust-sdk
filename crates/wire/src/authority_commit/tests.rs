@@ -1213,8 +1213,8 @@ fn scan_request_has_exactly_one_present_direction_even_when_null() {
 #[test]
 fn before_scan_requires_descending_chain_and_verifiable_floor() {
     let realm_id = realm(0x10);
-    let rows =
-        [6, 5, 4].map(|position| CommittedEventView::Full(sidecar_item(realm_id.clone(), position)));
+    let rows = [6, 5, 4]
+        .map(|position| CommittedEventView::Full(sidecar_item(realm_id.clone(), position)));
     let request = StreamScanRequestBody {
         realm_id,
         stream_ref: rows[0].commit().stream_ref.clone(),

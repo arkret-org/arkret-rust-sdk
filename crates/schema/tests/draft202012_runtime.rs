@@ -28,7 +28,11 @@ fn presence_manifest_summary_matches_every_registered_tristate_target() {
         .as_object()
         .expect("tristate_sdk_dispositions must be an object");
     let dispositions = ["absent_null_equivalent", "condition_guarded", "distinct"];
-    assert!(summary.keys().all(|key| dispositions.contains(&key.as_str())));
+    assert!(
+        summary
+            .keys()
+            .all(|key| dispositions.contains(&key.as_str()))
+    );
     assert!(targets.iter().all(|target| {
         dispositions.contains(&target["sdk_disposition"].as_str().unwrap_or_default())
     }));
@@ -37,9 +41,14 @@ fn presence_manifest_summary_matches_every_registered_tristate_target() {
             .iter()
             .filter(|target| target["sdk_disposition"] == disposition)
             .count() as u64;
-        assert_eq!(summary.get(disposition).and_then(Value::as_u64).unwrap_or(0), actual);
+        assert_eq!(
+            summary
+                .get(disposition)
+                .and_then(Value::as_u64)
+                .unwrap_or(0),
+            actual
+        );
     }
-
 }
 
 #[test]

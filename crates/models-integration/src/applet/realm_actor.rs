@@ -97,10 +97,7 @@ impl RealmActorCreatePayload {
         if self.schema != Self::SCHEMA
             || actor.principal_id == self.service_id
             || self.creation_scope.realm_id_opt() != Some(&actor.realm_id)
-            || !matches!(
-                &self.creation_scope,
-                ScopeRef::Realm { .. }
-            )
+            || !matches!(&self.creation_scope, ScopeRef::Realm { .. })
             || !(22..=128).contains(&self.request_id.len())
             || !self
                 .request_id

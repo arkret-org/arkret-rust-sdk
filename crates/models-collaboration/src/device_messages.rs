@@ -273,10 +273,8 @@ impl DeviceMessagesGetResponseBody {
             )
         };
         let realm_actor = actor.as_realm_actor_id().ok_or_else(invalid)?;
-        if !matches!(
-            scope,
-            arkret_wire::ScopeRef::Realm { .. }
-        ) || scope.realm_id_opt() != Some(&realm_actor.realm_id)
+        if !matches!(scope, arkret_wire::ScopeRef::Realm { .. })
+            || scope.realm_id_opt() != Some(&realm_actor.realm_id)
         {
             return Err(invalid());
         }

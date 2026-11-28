@@ -68,15 +68,14 @@ fn policy_outcome() -> Value {
 #[test]
 fn managed_policy_current_is_the_whole_document_in_its_realm_stream() {
     let value = policy_outcome();
-        assert!(schema_accepts(
-            "#/$defs/exact_current_state_read_response_body",
-            &value
-        ));
-        let request = serde_json::from_value(moderation_request(&value)).unwrap();
-        let outcome: ExactCurrentStateReadResponseBody =
-            serde_json::from_value(value.clone()).unwrap();
-        outcome.validate_for_request(&request, 4).unwrap();
-        assert_eq!(serde_json::to_value(outcome).unwrap(), value);
+    assert!(schema_accepts(
+        "#/$defs/exact_current_state_read_response_body",
+        &value
+    ));
+    let request = serde_json::from_value(moderation_request(&value)).unwrap();
+    let outcome: ExactCurrentStateReadResponseBody = serde_json::from_value(value.clone()).unwrap();
+    outcome.validate_for_request(&request, 4).unwrap();
+    assert_eq!(serde_json::to_value(outcome).unwrap(), value);
 }
 
 #[test]

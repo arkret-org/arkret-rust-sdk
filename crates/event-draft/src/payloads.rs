@@ -98,8 +98,6 @@ impl StrandCreateObject {
         self
     }
 
-
-
     pub fn with_track(mut self, name: impl Into<String>, track: StrandTrack) -> Self {
         self.tracks.insert(name.into(), track);
         self

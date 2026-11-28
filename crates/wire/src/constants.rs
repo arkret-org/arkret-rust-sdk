@@ -65,7 +65,6 @@ pub const SECRET_SEND_KIND: &str = "ak.secret.send";
 pub const RECOVERY_POLICY_SIGNATURE_TYPE: &str =
     DomainSeparationId::IDENTITY_RECOVERY_POLICY_SIGNATURE_V1;
 
-
 /// AKP-0010 — maximum TTL bound for media tokens (600 seconds). Tokens
 /// MUST be rejected when `expires_at - now > 600s`. SHOULD floor: 300s.
 pub const MEDIA_TOKEN_TTL_MAX_SECS: u64 = 600;

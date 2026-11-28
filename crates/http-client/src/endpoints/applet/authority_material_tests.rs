@@ -237,10 +237,12 @@ fn realm_material_binds_governance_and_exact_resources() {
         );
     }
     let mut different_scope = request.clone();
-    different_scope.effective_scope = ScopeRef::Realm { realm_id: arkret_wire::RealmId::from_event_id(&EventId::from_digest(
+    different_scope.effective_scope = ScopeRef::Realm {
+        realm_id: arkret_wire::RealmId::from_event_id(&EventId::from_digest(
             arkret_canonical::DigestSuite::Sha256,
             [89; 32],
-        )) };
+        )),
+    };
     let mut different_response_scope = outcome.clone();
     different_response_scope.effective_scope = different_scope.effective_scope.clone();
     assert!(

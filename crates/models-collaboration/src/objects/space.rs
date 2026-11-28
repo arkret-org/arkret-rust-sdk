@@ -3,9 +3,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_models_crypto::encrypted_envelope::EncryptedEnvelope;
-use arkret_wire::{
-    ActorId, BlobRef, RealmId, Result, SchemaId, SpaceId, SpaceState, WireError,
-};
+use arkret_wire::{ActorId, BlobRef, RealmId, Result, SchemaId, SpaceId, SpaceState, WireError};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
