@@ -8,7 +8,7 @@
 // sha256=d7efe393feafd41785b281ecaca6dcc1ad3f2430de42e37f8a8804d61a01bdf0
 //
 // Input: schemas/keys-operations.schema.json
-// sha256=467d79a9356f4fae8d1c3b8278c0fe07740fa8e43258bb354441d12b9cf1b4c5
+// sha256=e54664c4e941abe6616c509aaefaae265d78e1f65044b6e3ed722d4804102d49
 //
 // Input: schemas/authorization-operations.schema.json
 // sha256=b367d60aeb13aa9e524c5201cc1857d8ac9defd5c78293f696a4f4c0a5d4450b
@@ -32,7 +32,7 @@
 // sha256=ea8fa14649e43570aecac018e53834b1f5d73e1b18ad01eafb9e514d09646b95
 //
 // Bindings: tools/closed-model-bindings.json
-// sha256=90e21e77dae771f2c5ed933d3a57a684de6d47d3e4b73f568536e81a8e4fb8b9
+// sha256=b4e6ef8619a8ab13fb2b01f284145948f8c4b76ec554079ef024afb647993bac
 
 /// Counterpart: `realm-actor.schema.json#/$defs/content_backup_recipient/properties/hpke_suite`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -526,6 +526,7 @@ pub struct SidecarBackupPrepareResponseBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_non_null_optional")]
     pub supersedes_digest: Option<arkret_wire::Hash>,
+    pub custody_authorization_ref: arkret_wire::EventId,
     pub recovery_policy_ref: crate::RecoveryPolicyRef,
     pub backup_hpke: crate::RecoveryKeyAgreementEntry,
 }

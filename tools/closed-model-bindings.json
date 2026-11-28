@@ -20047,6 +20047,12 @@
                   "#[serde(default, skip_serializing_if = \"Option::is_none\")]"
                 ]
               },
+              "custody_authorization_ref": {
+                "name": "custody_authorization_ref",
+                "visibility": "pub",
+                "type": "arkret_wire::EventId",
+                "attributes": []
+              },
               "recovery_policy_ref": {
                 "name": "recovery_policy_ref",
                 "visibility": "pub",

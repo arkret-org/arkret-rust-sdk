@@ -327,6 +327,35 @@ impl OwnStationStateClient {
         self.bind(query.clone(), result)
     }
 
+    /// Publish one frozen Account packet and retain the exact session binding on
+    /// its acknowledgement. A retry uses the same content-derived idempotency key.
+    pub async fn put_own_key_backup(
+        &self,
+        backup: &arkret_models_crypto::KeyBackup,
+    ) -> Result<
+        BoundOwnStationResponse<
+            arkret_models_crypto::KeyBackup,
+            arkret_models_crypto::KeysBackupsReplaceResponseBody,
+        >,
+    > {
+        if backup.actor_id.as_account_id() != Some(self.session()?.account_id()) {
+            return Err(protocol(
+                "key backup subject differs from the active Account",
+            ));
+        }
+        let result = crate::KeyBackupClient::new(self.http_client()?)
+            .put_key_backup(backup)
+            .await?;
+        if result.backup_id != backup.backup_id
+            || result.ciphertext_digest != backup.ciphertext_digest
+        {
+            return Err(protocol(
+                "key backup receipt differs from the frozen packet",
+            ));
+        }
+        self.bind(backup.clone(), result)
+    }
+
     pub async fn scan_commit_stream(
         &self,
         request: &StreamScanRequestBody,
