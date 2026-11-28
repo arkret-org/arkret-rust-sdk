@@ -5,7 +5,7 @@
 // sha256=e0be2f1fb17026ba287817056b18f05dfad07ad78d0eaccde983f0860be8db95
 //
 // Input: schemas/keys-operations.schema.json
-// sha256=e54664c4e941abe6616c509aaefaae265d78e1f65044b6e3ed722d4804102d49
+// sha256=a430c6809794ec3e8ea8ca5850876d217789f48229747d37ea92a6a9a774956a
 //
 // Bindings: tools/closed-model-bindings.json
 // sha256=b4e6ef8619a8ab13fb2b01f284145948f8c4b76ec554079ef024afb647993bac
