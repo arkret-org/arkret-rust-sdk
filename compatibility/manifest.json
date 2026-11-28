@@ -21,7 +21,7 @@
   "repositories": {
     "arkret-spec": {
       "repository": "arkret-org/arkret-spec",
-      "commit": "64ed3b9fa7064016094e0aa07fbae9f370e56425",
+      "commit": "7afad7f9bc157a7b78009857ab8307f092e82086",
       "checkout_path": "arkret-spec",
       "roles": [
         "normative-artifacts",
@@ -31,7 +31,7 @@
     },
     "arkret-rust-sdk": {
       "repository": "arkret-org/arkret-rust-sdk",
-      "commit": "925aac8cbc3326caac1bc3ecbc5cea90ea9c3ba4",
+      "commit": "01454341764ff32d33a4187ff8a92f23cf022f0e",
       "checkout_path": "arkret-rust-sdk",
       "roles": [
         "public-models",
@@ -49,7 +49,7 @@
     },
     "coland": {
       "repository": "arkret-org/coland",
-      "commit": "cee0c78655a629e0f4adbc6411c8660c07cfa7ec",
+      "commit": "c0c705a61a2f1672c0b01891d30d24720da15845",
       "checkout_path": "coland",
       "roles": [
         "protocol-producer",
@@ -67,7 +67,7 @@
     },
     "garth": {
       "repository": "arkret-org/garth",
-      "commit": "131b0b0e412117abca0dc56ed858f5f497fd1cf8",
+      "commit": "1bd65ebd0e58cd6db93e739f18a083b4c0bdb5bd",
       "checkout_path": "garth",
       "roles": [
         "runtime-consumer"
@@ -91,7 +91,7 @@
     },
     "cotest": {
       "repository": "arkret-org/cotest",
-      "commit": "5aa3d83596c76614c42cc5fe4ea7b6429da86302",
+      "commit": "1aa4b769d54c1a7d04d40a4f2c5a21a12e3b58a3",
       "checkout_path": "cotest",
       "roles": [
         "joint-contract-tests",
@@ -116,7 +116,7 @@
     },
     "savfox": {
       "repository": "savfox-ai/savfox",
-      "commit": "990c12da202941636784f2f9cfdd752166831edb",
+      "commit": "343814c77c308705036b46b0f0f23e473d4c386d",
       "checkout_path": "../savfox-ai/savfox",
       "roles": [
         "coland-native-agent-build-dependency"
